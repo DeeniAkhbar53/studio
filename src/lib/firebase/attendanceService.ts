@@ -1,9 +1,7 @@
 
-'use server';
-
 import { db } from './firebase';
-import { doc, getDoc, Timestamp, getDocs, collection, query as firestoreQuery, orderBy as firestoreOrderBy } from 'firebase/firestore';
-import type { AttendanceRecord, MiqaatAttendanceEntryItem, Miqaat } from '@/types';
+import { doc, getDoc, Timestamp, getDocs, collection, query as firestoreQuery, orderBy as firestoreOrderBy, where } from 'firebase/firestore';
+import type { AttendanceRecord, Miqaat } from '@/types';
 
 // This function now gets attendance from *within* a Miqaat document
 export const getAttendanceRecordsByMiqaat = async (miqaatId: string): Promise<AttendanceRecord[]> => {
@@ -26,8 +24,7 @@ export const getAttendanceRecordsByMiqaat = async (miqaatId: string): Promise<At
         if (typeof timestampField === 'string') {
            return timestampField;
         }
-        // Fallback for unexpected types, though markedAt should always be valid
-        return new Date().toISOString(); 
+        return new Date().toISOString();
       };
 
     return attendanceEntries.map(entry => ({
@@ -45,43 +42,51 @@ export const getAttendanceRecordsByMiqaat = async (miqaatId: string): Promise<At
   }
 };
 
-// This function now fetches all Miqaats and filters their attendance arrays
+// This function now fetches Miqaats where the user attended and filters their attendance arrays
 export const getAttendanceRecordsByUser = async (userItsId: string): Promise<AttendanceRecord[]> => {
   try {
     const miqaatsCollectionRef = collection(db, 'miqaats');
-    // Order by startTime desc to potentially process more recent miqaats first, though final sort is by markedAt
-    const q = firestoreQuery(miqaatsCollectionRef, firestoreOrderBy('startTime', 'desc'));
+    // Query for miqaats where the attendedUserItsIds array contains the userItsId
+    const q = firestoreQuery(
+      miqaatsCollectionRef,
+      where('attendedUserItsIds', 'array-contains', userItsId),
+      firestoreOrderBy('startTime', 'desc') // Optional: order miqaats by start time
+    );
     const miqaatsSnapshot = await getDocs(q);
 
     const convertTimestampToString = (timestampField: any): string | undefined => {
       if (timestampField instanceof Timestamp) {
         return timestampField.toDate().toISOString();
       }
-      return timestampField; // Already a string or undefined
+      return timestampField;
     };
-    
+
     const allMiqaatsData: Miqaat[] = miqaatsSnapshot.docs.map((docSnapshot) => {
         const miqaatData = docSnapshot.data();
         return {
           id: docSnapshot.id,
           name: miqaatData.name,
-          startTime: convertTimestampToString(miqaatData.startTime)!, 
-          endTime: convertTimestampToString(miqaatData.endTime)!,   
+          startTime: convertTimestampToString(miqaatData.startTime)!,
+          endTime: convertTimestampToString(miqaatData.endTime)!,
           reportingTime: convertTimestampToString(miqaatData.reportingTime),
+          mohallahIds: Array.isArray(miqaatData.mohallahIds) ? miqaatData.mohallahIds : [],
           teams: Array.isArray(miqaatData.teams) ? miqaatData.teams : [],
           barcodeData: miqaatData.barcodeData,
           location: miqaatData.location,
           createdAt: convertTimestampToString(miqaatData.createdAt),
           attendance: Array.isArray(miqaatData.attendance) ? miqaatData.attendance.map((att: any) => ({
               ...att,
-              markedAt: convertTimestampToString(att.markedAt) || new Date().toISOString() 
+              markedAt: convertTimestampToString(att.markedAt) || new Date().toISOString()
           })) : [],
+          attendedUserItsIds: Array.isArray(miqaatData.attendedUserItsIds) ? miqaatData.attendedUserItsIds : [],
         } as Miqaat;
       });
 
     const userAttendanceRecords: AttendanceRecord[] = [];
 
     allMiqaatsData.forEach(miqaat => {
+      // The miqaat document is already one where the user attended,
+      // so we iterate its attendance array to find the specific entries for this user
       if (miqaat.attendance && miqaat.attendance.length > 0) {
         miqaat.attendance.forEach(entry => {
           if (entry.userItsId === userItsId) {
@@ -91,7 +96,7 @@ export const getAttendanceRecordsByUser = async (userItsId: string): Promise<Att
               miqaatName: miqaat.name,
               userItsId: entry.userItsId,
               userName: entry.userName,
-              markedAt: entry.markedAt, // Should already be a string from the mapping above
+              markedAt: entry.markedAt,
               markedByItsId: entry.markedByItsId,
             });
           }
@@ -103,6 +108,10 @@ export const getAttendanceRecordsByUser = async (userItsId: string): Promise<Att
     return userAttendanceRecords.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());
   } catch (error) {
     console.error(`Error fetching attendance records for User ITS ID ${userItsId}: `, error);
+    // This might fail if the index for 'attendedUserItsIds' is not set up.
+    if (error instanceof Error && error.message.includes("index")) {
+        console.error("This operation likely requires a Firestore index on 'attendedUserItsIds' for the 'miqaats' collection. Please check your Firebase console.");
+    }
     throw error;
   }
 };

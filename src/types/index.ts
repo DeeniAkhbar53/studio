@@ -9,42 +9,43 @@ export type User = {
   name: string;
   team?: string;
   phoneNumber?: string;
-  mohallahId?: string; 
+  mohallahId?: string;
   role: UserRole;
   avatarUrl?: string;
   designation?: UserDesignation;
-  pageRights?: string[]; 
+  pageRights?: string[];
 };
 
 export type MiqaatAttendanceEntryItem = {
   userItsId: string;
   userName: string;
-  markedAt: string; 
-  markedByItsId: string; 
+  markedAt: string;
+  markedByItsId: string;
 };
 
 export type Miqaat = {
   id: string;
   name: string;
-  startTime: string; 
-  endTime: string; 
-  reportingTime?: string; 
-  mohallahIds?: string[]; 
-  teams?: string[]; // Added teams back
+  startTime: string;
+  endTime: string;
+  reportingTime?: string;
+  mohallahIds?: string[];
+  teams?: string[];
   barcodeData?: string;
   location?: string;
-  createdAt?: string; 
-  attendance?: MiqaatAttendanceEntryItem[]; 
+  createdAt?: string;
+  attendance?: MiqaatAttendanceEntryItem[];
+  attendedUserItsIds?: string[]; // New field for optimized queries
 };
 
 export type AttendanceRecord = {
-  id: string; 
+  id: string;
   miqaatId: string;
   miqaatName: string;
   userItsId: string;
   userName: string;
-  markedAt: string; 
-  markedByItsId?: string; 
+  markedAt: string;
+  markedByItsId?: string;
 };
 
 export type Team = {
@@ -57,6 +58,7 @@ export type Team = {
 export type Mohallah = {
   id: string;
   name: string;
+  createdAt?: string; // Added from previous changes, ensure consistency
 };
 
 export type MarkedAttendanceEntry = {
@@ -92,5 +94,5 @@ export interface PageRightConfig {
   label: string;
   path: string;
   description?: string;
-  defaultRoles?: UserRole[]; 
+  defaultRoles?: UserRole[];
 }
