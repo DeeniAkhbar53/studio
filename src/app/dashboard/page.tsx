@@ -3,11 +3,12 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Activity, Users, CalendarCheck, BarChartHorizontalBig, HelpCircle, ScanLine } from "lucide-react";
+import { Activity, Users, CalendarCheck, BarChartHorizontalBig, HelpCircle, ScanLine, UserCheck, BarChart3, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import type { UserRole } from "@/types";
 
 const adminOverviewStats = [
   { title: "Active Miqaats", value: "3", icon: CalendarCheck, trend: "+5 last week" },
@@ -49,7 +50,7 @@ function DashboardFooter() {
               <h4 className="font-semibold">Contact Support:</h4>
               <p>If you encounter any issues or have questions, please contact your Mohallah admin or the technical support team at <a href="mailto:support@mattendance.example.com" className="text-primary hover:underline">support@mattendance.example.com</a>.</p>
               <h4 className="font-semibold mt-4">FAQs:</h4>
-              <p>Q: How do I mark attendance? <br/> A: Navigate to the specific Miqaat and use the barcode scanner or manual entry.</p>
+              <p>Q: How do I mark attendance? <br/> A: Navigate to the specific Miqaat and use the barcode scanner or manual entry (if you are an attendance marker).</p>
               <p>Q: Where can I see my attendance history? <br/> A: Go to your Profile page.</p>
             </div>
             <DialogFooter>
@@ -64,12 +65,12 @@ function DashboardFooter() {
 
 
 export default function DashboardOverviewPage() {
-  const [currentUserRole, setCurrentUserRole] = useState<'user' | 'admin' | 'superadmin' | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedRole = localStorage.getItem('userRole') as 'user' | 'admin' | 'superadmin' | null;
+      const storedRole = localStorage.getItem('userRole') as UserRole | null;
       if (storedRole) {
         setCurrentUserRole(storedRole);
       } else {
@@ -88,7 +89,7 @@ export default function DashboardOverviewPage() {
 
   if (currentUserRole === 'user') {
     return (
-      <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))]"> {/* Adjust 16 for header, 12 for p-6 main padding */}
+      <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))]">
         <div className="flex-grow space-y-6">
           <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
             <CardHeader>
@@ -120,6 +121,48 @@ export default function DashboardOverviewPage() {
               <p className="text-xs text-center text-muted-foreground">
                 Click the button above to open the scanner or enter details manually.
               </p>
+            </CardContent>
+          </Card>
+        </div>
+        <DashboardFooter />
+      </div>
+    );
+  }
+
+  if (currentUserRole === 'attendance-marker') {
+    return (
+      <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))]">
+        <div className="flex-grow space-y-6">
+          <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
+            <CardHeader>
+              <CardTitle className="text-3xl font-bold text-foreground">Attendance Marker Dashboard</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Manage member attendance and view reports.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Key Actions</CardTitle>
+              <CardDescription>Access your primary tools.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Button asChild className="w-full">
+                <Link href="/dashboard/mark-attendance">
+                  <UserCheck className="mr-2 h-5 w-5" /> Mark Member Attendance
+                </Link>
+              </Button>
+              <Button asChild className="w-full">
+                <Link href="/dashboard/reports">
+                  <BarChart3 className="mr-2 h-5 w-5" /> Generate Attendance Reports
+                </Link>
+              </Button>
+              <Button asChild className="w-full">
+                <Link href="/dashboard/profile">
+                  <UserIcon className="mr-2 h-5 w-5" /> View My Profile
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -218,3 +261,5 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
+
+    
