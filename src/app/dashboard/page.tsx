@@ -11,6 +11,7 @@ import type { UserRole } from "@/types";
 import { getMiqaats } from "@/lib/firebase/miqaatService"; 
 import type { Miqaat } from "@/types"; 
 import { Separator } from "@/components/ui/separator";
+import type { Unsubscribe } from "firebase/firestore";
 
 
 const adminOverviewStats = [
@@ -36,6 +37,7 @@ export default function DashboardOverviewPage() {
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(false);
 
   useEffect(() => {
+    let unsubscribeMiqaats: Unsubscribe | null = null;
     if (typeof window !== "undefined") {
       const storedRole = localStorage.getItem('userRole') as UserRole | null;
       const storedName = localStorage.getItem('userName');
@@ -47,18 +49,25 @@ export default function DashboardOverviewPage() {
         }
         if (storedRole === 'admin' || storedRole === 'superadmin') {
           setIsLoadingMiqaats(true);
-          getMiqaats()
-            .then(setMiqaats)
-            .catch(err => console.error("Failed to fetch miqaats for admin dashboard", err))
-            .finally(() => setIsLoadingMiqaats(false));
+          unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
+            setMiqaats(fetchedMiqaats);
+            // Set loading to false after first data fetch, or if it's always true until unmount if it keeps updating
+            setIsLoadingMiqaats(false); 
+          });
         }
 
       } else {
         router.push('/'); 
+        setIsLoading(false); // Set loading false if redirecting
         return; 
       }
       setIsLoading(false);
     }
+    return () => {
+      if (unsubscribeMiqaats) {
+        unsubscribeMiqaats();
+      }
+    };
   }, [router]);
 
   if (isLoading) {
@@ -177,13 +186,15 @@ export default function DashboardOverviewPage() {
                 <stat.icon className="h-5 w-5 text-accent" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+                <div className="text-2xl font-bold text-foreground">
+                  {stat.title === "Active Miqaats" ? (isLoadingMiqaats ? <Loader2 className="h-5 w-5 animate-spin" /> : miqaats.filter(m => new Date(m.endTime) > new Date()).length) : stat.value}
+                </div>
                 <p className="text-xs text-muted-foreground">{stat.trend}</p>
               </CardContent>
             </Card>
           ))}
         </div>
-        {isLoadingMiqaats && (
+        {isLoadingMiqaats && !miqaats.length && ( // Show loading only if miqaats haven't loaded yet
           <div className="flex justify-center items-center py-6">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <p className="ml-2 text-muted-foreground">Loading system data...</p>
