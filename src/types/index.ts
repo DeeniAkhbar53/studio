@@ -34,6 +34,7 @@ export type AttendanceRecord = {
   userName: string; // Denormalized for easier display
   markedAt: string; // ISO Date string of the timestamp when marked
   markedByItsId?: string; // Optional: ITS ID of the person who marked attendance
+  // status field is not stored in DB for direct attendance, it's context-dependent (e.g., "Present")
 };
 
 export type Team = {
@@ -66,3 +67,13 @@ export type NotificationItem = {
   read: boolean;
 };
 
+// For displaying results in the reports table
+export interface ReportResultItem {
+  id: string; // Can be attendance record ID or user ID for non-attendance
+  userName: string;
+  userItsId: string;
+  miqaatName: string; 
+  date?: string; // ISO string, represents markedAt for attendance, or N/A for non-attendance summary
+  status: "Present" | "Absent" | "Late" | "N/A"; // 'Late' is not implemented yet
+  markedByItsId?: string;
+}

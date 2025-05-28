@@ -6,17 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { AttendanceRecord, User, Mohallah } from "@/types"; // Added Mohallah
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2 } from "lucide-react";
+import type { AttendanceRecord, User, Mohallah } from "@/types";
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock, CheckCircle } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getUserByItsOrBgkId } from "@/lib/firebase/userService"; // To fetch user
-import { getMohallahs } from "@/lib/firebase/mohallahService"; // To fetch mohallahs for name lookup
+import { getUserByItsOrBgkId } from "@/lib/firebase/userService"; 
+import { getMohallahs } from "@/lib/firebase/mohallahService"; 
+import { getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
+  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -28,16 +32,23 @@ export default function ProfilePage() {
           try {
             const fetchedUser = await getUserByItsOrBgkId(storedItsId);
             setUser(fetchedUser);
-            if (fetchedUser?.mohallahId) {
-              const fetchedMohallahs = await getMohallahs();
-              setMohallahs(fetchedMohallahs);
+            
+            const fetchedMohallahs = await getMohallahs(); // Fetch all mohallahs
+            setMohallahs(fetchedMohallahs);
+
+            if (fetchedUser) {
+              setIsLoadingHistory(true);
+              const history = await getAttendanceRecordsByUser(fetchedUser.itsId);
+              setAttendanceHistory(history);
+              setIsLoadingHistory(false);
             }
+
           } catch (error) {
             console.error("Failed to fetch profile data:", error);
-            setUser(null); // Clear user on error
+            setUser(null); 
+            setAttendanceHistory([]);
           }
         } else {
-          // No ITS ID found, maybe redirect to login
           router.push('/');
           return;
         }
@@ -56,7 +67,7 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full py-10">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="ml-2 text-muted-foreground">Loading profile...</p>
       </div>
@@ -65,7 +76,7 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full py-10">
         <p className="text-destructive">Could not load user profile. Please try logging in again.</p>
       </div>
     );
@@ -82,6 +93,7 @@ export default function ProfilePage() {
           <div className="text-center md:text-left">
             <h1 className="text-3xl font-bold text-foreground">{user.name}</h1>
             <p className="text-accent">{user.itsId} {user.bgkId && `/ ${user.bgkId}`}</p>
+            <p className="text-sm text-muted-foreground mt-1">{user.designation || "Member"}</p>
             <div className="mt-2 flex items-center justify-center md:justify-start gap-2 text-sm text-muted-foreground">
               <ShieldCheck className="h-4 w-4 text-primary" />
               <span>{user.role.charAt(0).toUpperCase() + user.role.slice(1).replace(/-/g, ' ')}</span>
@@ -96,7 +108,7 @@ export default function ProfilePage() {
         <Tabs defaultValue="details" className="w-full">
           <TabsList className="grid w-full grid-cols-2 rounded-none border-b">
             <TabsTrigger value="details">Profile Details</TabsTrigger>
-            <TabsTrigger value="history">Attendance History</TabsTrigger>
+            <TabsTrigger value="history">Attendance History ({attendanceHistory.length})</TabsTrigger>
           </TabsList>
           <TabsContent value="details">
             <CardContent className="p-6 space-y-4">
@@ -120,40 +132,41 @@ export default function ProfilePage() {
           </TabsContent>
           <TabsContent value="history">
             <CardContent className="p-6">
-              <p className="text-center text-muted-foreground">Attendance history feature coming soon.</p>
-              {/* 
-              {attendanceHistory.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Miqaat Name</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {attendanceHistory.map((record) => (
-                      <TableRow key={record.id}>
-                        <TableCell className="font-medium">{record.miqaatName}</TableCell>
-                        <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-right">
-                          <span className={`px-2 py-1 text-xs rounded-full ${
-                            record.status === 'Present' ? 'bg-green-100 text-green-700' :
-                            record.status === 'Absent' ? 'bg-red-100 text-red-700' :
-                            record.status === 'Late' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
-                            {record.status}
-                          </span>
-                        </TableCell>
+              {isLoadingHistory ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <p className="ml-2 text-muted-foreground">Loading attendance history...</p>
+                </div>
+              ) : attendanceHistory.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Miqaat Name</TableHead>
+                        <TableHead>Date Marked</TableHead>
+                        <TableHead className="text-right">Marked By (ITS)</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {attendanceHistory.map((record) => (
+                        <TableRow key={record.id}>
+                          <TableCell className="font-medium">{record.miqaatName}</TableCell>
+                          <TableCell>{format(new Date(record.markedAt), "PP p")}</TableCell>
+                          <TableCell className="text-right">
+                            {record.markedByItsId || "Self/System"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               ) : (
-                <p className="p-6 text-center text-muted-foreground">No attendance history found.</p>
+                <div className="text-center py-10">
+                  <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <p className="mt-4 text-lg text-muted-foreground">No attendance history found.</p>
+                  <p className="text-sm text-muted-foreground">Your attendance records will appear here once you are marked present for Miqaats.</p>
+                </div>
               )}
-              */}
             </CardContent>
           </TabsContent>
         </Tabs>

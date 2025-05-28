@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Download, Loader2 } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
 import { Button } from "@/components/ui/button";
@@ -18,24 +18,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, AttendanceRecord } from "@/types";
-import { getMiqaats } from "@/lib/firebase/miqaatService"; // Import Miqaat service
+import type { Miqaat, User, ReportResultItem, AttendanceRecord } from "@/types";
+import { getMiqaats } from "@/lib/firebase/miqaatService";
+import { getUsers } from "@/lib/firebase/userService";
+import { getAttendanceRecordsByMiqaat } from "@/lib/firebase/attendanceService";
 import { cn } from "@/lib/utils";
 
-interface ReportAttendanceRecord extends AttendanceRecord {
-  userName: string;
-  userItsId: string;
-}
-
-// Mock data for report results (replace with actual data fetching/generation)
-const mockReportData: ReportAttendanceRecord[] = [
-    { id: "r_att1", miqaatId: "m1", miqaatName: "Miqaat Al-Layl", date: new Date(2024, 9, 10, 19, 30).toISOString(), status: "Present", userName: "Abbas Bhai", userItsId: "10101010" },
-    { id: "r_att2", miqaatId: "m1", miqaatName: "Miqaat Al-Layl", date: new Date(2024, 9, 10, 19, 32).toISOString(), status: "Absent", userName: "Fatema Ben", userItsId: "20202020" },
-    { id: "r_att3", miqaatId: "m2", miqaatName: "Ashara Mubarakah - Day 1", date: new Date(2024, 9, 15, 9, 30).toISOString(), status: "Present", userName: "Yusuf Bhai", userItsId: "30303030" },
-];
-
 const reportSchema = z.object({
-  reportType: z.enum(["miqaat_summary", "member_attendance", "overall_activity"], {
+  reportType: z.enum(["miqaat_summary", "member_attendance", "overall_activity", "non_attendance_miqaat"], {
     required_error: "You need to select a report type.",
   }),
   miqaatId: z.string().optional(),
@@ -47,10 +37,10 @@ const reportSchema = z.object({
     to: z.date().optional(),
   }).optional(),
 }).superRefine((data, ctx) => {
-    if (data.reportType === "miqaat_summary" && !data.miqaatId) {
+    if ((data.reportType === "miqaat_summary" || data.reportType === "non_attendance_miqaat") && !data.miqaatId) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "Miqaat selection is required for Miqaat Summary report.",
+            message: "Miqaat selection is required for this report type.",
             path: ["miqaatId"],
         });
     }
@@ -73,9 +63,9 @@ const reportSchema = z.object({
 type ReportFormValues = z.infer<typeof reportSchema>;
 
 export default function ReportsPage() {
-  const [reportData, setReportData] = useState<ReportAttendanceRecord[] | null>(null);
+  const [reportData, setReportData] = useState<ReportResultItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name">[]>([]);
+  const [availableMiqaats, setAvailableMiqaats] = useState<Miqaat[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const { toast } = useToast();
 
@@ -94,7 +84,7 @@ export default function ReportsPage() {
       setIsLoadingMiqaats(true);
       try {
         const fetchedMiqaats = await getMiqaats();
-        setAvailableMiqaats(fetchedMiqaats.map(m => ({ id: m.id, name: m.name })));
+        setAvailableMiqaats(fetchedMiqaats);
       } catch (error) {
         toast({ title: "Error", description: "Failed to load Miqaats for report options.", variant: "destructive" });
         console.error("Failed to load Miqaats for reports page:", error);
@@ -110,38 +100,94 @@ export default function ReportsPage() {
   const onSubmit = async (values: ReportFormValues) => {
     setIsLoading(true);
     setReportData(null); 
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-
-    let generatedReport: ReportAttendanceRecord[] = [];
-    const currentMiqaatName = availableMiqaats.find(m => m.id === values.miqaatId)?.name || 'N/A';
-
-    if (values.reportType === "miqaat_summary" && values.miqaatId) {
-        generatedReport = mockReportData.filter(r => r.miqaatId === values.miqaatId);
-    } else if (values.reportType === "member_attendance" && values.itsId) {
-        generatedReport = mockReportData.filter(r => r.userItsId === values.itsId);
-    } else if (values.reportType === "overall_activity") {
-        generatedReport = mockReportData; // Start with all data
-    }
     
-    if (values.dateRange?.from) {
-        generatedReport = generatedReport.filter(r => new Date(r.date) >= values.dateRange!.from!);
-    }
-    if (values.dateRange?.to) {
-        generatedReport = generatedReport.filter(r => new Date(r.date) <= values.dateRange!.to!);
-    }
-    
-    // Update miqaatName for display if not already set (e.g., for member_attendance or overall_activity)
-    generatedReport = generatedReport.map(record => ({
-      ...record,
-      miqaatName: record.miqaatName || availableMiqaats.find(m => m.id === record.miqaatId)?.name || 'Unknown Miqaat'
-    }));
+    let generatedReport: ReportResultItem[] = [];
 
-    setReportData(generatedReport);
-    setIsLoading(false);
-    if (generatedReport.length > 0) {
-        toast({ title: "Report Generated", description: "Your report is ready below." });
-    } else {
-        toast({ title: "No Data", description: "No data found for the selected criteria.", variant: "destructive" });
+    try {
+      if (values.reportType === "miqaat_summary" && values.miqaatId) {
+        const attendance = await getAttendanceRecordsByMiqaat(values.miqaatId);
+        generatedReport = attendance.map(att => ({
+          id: att.id,
+          userName: att.userName,
+          userItsId: att.userItsId,
+          miqaatName: att.miqaatName,
+          date: att.markedAt,
+          status: "Present", // Assuming all fetched records are 'Present'
+          markedByItsId: att.markedByItsId,
+        }));
+      } else if (values.reportType === "member_attendance" && values.itsId) {
+        // This would require getAttendanceRecordsByUser, similar to profile page.
+        // For now, using mock/filtered data as an example.
+        const allAttendance = (await Promise.all(availableMiqaats.map(m => getAttendanceRecordsByMiqaat(m.id)))).flat();
+        generatedReport = allAttendance
+          .filter(att => att.userItsId === values.itsId)
+          .map(att => ({
+            id: att.id,
+            userName: att.userName,
+            userItsId: att.userItsId,
+            miqaatName: att.miqaatName,
+            date: att.markedAt,
+            status: "Present",
+            markedByItsId: att.markedByItsId,
+          }));
+      } else if (values.reportType === "overall_activity") {
+        const allAttendance = (await Promise.all(availableMiqaats.map(m => getAttendanceRecordsByMiqaat(m.id)))).flat();
+         generatedReport = allAttendance.map(att => ({
+            id: att.id,
+            userName: att.userName,
+            userItsId: att.userItsId,
+            miqaatName: att.miqaatName,
+            date: att.markedAt,
+            status: "Present",
+            markedByItsId: att.markedByItsId,
+          }));
+      } else if (values.reportType === "non_attendance_miqaat" && values.miqaatId) {
+        const selectedMiqaat = availableMiqaats.find(m => m.id === values.miqaatId);
+        if (!selectedMiqaat) {
+          toast({ title: "Error", description: "Selected Miqaat not found.", variant: "destructive" });
+          setIsLoading(false);
+          return;
+        }
+        const allUsers = await getUsers();
+        const attendanceForMiqaat = await getAttendanceRecordsByMiqaat(values.miqaatId);
+        const attendedItsIds = new Set(attendanceForMiqaat.map(att => att.userItsId));
+
+        let eligibleUsers = allUsers;
+        if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
+          eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams.includes(user.team));
+        }
+        
+        const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
+        generatedReport = nonAttendantUsers.map(user => ({
+          id: user.id,
+          userName: user.name,
+          userItsId: user.itsId,
+          miqaatName: selectedMiqaat.name,
+          date: new Date(selectedMiqaat.startTime).toISOString(), // Or N/A
+          status: "Absent",
+        }));
+      }
+
+      // Apply date range filter if present
+      if (values.dateRange?.from) {
+        generatedReport = generatedReport.filter(r => r.date && new Date(r.date) >= values.dateRange!.from!);
+      }
+      if (values.dateRange?.to) {
+        generatedReport = generatedReport.filter(r => r.date && new Date(r.date) <= values.dateRange!.to!);
+      }
+      
+      setReportData(generatedReport);
+      if (generatedReport.length > 0) {
+          toast({ title: "Report Generated", description: `Your report is ready below. Found ${generatedReport.length} record(s).` });
+      } else {
+          toast({ title: "No Data", description: "No data found for the selected criteria.", variant: "default" });
+      }
+
+    } catch (error) {
+        console.error("Error generating report:", error);
+        toast({ title: "Report Generation Failed", description: "Could not generate report. Please try again.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -150,15 +196,40 @@ export default function ReportsPage() {
       toast({ title: "No data to export", description: "Please generate a report first.", variant: "destructive" });
       return;
     }
-    toast({ title: "Exporting Report", description: "CSV export functionality is a future enhancement." });
+    // Basic CSV export (can be enhanced with a library like papaparse)
+    const headers = ["User Name", "ITS ID", "Miqaat", "Date", "Status", "Marked By ITS ID"];
+    const csvRows = [
+      headers.join(','),
+      ...reportData.map(row => [
+        `"${row.userName.replace(/"/g, '""')}"`,
+        row.userItsId,
+        `"${row.miqaatName.replace(/"/g, '""')}"`,
+        row.date ? format(new Date(row.date), "yyyy-MM-dd HH:mm:ss") : "N/A",
+        row.status,
+        row.markedByItsId || "N/A"
+      ].join(','))
+    ];
+    const csvString = csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "attendance_report.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Report Exported", description: "CSV file downloaded." });
   };
+  
+  const selectedMiqaatDetails = availableMiqaats.find(m => m.id === form.getValues("miqaatId"));
 
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Generate Attendance Report</CardTitle>
-          <CardDescription>Select criteria to generate a detailed attendance report.</CardDescription>
+          <CardDescription>Select criteria to generate a detailed attendance report from Firestore data.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -177,8 +248,9 @@ export default function ReportsPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="miqaat_summary">Miqaat Summary</SelectItem>
-                          <SelectItem value="member_attendance">Member Attendance</SelectItem>
+                          <SelectItem value="miqaat_summary">Miqaat Summary (Attendance)</SelectItem>
+                          <SelectItem value="non_attendance_miqaat">Miqaat Non-Attendance</SelectItem>
+                          <SelectItem value="member_attendance">Member Full History</SelectItem>
                           <SelectItem value="overall_activity">Overall Activity Log</SelectItem>
                         </SelectContent>
                       </Select>
@@ -187,14 +259,14 @@ export default function ReportsPage() {
                   )}
                 />
 
-                {watchedReportType === "miqaat_summary" && (
+                {(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat") && (
                   <FormField
                     control={form.control}
                     name="miqaatId"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Select Miqaat</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingMiqaats}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingMiqaats}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder={isLoadingMiqaats ? "Loading Miqaats..." : "Select a Miqaat"} />
@@ -203,7 +275,7 @@ export default function ReportsPage() {
                           <SelectContent>
                             {isLoadingMiqaats && <SelectItem value="loading" disabled>Loading...</SelectItem>}
                             {!isLoadingMiqaats && availableMiqaats.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available</SelectItem>}
-                            {availableMiqaats.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                            {availableMiqaats.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({new Date(m.startTime).toLocaleDateString()})</SelectItem>)}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -233,7 +305,7 @@ export default function ReportsPage() {
                   name="dateRange"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>Date Range</FormLabel>
+                      <FormLabel>Date Range (for marked date)</FormLabel>
                        <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -273,7 +345,7 @@ export default function ReportsPage() {
                         </PopoverContent>
                       </Popover>
                       <FormDescription>
-                        Optional: Specify a date range for the report.
+                        Filters records based on their marked/event date.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -300,7 +372,7 @@ export default function ReportsPage() {
                 <CardTitle>Report Results</CardTitle>
                 <CardDescription>
                     Displaying {reportData.length} record(s) 
-                    {watchedReportType === "miqaat_summary" && form.getValues("miqaatId") && ` for Miqaat: ${availableMiqaats.find(m => m.id === form.getValues("miqaatId"))?.name || 'N/A'}`}
+                    {(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat") && selectedMiqaatDetails && ` for Miqaat: ${selectedMiqaatDetails.name}`}
                     {watchedReportType === "member_attendance" && form.getValues("itsId") && ` for ITS ID: ${form.getValues("itsId")}`}
                     {form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}
                     {form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.
@@ -318,19 +390,22 @@ export default function ReportsPage() {
                     <TableRow>
                       <TableHead>Member Name</TableHead>
                       <TableHead>ITS ID</TableHead>
-                      {watchedReportType !== "member_attendance" && <TableHead>Miqaat</TableHead>}
-                      <TableHead>Date & Time</TableHead>
-                      <TableHead className="text-right">Status</TableHead>
+                      <TableHead>Miqaat</TableHead>
+                      <TableHead>Date / Time</TableHead>
+                      <TableHead>Status</TableHead>
+                      { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
+                        <TableHead className="text-right">Marked By</TableHead>
+                      }
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {reportData.map((record) => (
-                      <TableRow key={record.id}>
+                      <TableRow key={record.id + (record.date || '')}>
                         <TableCell className="font-medium">{record.userName}</TableCell>
                         <TableCell>{record.userItsId}</TableCell>
-                        {watchedReportType !== "member_attendance" && <TableCell>{record.miqaatName}</TableCell>}
-                        <TableCell>{format(new Date(record.date), "PP p")}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell>{record.miqaatName}</TableCell>
+                        <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
+                        <TableCell>
                           <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
                               record.status === 'Present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                               record.status === 'Absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
@@ -340,6 +415,9 @@ export default function ReportsPage() {
                               {record.status}
                             </span>
                         </TableCell>
+                         { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
+                            <TableCell className="text-right">{record.markedByItsId || "N/A"}</TableCell>
+                         }
                       </TableRow>
                     ))}
                   </TableBody>
@@ -354,7 +432,8 @@ export default function ReportsPage() {
 
       {!isLoading && reportData === null && !isLoadingMiqaats && (
          <Card className="shadow-lg">
-            <CardContent className="py-10">
+            <CardContent className="py-10 flex flex-col items-center justify-center">
+                <AlertTriangle className="h-10 w-10 text-muted-foreground mb-3" />
                 <p className="text-center text-muted-foreground">
                     Please select your report criteria and click &quot;Generate Report&quot; to view data.
                 </p>
