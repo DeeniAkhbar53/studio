@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { Miqaat } from "@/types";
+import type { Miqaat, UserRole } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, Users, Barcode, Edit, Trash2, Clock } from "lucide-react"; 
@@ -23,9 +23,10 @@ interface MiqaatCardProps {
   miqaat: Miqaat; 
   onEdit: (miqaat: Miqaat) => void;
   onDelete: (miqaatId: string) => void;
+  currentUserRole: UserRole | null;
 }
 
-export function MiqaatCard({ miqaat, onEdit, onDelete }: MiqaatCardProps) {
+export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole }: MiqaatCardProps) {
   const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
 
   const formatDate = (dateString?: string) => {
@@ -36,6 +37,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete }: MiqaatCardProps) {
   const formattedStartDate = formatDate(miqaat.startTime);
   const formattedEndDate = formatDate(miqaat.endTime);
   const formattedReportingTime = formatDate(miqaat.reportingTime);
+  const canDelete = currentUserRole === 'admin' || currentUserRole === 'superadmin';
 
   return (
     <>
@@ -77,27 +79,29 @@ export function MiqaatCard({ miqaat, onEdit, onDelete }: MiqaatCardProps) {
             <Button variant="ghost" size="icon" onClick={() => onEdit(miqaat)} aria-label="Edit Miqaat">
               <Edit className="h-4 w-4" />
             </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" aria-label="Delete Miqaat">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the Miqaat &quot;{miqaat.name}&quot;.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onDelete(miqaat.id)} className="bg-destructive hover:bg-destructive/90">
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            {canDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" aria-label="Delete Miqaat">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete the Miqaat &quot;{miqaat.name}&quot;.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDelete(miqaat.id)} className="bg-destructive hover:bg-destructive/90">
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         </CardFooter>
       </Card>
@@ -114,7 +118,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete }: MiqaatCardProps) {
             {(miqaat.barcodeData || miqaat.id) ? (
               <QRCodeSVG
                 value={miqaat.barcodeData || miqaat.id}
-                size={200}
+                size={250}
                 bgColor={"#ffffff"}
                 fgColor={"#000000"}
                 level={"Q"}

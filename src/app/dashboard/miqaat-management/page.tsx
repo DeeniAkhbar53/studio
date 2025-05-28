@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { MiqaatCard } from "@/components/dashboard/miqaat-card";
-import type { Miqaat } from "@/types";
-import { PlusCircle, Search, Loader2, CalendarDays } from "lucide-react"; // Added CalendarDays
+import type { Miqaat, UserRole } from "@/types";
+import { PlusCircle, Search, Loader2, CalendarDays } from "lucide-react"; 
 import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,6 +42,7 @@ export default function MiqaatManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance"> | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const { toast } = useToast();
 
   const form = useForm<MiqaatFormValues>({
@@ -58,6 +59,9 @@ export default function MiqaatManagementPage() {
   });
 
   useEffect(() => {
+    const role = localStorage.getItem('userRole') as UserRole | null;
+    setCurrentUserRole(role);
+
     setIsLoadingMiqaats(true);
     const unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
       setMiqaats(fetchedMiqaats);
@@ -304,7 +308,7 @@ export default function MiqaatManagementPage() {
           ) : filteredMiqaats.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredMiqaats.map((miqaat) => (
-                <MiqaatCard key={miqaat.id} miqaat={miqaat as Miqaat} onEdit={handleEdit} onDelete={handleDelete} />
+                <MiqaatCard key={miqaat.id} miqaat={miqaat as Miqaat} onEdit={handleEdit} onDelete={handleDelete} currentUserRole={currentUserRole} />
               ))}
             </div>
           ) : (

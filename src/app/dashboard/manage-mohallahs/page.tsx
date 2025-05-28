@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { Mohallah, User } from "@/types";
+import type { Mohallah, User, UserRole } from "@/types";
 import { PlusCircle, Edit, Trash2, Loader2, Home, Pencil } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
@@ -33,6 +33,7 @@ export default function ManageMohallahsPage() {
   
   const [isMohallahDialogOpen, setIsMohallahDialogOpen] = useState(false);
   const [editingMohallah, setEditingMohallah] = useState<Mohallah | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const { toast } = useToast();
 
   const mohallahForm = useForm<MohallahFormValues>({
@@ -41,6 +42,9 @@ export default function ManageMohallahsPage() {
   });
 
   useEffect(() => {
+    const role = localStorage.getItem('userRole') as UserRole | null;
+    setCurrentUserRole(role);
+
     setIsLoadingMohallahs(true);
     const unsubscribeMohallahs = getMohallahs((fetchedMohallahs) => {
       setMohallahs(fetchedMohallahs);
@@ -50,6 +54,7 @@ export default function ManageMohallahsPage() {
     const fetchInitialMembers = async () => {
       setIsLoadingMembers(true);
       try {
+        // Fetch all members initially to check assignments before delete
         const fetchedMembers = await getUsers(); 
         setMembers(fetchedMembers);
       } catch (error) {
@@ -102,6 +107,7 @@ export default function ManageMohallahsPage() {
         return;
     }
     try {
+      // Re-fetch current members to get latest assignments before delete
       const currentMembers = await getUsers(); 
       setMembers(currentMembers);
       const membersInMohallah = currentMembers.filter(member => member.mohallahId === mohallah.id);
@@ -122,6 +128,8 @@ export default function ManageMohallahsPage() {
     }
   };
 
+  const canManage = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -131,39 +139,41 @@ export default function ManageMohallahsPage() {
               <CardTitle className="flex items-center"><Home className="mr-2 h-5 w-5 text-primary" />Manage Mohallahs</CardTitle>
               <CardDescription className="mt-1">Add, edit, or delete Mohallahs stored in Firestore. List updates in realtime.</CardDescription>
             </div>
-            <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>
-              <DialogTrigger asChild>
-                <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} className="w-full md:w-auto self-start md:self-center" size="sm">
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Mohallah
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>{editingMohallah ? "Edit Mohallah Name" : "Add New Mohallah"}</DialogTitle>
-                  <DialogDescription>
-                    {editingMohallah ? "Update the name of this Mohallah." : "Enter the name for the new Mohallah."}
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...mohallahForm}>
-                  <form onSubmit={mohallahForm.handleSubmit(handleMohallahFormSubmit)} className="grid gap-4 py-4">
-                    <FormField control={mohallahForm.control} name="name" render={({ field }) => (
-                      <FormItem>
-                        <ShadFormLabel htmlFor="mohallahName">Mohallah Name</ShadFormLabel>
-                        <FormControl><Input id="mohallahName" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setIsMohallahDialogOpen(false)}>Cancel</Button>
-                      <Button type="submit" disabled={mohallahForm.formState.isSubmitting || isLoadingMembers}>
-                          {(mohallahForm.formState.isSubmitting || isLoadingMembers) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          {editingMohallah ? "Save Changes" : "Add Mohallah"}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
+            {canManage && (
+              <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} className="w-full md:w-auto self-start md:self-center" size="sm">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Mohallah
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>{editingMohallah ? "Edit Mohallah Name" : "Add New Mohallah"}</DialogTitle>
+                    <DialogDescription>
+                      {editingMohallah ? "Update the name of this Mohallah." : "Enter the name for the new Mohallah."}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Form {...mohallahForm}>
+                    <form onSubmit={mohallahForm.handleSubmit(handleMohallahFormSubmit)} className="grid gap-4 py-4">
+                      <FormField control={mohallahForm.control} name="name" render={({ field }) => (
+                        <FormItem>
+                          <ShadFormLabel htmlFor="mohallahName">Mohallah Name</ShadFormLabel>
+                          <FormControl><Input id="mohallahName" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsMohallahDialogOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={mohallahForm.formState.isSubmitting || isLoadingMembers}>
+                            {(mohallahForm.formState.isSubmitting || isLoadingMembers) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {editingMohallah ? "Save Changes" : "Add Mohallah"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
           <Separator />
         </CardHeader>
@@ -181,45 +191,47 @@ export default function ManageMohallahsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Mohallah Name</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    {canManage && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {mohallahs.map((mohallah) => (
                     <TableRow key={mohallah.id}>
                       <TableCell className="font-medium">{mohallah.name}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditMohallah(mohallah)} className="mr-2" aria-label="Edit Mohallah">
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Mohallah">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertTrigger>
-                          <AlertContent>
-                            <AlertHeader>
-                              <AlertTitle>Are you sure?</AlertTitle>
-                              <AlertDesc>
-                                This action cannot be undone. This will permanently delete the Mohallah "{mohallah.name}".
-                                Ensure no members are assigned to this Mohallah before deleting.
-                              </AlertDesc>
-                            </AlertHeader>
-                            <AlertFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDeleteMohallah(mohallah)}
-                                className="bg-destructive hover:bg-destructive/90"
-                                disabled={isLoadingMembers}
-                              >
-                                {isLoadingMembers && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Delete
-                              </AlertDialogAction>
-                            </AlertFooter>
-                          </AlertContent>
-                        </AlertDialog>
-                      </TableCell>
+                      {canManage && (
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" onClick={() => handleEditMohallah(mohallah)} className="mr-2" aria-label="Edit Mohallah">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertTrigger asChild>
+                              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Mohallah">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertTrigger>
+                            <AlertContent>
+                              <AlertHeader>
+                                <AlertTitle>Are you sure?</AlertTitle>
+                                <AlertDesc>
+                                  This action cannot be undone. This will permanently delete the Mohallah "{mohallah.name}".
+                                  Ensure no members are assigned to this Mohallah before deleting.
+                                </AlertDesc>
+                              </AlertHeader>
+                              <AlertFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDeleteMohallah(mohallah)}
+                                  className="bg-destructive hover:bg-destructive/90"
+                                  disabled={isLoadingMembers}
+                                >
+                                  {isLoadingMembers && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertFooter>
+                            </AlertContent>
+                          </AlertDialog>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

@@ -39,6 +39,8 @@ export default function ManageNotificationsPage() {
     if (!currentUserItsId || !currentUserRole) return;
     setIsLoading(true);
     try {
+      // For manage notifications, fetch all, then filter for deletion rights if needed
+      // Or have a getNotificationsForManagement service function if logic is different
       const fetchedNotifications = await getNotificationsForUser(currentUserItsId, currentUserRole);
       setNotifications(fetchedNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (error) {
@@ -108,9 +110,12 @@ export default function ManageNotificationsPage() {
       toast({ title: "Error", description: "Could not delete notification.", variant: "destructive" });
     }
   };
+  
+  const canManage = currentUserRole === 'admin' || currentUserRole === 'superadmin';
 
   return (
     <div className="space-y-6">
+    {canManage && (
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center"><BellRing className="mr-2 h-6 w-6 text-primary" />Manage Notifications</CardTitle>
@@ -163,6 +168,7 @@ export default function ManageNotificationsPage() {
           </Button>
         </CardFooter>
       </Card>
+    )}
 
       <Card className="shadow-lg">
         <CardHeader>
@@ -195,15 +201,17 @@ export default function ManageNotificationsPage() {
                       Read by: {notification.readBy?.length || 0} user(s)
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteNotification(notification.id)}
-                    className="text-destructive hover:text-destructive shrink-0"
-                    aria-label="Delete notification"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canManage && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteNotification(notification.id)}
+                      className="text-destructive hover:text-destructive shrink-0"
+                      aria-label="Delete notification"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
