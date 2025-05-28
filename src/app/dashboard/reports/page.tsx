@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Download } from "lucide-react"; // Renamed to avoid conflict with Calendar component
+import { Calendar as CalendarIcon, Search, Download, Loader2 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
 import { Button } from "@/components/ui/button";
@@ -18,30 +18,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, AttendanceRecord } from "@/types";
+import type { Miqaat, AttendanceRecord } from "@/types";
+import { getMiqaats } from "@/lib/firebase/miqaatService"; // Import Miqaat service
 import { cn } from "@/lib/utils";
 
-// Mock data (replace with actual data fetching in a real app)
-const mockMiqaats: Pick<Miqaat, "id" | "name">[] = [
-  { id: "m1", name: "Miqaat Al-Layl" },
-  { id: "m2", name: "Ashara Mubarakah - Day 1" },
-  { id: "m3", name: "Eid Majlis" },
-];
-
-// Define a more specific type for attendance records in reports
 interface ReportAttendanceRecord extends AttendanceRecord {
   userName: string;
   userItsId: string;
 }
 
+// Mock data for report results (replace with actual data fetching/generation)
 const mockReportData: ReportAttendanceRecord[] = [
     { id: "r_att1", miqaatId: "m1", miqaatName: "Miqaat Al-Layl", date: new Date(2024, 9, 10, 19, 30).toISOString(), status: "Present", userName: "Abbas Bhai", userItsId: "10101010" },
     { id: "r_att2", miqaatId: "m1", miqaatName: "Miqaat Al-Layl", date: new Date(2024, 9, 10, 19, 32).toISOString(), status: "Absent", userName: "Fatema Ben", userItsId: "20202020" },
     { id: "r_att3", miqaatId: "m2", miqaatName: "Ashara Mubarakah - Day 1", date: new Date(2024, 9, 15, 9, 30).toISOString(), status: "Present", userName: "Yusuf Bhai", userItsId: "30303030" },
-    { id: "r_att4", miqaatId: "m2", miqaatName: "Ashara Mubarakah - Day 1", date: new Date(2024, 9, 15, 9, 35).toISOString(), status: "Late", userName: "Abbas Bhai", userItsId: "10101010" },
-    { id: "r_att5", miqaatId: "m3", miqaatName: "Eid Majlis", date: new Date(2024, 10, 1, 8, 10).toISOString(), status: "Present", userName: "Fatema Ben", userItsId: "20202020" },
 ];
-
 
 const reportSchema = z.object({
   reportType: z.enum(["miqaat_summary", "member_attendance", "overall_activity"], {
@@ -84,6 +75,8 @@ type ReportFormValues = z.infer<typeof reportSchema>;
 export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportAttendanceRecord[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name">[]>([]);
+  const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const { toast } = useToast();
 
   const form = useForm<ReportFormValues>({
@@ -92,22 +85,35 @@ export default function ReportsPage() {
       reportType: undefined,
       miqaatId: "",
       itsId: "",
-      dateRange: {
-        from: undefined,
-        to: undefined,
-      },
+      dateRange: { from: undefined, to: undefined },
     },
   });
+
+  useEffect(() => {
+    const fetchMiqaatsForReport = async () => {
+      setIsLoadingMiqaats(true);
+      try {
+        const fetchedMiqaats = await getMiqaats();
+        setAvailableMiqaats(fetchedMiqaats.map(m => ({ id: m.id, name: m.name })));
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to load Miqaats for report options.", variant: "destructive" });
+        console.error("Failed to load Miqaats for reports page:", error);
+      } finally {
+        setIsLoadingMiqaats(false);
+      }
+    };
+    fetchMiqaatsForReport();
+  }, [toast]);
 
   const watchedReportType = form.watch("reportType");
 
   const onSubmit = async (values: ReportFormValues) => {
     setIsLoading(true);
     setReportData(null); 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
 
     let generatedReport: ReportAttendanceRecord[] = [];
+    const currentMiqaatName = availableMiqaats.find(m => m.id === values.miqaatId)?.name || 'N/A';
 
     if (values.reportType === "miqaat_summary" && values.miqaatId) {
         generatedReport = mockReportData.filter(r => r.miqaatId === values.miqaatId);
@@ -117,7 +123,6 @@ export default function ReportsPage() {
         generatedReport = mockReportData; // Start with all data
     }
     
-    // Filter by date range if provided
     if (values.dateRange?.from) {
         generatedReport = generatedReport.filter(r => new Date(r.date) >= values.dateRange!.from!);
     }
@@ -125,6 +130,12 @@ export default function ReportsPage() {
         generatedReport = generatedReport.filter(r => new Date(r.date) <= values.dateRange!.to!);
     }
     
+    // Update miqaatName for display if not already set (e.g., for member_attendance or overall_activity)
+    generatedReport = generatedReport.map(record => ({
+      ...record,
+      miqaatName: record.miqaatName || availableMiqaats.find(m => m.id === record.miqaatId)?.name || 'Unknown Miqaat'
+    }));
+
     setReportData(generatedReport);
     setIsLoading(false);
     if (generatedReport.length > 0) {
@@ -140,7 +151,6 @@ export default function ReportsPage() {
       return;
     }
     toast({ title: "Exporting Report", description: "CSV export functionality is a future enhancement." });
-    // Actual CSV export logic (e.g., convert reportData to CSV string and trigger download)
   };
 
   return (
@@ -184,14 +194,16 @@ export default function ReportsPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Select Miqaat</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingMiqaats}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="Select a Miqaat" />
+                              <SelectValue placeholder={isLoadingMiqaats ? "Loading Miqaats..." : "Select a Miqaat"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {mockMiqaats.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                            {isLoadingMiqaats && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                            {!isLoadingMiqaats && availableMiqaats.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available</SelectItem>}
+                            {availableMiqaats.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -268,14 +280,13 @@ export default function ReportsPage() {
                   )}
                 />
               </div>
-              <Button type="submit" disabled={isLoading} className="min-w-[180px]">
-                {isLoading ? (
-                  "Generating..."
+              <Button type="submit" disabled={isLoading || isLoadingMiqaats} className="min-w-[180px]">
+                {isLoading || isLoadingMiqaats ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <>
-                    <Search className="mr-2 h-4 w-4" /> Generate Report
-                  </>
+                  <Search className="mr-2 h-4 w-4" />
                 )}
+                {isLoading ? "Generating..." : (isLoadingMiqaats ? "Loading Options..." : "Generate Report") }
               </Button>
             </form>
           </Form>
@@ -289,7 +300,7 @@ export default function ReportsPage() {
                 <CardTitle>Report Results</CardTitle>
                 <CardDescription>
                     Displaying {reportData.length} record(s) 
-                    {watchedReportType === "miqaat_summary" && form.getValues("miqaatId") && ` for Miqaat: ${mockMiqaats.find(m => m.id === form.getValues("miqaatId"))?.name || 'N/A'}`}
+                    {watchedReportType === "miqaat_summary" && form.getValues("miqaatId") && ` for Miqaat: ${availableMiqaats.find(m => m.id === form.getValues("miqaatId"))?.name || 'N/A'}`}
                     {watchedReportType === "member_attendance" && form.getValues("itsId") && ` for ITS ID: ${form.getValues("itsId")}`}
                     {form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}
                     {form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.
@@ -341,7 +352,7 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {!isLoading && reportData === null && (
+      {!isLoading && reportData === null && !isLoadingMiqaats && (
          <Card className="shadow-lg">
             <CardContent className="py-10">
                 <p className="text-center text-muted-foreground">
@@ -350,7 +361,16 @@ export default function ReportsPage() {
             </CardContent>
          </Card>
       )}
+      {(isLoadingMiqaats && reportData === null) && (
+        <Card className="shadow-lg">
+            <CardContent className="py-10 flex justify-center items-center">
+                <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                <p className="text-center text-muted-foreground">
+                    Loading Miqaat options...
+                </p>
+            </CardContent>
+         </Card>
+      )}
     </div>
   );
 }
-

@@ -11,13 +11,12 @@ import { useRouter } from "next/navigation";
 import type { UserRole } from "@/types";
 
 const adminOverviewStats = [
-  { title: "Active Miqaats", value: "3", icon: CalendarCheck, trend: "+5 last week" },
-  { title: "Total Members", value: "1,205", icon: Users, trend: "+50 new" },
+  { title: "Active Miqaats", value: "3", icon: CalendarCheck, trend: "+5 last week" }, // This will be dynamic if Miqaats are fetched
+  { title: "Total Members", value: "1,205", icon: Users, trend: "+50 new" }, // This will be dynamic if Users are fetched
   { title: "Overall Attendance", value: "85%", icon: Activity, trend: "Avg. last 7 days" },
   { title: "Pending Reports", value: "2", icon: BarChartHorizontalBig, trend: "Needs attention" },
 ];
 
-// Mock current Miqaat for user view
 const mockCurrentMiqaat = {
   name: "Miqaat Al-Layl (Evening Session)",
   details: "Today, 7:00 PM - 9:00 PM at Main Hall",
@@ -78,8 +77,8 @@ export default function DashboardOverviewPage() {
           setCurrentUserName(storedName);
         }
       } else {
-        router.push('/'); // Redirect to login if no role is found
-        return; // Important to prevent further execution if redirecting
+        router.push('/'); 
+        return; 
       }
       setIsLoading(false);
     }
@@ -206,30 +205,8 @@ export default function DashboardOverviewPage() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>Upcoming Miqaats</CardTitle>
-              <CardDescription>Quick view of scheduled events.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
-                  <div>
-                    <h3 className="font-semibold text-foreground">Miqaat Name {i + 1}</h3>
-                    <p className="text-sm text-muted-foreground">Date: October {20 + i}, 2024 - 7:00 PM</p>
-                  </div>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href="/dashboard/miqaat-management">View Details</Link>
-                  </Button>
-                </div>
-              ))}
-              <Button variant="link" className="w-full" asChild>
-                  <Link href="/dashboard/miqaat-management">View all Miqaats</Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg">
+          {/* Upcoming Miqaats card removed as requested */}
+          <Card className="shadow-lg md:col-span-2"> {/* Adjust to md:col-span-2 if it's the only one in this row */}
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
               <CardDescription>Common tasks at your fingertips.</CardDescription>
@@ -246,6 +223,9 @@ export default function DashboardOverviewPage() {
               </Button>
               <Button asChild className="w-full">
                 <Link href="/dashboard/profile">View My Profile</Link>
+              </Button>
+               <Button asChild className="w-full">
+                <Link href="/dashboard/manage-notifications">Manage Notifications</Link>
               </Button>
             </CardContent>
           </Card>
@@ -268,3 +248,4 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
+

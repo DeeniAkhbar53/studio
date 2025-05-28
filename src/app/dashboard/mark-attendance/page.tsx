@@ -10,30 +10,35 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import type { Miqaat, User, MarkedAttendanceEntry } from "@/types";
-import { getUserByItsOrBgkId } from "@/lib/firebase/userService"; // Import Firestore service
+import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
+import { getMiqaats } from "@/lib/firebase/miqaatService"; // Import Miqaat service
 import { CheckCircle, AlertCircle, Users, ListChecks, Loader2 } from "lucide-react";
-
-// Mock Miqaat data (in a real app, this would be fetched from Firestore)
-const mockMiqaats: Pick<Miqaat, "id" | "name" | "startTime">[] = [
-  { id: "m1", name: "Miqaat Al-Layl", startTime: new Date(2024, 9, 10, 19, 0).toISOString()},
-  { id: "m2", name: "Ashara Mubarakah - Day 1", startTime: new Date(2024, 9, 15, 9, 0).toISOString() },
-  { id: "m3", name: "Eid Majlis", startTime: new Date(2024, 10, 1, 8, 0).toISOString() },
-  { id: "m4", name: "Weekly Majlis", startTime: new Date().toISOString() }, // A current miqaat
-];
 
 export default function MarkAttendancePage() {
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
   const [memberIdInput, setMemberIdInput] = useState("");
   const [markedAttendance, setMarkedAttendance] = useState<MarkedAttendanceEntry[]>([]);
   const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime">[]>([]);
+  const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [isSearchingMember, setIsSearchingMember] = useState(false);
   
   const { toast } = useToast();
 
   useEffect(() => {
-    // Simulate fetching miqaats (replace with Firestore fetch later)
-    setAvailableMiqaats(mockMiqaats.sort((a,b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()));
-  }, []);
+    const fetchMiqaats = async () => {
+      setIsLoadingMiqaats(true);
+      try {
+        const fetchedMiqaats = await getMiqaats();
+        setAvailableMiqaats(fetchedMiqaats.map(m => ({ id: m.id, name: m.name, startTime: m.startTime })));
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to load Miqaats.", variant: "destructive" });
+        console.error("Failed to load Miqaats for attendance marking:", error);
+      } finally {
+        setIsLoadingMiqaats(false);
+      }
+    };
+    fetchMiqaats();
+  }, [toast]);
 
   const handleMarkAttendance = async () => {
     if (!selectedMiqaatId) {
@@ -102,7 +107,7 @@ export default function MarkAttendancePage() {
       miqaatName: selectedMiqaat.name,
     };
 
-    setMarkedAttendance(prev => [newEntry, ...prev]);
+    setMarkedAttendance(prev => [newEntry, ...prev]); // For this session only, not persisted yet
     toast({
       title: "Attendance Marked",
       description: `${member.name} (${member.itsId}) marked present for ${selectedMiqaat.name}.`,
@@ -111,6 +116,7 @@ export default function MarkAttendancePage() {
   };
 
   const currentMiqaatAttendance = markedAttendance.filter(entry => entry.miqaatId === selectedMiqaatId);
+  const currentSelectedMiqaatName = availableMiqaats.find(m => m.id === selectedMiqaatId)?.name || 'Selected Miqaat';
 
   return (
     <div className="space-y-6">
@@ -123,11 +129,17 @@ export default function MarkAttendancePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="md:col-span-1 space-y-2">
               <Label htmlFor="miqaat-select">Select Miqaat</Label>
-              <Select onValueChange={setSelectedMiqaatId} value={selectedMiqaatId || undefined}>
+              <Select 
+                onValueChange={setSelectedMiqaatId} 
+                value={selectedMiqaatId || undefined}
+                disabled={isLoadingMiqaats}
+              >
                 <SelectTrigger id="miqaat-select">
-                  <SelectValue placeholder="Choose a Miqaat" />
+                  <SelectValue placeholder={isLoadingMiqaats ? "Loading Miqaats..." : "Choose a Miqaat"} />
                 </SelectTrigger>
                 <SelectContent>
+                  {isLoadingMiqaats && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                  {!isLoadingMiqaats && availableMiqaats.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available</SelectItem>}
                   {availableMiqaats.map(miqaat => (
                     <SelectItem key={miqaat.id} value={miqaat.id}>
                       {miqaat.name} ({new Date(miqaat.startTime).toLocaleDateString()})
@@ -143,12 +155,12 @@ export default function MarkAttendancePage() {
                 placeholder="Enter 8-digit ITS or BGK ID"
                 value={memberIdInput}
                 onChange={(e) => setMemberIdInput(e.target.value)}
-                disabled={!selectedMiqaatId || isSearchingMember}
+                disabled={!selectedMiqaatId || isSearchingMember || isLoadingMiqaats}
               />
             </div>
             <Button 
               onClick={handleMarkAttendance} 
-              disabled={!selectedMiqaatId || !memberIdInput || isSearchingMember}
+              disabled={!selectedMiqaatId || !memberIdInput || isSearchingMember || isLoadingMiqaats}
               className="w-full md:w-auto"
             >
               {isSearchingMember ? (
@@ -164,7 +176,7 @@ export default function MarkAttendancePage() {
             <div className="mt-6 pt-6 border-t">
                 <h3 className="text-lg font-semibold mb-2 flex items-center">
                     <Users className="mr-2 h-5 w-5 text-primary" />
-                    Attendance for: {availableMiqaats.find(m => m.id === selectedMiqaatId)?.name || 'Selected Miqaat'}
+                    Attendance for: {currentSelectedMiqaatName}
                 </h3>
                 <p className="text-muted-foreground mb-4">
                     Total marked in this session: <span className="font-bold text-foreground">{currentMiqaatAttendance.length}</span>
@@ -195,13 +207,18 @@ export default function MarkAttendancePage() {
                 )}
             </div>
           )}
-
-
         </CardContent>
-        {!selectedMiqaatId && (
+        {!selectedMiqaatId && !isLoadingMiqaats && (
             <CardFooter>
                 <p className="text-sm text-muted-foreground flex items-center">
                     <AlertCircle className="mr-2 h-4 w-4" /> Please select a Miqaat to begin marking attendance.
+                </p>
+            </CardFooter>
+        )}
+         {isLoadingMiqaats && (
+            <CardFooter>
+                <p className="text-sm text-muted-foreground flex items-center">
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading Miqaats...
                 </p>
             </CardFooter>
         )}
