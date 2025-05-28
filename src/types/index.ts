@@ -8,7 +8,7 @@ export type User = {
   name: string;
   team?: string;
   phoneNumber?: string;
-  mohallahId?: string; // Changed from mohallah (name) to mohallahId
+  mohallahId?: string;
   role: UserRole;
   avatarUrl?: string;
 };
@@ -16,11 +16,12 @@ export type User = {
 export type Miqaat = {
   id: string;
   name: string;
-  startTime: string; // ISO Date string
-  endTime: string; // ISO Date string
+  startTime: string; // ISO Date string from datetime-local input
+  endTime: string; // ISO Date string from datetime-local input
   teams: string[];
-  barcodeData?: string; 
+  barcodeData?: string;
   location?: string;
+  createdAt?: string; // ISO Date string, from serverTimestamp after conversion
 };
 
 export type AttendanceRecord = {
@@ -45,8 +46,6 @@ export type Team = {
 export type Mohallah = {
   id: string;
   name: string;
-  // Members and admin are not directly stored on the Mohallah document in this model
-  // They would be derived or managed separately if needed at the Mohallah level
 };
 
 // Specific type for attendance marking session
@@ -65,4 +64,3 @@ export type NotificationItem = {
   createdAt: string; // ISO Date string
   read: boolean;
 };
-
