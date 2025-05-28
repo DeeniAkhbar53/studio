@@ -1,0 +1,30 @@
+"use client";
+
+import Image from 'next/image';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+interface BarcodeDisplayProps {
+  miqaatName: string;
+  barcodeData: string;
+}
+
+export function BarcodeDisplay({ miqaatName, barcodeData }: BarcodeDisplayProps) {
+  return (
+    <Card className="w-full max-w-md mx-auto shadow-lg">
+      <CardHeader>
+        <CardTitle>Barcode: {miqaatName}</CardTitle>
+        <CardDescription>Use this barcode for attendance marking.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col items-center justify-center p-6">
+        <div className="p-4 bg-white rounded-lg shadow-inner">
+          {/* In a real app, this would be a dynamically generated barcode image */}
+          <Image 
+            src={`https://placehold.co/300x100.png?text=${barcodeData}`} 
+            alt={`Barcode for ${miqaatName}`} 
+            width={300} 
+            height={100} 
+            data-ai-hint="barcode code"
+            className="rounded"
+          />
+        </div>
+        <p className="mt-4 text-sm text-muted-
