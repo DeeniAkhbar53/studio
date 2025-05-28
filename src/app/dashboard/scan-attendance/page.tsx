@@ -1,65 +1,95 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, VideoOff, ArrowLeft } from "lucide-react";
+import { Camera, VideoOff, ArrowLeft, SwitchCamera } from "lucide-react";
 
 export default function ScanAttendancePage() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const videoRef = useRef<HTMLVideoElement>(null);
   const router = useRouter();
   const { toast } = useToast();
 
+  const startCamera = useCallback(async (mode: 'user' | 'environment') => {
+    // Stop any existing stream
+    if (videoRef.current && videoRef.current.srcObject) {
+      const currentStream = videoRef.current.srcObject as MediaStream;
+      currentStream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast({
+        variant: "destructive",
+        title: "Camera Not Supported",
+        description: "Your browser does not support camera access.",
+      });
+      setHasCameraPermission(false);
+      return;
+    }
+
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
+      setHasCameraPermission(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = newStream;
+      }
+    } catch (error) {
+      console.error(`Error accessing ${mode} camera:`, error);
+      setHasCameraPermission(false);
+      let description = `Could not access the ${mode === 'user' ? 'front' : 'back'} camera. Please ensure permissions are granted.`;
+      if (error instanceof Error) {
+        if (error.name === "NotAllowedError") {
+          description = `Camera access for the ${mode === 'user' ? 'front' : 'back'} camera was denied. Please enable it in your browser settings.`;
+        } else if (error.name === "NotFoundError") {
+          description = `The ${mode === 'user' ? 'front' : 'back'} camera was not found on your device.`;
+        } else if (error.name === "OverconstrainedError") {
+          description = `The ${mode === 'user' ? 'front' : 'back'} camera doesn't support the requested constraints. Trying default camera.`;
+           // Try again without specific facingMode as a fallback
+            try {
+                toast({ title: "Camera Issue", description: `Trying default camera...` });
+                const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                setHasCameraPermission(true);
+                if (videoRef.current) {
+                    videoRef.current.srcObject = fallbackStream;
+                }
+                toast({ title: "Camera Fallback", description: `Using default camera.` });
+                return; 
+            } catch (fallbackError) {
+                console.error("Fallback camera error:", fallbackError);
+                description = "Could not access any camera. Please check your device and browser permissions.";
+            }
+        }
+      }
+      toast({
+        variant: "destructive",
+        title: "Camera Access Issue",
+        description: description,
+      });
+    }
+  }, [toast]);
+
   useEffect(() => {
-    const getCameraPermission = async () => {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast({
-          variant: "destructive",
-          title: "Camera Not Supported",
-          description: "Your browser does not support camera access.",
-        });
-        setHasCameraPermission(false);
-        return;
-      }
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        setHasCameraPermission(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (error) {
-        console.error("Error accessing camera:", error);
-        setHasCameraPermission(false);
-        let description = "Please enable camera permissions in your browser settings to use this feature.";
-        if (error instanceof Error && error.name === "NotAllowedError") {
-            description = "Camera access was denied. Please enable it in your browser settings.";
-        } else if (error instanceof Error && error.name === "NotFoundError") {
-            description = "No camera was found on your device.";
-        }
-        toast({
-          variant: "destructive",
-          title: "Camera Access Issue",
-          description: description,
-        });
-      }
-    };
-
-    getCameraPermission();
+    startCamera(facingMode);
 
     return () => {
-      // Cleanup: stop the camera stream when the component unmounts
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
       }
     };
-  }, [toast]);
+  }, [facingMode, startCamera]);
+
+  const handleSwitchCamera = () => {
+    setFacingMode(prevMode => (prevMode === 'user' ? 'environment' : 'user'));
+  };
 
   return (
     <div className="space-y-6">
@@ -75,18 +105,18 @@ export default function ScanAttendancePage() {
             Scan Attendance Barcode
           </CardTitle>
           <CardDescription>
-            Position the Miqaat barcode in front of your camera.
+            Position the Miqaat barcode in front of your camera. Current: {facingMode === 'user' ? 'Front Camera' : 'Back Camera'}
           </CardDescription>
         </CardHeader>
-        <CardContent className="aspect-video bg-muted rounded-md overflow-hidden flex items-center justify-center">
+        <CardContent className="aspect-video bg-muted rounded-md overflow-hidden flex items-center justify-center relative">
           {hasCameraPermission === null && <p>Requesting camera access...</p>}
           
           <video
             ref={videoRef}
             className={`w-full h-full object-cover ${hasCameraPermission ? '' : 'hidden'}`}
             autoPlay
-            playsInline
-            muted
+            playsInline // Important for iOS
+            muted // Muting is often required for autoplay
           />
           
           {hasCameraPermission === false && (
@@ -97,24 +127,27 @@ export default function ScanAttendancePage() {
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex flex-col items-center space-y-4 pt-6">
-          {hasCameraPermission === false && (
-             <Alert variant="destructive" className="w-full">
-              <AlertTitle>Camera Not Working</AlertTitle>
-              <AlertDescription>
-                Could not access the camera. Please ensure it's connected and permissions are granted in your browser settings.
-              </AlertDescription>
-            </Alert>
-          )}
+        <CardFooter className="flex flex-col items-center space-y-4 pt-6 sm:flex-row sm:justify-between sm:space-y-0">
+          <Button onClick={handleSwitchCamera} disabled={hasCameraPermission === null || !hasCameraPermission} variant="outline">
+            <SwitchCamera className="mr-2 h-4 w-4" /> Switch Camera
+          </Button>
           {/* Placeholder for actual scan button or automatic detection */}
           <Button className="w-full sm:w-auto" disabled={!hasCameraPermission}>
             <Camera className="mr-2 h-4 w-4" />
             Scan (Placeholder)
           </Button>
-          <p className="text-xs text-muted-foreground">
+        </CardFooter>
+         {hasCameraPermission === false && (
+             <Alert variant="destructive" className="m-6 mt-0">
+              <AlertTitle>Camera Not Working</AlertTitle>
+              <AlertDescription>
+                Could not access the camera. Please ensure it's connected and permissions are granted in your browser settings. Try switching cameras if available.
+              </AlertDescription>
+            </Alert>
+          )}
+          <p className="text-xs text-muted-foreground text-center pb-4 px-6">
             Scanning will happen automatically once a barcode is detected.
           </p>
-        </CardFooter>
       </Card>
     </div>
   );
