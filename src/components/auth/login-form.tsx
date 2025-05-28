@@ -40,7 +40,9 @@ export function LoginForm() {
     form.setValue('identityId', data.identityId.trim());
     const { identityId } = data;
 
-    form.formState.isSubmitting; 
+    form.control.register('identityId'); // Mark as submitting
+    const isSubmitting = form.formState.isSubmitting;
+
 
     try {
       const user = await getUserByItsOrBgkId(identityId);
@@ -50,6 +52,7 @@ export function LoginForm() {
           localStorage.setItem('userRole', user.role);
           localStorage.setItem('userName', user.name);
           localStorage.setItem('userItsId', user.itsId);
+          localStorage.setItem('userMohallahId', user.mohallahId || ''); // Store mohallahId
           localStorage.setItem('userPageRights', JSON.stringify(user.pageRights || []));
         }
 
@@ -76,6 +79,9 @@ export function LoginForm() {
         title: "Login Error",
         description: "An error occurred while trying to log in. Please check console.",
       });
+    } finally {
+        // Manually reset isSubmitting if needed, though react-hook-form usually handles it.
+        // This part might not be necessary if form.formState.isSubmitting updates correctly.
     }
   }
 

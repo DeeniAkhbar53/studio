@@ -24,6 +24,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent a
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
 import Papa from 'papaparse';
+import type { Unsubscribe } from "firebase/firestore";
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -42,8 +43,8 @@ type MemberFormValues = z.infer<typeof memberSchema>;
 const roleDescriptions: Record<UserRole, string> = {
     user: "Regular user with basic access. Can scan their own attendance and view profile/notifications.",
     "attendance-marker": "Can mark attendance for members and view reports.",
-    admin: "Can manage users, Miqaats, Mohallahs, and generate reports. Access can be customized.",
-    superadmin: "Full access to all system features and settings.",
+    admin: "Can manage users, Miqaats, Mohallahs, and generate reports within their assigned Mohallah. Access can be customized.",
+    superadmin: "Full access to all system features and settings, across all Mohallahs.",
 };
 
 const AVAILABLE_PAGE_RIGHTS: PageRightConfig[] = [
@@ -72,6 +73,7 @@ export default function ManageMembersPage() {
   const { toast } = useToast();
 
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const [selectedFilterMohallahId, setSelectedFilterMohallahId] = useState<string>("all");
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -85,63 +87,71 @@ export default function ManageMembersPage() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const role = localStorage.getItem('userRole') as UserRole | null;
+      const mohallahId = localStorage.getItem('userMohallahId');
       setCurrentUserRole(role);
+      setCurrentUserMohallahId(mohallahId);
+      if (role === 'admin' && mohallahId) {
+        setSelectedFilterMohallahId(mohallahId); // Admin is locked to their mohallah
+      }
     }
   }, []);
 
-  const fetchAndSetMohallahs = useCallback(async () => {
+  useEffect(() => {
     setIsLoadingMohallahs(true);
-    try {
-      // For realtime updates, the service now takes a callback
-      // For this page, a one-time fetch might be enough unless Mohallah list changes very frequently
-      const fetchedMohallahs = await new Promise<Mohallah[]>((resolve) => {
-        getMohallahs(resolve); // Assuming getMohallahs can be adapted for a single fetch or we use a different service fn
-      });
+    const unsubscribeMohallahs = getMohallahs((fetchedMohallahs) => {
       setMohallahs(fetchedMohallahs);
-      if (fetchedMohallahs.length > 0 && !memberForm.getValues("mohallahId") && selectedFilterMohallahId === 'all') {
-        memberForm.setValue("mohallahId", fetchedMohallahs[0].id);
-      } else if (selectedFilterMohallahId !== 'all') {
-         memberForm.setValue("mohallahId", selectedFilterMohallahId);
-      }
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to fetch Mohallahs.", variant: "destructive" });
-      console.error("Failed to fetch Mohallahs:", error);
-    } finally {
       setIsLoadingMohallahs(false);
-    }
-  }, [toast, memberForm, selectedFilterMohallahId]);
+    });
+    return () => unsubscribeMohallahs();
+  }, []);
 
-  const fetchAndSetMembers = useCallback(async () => {
+  const fetchAndSetMembers = useCallback(async (targetMohallahIdForFetch?: string) => {
     setIsLoadingMembers(true);
     setFetchError(null);
     try {
-      const fetchedMembers = await getUsers(currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
-      setMembers(fetchedMembers);
+        const fetchedMembers = await getUsers(targetMohallahIdForFetch);
+        setMembers(fetchedMembers);
     } catch (error: any) {
-      console.error("Failed to fetch members:", error);
-      if (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && error.message.includes("index")) {
-        const specificErrorMsg = "Could not fetch all members. This may be due to missing Firestore indexes. Please select a specific Mohallah to view its members or configure Firestore indexes.";
-        setFetchError(specificErrorMsg);
-        toast({ title: "Data Fetch Warning", description: specificErrorMsg, variant: "destructive", duration: 10000 });
-        setMembers([]);
-      } else {
-        toast({ title: "Error", description: "Failed to fetch members.", variant: "destructive" });
-        setFetchError("Failed to fetch members. Please try again.");
-      }
+        console.error("Failed to fetch members:", error);
+        if (currentUserRole === 'superadmin' && !targetMohallahIdForFetch && error.message.includes("index")) {
+            const specificErrorMsg = "Could not fetch all members. This may be due to missing Firestore indexes. Please select a specific Mohallah to view its members or configure Firestore indexes.";
+            setFetchError(specificErrorMsg);
+            toast({ title: "Data Fetch Warning", description: specificErrorMsg, variant: "destructive", duration: 10000 });
+            setMembers([]); 
+        } else {
+            toast({ title: "Error", description: "Failed to fetch members.", variant: "destructive" });
+            setFetchError("Failed to fetch members. Please try again.");
+        }
     } finally {
+        setIsLoadingMembers(false);
+    }
+  }, [toast, currentUserRole]);
+
+  useEffect(() => {
+    if (!currentUserRole) {
+      setIsLoadingMembers(false);
+      return;
+    }
+
+    let mohallahIdToFetch: string | undefined = undefined;
+
+    if (currentUserRole === 'admin') {
+      if (currentUserMohallahId) {
+        mohallahIdToFetch = currentUserMohallahId;
+        fetchAndSetMembers(mohallahIdToFetch);
+      } else {
+        setMembers([]);
+        setIsLoadingMembers(false);
+        setFetchError("Admin's Mohallah ID not found. Cannot display members.");
+      }
+    } else if (currentUserRole === 'superadmin') {
+      mohallahIdToFetch = selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId;
+      fetchAndSetMembers(mohallahIdToFetch);
+    } else {
+      setMembers([]);
       setIsLoadingMembers(false);
     }
-  }, [toast, currentUserRole, selectedFilterMohallahId]);
-
-  useEffect(() => {
-    fetchAndSetMohallahs();
-  }, [fetchAndSetMohallahs]);
-
-  useEffect(() => {
-    if (currentUserRole) {
-        fetchAndSetMembers();
-    }
-  }, [fetchAndSetMembers, currentUserRole, selectedFilterMohallahId]);
+  }, [currentUserRole, currentUserMohallahId, selectedFilterMohallahId, fetchAndSetMembers]);
 
 
   useEffect(() => {
@@ -157,18 +167,23 @@ export default function ManageMembersPage() {
         designation: editingMember.designation || "Member",
         pageRights: editingMember.pageRights || [],
       });
-    } else {
-      const defaultMohallah = selectedFilterMohallahId !== 'all'
+    } else { // Adding new member
+      let defaultMohallahForForm = "";
+      if (currentUserRole === 'admin' && currentUserMohallahId) {
+        defaultMohallahForForm = currentUserMohallahId;
+      } else if (currentUserRole === 'superadmin') {
+        defaultMohallahForForm = selectedFilterMohallahId !== 'all'
                               ? selectedFilterMohallahId
                               : (mohallahs.length > 0 ? mohallahs[0].id : "");
+      }
       memberForm.reset({
         name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user",
-        mohallahId: defaultMohallah,
+        mohallahId: defaultMohallahForForm,
         designation: "Member",
         pageRights: [],
       });
     }
-  }, [editingMember, memberForm, isMemberDialogOpen, mohallahs, selectedFilterMohallahId]);
+  }, [editingMember, memberForm, isMemberDialogOpen, mohallahs, selectedFilterMohallahId, currentUserRole, currentUserMohallahId]);
 
   const handleMemberFormSubmit = async (values: MemberFormValues) => {
     const targetMohallahId = values.mohallahId;
@@ -202,7 +217,12 @@ export default function ManageMembersPage() {
         await addUser(memberPayload, targetMohallahId);
         toast({ title: "Member Added", description: `"${values.name}" has been added to ${getMohallahNameById(targetMohallahId)}.` });
       }
-      fetchAndSetMembers();
+      // Smart refresh based on role and filter
+      if (currentUserRole === 'admin' && currentUserMohallahId) {
+        fetchAndSetMembers(currentUserMohallahId);
+      } else if (currentUserRole === 'superadmin') {
+        fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
+      }
       setIsMemberDialogOpen(false);
       setEditingMember(null);
     } catch (error) {
@@ -224,7 +244,12 @@ export default function ManageMembersPage() {
     try {
       await deleteUser(member.id, member.mohallahId);
       toast({ title: "Member Deleted", description: `"${member.name}" has been deleted.`});
-      fetchAndSetMembers();
+       // Smart refresh based on role and filter
+      if (currentUserRole === 'admin' && currentUserMohallahId) {
+        fetchAndSetMembers(currentUserMohallahId);
+      } else if (currentUserRole === 'superadmin') {
+        fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
+      }
     } catch (error) {
       console.error("Error deleting member:", error);
       toast({ title: "Database Error", description: "Could not delete member.", variant: "destructive" });
@@ -268,6 +293,12 @@ export default function ManageMembersPage() {
               continue;
             }
             const mohallahId = mohallah.id;
+             // Admin role check: if admin is uploading, they can only upload to their own mohallah
+            if (currentUserRole === 'admin' && mohallahId !== currentUserMohallahId) {
+                failedRecords.push({ data: row, reason: `Admins can only import to their assigned Mohallah. Row skipped for Mohallah "${row.mohallahName}".` });
+                skippedCount++;
+                continue;
+            }
 
             try {
               const existingUser = await getUserByItsOrBgkId(row.itsId);
@@ -320,12 +351,17 @@ export default function ManageMembersPage() {
           setIsCsvProcessing(false);
           setIsCsvImportDialogOpen(false);
           setSelectedFile(null);
-          fetchAndSetMembers(); 
+           // Smart refresh based on role and filter
+          if (currentUserRole === 'admin' && currentUserMohallahId) {
+            fetchAndSetMembers(currentUserMohallahId);
+          } else if (currentUserRole === 'superadmin') {
+            fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
+          }
 
-          if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0 && skippedCount > 0)) {
+          if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0)) {
             toast({
                 title: "CSV Import Error",
-                description: "There was an issue importing some or all users.",
+                description: "There was an issue importing some or all users. Check console for details.",
                 variant: "destructive",
             });
           } else {
@@ -386,10 +422,18 @@ export default function ManageMembersPage() {
     const searchTermMatch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             m.itsId.includes(searchTerm) ||
                             (mohallahs.find(moh => moh.id === m.mohallahId)?.name.toLowerCase() || "").includes(searchTerm.toLowerCase());
+    // No need to filter by mohallahId here if getUsers is already doing it based on role/selection
     return searchTermMatch;
   });
 
   const getMohallahNameById = (id?: string) => mohallahs.find(m => m.id === id)?.name || "N/A";
+  
+  const canAddMember = () => {
+    if (isLoadingMohallahs) return false;
+    if (currentUserRole === 'admin') return !!currentUserMohallahId;
+    if (currentUserRole === 'superadmin') return true; // Superadmin can always add if mohallahs are loaded or 'all' selected
+    return false;
+  };
 
   return (
     <div className="space-y-6">
@@ -398,18 +442,24 @@ export default function ManageMembersPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
             <div className="flex-grow">
               <CardTitle className="flex items-center"><UsersIcon className="mr-2 h-5 w-5 text-primary"/>Manage Members</CardTitle>
-              <CardDescription className="mt-1">Add, view, and manage members within Mohallahs. Data from Firestore.</CardDescription>
+              <CardDescription className="mt-1">
+                {currentUserRole === 'admin' && currentUserMohallahId 
+                  ? `Managing members for Mohallah: ${getMohallahNameById(currentUserMohallahId)}.`
+                  : 'Add, view, and manage members. Data from Firestore.'}
+              </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto self-start md:self-center shrink-0">
               <Button variant="outline" onClick={downloadSampleCsv} className="w-full sm:w-auto" size="sm">
                   <Download className="mr-2 h-4 w-4" /> Download Sample CSV
               </Button>
-              <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)} className="w-full sm:w-auto" size="sm">
+              <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)} className="w-full sm:w-auto" size="sm" disabled={!canAddMember()}>
                 <FileUp className="mr-2 h-4 w-4" /> Import CSV
               </Button>
               <Dialog open={isMemberDialogOpen} onOpenChange={(open) => { setIsMemberDialogOpen(open); if (!open) setEditingMember(null); }}>
                 <DialogTrigger asChild>
-                  <Button onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} className="w-full sm:w-auto" size="sm" disabled={isLoadingMohallahs || (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && mohallahs.length === 0)}>
+                  <Button onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} className="w-full sm:w-auto" size="sm" 
+                    disabled={!canAddMember() || (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && mohallahs.length === 0 && !isLoadingMohallahs)}
+                  >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add New Member
                   </Button>
                 </DialogTrigger>
@@ -497,16 +547,16 @@ export default function ManageMembersPage() {
                           <Select
                             onValueChange={field.onChange}
                             value={field.value}
-                            disabled={isLoadingMohallahs || mohallahs.length === 0 || !!editingMember}
+                            disabled={isLoadingMohallahs || mohallahs.length === 0 || !!editingMember || currentUserRole === 'admin'}
                           >
                             <FormControl><SelectTrigger id="mohallahId" className="col-span-3"><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
                             <SelectContent>
                               {isLoadingMohallahs ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
-                              mohallahs.length === 0 ? <SelectItem value="no-mohallah" disabled>No Mohallahs</SelectItem> :
+                              mohallahs.length === 0 ? <SelectItem value="no-mohallah" disabled>No Mohallahs available</SelectItem> :
                               mohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                             </SelectContent>
                           </Select>
-                          {!!editingMember && <FormDescription className="col-start-2 col-span-3 text-xs">To change Mohallah, delete and re-add member.</FormDescription>}
+                          {(!!editingMember || currentUserRole === 'admin') && <FormDescription className="col-start-2 col-span-3 text-xs">Mohallah cannot be changed for existing members or by admins.</FormDescription>}
                           <FormMessage className="col-start-2 col-span-3 text-xs" />
                         </FormItem>
                       )} />
@@ -566,7 +616,7 @@ export default function ManageMembersPage() {
 
                       <DialogFooter className="pt-4">
                         <Button type="button" variant="outline" onClick={() => setIsMemberDialogOpen(false)}>Cancel</Button>
-                        <Button type="submit" disabled={memberForm.formState.isSubmitting || isLoadingMohallahs || (mohallahs.length === 0 && !isLoadingMohallahs && !memberForm.getValues("mohallahId")) }>
+                        <Button type="submit" disabled={memberForm.formState.isSubmitting || !canAddMember() || (mohallahs.length === 0 && !isLoadingMohallahs && !memberForm.getValues("mohallahId"))}>
                           {memberForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           {editingMember ? "Save Changes" : "Add Member"}
                         </Button>
@@ -604,11 +654,6 @@ export default function ManageMembersPage() {
                     value={selectedFilterMohallahId}
                     onValueChange={(value) => {
                         setSelectedFilterMohallahId(value);
-                        if (value !== 'all') {
-                            memberForm.setValue("mohallahId", value);
-                        } else if (mohallahs.length > 0) {
-                            memberForm.setValue("mohallahId", mohallahs[0].id);
-                        }
                     }}
                     disabled={isLoadingMohallahs}
                 >
@@ -626,7 +671,7 @@ export default function ManageMembersPage() {
               </div>
             )}
           </div>
-          {isLoadingMembers || (isLoadingMohallahs && currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' ) ? (
+          {isLoadingMembers ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-2 text-muted-foreground">Loading members...</p>
@@ -691,8 +736,9 @@ export default function ManageMembersPage() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center h-24">
-                      No members found { (searchTerm || (selectedFilterMohallahId && selectedFilterMohallahId !=='all' && !fetchError)) && "matching criteria"}.
-                      {fetchError && selectedFilterMohallahId === 'all' && "Select a specific Mohallah."}
+                      No members found { (searchTerm || (currentUserRole === 'superadmin' && selectedFilterMohallahId !=='all') || (currentUserRole === 'admin' && currentUserMohallahId) && !fetchError ) && "matching criteria"}.
+                      {(fetchError && currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' ) && "Select a specific Mohallah."}
+                      {(currentUserRole === 'admin' && !currentUserMohallahId && !isLoadingMembers) && "Admin Mohallah not set."}
                     </TableCell>
                   </TableRow>
                 )}
@@ -703,7 +749,7 @@ export default function ManageMembersPage() {
         </CardContent>
          <CardFooter>
             <p className="text-xs text-muted-foreground">
-              Total Displayed: {filteredMembers.length} / { (selectedFilterMohallahId === 'all' && !fetchError) ? members.length : (filteredMembers.length > 0 ? filteredMembers.length : members.length) }
+              Total Displayed: {filteredMembers.length} / { members.length }
             </p>
         </CardFooter>
       </Card>
@@ -713,7 +759,7 @@ export default function ManageMembersPage() {
           <DialogHeader>
             <DialogTitle>Import Members via CSV</DialogTitle>
             <DialogDescription>
-              Select CSV file. Columns: `name`, `itsId`, `bgkId`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist.
+              Select CSV file. Columns: `name`, `itsId`, `bgkId`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist. Admins can only import to their assigned Mohallah.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
