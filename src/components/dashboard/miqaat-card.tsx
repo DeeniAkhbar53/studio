@@ -93,11 +93,12 @@ export function MiqaatCard({ miqaat, onEdit, onDelete }: MiqaatCardProps) {
           </AlertDialogHeader>
           <div className="flex justify-center items-center my-4">
             <Image
-              src={`https://placehold.co/300x100.png?text=Barcode+${miqaat.id}`}
+              src={`https://placehold.co/250x250.png?text=${encodeURIComponent(miqaat.barcodeData || miqaat.id)}`}
               alt={`Barcode for ${miqaat.name}`}
-              width={300}
-              height={100}
+              width={250}
+              height={250}
               data-ai-hint="barcode scan"
+              className="rounded"
             />
           </div>
           <p className="text-center text-sm text-muted-foreground">Data: {miqaat.barcodeData || miqaat.id}</p>

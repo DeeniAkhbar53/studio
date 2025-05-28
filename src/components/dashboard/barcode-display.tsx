@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from 'next/image';
@@ -19,12 +20,16 @@ export function BarcodeDisplay({ miqaatName, barcodeData }: BarcodeDisplayProps)
         <div className="p-4 bg-white rounded-lg shadow-inner">
           {/* In a real app, this would be a dynamically generated barcode image */}
           <Image 
-            src={`https://placehold.co/300x100.png?text=${barcodeData}`} 
+            src={`https://placehold.co/250x250.png?text=${encodeURIComponent(barcodeData)}`} 
             alt={`Barcode for ${miqaatName}`} 
-            width={300} 
-            height={100} 
+            width={250} 
+            height={250} 
             data-ai-hint="barcode code"
             className="rounded"
           />
         </div>
-        <p className="mt-4 text-sm text-muted-
+        <p className="mt-4 text-sm text-muted-foreground">Data: {barcodeData}</p>
+      </CardContent>
+    </Card>
+  );
+}
