@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'app.burhaniguards.org',
+        port: '',
+        pathname: '/images/logo.png',
+      }
     ],
   },
 };

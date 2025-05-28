@@ -2,6 +2,7 @@
 import { Header } from "@/components/dashboard/header";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function DashboardLayout({
   children,
@@ -14,7 +15,13 @@ export default function DashboardLayout({
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-16 items-center border-b px-4 lg:px-6">
             <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-sidebar-primary">
-               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+               <Image 
+                 src="https://app.burhaniguards.org/images/logo.png" 
+                 alt="BGK Attendance Logo" 
+                 width={32} 
+                 height={32} 
+                 className="h-8 w-8" 
+               />
               <span className="text-sidebar-foreground">BGK Attendance</span>
             </Link>
           </div>

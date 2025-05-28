@@ -12,13 +12,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { SidebarNav } from "./sidebar-nav";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { NotificationItem } from "@/types";
-import { cn } from "@/lib/utils";
+import Image from "next/image"; // Added Image import
 
 const NOTIFICATIONS_STORAGE_KEY = "appNotifications";
 
@@ -101,7 +101,13 @@ export function Header() {
             <SheetHeader className="p-4 border-b">
               <SheetTitle className="sr-only">Main Navigation Menu</SheetTitle>
                <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
+                <Image 
+                  src="https://app.burhaniguards.org/images/logo.png" 
+                  alt="BGK Attendance Logo" 
+                  width={24} 
+                  height={24} 
+                  className="h-6 w-6" 
+                />
                 <span>BGK Attendance</span>
               </Link>
             </SheetHeader>
