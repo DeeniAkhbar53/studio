@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle as DialogPrimitiveTitle, DialogTrigger } from "@/components/ui/dialog"; // Aliased DialogTitle to avoid conflict
 import { SidebarNav } from "./sidebar-nav";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -24,15 +24,15 @@ import Image from "next/image";
 const NOTIFICATIONS_STORAGE_KEY = "appNotifications";
 
 const pageTitles: { [key: string]: string } = {
-  "/dashboard": "Dashboard", // Changed from "Dashboard Overview"
-  "/dashboard/profile": "My Profile",
-  "/dashboard/miqaat-management": "Miqaat Management",
-  "/dashboard/mohallah-management": "Mohallah Management",
-  "/dashboard/reports": "Attendance Reports",
-  "/dashboard/scan-attendance": "Scan Attendance Barcode",
-  "/dashboard/mark-attendance": "Mark Member Attendance",
-  "/dashboard/notifications": "Notifications",
-  "/dashboard/manage-notifications": "Manage Notifications",
+  "/dashboard": "Overview", // Changed from "Dashboard"
+  "/dashboard/profile": "Profile", // Changed from "My Profile"
+  "/dashboard/miqaat-management": "Miqaats", // Changed from "Miqaat Management"
+  "/dashboard/mohallah-management": "Mohallahs", // Changed from "Mohallah Management"
+  "/dashboard/reports": "Reports", // Changed from "Attendance Reports"
+  "/dashboard/scan-attendance": "Scan My QR", // Changed from "Scan Attendance Barcode"
+  "/dashboard/mark-attendance": "Mark Attendance", // Changed from "Mark Member Attendance"
+  "/dashboard/notifications": "Notifications", // Remains "Notifications"
+  "/dashboard/manage-notifications": "Manage Notifications", // Remains "Manage Notifications"
 };
 
 export function Header() {
@@ -86,7 +86,7 @@ export function Header() {
     window.dispatchEvent(new CustomEvent('notificationsUpdated')); 
   };
   
-  const currentPageTitle = pageTitles[pathname] || "Dashboard";
+  const currentPageTitle = pageTitles[pathname] || "Dashboard"; // Fallback to "Dashboard" if path not in map
 
   return (
     <header className="flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 sticky top-0 z-30">
@@ -141,7 +141,7 @@ export function Header() {
         </DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Need Assistance?</DialogTitle>
+            <DialogPrimitiveTitle>Need Assistance?</DialogPrimitiveTitle>
             <DialogDescription>
               Here you can find information on how to use the BGK Attendance system or contact support.
             </DialogDescription>
