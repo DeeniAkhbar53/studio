@@ -23,6 +23,7 @@ import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
+import Papa from 'papaparse';
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -167,6 +168,7 @@ export default function ManageMembersPage() {
 
   const handleMemberFormSubmit = async (values: MemberFormValues) => {
     const targetMohallahId = values.mohallahId;
+    console.log("Attempting to save member. Payload before service call:", values, "Target Mohallah ID for path:", targetMohallahId);
     if (!targetMohallahId) {
         toast({ title: "Error", description: "Mohallah ID is missing.", variant: "destructive" });
         return;
@@ -184,13 +186,13 @@ export default function ManageMembersPage() {
       pageRights: values.role === 'user' ? [] : (values.pageRights || []),
     };
     
-    console.log("Attempting to save member. Payload:", memberPayload, "Target Mohallah ID for path:", targetMohallahId);
+    console.log("Attempting to save member. Payload for service:", memberPayload, "Target Mohallah ID for path:", targetMohallahId);
 
 
     try {
       if (editingMember && editingMember.mohallahId) {
         const updatePayload = { ...memberPayload };
-        delete (updatePayload as any).mohallahId; // mohallahId is part of the path, not the data to update for user doc
+        delete (updatePayload as any).mohallahId; 
 
         await updateUser(editingMember.id, editingMember.mohallahId, updatePayload);
         toast({ title: "Member Updated", description: `"${values.name}" has been updated.` });
@@ -234,16 +236,47 @@ export default function ManageMembersPage() {
     }
     setIsCsvProcessing(true);
 
-    setTimeout(() => {
+    try {
+      const fileContent = await selectedFile.text();
+      Papa.parse(fileContent, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          console.log("Parsed CSV Data:", results.data);
+          // Log first 5 rows for brevity, if available
+          const sampleData = results.data.slice(0, 5);
+          console.log("First 5 rows of parsed CSV:", sampleData);
+
+          setIsCsvProcessing(false);
+          toast({
+            title: "CSV File Processed (Conceptual)",
+            description: `File "${selectedFile.name}" parsed. ${sampleData.length} sample rows logged to console. Full database import is a future enhancement.`,
+            duration: 7000,
+          });
+          setIsCsvImportDialogOpen(false);
+          setSelectedFile(null);
+        },
+        error: (error: any) => {
+          console.error("Error parsing CSV:", error);
+          setIsCsvProcessing(false);
+          toast({
+            title: "CSV Parsing Error",
+            description: `Could not parse file: ${error.message}. See console for details.`,
+            variant: "destructive",
+            duration: 7000,
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Error reading file:", error);
       setIsCsvProcessing(false);
       toast({
-          title: "CSV File Received",
-          description: `File "${selectedFile.name}" received. Conceptual Process: Parse, validate, check duplicates, add new users. Actual database import from CSV is a future enhancement.`,
-          duration: 7000,
+        title: "File Read Error",
+        description: "Could not read the selected file.",
+        variant: "destructive",
+        duration: 7000,
       });
-      setIsCsvImportDialogOpen(false);
-      setSelectedFile(null);
-    }, 2500);
+    }
   };
 
   const downloadSampleCsv = () => {
