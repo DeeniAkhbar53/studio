@@ -4,8 +4,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import type { UserRole, NotificationItem } from "@/types"; // Added NotificationItem
-import { Home, User, CalendarDays, Building, BarChart3, UserCheck, ScanBarcode, Bell, Settings } from "lucide-react"; // Added Bell, Settings (for manage notifs)
+import type { UserRole, NotificationItem } from "@/types";
+import { Home, User, CalendarDays, Building, BarChart3, UserCheck, ScanBarcode, Bell, Settings, Users as UsersIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 
 interface NavItem {
@@ -13,7 +13,7 @@ interface NavItem {
   label: string;
   icon: React.ElementType;
   allowedRoles?: UserRole[]; 
-  badgeCount?: () => number; // Optional function to get badge count
+  badgeCount?: () => number; 
 }
 
 const NOTIFICATIONS_STORAGE_KEY = "appNotifications";
@@ -28,7 +28,6 @@ const getUnreadNotificationsCount = (): number => {
   return 0;
 };
 
-
 const allNavItems: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: Home },
   { href: "/dashboard/profile", label: "Profile", icon: User },
@@ -37,7 +36,7 @@ const allNavItems: NavItem[] = [
     label: "Notifications", 
     icon: Bell,
     badgeCount: getUnreadNotificationsCount 
-  }, // All users
+  },
   { href: "/dashboard/scan-attendance", label: "Scan My QR", icon: ScanBarcode, allowedRoles: ['user'] },
   { 
     href: "/dashboard/mark-attendance", 
@@ -52,15 +51,21 @@ const allNavItems: NavItem[] = [
     allowedRoles: ['admin', 'superadmin'] 
   },
   { 
-    href: "/dashboard/mohallah-management", 
-    label: "Mohallahs", 
+    href: "/dashboard/manage-mohallahs", 
+    label: "Manage Mohallahs", 
     icon: Building, 
+    allowedRoles: ['admin', 'superadmin'] 
+  },
+  { 
+    href: "/dashboard/manage-members", 
+    label: "Manage Members", 
+    icon: UsersIcon, 
     allowedRoles: ['admin', 'superadmin'] 
   },
    { 
     href: "/dashboard/manage-notifications", 
     label: "Manage Notifications", 
-    icon: Settings, // Using Settings icon as placeholder
+    icon: Settings, 
     allowedRoles: ['admin', 'superadmin'] 
   },
   { 
@@ -90,7 +95,7 @@ export function SidebarNav() {
       };
 
       window.addEventListener('storage', handleStorageChange);
-      window.addEventListener('notificationsUpdated', handleNotificationsUpdate); // Custom event
+      window.addEventListener('notificationsUpdated', handleNotificationsUpdate);
 
       return () => {
           window.removeEventListener('storage', handleStorageChange);
@@ -116,7 +121,7 @@ export function SidebarNav() {
   return (
     <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
       {navItems.map((item) => {
-        const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/dashboard");
+        const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/dashboard" && item.href.length > "/dashboard".length);
         const currentBadgeCount = item.label === "Notifications" ? unreadCount : undefined;
 
         return (
@@ -145,3 +150,5 @@ export function SidebarNav() {
     </nav>
   );
 }
+
+    
