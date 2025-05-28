@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { MiqaatCard } from "@/components/dashboard/miqaat-card";
-import type { Miqaat, UserRole } from "@/types";
+import type { Miqaat, UserRole, Mohallah } from "@/types"; // Added Mohallah
 import { PlusCircle, Search, Loader2, CalendarDays } from "lucide-react"; 
 import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
@@ -17,7 +17,7 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel as ShadFormLabel, FormDescription } from "@/components/ui/form";
 import { getMiqaats, addMiqaat, updateMiqaat, deleteMiqaat as fbDeleteMiqaat, MiqaatDataForAdd, MiqaatDataForUpdate } from "@/lib/firebase/miqaatService";
-import { getUniqueTeamNames } from "@/lib/firebase/userService";
+import { getMohallahs } from "@/lib/firebase/mohallahService"; // Import getMohallahs
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 
@@ -28,20 +28,20 @@ const miqaatSchema = z.object({
   endTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid end date" }),
   reportingTime: z.string().optional().nullable()
     .refine(val => !val || val === "" || !isNaN(Date.parse(val)), { message: "Invalid reporting date if provided" }),
-  teams: z.array(z.string()).optional().default([]),
+  mohallahIds: z.array(z.string()).optional().default([]), // Changed from teams
   barcodeData: z.string().optional(),
 });
 
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
 
 export default function MiqaatManagementPage() {
-  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance">[]>([]);
+  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "location" | "barcodeData" | "attendance" | "createdAt">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
-  const [availableTeams, setAvailableTeams] = useState<string[]>([]);
-  const [isLoadingTeams, setIsLoadingTeams] = useState(true);
+  const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]); // For Mohallah selection
+  const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true); // Loading state for Mohallahs
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance"> | null>(null);
+  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "location" | "barcodeData" | "attendance" | "createdAt"> | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const { toast } = useToast();
 
@@ -53,7 +53,7 @@ export default function MiqaatManagementPage() {
       startTime: "",
       endTime: "",
       reportingTime: "",
-      teams: [],
+      mohallahIds: [], // Changed from teams
       barcodeData: "",
     },
   });
@@ -68,22 +68,15 @@ export default function MiqaatManagementPage() {
       setIsLoadingMiqaats(false);
     });
 
-    const fetchTeams = async () => {
-      setIsLoadingTeams(true);
-      try {
-        const fetchedTeams = await getUniqueTeamNames();
-        setAvailableTeams(fetchedTeams);
-      } catch (error) {
-        toast({ title: "Error", description: "Failed to fetch Teams.", variant: "destructive" });
-        console.error("Failed to fetch Teams:", error);
-      } finally {
-        setIsLoadingTeams(false);
-      }
-    };
-    fetchTeams();
+    setIsLoadingMohallahs(true);
+    const unsubscribeMohallahs = getMohallahs((fetchedMohallahs) => { // Fetch Mohallahs
+      setAvailableMohallahs(fetchedMohallahs);
+      setIsLoadingMohallahs(false);
+    });
 
     return () => {
       unsubscribeMiqaats();
+      unsubscribeMohallahs(); // Unsubscribe from Mohallahs
     };
   }, [toast]);
 
@@ -95,11 +88,11 @@ export default function MiqaatManagementPage() {
         startTime: editingMiqaat.startTime ? new Date(editingMiqaat.startTime).toISOString().substring(0, 16) : "",
         endTime: editingMiqaat.endTime ? new Date(editingMiqaat.endTime).toISOString().substring(0, 16) : "",
         reportingTime: editingMiqaat.reportingTime ? new Date(editingMiqaat.reportingTime).toISOString().substring(0, 16) : "",
-        teams: editingMiqaat.teams || [],
+        mohallahIds: editingMiqaat.mohallahIds || [], // Changed from teams
         barcodeData: editingMiqaat.barcodeData || "",
       });
     } else {
-      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", teams: [], barcodeData: "" });
+      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", mohallahIds: [], barcodeData: "" });
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
@@ -110,7 +103,7 @@ export default function MiqaatManagementPage() {
       startTime: values.startTime, 
       endTime: values.endTime,     
       reportingTime: values.reportingTime || undefined,
-      teams: values.teams || [],
+      mohallahIds: values.mohallahIds || [], // Changed from teams
       barcodeData: values.barcodeData || undefined,
     };
     
@@ -132,7 +125,7 @@ export default function MiqaatManagementPage() {
     }
   };
 
-  const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance">) => {
+  const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "location" | "barcodeData" | "attendance" | "createdAt">) => {
     setEditingMiqaat(miqaat);
     setIsDialogOpen(true);
   };
@@ -225,39 +218,39 @@ export default function MiqaatManagementPage() {
                     
                     <FormField
                       control={form.control}
-                      name="teams"
+                      name="mohallahIds" // Changed from teams
                       render={({ field }) => (
                         <FormItem className="grid grid-cols-4 items-start gap-x-4">
-                          <ShadFormLabel className="text-right pt-2 col-span-1">Teams</ShadFormLabel>
+                          <ShadFormLabel className="text-right pt-2 col-span-1">Assigned Mohallahs</ShadFormLabel> {/* Changed Label */}
                           <div className="col-span-3 space-y-1">
                             <div className="rounded-md border p-3 min-h-[60px] max-h-40 overflow-y-auto space-y-2 bg-background">
-                              {isLoadingTeams ? (
-                                <p className="text-sm text-muted-foreground">Loading teams...</p>
-                              ) : availableTeams.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">No teams found in user profiles.</p>
+                              {isLoadingMohallahs ? ( // Check isLoadingMohallahs
+                                <p className="text-sm text-muted-foreground">Loading Mohallahs...</p>
+                              ) : availableMohallahs.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">No Mohallahs found. Please add Mohallahs first.</p>
                               ) : (
-                                availableTeams.map((teamName) => (
-                                  <div key={teamName} className="flex items-center space-x-2">
+                                availableMohallahs.map((mohallah) => ( // Iterate over availableMohallahs
+                                  <div key={mohallah.id} className="flex items-center space-x-2">
                                     <Checkbox
-                                      id={`team-checkbox-${teamName}`}
-                                      checked={field.value?.includes(teamName)}
+                                      id={`mohallah-checkbox-${mohallah.id}`} // Use mohallah.id
+                                      checked={field.value?.includes(mohallah.id)}
                                       onCheckedChange={(checked) => {
-                                        const currentTeams = Array.isArray(field.value) ? field.value : [];
+                                        const currentMohallahIds = Array.isArray(field.value) ? field.value : [];
                                         if (checked) {
-                                          field.onChange([...currentTeams, teamName]);
+                                          field.onChange([...currentMohallahIds, mohallah.id]);
                                         } else {
-                                          field.onChange(currentTeams.filter((value) => value !== teamName));
+                                          field.onChange(currentMohallahIds.filter((id) => id !== mohallah.id));
                                         }
                                       }}
                                     />
-                                    <Label htmlFor={`team-checkbox-${teamName}`} className="font-normal text-sm">
-                                      {teamName}
+                                    <Label htmlFor={`mohallah-checkbox-${mohallah.id}`} className="font-normal text-sm">
+                                      {mohallah.name} {/* Show mohallah.name */}
                                     </Label>
                                   </div>
                                 ))
                               )}
                             </div>
-                            <FormDescription className="text-xs">Select teams associated with this Miqaat.</FormDescription>
+                            <FormDescription className="text-xs">Select Mohallahs for this Miqaat. If none, it might be considered global or not restricted.</FormDescription>
                             <FormMessage className="text-xs" />
                           </div>
                         </FormItem>
@@ -275,8 +268,8 @@ export default function MiqaatManagementPage() {
                     )} />
                     <DialogFooter>
                       <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                      <Button type="submit" disabled={form.formState.isSubmitting || isLoadingTeams}>
-                        {(form.formState.isSubmitting || isLoadingTeams) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <Button type="submit" disabled={form.formState.isSubmitting || isLoadingMohallahs}> {/* Check isLoadingMohallahs */}
+                        {(form.formState.isSubmitting || isLoadingMohallahs) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {editingMiqaat ? "Save Changes" : "Create Miqaat"}
                       </Button>
                     </DialogFooter>
@@ -308,7 +301,7 @@ export default function MiqaatManagementPage() {
           ) : filteredMiqaats.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredMiqaats.map((miqaat) => (
-                <MiqaatCard key={miqaat.id} miqaat={miqaat as Miqaat} onEdit={handleEdit} onDelete={handleDelete} currentUserRole={currentUserRole} />
+                <MiqaatCard key={miqaat.id} miqaat={miqaat as Miqaat} onEdit={handleEdit} onDelete={handleDelete} currentUserRole={currentUserRole} allMohallahs={availableMohallahs} />
               ))}
             </div>
           ) : (

@@ -1,10 +1,10 @@
 
 "use client";
 
-import type { Miqaat, UserRole } from "@/types";
+import type { Miqaat, UserRole, Mohallah } from "@/types"; // Added Mohallah
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Users, Barcode, Edit, Trash2, Clock } from "lucide-react"; 
+import { CalendarDays, Users, Barcode, Edit, Trash2, Clock, MapPin } from "lucide-react"; // Added MapPin
 import { QRCodeSVG } from 'qrcode.react';
 import {
   AlertDialog,
@@ -24,9 +24,10 @@ interface MiqaatCardProps {
   onEdit: (miqaat: Miqaat) => void;
   onDelete: (miqaatId: string) => void;
   currentUserRole: UserRole | null;
+  allMohallahs: Mohallah[]; // Added to map mohallahIds to names
 }
 
-export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole }: MiqaatCardProps) {
+export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohallahs }: MiqaatCardProps) {
   const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
 
   const formatDate = (dateString?: string) => {
@@ -38,6 +39,10 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole }: Miqaat
   const formattedEndDate = formatDate(miqaat.endTime);
   const formattedReportingTime = formatDate(miqaat.reportingTime);
   const canDelete = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+
+  const assignedMohallahNames = miqaat.mohallahIds && miqaat.mohallahIds.length > 0
+    ? miqaat.mohallahIds.map(id => allMohallahs.find(m => m.id === id)?.name || 'Unknown ID').join(", ")
+    : "All Mohallahs / Not Specified";
 
   return (
     <>
@@ -62,8 +67,8 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole }: Miqaat
             </div>
           )}
           <div className="flex items-center text-muted-foreground">
-            <Users className="mr-2 h-4 w-4 text-primary shrink-0" />
-            <span>Teams: {miqaat.teams && miqaat.teams.length > 0 ? miqaat.teams.join(", ") : "All"}</span>
+            <MapPin className="mr-2 h-4 w-4 text-primary shrink-0" /> {/* Changed Icon */}
+            <span>Mohallahs: {assignedMohallahNames}</span> {/* Changed Text */}
           </div>
           <div className="flex items-center text-muted-foreground">
              <Users className="mr-2 h-4 w-4 text-primary shrink-0" />
@@ -82,7 +87,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole }: Miqaat
             {canDelete && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" aria-label="Delete Miqaat">
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" aria-label="Delete Miqaat" disabled={currentUserRole !== 'admin' && currentUserRole !== 'superadmin'}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </AlertDialogTrigger>

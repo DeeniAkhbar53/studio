@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react"; // Added useMemo
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem } from "@/types";
+import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, UserRole } from "@/types"; // Added UserRole
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock } from "lucide-react";
@@ -21,10 +21,13 @@ export default function MarkAttendancePage() {
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
   const [memberIdInput, setMemberIdInput] = useState("");
   const [markedAttendanceThisSession, setMarkedAttendanceThisSession] = useState<MarkedAttendanceEntry[]>([]);
-  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "attendance">[]>([]);
+  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "attendance">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [markerItsId, setMarkerItsId] = useState<string | null>(null);
+  const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+
 
   const { toast } = useToast();
 
@@ -32,24 +35,44 @@ export default function MarkAttendancePage() {
     if (typeof window !== "undefined") {
       const storedMarkerItsId = localStorage.getItem('userItsId');
       setMarkerItsId(storedMarkerItsId);
+      const storedUserMohallahId = localStorage.getItem('userMohallahId');
+      setCurrentUserMohallahId(storedUserMohallahId);
+      const storedUserRole = localStorage.getItem('userRole') as UserRole | null;
+      setCurrentUserRole(storedUserRole);
     }
   }, []);
 
   useEffect(() => {
     setIsLoadingMiqaats(true);
     const unsubscribe = getMiqaats((fetchedMiqaats) => {
-      setAvailableMiqaats(fetchedMiqaats.map(m => ({
+      setAllMiqaats(fetchedMiqaats.map(m => ({
         id: m.id,
         name: m.name,
         startTime: m.startTime,
         endTime: m.endTime,
         reportingTime: m.reportingTime,
+        mohallahIds: m.mohallahIds || [],
         attendance: m.attendance || [] 
       })));
       setIsLoadingMiqaats(false);
     });
     return () => unsubscribe();
   }, []);
+
+  const availableMiqaatsForUser = useMemo(() => {
+    if (isLoadingMiqaats) return [];
+    if (currentUserRole === 'superadmin') return allMiqaats; // Superadmin sees all
+    if (!currentUserMohallahId) return []; // If no mohallah ID, show none (unless superadmin)
+
+    return allMiqaats.filter(miqaat => {
+      // If Miqaat has no specific mohallahIds, assume it's global/available to all (or adjust this rule)
+      if (!miqaat.mohallahIds || miqaat.mohallahIds.length === 0) {
+        return true; 
+      }
+      return miqaat.mohallahIds.includes(currentUserMohallahId);
+    });
+  }, [allMiqaats, currentUserMohallahId, currentUserRole, isLoadingMiqaats]);
+
 
   const handleMarkAttendance = async () => {
     if (!selectedMiqaatId) {
@@ -82,7 +105,7 @@ export default function MarkAttendancePage() {
       return;
     }
 
-    const selectedMiqaatDetails = availableMiqaats.find(m => m.id === selectedMiqaatId);
+    const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId); // Check against allMiqaats to get full details
     if (!selectedMiqaatDetails) {
         toast({ title: "Error", description: "Selected Miqaat details not found.", variant: "destructive" });
         setIsProcessing(false);
@@ -123,14 +146,14 @@ export default function MarkAttendancePage() {
         };
         setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
         
-        // No longer need to optimistically update here if getMiqaats is realtime, but good for non-realtime
-        // setAvailableMiqaats(prevMiqaats => 
-        //     prevMiqaats.map(m => 
-        //         m.id === selectedMiqaatId 
-        //         ? { ...m, attendance: [...(m.attendance || []), attendanceEntryPayload] } 
-        //         : m
-        //     )
-        // );
+        // Optimistically update the local allMiqaats state to reflect the new attendance for immediate feedback
+        setAllMiqaats(prevMiqaats => 
+            prevMiqaats.map(m => 
+                m.id === selectedMiqaatId 
+                ? { ...m, attendance: [...(m.attendance || []), attendanceEntryPayload] } 
+                : m
+            )
+        );
 
 
         toast({
@@ -150,7 +173,7 @@ export default function MarkAttendancePage() {
     }
   };
 
-  const currentMiqaatDetails = availableMiqaats.find(m => m.id === selectedMiqaatId);
+  const currentMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
   const currentMiqaatAttendanceCount = currentMiqaatDetails?.attendance?.length || 0;
   const currentSelectedMiqaatName = currentMiqaatDetails?.name || 'Selected Miqaat';
   const currentMiqaatReportingTime = currentMiqaatDetails?.reportingTime 
@@ -182,8 +205,8 @@ export default function MarkAttendancePage() {
                 </SelectTrigger>
                 <SelectContent>
                   {isLoadingMiqaats && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                  {!isLoadingMiqaats && availableMiqaats.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available</SelectItem>}
-                  {availableMiqaats.map(miqaat => (
+                  {!isLoadingMiqaats && availableMiqaatsForUser.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available for your Mohallah</SelectItem>}
+                  {availableMiqaatsForUser.map(miqaat => (
                     <SelectItem key={miqaat.id} value={miqaat.id}>
                       {miqaat.name} ({new Date(miqaat.startTime).toLocaleDateString()})
                     </SelectItem>

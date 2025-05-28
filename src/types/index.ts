@@ -29,7 +29,7 @@ export type Miqaat = {
   startTime: string; 
   endTime: string; 
   reportingTime?: string; 
-  teams: string[];
+  mohallahIds?: string[]; // Changed from teams: string[]
   barcodeData?: string;
   location?: string;
   createdAt?: string; 
