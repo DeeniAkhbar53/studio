@@ -1,5 +1,6 @@
 
 export type UserRole = 'user' | 'admin' | 'superadmin' | 'attendance-marker';
+export type UserDesignation = 'Captain' | 'Vice Captain' | 'Member';
 
 export type User = {
   id: string;
@@ -11,6 +12,7 @@ export type User = {
   mohallahId?: string;
   role: UserRole;
   avatarUrl?: string;
+  designation?: UserDesignation;
 };
 
 export type Miqaat = {
@@ -64,3 +66,4 @@ export type NotificationItem = {
   createdAt: string; // ISO Date string
   read: boolean;
 };
+

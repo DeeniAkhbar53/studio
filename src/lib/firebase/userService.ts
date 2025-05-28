@@ -1,7 +1,7 @@
 
 import { db } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData } from 'firebase/firestore';
-import type { User, UserRole } from '@/types';
+import type { User, UserRole, UserDesignation } from '@/types';
 
 const usersCollectionRef = collection(db, 'users');
 
@@ -24,8 +24,11 @@ export const addUser = async (userData: UserDataForAdd): Promise<User> => {
     if (!userPayload.avatarUrl) {
       userPayload.avatarUrl = `https://placehold.co/40x40.png?text=${userData.name.substring(0,2).toUpperCase()}`;
     }
-    // Ensure optional fields are handled correctly (e.g., not saving empty strings if they should be absent)
-    // For this example, we save them as provided (empty strings or values)
+    // Ensure optional fields like designation are included if provided
+    if (userData.designation) {
+        userPayload.designation = userData.designation;
+    }
+
     const docRef = await addDoc(usersCollectionRef, userPayload);
     return { ...userData, id: docRef.id, avatarUrl: userPayload.avatarUrl } as User;
   } catch (error) {
@@ -40,9 +43,6 @@ type UserDataForUpdate = Partial<Omit<User, 'id'>>;
 export const updateUser = async (userId: string, updatedData: UserDataForUpdate): Promise<void> => {
   try {
     const userDoc = doc(db, 'users', userId);
-    // Prepare data for update, ensuring empty strings for optional fields are handled as intended
-    // or converted to `deleteField()` if they should be removed.
-    // For now, we pass them through.
     const updatePayload: any = { ...updatedData };
      Object.keys(updatePayload).forEach(key => {
       if (updatePayload[key] === undefined) {

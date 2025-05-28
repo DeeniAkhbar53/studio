@@ -8,16 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { Mohallah, User, UserRole } from "@/types";
-import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Home, Pencil } from "lucide-react";
+import type { Mohallah, User, UserRole, UserDesignation } from "@/types";
+import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Home, Pencil, Download } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel as ShadFormLabel } from "@/components/ui/form"; // Renamed Label to ShadFormLabel
-import { getUsers, addUser, updateUser, deleteUser } from "@/lib/firebase/userService";
+import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel as ShadFormLabel, FormDescription } from "@/components/ui/form";
+import { getUsers, addUser, updateUser, deleteUser, getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMohallahs, addMohallah, updateMohallahName, deleteMohallah as fbDeleteMohallah } from "@/lib/firebase/mohallahService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
 
@@ -29,6 +29,7 @@ const memberSchema = z.object({
   phoneNumber: z.string().optional().or(z.literal("")),
   role: z.enum(["user", "admin", "superadmin", "attendance-marker"]),
   mohallahId: z.string().min(1, "Mohallah must be selected"),
+  designation: z.enum(["Captain", "Vice Captain", "Member"]).optional().or(z.literal("")),
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
@@ -58,7 +59,7 @@ export default function MohallahManagementPage() {
 
   const memberForm = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema),
-    defaultValues: { name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user", mohallahId: "" },
+    defaultValues: { name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user", mohallahId: "", designation: "Member" },
   });
 
   const mohallahForm = useForm<MohallahFormValues>({
@@ -110,11 +111,13 @@ export default function MohallahManagementPage() {
         phoneNumber: editingMember.phoneNumber || "",
         role: editingMember.role,
         mohallahId: editingMember.mohallahId || (mohallahs.length > 0 ? mohallahs[0].id : ""),
+        designation: editingMember.designation || "Member",
       });
     } else {
       memberForm.reset({
         name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user",
         mohallahId: mohallahs.length > 0 ? mohallahs[0].id : "",
+        designation: "Member",
       });
     }
   }, [editingMember, memberForm, isMemberDialogOpen, mohallahs]);
@@ -137,6 +140,7 @@ export default function MohallahManagementPage() {
       phoneNumber: values.phoneNumber || undefined,
       role: values.role as UserRole,
       mohallahId: values.mohallahId,
+      designation: values.designation || "Member" as UserDesignation,
     };
 
     try {
@@ -216,15 +220,52 @@ export default function MohallahManagementPage() {
     }
   };
   
-  const handleProcessCsvUpload = () => {
+  const handleProcessCsvUpload = async () => {
     if (!selectedFile) {
         toast({ title: "No file selected", description: "Please select a CSV file to upload.", variant: "destructive" });
         return;
     }
-    toast({ title: "CSV Upload (Placeholder)", description: `File "${selectedFile.name}" selected. Actual import functionality is not yet implemented.` });
+    
+    // This part is conceptual for now, actual parsing and DB operations are complex.
+    toast({ 
+        title: "CSV Upload Initialized", 
+        description: `File "${selectedFile.name}" selected. 
+        Conceptual Process:
+        1. Parse CSV data.
+        2. For each row: Validate fields.
+        3. Convert Mohallah Name to Mohallah ID (requires existing Mohallahs).
+        4. Check if ITS ID already exists in the database.
+        5. If new, add user. If duplicate, report error and skip.
+        6. Provide summary of successful/failed imports.
+        This detailed processing is a future enhancement.`,
+        duration: 10000,
+    });
     setIsCsvImportDialogOpen(false);
     setSelectedFile(null);
   };
+
+  const downloadSampleCsv = () => {
+    const csvHeaders = "name,itsId,bgkId,team,phoneNumber,role,mohallahName,designation\n";
+    const csvDummyData = [
+      "Abbas Bhai,10101010,BGK001,Alpha Team,1234567890,user,Houston,Member",
+      "Fatema Ben,20202020,,Bravo Team,0987654321,attendance-marker,Dallas,Vice Captain",
+      "Yusuf Bhai,30303030,BGK003,Alpha Team,,admin,Houston,Captain",
+    ].join("\n");
+    const csvContent = csvHeaders + csvDummyData;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", "sample_members_import.csv");
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+     toast({ title: "Sample CSV Downloaded", description: "Please replace dummy data with your actual member information." });
+  };
+
 
   const filteredMembers = members.filter(m =>
     m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -295,8 +336,7 @@ export default function MohallahManagementPage() {
                       <Button variant="ghost" size="icon" onClick={() => handleEditMohallah(mohallah)} className="mr-2">
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <AlertDialog>
-                        <AlertTrigger asChild>
+                      <AlertTrigger asChild>
                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -319,7 +359,6 @@ export default function MohallahManagementPage() {
                             </AlertDialogAction>
                           </AlertFooter>
                         </AlertContent>
-                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -337,6 +376,9 @@ export default function MohallahManagementPage() {
             <CardDescription>Add, view, and manage members. Data from Firestore.</CardDescription>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={downloadSampleCsv}>
+                <Download className="mr-2 h-4 w-4" /> Download Sample CSV
+            </Button>
             <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)}>
               <FileUp className="mr-2 h-4 w-4" /> Import CSV
             </Button>
@@ -387,6 +429,20 @@ export default function MohallahManagementPage() {
                         <FormMessage className="col-start-2 col-span-3 text-xs" />
                       </FormItem>
                     )} />
+                     <FormField control={memberForm.control} name="designation" render={({ field }) => (
+                        <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                          <ShadFormLabel htmlFor="designation" className="text-right">Designation</ShadFormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || "Member"}>
+                            <FormControl><SelectTrigger id="designation" className="col-span-3"><SelectValue placeholder="Select a designation" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="Member">Member</SelectItem>
+                              <SelectItem value="Vice Captain">Vice Captain</SelectItem>
+                              <SelectItem value="Captain">Captain</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage className="col-start-2 col-span-3 text-xs" />
+                        </FormItem>
+                      )} />
                     <FormField control={memberForm.control} name="role" render={({ field }) => (
                       <FormItem className="grid grid-cols-4 items-center gap-x-4">
                         <ShadFormLabel htmlFor="role" className="text-right">Role</ShadFormLabel>
@@ -457,6 +513,7 @@ export default function MohallahManagementPage() {
                   <TableHead>ITS ID</TableHead>
                   <TableHead>Mohallah</TableHead>
                   <TableHead>Team</TableHead>
+                  <TableHead>Designation</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -474,13 +531,13 @@ export default function MohallahManagementPage() {
                     <TableCell>{member.itsId}</TableCell>
                     <TableCell>{getMohallahNameById(member.mohallahId)}</TableCell>
                     <TableCell>{member.team || "N/A"}</TableCell>
+                    <TableCell>{member.designation || "N/A"}</TableCell>
                     <TableCell>{member.role.charAt(0).toUpperCase() + member.role.slice(1).replace(/-/g, ' ')}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => handleEditMember(member)} className="mr-2" aria-label="Edit Member">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <AlertDialog>
-                        <AlertTrigger asChild>
+                      <AlertTrigger asChild>
                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Member">
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -499,12 +556,11 @@ export default function MohallahManagementPage() {
                             </AlertDialogAction>
                           </AlertFooter>
                         </AlertContent>
-                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center h-24">
+                    <TableCell colSpan={8} className="text-center h-24">
                       No members found {searchTerm && "matching your search"}.
                     </TableCell>
                   </TableRow>
@@ -527,7 +583,7 @@ export default function MohallahManagementPage() {
           <DialogHeader>
             <DialogTitle>Import Members via CSV</DialogTitle>
             <DialogDescription>
-              Select a CSV file with member data. Expected columns: `name`, `itsId`, `bgkId` (optional), `team` (optional), `phoneNumber` (optional), `role` ('user', 'admin', 'superadmin', or 'attendance-marker'), `mohallahName` (must match an existing Mohallah name - this will be converted to mohallahId).
+              Select a CSV file with member data. Expected columns: `name`, `itsId`, `bgkId` (optional), `team` (optional), `phoneNumber` (optional), `role` ('user', 'admin', 'superadmin', or 'attendance-marker'), `mohallahName` (must match an existing Mohallah name), `designation` ('Captain', 'Vice Captain', 'Member', optional).
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -553,6 +609,3 @@ export default function MohallahManagementPage() {
     </div>
   );
 }
-
-
-    
