@@ -11,8 +11,8 @@ import { useRouter } from "next/navigation";
 import type { UserRole } from "@/types";
 
 const adminOverviewStats = [
-  { title: "Active Miqaats", value: "3", icon: CalendarCheck, trend: "+5 last week" }, // This will be dynamic if Miqaats are fetched
-  { title: "Total Members", value: "1,205", icon: Users, trend: "+50 new" }, // This will be dynamic if Users are fetched
+  { title: "Active Miqaats", value: "3", icon: CalendarCheck, trend: "+5 last week" }, 
+  { title: "Total Members", value: "1,205", icon: Users, trend: "+50 new" }, 
   { title: "Overall Attendance", value: "85%", icon: Activity, trend: "Avg. last 7 days" },
   { title: "Pending Reports", value: "2", icon: BarChartHorizontalBig, trend: "Needs attention" },
 ];
@@ -77,7 +77,6 @@ export default function DashboardOverviewPage() {
           setCurrentUserName(storedName);
         }
       } else {
-        // If no role, redirect to login
         router.push('/'); 
         return; 
       }
@@ -87,7 +86,7 @@ export default function DashboardOverviewPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] items-center justify-center">
+      <div className="flex flex-col flex-1 items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Loading user data...</p>
       </div>
@@ -96,7 +95,7 @@ export default function DashboardOverviewPage() {
 
   if (currentUserRole === 'user') {
     return (
-      <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))]">
+      <div className="flex flex-col h-full">
         <div className="flex-grow space-y-6">
           <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
             <CardHeader>
@@ -138,7 +137,7 @@ export default function DashboardOverviewPage() {
 
   if (currentUserRole === 'attendance-marker') {
     return (
-      <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))]">
+      <div className="flex flex-col h-full">
         <div className="flex-grow space-y-6">
           <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
             <CardHeader>
@@ -180,7 +179,7 @@ export default function DashboardOverviewPage() {
 
   // Admin or Superadmin View
   return (
-    <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))]">
+    <div className="flex flex-col h-full">
       <div className="flex-grow space-y-6">
         <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardHeader>
@@ -204,7 +203,6 @@ export default function DashboardOverviewPage() {
             </Card>
           ))}
         </div>
-        {/* "Quick Actions" and "Recent Activity" cards have been removed */}
       </div>
       <DashboardFooter />
     </div>
