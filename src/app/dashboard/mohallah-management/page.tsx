@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Form, FormField, FormControl, FormMessage, FormItem } from "@/components/ui/form";
+
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -69,13 +72,13 @@ export default function MohallahManagementPage() {
 
   const handleMemberFormSubmit = (values: MemberFormValues) => {
     const mohallahName = mohallahs.find(m => m.id === values.mohallahId)?.name;
-    const memberData = { ...values, mohallah: mohallahName };
+    const memberData = { ...values, mohallah: mohallahName || "Unknown Mohallah" };
 
     if (editingMember) {
-      setMembers(members.map(m => m.id === editingMember.id ? { ...editingMember, ...memberData } : m));
+      setMembers(members.map(m => m.id === editingMember.id ? { ...editingMember, ...memberData, avatarUrl: m.avatarUrl } : m)); // Preserve avatarUrl
       toast({ title: "Member Updated", description: `"${values.name}" has been updated.` });
     } else {
-      setMembers([{ ...memberData, id: `usr${Date.now()}` }, ...members]);
+      setMembers([{ ...memberData, id: `usr${Date.now()}`, avatarUrl: `https://placehold.co/40x40.png?text=${values.name.substring(0,2).toUpperCase()}` }, ...members]);
       toast({ title: "Member Added", description: `"${values.name}" has been added.` });
     }
     setIsMemberDialogOpen(false);
@@ -128,10 +131,140 @@ export default function MohallahManagementPage() {
                     {editingMember ? "Update member details." : "Fill in member details."}
                   </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={form.handleSubmit(handleMemberFormSubmit)} className="grid gap-4 py-4">
-                  {/* Form Fields: Name, ITS ID, BGK ID, Team, Phone, Role, Mohallah */}
-                  <FormField control={form.control} name="name" render={({ field }) => (
-                    <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Name</Label><Input {...field} className="col-span-3" />{form.formState.errors.name && <p className="col-span-4 text-xs text-red-500 text-right">{form.formState.errors.name.message}</p>}</div>
-                  )} />
-                  <FormField control={form.control} name="itsId" render={({ field }) => (
-                    <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">ITS ID</Label><Input {...field} className="col-span-3" />{form.formState.errors.itsId && <p className="col-span-4 text-xs text-red-500 text-right">{form.formS<ctrl63>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleMemberFormSubmit)} className="grid gap-4 py-4">
+                    <FormField control={form.control} name="name" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">Name</Label>
+                        <FormControl><Input id="name" {...field} className="col-span-3" /></FormControl>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="itsId" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="itsId" className="text-right">ITS ID</Label>
+                        <FormControl><Input id="itsId" {...field} className="col-span-3" /></FormControl>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="bgkId" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="bgkId" className="text-right">BGK ID</Label>
+                        <FormControl><Input id="bgkId" {...field} className="col-span-3" /></FormControl>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="team" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="team" className="text-right">Team</Label>
+                        <FormControl><Input id="team" {...field} className="col-span-3" /></FormControl>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="phoneNumber" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="phoneNumber" className="text-right">Phone</Label>
+                        <FormControl><Input id="phoneNumber" {...field} className="col-span-3" /></FormControl>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="role" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="role" className="text-right">Role</Label>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl><SelectTrigger id="role" className="col-span-3"><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="user">User</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="superadmin">Super Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="mohallahId" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="mohallahId" className="text-right">Mohallah</Label>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                           <FormControl><SelectTrigger id="mohallahId" className="col-span-3"><SelectValue placeholder="Select a Mohallah" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            {mohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
+                      </FormItem>
+                    )} />
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsMemberDialogOpen(false)}>Cancel</Button>
+                      <Button type="submit">{editingMember ? "Save Changes" : "Add Member"}</Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search members..."
+                className="pl-8 w-full md:w-1/3"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[80px]">Avatar</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>ITS ID</TableHead>
+                <TableHead>Mohallah</TableHead>
+                <TableHead>Team</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredMembers.length > 0 ? filteredMembers.map((member) => (
+                <TableRow key={member.id}>
+                  <TableCell>
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={member.avatarUrl} alt={member.name} data-ai-hint="avatar person" />
+                      <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  </TableCell>
+                  <TableCell className="font-medium">{member.name}</TableCell>
+                  <TableCell>{member.itsId}</TableCell>
+                  <TableCell>{member.mohallah}</TableCell>
+                  <TableCell>{member.team || "N/A"}</TableCell>
+                  <TableCell>{member.role.charAt(0).toUpperCase() + member.role.slice(1)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" onClick={() => handleEditMember(member)} className="mr-2">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDeleteMember(member.id)} className="text-destructive hover:text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center">
+                    No members found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+    
