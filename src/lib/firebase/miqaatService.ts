@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, FieldValue } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion } from 'firebase/firestore';
 import type { Miqaat, MiqaatAttendanceEntryItem } from '@/types';
 
 const miqaatsCollectionRef = collection(db, 'miqaats');
@@ -22,7 +22,10 @@ export const getMiqaats = async (): Promise<Miqaat[]> => {
         barcodeData: miqaatData.barcodeData,
         location: miqaatData.location,
         createdAt: miqaatData.createdAt instanceof Timestamp ? miqaatData.createdAt.toDate().toISOString() : undefined,
-        attendance: Array.isArray(miqaatData.attendance) ? miqaatData.attendance : [], // Ensure attendance is an array
+        attendance: Array.isArray(miqaatData.attendance) ? miqaatData.attendance.map(att => ({
+            ...att,
+            markedAt: att.markedAt instanceof Timestamp ? att.markedAt.toDate().toISOString() : att.markedAt
+        })) : [],
       };
       return miqaat;
     });
@@ -43,16 +46,20 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
         createdAt: serverTimestamp(),
     };
     if (!payload.barcodeData) {
+        // Generate a unique ID for barcodeData if not provided
         payload.barcodeData = `MIQAAT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     }
 
     const docRef = await addDoc(miqaatsCollectionRef, payload);
+    // Construct the returned Miqaat object, ensuring createdAt is handled correctly for client components if needed immediately
+    // For now, we'll return based on input data and generated ID/barcode, as createdAt would be a Timestamp
     return {
       ...miqaatData,
       id: docRef.id,
       barcodeData: payload.barcodeData,
-      attendance: [],
-    } as Miqaat; 
+      attendance: [], // Return with empty attendance array
+      // createdAt: new Date().toISOString(), // Or fetch the doc again to get the server timestamp converted
+    } as Miqaat; // Cast as Miqaat, acknowledging createdAt might be undefined if not fetched back
   } catch (error) {
     console.error("Error adding miqaat: ", error);
     throw error;
@@ -66,8 +73,9 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
     const miqaatDoc = doc(db, 'miqaats', miqaatId);
     const updatePayload: any = { ...miqaatData };
     if (updatePayload.teams && !Array.isArray(updatePayload.teams)) {
-        updatePayload.teams = [];
+        updatePayload.teams = []; // Ensure teams is always an array or handle as per your logic
     }
+    // Prevent updating fields that should not be directly changed by this function
     delete updatePayload.createdAt;
     delete updatePayload.id;
     delete updatePayload.attendance; // Attendance is managed by a separate function
@@ -89,12 +97,13 @@ export const deleteMiqaat = async (miqaatId: string): Promise<void> => {
   }
 };
 
+// Function to add an attendance entry to a Miqaat's 'attendance' array
 export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAttendanceEntryItem): Promise<void> => {
   try {
     const miqaatDocRef = doc(db, 'miqaats', miqaatId);
     // Atomically add the new attendance entry to the 'attendance' array
     await updateDoc(miqaatDocRef, {
-      attendance: FieldValue.arrayUnion(entry)
+      attendance: arrayUnion(entry) // Corrected: use arrayUnion directly
     });
   } catch (error) {
     console.error("Error marking attendance in Miqaat document: ", error);
