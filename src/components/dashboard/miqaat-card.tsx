@@ -1,9 +1,10 @@
+
 "use client";
 
 import type { Miqaat } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Clock, Users, Barcode, Edit, Trash2 } from "lucide-react";
+import { CalendarDays, Users, Barcode, Edit, Trash2 } from "lucide-react";
 import Image from "next/image";
 import {
   AlertDialog,
@@ -91,17 +92,20 @@ export function MiqaatCard({ miqaat, onEdit, onDelete }: MiqaatCardProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex justify-center items-center my-4">
-            {/* Placeholder for actual barcode */}
-            <Image 
-              src={`https://placehold.co/300x100.png?text=Barcode+${miqaat.id}`} 
-              alt={`Barcode for ${miqaat.name}`} 
-              width={300} 
+            <Image
+              src={`https://placehold.co/300x100.png?text=Barcode+${miqaat.id}`}
+              alt={`Barcode for ${miqaat.name}`}
+              width={300}
               height={100}
-              data-ai-hint="barcode scan" 
+              data-ai-hint="barcode scan"
             />
           </div>
           <p className="text-center text-sm text-muted-foreground">Data: {miqaat.barcodeData || miqaat.id}</p>
           <AlertDialogFooter>
             <AlertDialogCancel>Close</AlertDialogCancel>
           </AlertDialogFooter>
-        
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
