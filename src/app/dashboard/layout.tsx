@@ -35,9 +35,11 @@ export default function DashboardLayout({
         <main className="flex-1 overflow-auto bg-background p-4 md:p-6">
           {children}
         </main>
-        <footer className="border-t bg-card py-3 px-6 text-xs text-muted-foreground text-center">
-          <p>&copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
-          <p>Designed and Managed by Shabbir Shakir</p>
+        <footer className="border-t bg-card py-3 px-6 text-muted-foreground">
+          <div>
+            <p className="text-xs text-left">&copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
+            <p className="text-xs text-left text-muted-foreground/80 mt-0.5">Designed and Managed by Shabbir Shakir</p>
+          </div>
         </footer>
       </div>
     </div>

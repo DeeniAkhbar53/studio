@@ -3,21 +3,21 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Activity, Users, CalendarCheck, ScanLine, Loader2, Settings, HelpCircle } from "lucide-react";
+import { Activity, Users, CalendarCheck, ScanLine, Loader2, Settings, HelpCircle, ListChecks, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { UserRole } from "@/types";
+import type { UserRole, Miqaat } from "@/types";
 import { getMiqaats } from "@/lib/firebase/miqaatService";
-import type { Miqaat } from "@/types";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 
 const adminOverviewStats = [
   { title: "Active Miqaats", value: "0", icon: CalendarCheck, trend: "Realtime" },
-  { title: "Total Members", value: "1,205", icon: Users, trend: "+50 new" }, 
-  { title: "Overall Attendance", value: "85%", icon: Activity, trend: "Avg. last 7 days" }, 
+  { title: "Total Members (Mock)", value: "1,205", icon: Users, trend: "+50 new" },
+  { title: "Overall Attendance (Mock)", value: "85%", icon: Activity, trend: "Avg. last 7 days" },
 ];
+
 
 export default function DashboardOverviewPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
@@ -25,15 +25,17 @@ export default function DashboardOverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  const [miqaats, setMiqaats] = useState<Miqaat[]>([]);
+  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(false);
+
 
   useEffect(() => {
     let unsubscribeMiqaats: Unsubscribe | null = null;
     const storedRole = localStorage.getItem('userRole') as UserRole | null;
     const storedName = localStorage.getItem('userName');
+    const storedItsId = localStorage.getItem('userItsId');
 
-    if (storedRole) {
+    if (storedItsId && storedRole) {
       setCurrentUserRole(storedRole);
       if (storedName) {
         setCurrentUserName(storedName);
@@ -41,14 +43,12 @@ export default function DashboardOverviewPage() {
       if (storedRole === 'admin' || storedRole === 'superadmin') {
         setIsLoadingMiqaats(true);
         unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
-          setMiqaats(fetchedMiqaats);
+          setMiqaats(fetchedMiqaats.map(m => ({ id: m.id, name: m.name, startTime: m.startTime, endTime: m.endTime })));
           setIsLoadingMiqaats(false);
         });
       }
     } else {
       router.push('/');
-      setIsLoading(false);
-      return;
     }
     setIsLoading(false);
     
@@ -58,6 +58,7 @@ export default function DashboardOverviewPage() {
       }
     };
   }, [router]);
+
 
   if (isLoading) {
     return (
@@ -142,16 +143,16 @@ export default function DashboardOverviewPage() {
         </Card>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {adminOverviewStats.map((stat) => (
-            <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-                <stat.icon className="h-5 w-5 text-accent" />
+                <CardTitle className="text-sm font-medium text-muted-foreground break-words">{stat.title}</CardTitle>
+                <stat.icon className="h-5 w-5 text-accent shrink-0" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-foreground">
+                <div className="text-2xl font-bold text-foreground break-all">
                   {stat.title === "Active Miqaats" ? (isLoadingMiqaats ? <Loader2 className="h-5 w-5 animate-spin" /> : miqaats.filter(m => new Date(m.endTime) > new Date()).length) : stat.value}
                 </div>
-                <p className="text-xs text-muted-foreground">{stat.trend}</p>
+                <p className="text-xs text-muted-foreground break-words">{stat.trend}</p>
               </CardContent>
             </Card>
           ))}
