@@ -1,10 +1,8 @@
 
-'use server';
-
 import { db } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query as firestoreQuery, orderBy, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import type { Mohallah } from '@/types';
-import { deleteSubcollection } from './utils'; // Assuming utils.ts will be created for this
+import { deleteSubcollection } from './utils'; 
 
 const mohallahsCollectionRef = collection(db, 'mohallahs');
 
