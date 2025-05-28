@@ -123,8 +123,8 @@ export default function DashboardOverviewPage() {
         </div>
         <DashboardFooter />
       </div>
-    ); // Ensure this return statement is properly terminated.
-  } // Ensure this if block is properly closed.
+    );
+  }
 
   // Admin or Superadmin View
   return (
@@ -202,7 +202,7 @@ export default function DashboardOverviewPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-          </Header>
+          </CardHeader>
           <CardContent>
             <ul className="space-y-2">
               <li className="text-sm text-muted-foreground">Admin updated "Miqaat Al-Khamis".</li>
