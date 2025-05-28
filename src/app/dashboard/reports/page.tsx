@@ -18,11 +18,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, ReportResultItem, AttendanceRecord, MiqaatAttendanceEntryItem } from "@/types"; // Added MiqaatAttendanceEntryItem
+import type { Miqaat, User, ReportResultItem, AttendanceRecord, MiqaatAttendanceEntryItem } from "@/types"; 
 import { getMiqaats } from "@/lib/firebase/miqaatService";
 import { getUsers } from "@/lib/firebase/userService";
-import { getAttendanceRecordsByMiqaat, getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService"; // Updated service
+import { getAttendanceRecordsByMiqaat, getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService"; 
 import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
 const reportSchema = z.object({
   reportType: z.enum(["miqaat_summary", "member_attendance", "overall_activity", "non_attendance_miqaat"], {
@@ -101,7 +102,7 @@ export default function ReportsPage() {
     setIsLoading(true);
     setReportData(null); 
     
-    let generatedReportData: AttendanceRecord[] = []; // Use AttendanceRecord as the base type from service
+    let generatedReportData: AttendanceRecord[] = []; 
     let reportResultItems: ReportResultItem[] = [];
 
 
@@ -129,7 +130,7 @@ export default function ReportsPage() {
             markedByItsId: att.markedByItsId,
           }));
       } else if (values.reportType === "overall_activity") {
-        const allMiqaats = await getMiqaats(); // Re-fetch or use availableMiqaats if fresh enough
+        const allMiqaats = await getMiqaats(); 
         const allAttendancePromises = allMiqaats.map(m => getAttendanceRecordsByMiqaat(m.id));
         const allAttendanceArrays = await Promise.all(allAttendancePromises);
         generatedReportData = allAttendanceArrays.flat();
@@ -150,29 +151,29 @@ export default function ReportsPage() {
           return;
         }
         const allUsers = await getUsers();
-        // Attendance from miqaatService.getAttendanceRecordsByMiqaat already gives MiqaatAttendanceEntryItem[] effectively
-        const attendanceForMiqaat = await getAttendanceRecordsByMiqaat(values.miqaatId); // Returns AttendanceRecord[]
+        
+        const attendanceForMiqaat = await getAttendanceRecordsByMiqaat(values.miqaatId); 
         const attendedItsIds = new Set(attendanceForMiqaat.map(att => att.userItsId));
 
         let eligibleUsers = allUsers;
-        // Use teams from the Miqaat object which now should have teams directly
+        
         if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
           eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams.includes(user.team));
         }
         
         const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
         reportResultItems = nonAttendantUsers.map(user => ({
-          id: user.id, // User's own ID
+          id: user.id, 
           userName: user.name,
           userItsId: user.itsId,
           miqaatName: selectedMiqaat.name,
           date: new Date(selectedMiqaat.startTime).toISOString(), 
           status: "Absent",
-          // markedByItsId is not applicable here
+          
         }));
       }
 
-      // Apply date range filter if present to reportResultItems
+      
       if (values.dateRange?.from) {
         reportResultItems = reportResultItems.filter(r => r.date && new Date(r.date) >= values.dateRange!.from!);
       }
@@ -232,6 +233,7 @@ export default function ReportsPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Generate Attendance Report</CardTitle>
+          <Separator className="my-2" />
           <CardDescription>Select criteria to generate a detailed attendance report from Firestore data.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -373,6 +375,7 @@ export default function ReportsPage() {
           <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
             <div>
                 <CardTitle>Report Results</CardTitle>
+                <Separator className="my-2" />
                 <CardDescription>
                     Displaying {reportData.length} record(s) 
                     {(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat") && selectedMiqaatDetails && ` for Miqaat: ${selectedMiqaatDetails.name}`}

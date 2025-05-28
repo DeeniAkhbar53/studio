@@ -7,13 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AttendanceRecord, User, Mohallah } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock } from "lucide-react"; // Removed CheckCircle as it was unused
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock } from "lucide-react"; 
 import { useState, useEffect } from "react";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService"; 
 import { getMohallahs } from "@/lib/firebase/mohallahService"; 
-import { getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService"; // Updated service
+import { getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService"; 
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import { Separator } from "@/components/ui/separator";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -38,7 +39,7 @@ export default function ProfilePage() {
 
             if (fetchedUser) {
               setIsLoadingHistory(true);
-              const history = await getAttendanceRecordsByUser(fetchedUser.itsId); // Uses updated service
+              const history = await getAttendanceRecordsByUser(fetchedUser.itsId); 
               setAttendanceHistory(history);
               setIsLoadingHistory(false);
             }
@@ -104,7 +105,7 @@ export default function ProfilePage() {
             Edit Profile (Soon)
           </Button>
         </div>
-
+        <Separator />
         <Tabs defaultValue="details" className="w-full">
           <TabsList className="grid w-full grid-cols-2 rounded-none border-b">
             <TabsTrigger value="details">Profile Details</TabsTrigger>

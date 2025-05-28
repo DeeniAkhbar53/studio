@@ -13,6 +13,7 @@ import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem } f
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService"; // Updated import
 import { CheckCircle, AlertCircle, Users, ListChecks, Loader2 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 export default function MarkAttendancePage() {
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
@@ -156,6 +157,7 @@ export default function MarkAttendancePage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center"><ListChecks className="mr-2 h-6 w-6 text-primary" />Mark Member Attendance</CardTitle>
+          <Separator className="my-2" />
           <CardDescription>Select a Miqaat and enter member ITS/BGK ID to mark them present. Records are saved to the database.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel as ShadFormLabel, FormDescription } from "@/components/ui/form";
 import { getMiqaats, addMiqaat, updateMiqaat, deleteMiqaat as fbDeleteMiqaat, MiqaatDataForAdd, MiqaatDataForUpdate } from "@/lib/firebase/miqaatService";
 import { getUniqueTeamNames } from "@/lib/firebase/userService";
+import { Separator } from "@/components/ui/separator";
 
 const miqaatSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -144,6 +145,7 @@ export default function MiqaatManagementPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Manage Miqaats</CardTitle>
+            <Separator className="my-2" />
             <CardDescription>Create, view, and manage all Miqaats from Firestore.</CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingMiqaat(null); }}>

@@ -20,6 +20,7 @@ import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel as ShadF
 import { getUsers, addUser, updateUser, deleteUser, getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMohallahs, addMohallah, updateMohallahName, deleteMohallah as fbDeleteMohallah } from "@/lib/firebase/mohallahService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -282,6 +283,7 @@ export default function MohallahManagementPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="flex items-center"><Home className="mr-2 h-5 w-5 text-primary" />Manage Mohallahs</CardTitle>
+            <Separator className="my-2" />
             <CardDescription>Add, edit, or delete Mohallahs stored in Firestore.</CardDescription>
           </div>
           <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>
@@ -375,6 +377,7 @@ export default function MohallahManagementPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Mohallah Member Management</CardTitle>
+            <Separator className="my-2" />
             <CardDescription>Add, view, and manage members. Data from Firestore.</CardDescription>
           </div>
           <div className="flex gap-2">

@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import type { NotificationItem } from "@/types";
 import { Bell, Info } from "lucide-react";
 import { format } from "date-fns";
+import { Separator } from "@/components/ui/separator";
 
 const NOTIFICATIONS_STORAGE_KEY = "appNotifications";
 
@@ -42,8 +43,9 @@ export default function NotificationsPage() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Bell className="mr-2 h-6 w-6 text-primary" />
-            Notifications & Announcements
+            Notifications
           </CardTitle>
+          <Separator className="my-2" />
           <CardDescription>All recent updates and important information. Newest first.</CardDescription>
         </CardHeader>
         <CardContent>

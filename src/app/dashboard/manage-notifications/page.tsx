@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { NotificationItem } from "@/types";
 import { PlusCircle, Trash2, BellRing } from "lucide-react";
 import { format } from "date-fns";
+import { Separator } from "@/components/ui/separator";
 
 const NOTIFICATIONS_STORAGE_KEY = "appNotifications";
 
@@ -75,6 +76,7 @@ export default function ManageNotificationsPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center"><BellRing className="mr-2 h-6 w-6 text-primary" />Manage Notifications & Announcements</CardTitle>
+          <Separator className="my-2" />
           <CardDescription>Create and publish new notifications for all users.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -109,6 +111,7 @@ export default function ManageNotificationsPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Posted Notifications</CardTitle>
+          <Separator className="my-2" />
           <CardDescription>List of all active notifications. Newest first.</CardDescription>
         </CardHeader>
         <CardContent>

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, VideoOff, ArrowLeft, SwitchCamera } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 export default function ScanAttendancePage() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -104,6 +105,7 @@ export default function ScanAttendancePage() {
             <Camera className="mr-3 h-6 w-6 text-primary" />
             Scan Attendance Barcode
           </CardTitle>
+          <Separator className="my-2" />
           <CardDescription>
             Position the Miqaat barcode in front of your camera. Current: {facingMode === 'user' ? 'Front Camera' : 'Back Camera'}
           </CardDescription>

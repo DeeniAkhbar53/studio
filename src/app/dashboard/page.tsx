@@ -10,6 +10,8 @@ import { useRouter } from "next/navigation";
 import type { UserRole } from "@/types";
 import { getMiqaats } from "@/lib/firebase/miqaatService"; 
 import type { Miqaat } from "@/types"; 
+import { Separator } from "@/components/ui/separator";
+
 
 const adminOverviewStats = [
   { title: "Active Miqaats", value: "3", icon: CalendarCheck, trend: "+5 last week" }, 
@@ -70,11 +72,12 @@ export default function DashboardOverviewPage() {
 
   if (currentUserRole === 'user') {
     return (
-      <div className="flex flex-col h-full"> {/* Ensure full height for flex to work */}
-        <div className="flex-grow space-y-6"> {/* Main content takes available space */}
+      <div className="flex flex-col h-full"> 
+        <div className="flex-grow space-y-6"> 
           <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
             <CardHeader>
               <CardTitle className="text-3xl font-bold text-foreground">Welcome, {currentUserName}!</CardTitle>
+              <Separator className="my-2" />
               <CardDescription className="text-muted-foreground">
                 Ready to mark your attendance for the current Miqaat.
               </CardDescription>
@@ -90,6 +93,7 @@ export default function DashboardOverviewPage() {
                 <ScanLine className="mr-3 h-6 w-6 text-primary" />
                 Scan Attendance
               </CardTitle>
+              <Separator className="my-2" />
               <CardDescription>For {mockCurrentMiqaat.name}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -114,11 +118,12 @@ export default function DashboardOverviewPage() {
 
   if (currentUserRole === 'attendance-marker') {
     return (
-      <div className="flex flex-col h-full"> {/* Ensure full height */}
-        <div className="flex-grow space-y-6"> {/* Main content takes available space */}
+      <div className="flex flex-col h-full"> 
+        <div className="flex-grow space-y-6"> 
           <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
             <CardHeader>
               <CardTitle className="text-3xl font-bold text-foreground">Attendance Marker Dashboard</CardTitle>
+              <Separator className="my-2" />
               <CardDescription className="text-muted-foreground">
                 Welcome, {currentUserName}! Manage member attendance and view reports.
               </CardDescription>
@@ -128,6 +133,7 @@ export default function DashboardOverviewPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle>Key Actions</CardTitle>
+              <Separator className="my-2" />
               <CardDescription>Access your primary tools.</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -158,11 +164,12 @@ export default function DashboardOverviewPage() {
 
   // Admin or Superadmin View
   return (
-    <div className="flex flex-col h-full"> {/* Ensure full height */}
-      <div className="flex-grow space-y-6"> {/* Main content takes available space */}
+    <div className="flex flex-col h-full"> 
+      <div className="flex-grow space-y-6"> 
         <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-foreground">Admin Dashboard</CardTitle>
+            <Separator className="my-2" />
             <CardDescription className="text-muted-foreground">
               Welcome, {currentUserName}! Overview of system activity and management tools. Current Role: {currentUserRole}
             </CardDescription>
@@ -189,8 +196,10 @@ export default function DashboardOverviewPage() {
           </div>
         )}
       </div>
-       <footer className="mt-auto border-t bg-card py-4 px-6 text-sm text-muted-foreground text-center">
-         Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.
+       <footer className="mt-auto border-t bg-card py-4 px-6 text-sm text-muted-foreground">
+         <div className="flex flex-row justify-between items-center">
+            <p>Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
+         </div>
       </footer>
     </div>
   );
