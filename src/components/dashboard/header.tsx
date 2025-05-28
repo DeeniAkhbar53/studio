@@ -24,7 +24,7 @@ import Image from "next/image";
 const NOTIFICATIONS_STORAGE_KEY = "appNotifications";
 
 const pageTitles: { [key: string]: string } = {
-  "/dashboard": "Dashboard Overview",
+  "/dashboard": "Dashboard", // Changed from "Dashboard Overview"
   "/dashboard/profile": "My Profile",
   "/dashboard/miqaat-management": "Miqaat Management",
   "/dashboard/mohallah-management": "Mohallah Management",
@@ -80,6 +80,7 @@ export function Header() {
       localStorage.removeItem('userRole');
       localStorage.removeItem('userName');
       localStorage.removeItem('userItsId'); 
+      localStorage.removeItem(NOTIFICATIONS_STORAGE_KEY); // Clear notifications on logout
     }
     router.push("/");
     window.dispatchEvent(new CustomEvent('notificationsUpdated')); 
