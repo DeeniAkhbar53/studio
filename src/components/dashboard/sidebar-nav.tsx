@@ -12,101 +12,92 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
-  allowedRoles?: UserRole[]; 
-  badgeCount?: () => number; 
+  allowedRoles?: UserRole[];
+  badgeCount?: () => number;
 }
 
-const NOTIFICATIONS_STORAGE_KEY = "appNotifications";
-
-const getUnreadNotificationsCount = (): number => {
-  if (typeof window === "undefined") return 0;
-  const storedNotifications = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-  if (storedNotifications) {
-    const notifications: NotificationItem[] = JSON.parse(storedNotifications);
-    return notifications.filter(n => !n.read).length;
-  }
-  return 0;
-};
+const ESSENTIAL_PATHS = ["/dashboard", "/dashboard/profile", "/dashboard/notifications"];
 
 const allNavItems: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: Home },
   { href: "/dashboard/profile", label: "Profile", icon: User },
-  { 
-    href: "/dashboard/notifications", 
-    label: "Notifications", 
+  {
+    href: "/dashboard/notifications",
+    label: "Notifications",
     icon: Bell,
-    badgeCount: getUnreadNotificationsCount 
   },
   { href: "/dashboard/scan-attendance", label: "Scan My QR", icon: ScanBarcode, allowedRoles: ['user'] },
-  { 
-    href: "/dashboard/mark-attendance", 
-    label: "Mark Attendance", 
-    icon: UserCheck, 
-    allowedRoles: ['admin', 'superadmin', 'attendance-marker'] 
+  {
+    href: "/dashboard/mark-attendance",
+    label: "Mark Attendance",
+    icon: UserCheck,
+    allowedRoles: ['admin', 'superadmin', 'attendance-marker']
   },
-  { 
-    href: "/dashboard/miqaat-management", 
-    label: "Miqaats", 
-    icon: CalendarDays, 
-    allowedRoles: ['admin', 'superadmin'] 
+  {
+    href: "/dashboard/miqaat-management",
+    label: "Miqaats",
+    icon: CalendarDays,
+    allowedRoles: ['admin', 'superadmin']
   },
-  { 
-    href: "/dashboard/manage-mohallahs", 
-    label: "Manage Mohallahs", 
-    icon: Building, 
-    allowedRoles: ['admin', 'superadmin'] 
+  {
+    href: "/dashboard/manage-mohallahs",
+    label: "Manage Mohallahs",
+    icon: Building,
+    allowedRoles: ['admin', 'superadmin']
   },
-  { 
-    href: "/dashboard/manage-members", 
-    label: "Manage Members", 
-    icon: UsersIcon, 
-    allowedRoles: ['admin', 'superadmin'] 
+  {
+    href: "/dashboard/manage-members",
+    label: "Manage Members",
+    icon: UsersIcon,
+    allowedRoles: ['admin', 'superadmin']
   },
-   { 
-    href: "/dashboard/manage-notifications", 
-    label: "Manage Notifications", 
-    icon: Settings, 
-    allowedRoles: ['admin', 'superadmin'] 
+   {
+    href: "/dashboard/manage-notifications",
+    label: "Manage Notifications",
+    icon: Settings,
+    allowedRoles: ['admin', 'superadmin']
   },
-  { 
-    href: "/dashboard/reports", 
-    label: "Reports", 
-    icon: BarChart3, 
-    allowedRoles: ['admin', 'superadmin', 'attendance-marker'] 
+  {
+    href: "/dashboard/reports",
+    label: "Reports",
+    icon: BarChart3,
+    allowedRoles: ['admin', 'superadmin', 'attendance-marker']
   },
 ];
-
-const ESSENTIAL_PATHS = ["/dashboard", "/dashboard/profile", "/dashboard/notifications"];
 
 export function SidebarNav() {
   const pathname = usePathname();
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [userPageRights, setUserPageRights] = useState<string[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedRole = localStorage.getItem('userRole') as UserRole | null;
-      setCurrentUserRole(storedRole || 'user'); 
-
       const storedPageRights = localStorage.getItem('userPageRights');
+      const storedUnreadCount = parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10);
+
+      setCurrentUserRole(storedRole || 'user');
       setUserPageRights(storedPageRights ? JSON.parse(storedPageRights) : []);
-      
-      setUnreadCount(getUnreadNotificationsCount());
+      setUnreadNotificationCount(storedUnreadCount);
 
       const handleStorageChange = () => {
-         setUnreadCount(getUnreadNotificationsCount());
          const updatedRole = localStorage.getItem('userRole') as UserRole | null;
          const updatedPageRights = localStorage.getItem('userPageRights');
+         const updatedUnreadCount = parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10);
+
          setCurrentUserRole(updatedRole || 'user');
          setUserPageRights(updatedPageRights ? JSON.parse(updatedPageRights) : []);
+         setUnreadNotificationCount(updatedUnreadCount);
       };
+
       const handleNotificationsUpdate = () => {
-         setUnreadCount(getUnreadNotificationsCount());
+        const updatedUnreadCount = parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10);
+        setUnreadNotificationCount(updatedUnreadCount);
       };
 
       window.addEventListener('storage', handleStorageChange);
-      window.addEventListener('notificationsUpdated', handleNotificationsUpdate);
+      window.addEventListener('notificationsUpdated', handleNotificationsUpdate); // Listen for custom event from header
 
       return () => {
           window.removeEventListener('storage', handleStorageChange);
@@ -114,22 +105,27 @@ export function SidebarNav() {
       };
     }
   }, []);
-  
+
   const navItems = allNavItems.filter(item => {
-    if (!currentUserRole) return false; 
-    // Check base role access
+    if (!currentUserRole) return false;
+
+    // 1. Check base role access
     const roleAllowed = !item.allowedRoles || item.allowedRoles.includes(currentUserRole);
     if (!roleAllowed) return false;
 
-    // If user has specific pageRights, check against them, but always allow essential paths
+    // 2. If user has specific pageRights, apply them
+    // Essential paths are always shown if role-allowed
+    if (ESSENTIAL_PATHS.includes(item.href)) return true;
+
+    // If pageRights are defined and non-empty, user must have explicit right for non-essential pages
     if (userPageRights && userPageRights.length > 0) {
-      if (ESSENTIAL_PATHS.includes(item.href)) return true; // Always allow essential if role matches
       return userPageRights.includes(item.href);
     }
-    
-    return true; // If no specific pageRights, role-based access is sufficient
+
+    // If no specific pageRights are set (or array is empty), role-based access is sufficient for non-essential pages
+    return true;
   });
-  
+
   if (currentUserRole === null) {
       return (
         <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
@@ -142,7 +138,7 @@ export function SidebarNav() {
     <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
       {navItems.map((item) => {
         const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/dashboard" && item.href.length > "/dashboard".length);
-        const currentBadgeCount = item.label === "Notifications" ? unreadCount : undefined;
+        const currentBadgeCount = item.href === "/dashboard/notifications" ? unreadNotificationCount : undefined;
 
         return (
           <Link

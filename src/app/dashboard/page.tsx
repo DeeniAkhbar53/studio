@@ -8,17 +8,16 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole } from "@/types";
-import { getMiqaats } from "@/lib/firebase/miqaatService"; 
-import type { Miqaat } from "@/types"; 
+import { getMiqaats } from "@/lib/firebase/miqaatService";
+import type { Miqaat } from "@/types";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 
 
 const adminOverviewStats = [
-  { title: "Active Miqaats", value: "3", icon: CalendarCheck, trend: "+5 last week" }, 
-  { title: "Total Members", value: "1,205", icon: Users, trend: "+50 new" }, 
-  { title: "Overall Attendance", value: "85%", icon: Activity, trend: "Avg. last 7 days" },
-  { title: "Pending Reports", value: "2", icon: BarChartHorizontalBig, trend: "Needs attention" },
+  { title: "Active Miqaats", value: "0", icon: CalendarCheck, trend: "Realtime" }, // Initial value, will be updated
+  { title: "Total Members", value: "1,205", icon: Users, trend: "+50 new" }, // Placeholder, update if you have member count logic
+  { title: "Overall Attendance", value: "85%", icon: Activity, trend: "Avg. last 7 days" }, // Placeholder
 ];
 
 const mockCurrentMiqaat = {
@@ -41,7 +40,7 @@ export default function DashboardOverviewPage() {
     if (typeof window !== "undefined") {
       const storedRole = localStorage.getItem('userRole') as UserRole | null;
       const storedName = localStorage.getItem('userName');
-      
+
       if (storedRole) {
         setCurrentUserRole(storedRole);
         if (storedName) {
@@ -51,15 +50,13 @@ export default function DashboardOverviewPage() {
           setIsLoadingMiqaats(true);
           unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
             setMiqaats(fetchedMiqaats);
-            // Set loading to false after first data fetch, or if it's always true until unmount if it keeps updating
-            setIsLoadingMiqaats(false); 
+            setIsLoadingMiqaats(false);
           });
         }
-
       } else {
-        router.push('/'); 
-        setIsLoading(false); // Set loading false if redirecting
-        return; 
+        router.push('/');
+        setIsLoading(false);
+        return;
       }
       setIsLoading(false);
     }
@@ -81,8 +78,8 @@ export default function DashboardOverviewPage() {
 
   if (currentUserRole === 'user') {
     return (
-      <div className="flex flex-col h-full"> 
-        <div className="flex-grow space-y-6"> 
+      <div className="flex flex-col h-full">
+        <div className="flex-grow space-y-6">
           <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
             <CardHeader>
               <CardTitle className="text-3xl font-bold text-foreground">Welcome, {currentUserName}!</CardTitle>
@@ -124,42 +121,18 @@ export default function DashboardOverviewPage() {
 
   if (currentUserRole === 'attendance-marker') {
     return (
-      <div className="flex flex-col h-full"> 
-        <div className="flex-grow space-y-6"> 
+      <div className="flex flex-col h-full">
+        <div className="flex-grow space-y-6">
           <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
             <CardHeader>
               <CardTitle className="text-3xl font-bold text-foreground">Attendance Marker Dashboard</CardTitle>
               <Separator className="my-2" />
               <CardDescription className="text-muted-foreground">
-                Welcome, {currentUserName}! Manage member attendance and view reports.
+                Welcome, {currentUserName}! Use the sidebar to navigate to Mark Attendance or View Reports.
               </CardDescription>
             </CardHeader>
           </Card>
-
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>Key Actions</CardTitle>
-              <Separator className="my-2" />
-              <CardDescription>Access your primary tools.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Button asChild className="w-full">
-                <Link href="/dashboard/mark-attendance">
-                  <UserCheck className="mr-2 h-5 w-5" /> Mark Member Attendance
-                </Link>
-              </Button>
-              <Button asChild className="w-full">
-                <Link href="/dashboard/reports">
-                  <BarChart3 className="mr-2 h-5 w-5" /> Generate Attendance Reports
-                </Link>
-              </Button>
-              <Button asChild className="w-full">
-                <Link href="/dashboard/profile">
-                  <UserIcon className="mr-2 h-5 w-5" /> View My Profile
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+          {/* "Key Actions" card removed as per request */}
         </div>
       </div>
     );
@@ -167,8 +140,8 @@ export default function DashboardOverviewPage() {
 
   // Admin or Superadmin View
   return (
-    <div className="flex flex-col h-full"> 
-      <div className="flex-grow space-y-6"> 
+    <div className="flex flex-col h-full">
+      <div className="flex-grow space-y-6">
         <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-foreground">Admin Dashboard</CardTitle>
@@ -178,7 +151,7 @@ export default function DashboardOverviewPage() {
             </CardDescription>
           </CardHeader>
         </Card>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"> {/* Adjusted grid columns for better fit without quick actions */}
           {adminOverviewStats.map((stat) => (
             <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -194,7 +167,7 @@ export default function DashboardOverviewPage() {
             </Card>
           ))}
         </div>
-        {isLoadingMiqaats && !miqaats.length && ( // Show loading only if miqaats haven't loaded yet
+        {isLoadingMiqaats && !miqaats.length && (
           <div className="flex justify-center items-center py-6">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <p className="ml-2 text-muted-foreground">Loading system data...</p>

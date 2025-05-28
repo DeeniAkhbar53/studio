@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"; // Added SheetTrigger
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader as DialogPrimitiveHeader, DialogTitle as DialogPrimitiveTitle, DialogTrigger as DialogPrimitiveTrigger } from "@/components/ui/dialog";
 import { SidebarNav } from "./sidebar-nav";
 import { usePathname, useRouter } from "next/navigation";
@@ -27,10 +27,10 @@ const pageTitles: { [key: string]: string } = {
   "/dashboard": "Dashboard",
   "/dashboard/profile": "Profile",
   "/dashboard/miqaat-management": "Miqaats",
-  "/dashboard/manage-mohallahs": "Mohallahs", // Shortened
-  "/dashboard/manage-members": "Members", // Shortened
+  "/dashboard/manage-mohallahs": "Mohallahs",
+  "/dashboard/manage-members": "Members",
   "/dashboard/reports": "Reports",
-  "/dashboard/scan-attendance": "Scan QR", // Shortened
+  "/dashboard/scan-attendance": "Scan QR",
   "/dashboard/mark-attendance": "Mark Attendance",
   "/dashboard/notifications": "Notifications",
   "/dashboard/manage-notifications": "Manage Notifications",
@@ -43,6 +43,31 @@ export function Header() {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [unreadCountForSidebar, setUnreadCountForSidebar] = useState(0);
+
+
+  const checkUnreadNotifications = useCallback(async () => {
+    if (!currentUserItsId || !currentUserRole) {
+      setHasUnreadNotifications(false);
+      localStorage.setItem('unreadNotificationCount', '0');
+      window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Ensure sidebar updates
+      return;
+    }
+    try {
+      const notifications = await getNotificationsForUser(currentUserItsId, currentUserRole);
+      const unreadCount = notifications.filter(n => !n.readBy?.includes(currentUserItsId)).length;
+      setHasUnreadNotifications(unreadCount > 0);
+      setUnreadCountForSidebar(unreadCount); // for sidebar
+      localStorage.setItem('unreadNotificationCount', unreadCount.toString());
+      window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Notify sidebar
+    } catch (error) {
+      console.error("Failed to check unread notifications:", error);
+      setHasUnreadNotifications(false);
+      localStorage.setItem('unreadNotificationCount', '0');
+      window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+    }
+  }, [currentUserItsId, currentUserRole]);
+
 
   useEffect(() => {
     const itsId = localStorage.getItem('userItsId');
@@ -51,33 +76,20 @@ export function Header() {
     setCurrentUserRole(role);
   }, []);
 
-  const checkUnreadNotifications = useCallback(async () => {
-    if (!currentUserItsId || !currentUserRole) {
-      setHasUnreadNotifications(false);
-      return;
-    }
-    try {
-      const notifications = await getNotificationsForUser(currentUserItsId, currentUserRole);
-      const unreadCount = notifications.filter(n => !n.readBy?.includes(currentUserItsId)).length;
-      setHasUnreadNotifications(unreadCount > 0);
-    } catch (error) {
-      console.error("Failed to check unread notifications:", error);
-      setHasUnreadNotifications(false);
-    }
-  }, [currentUserItsId, currentUserRole]);
 
   useEffect(() => {
     checkUnreadNotifications();
-    
+
     const handleNotificationsUpdate = () => checkUnreadNotifications();
     window.addEventListener('notificationsUpdated', handleNotificationsUpdate);
-    
-    // Also listen to storage changes that might affect user ID or role
+
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'userItsId' || event.key === 'userRole') {
         setCurrentUserItsId(localStorage.getItem('userItsId'));
         setCurrentUserRole(localStorage.getItem('userRole') as UserRole | null);
-        // This will trigger checkUnreadNotifications due to dependency change
+      }
+       if (event.key === 'unreadNotificationCount') { // Listen for direct changes to count
+        checkUnreadNotifications();
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -95,17 +107,21 @@ export function Header() {
       localStorage.removeItem('userRole');
       localStorage.removeItem('userName');
       localStorage.removeItem('userItsId');
+      localStorage.removeItem('userMohallahId');
       localStorage.removeItem('userPageRights');
+      localStorage.removeItem('unreadNotificationCount');
     }
-    setHasUnreadNotifications(false); // Clear indicator on logout
+    setHasUnreadNotifications(false);
+    setUnreadCountForSidebar(0);
+    window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Ensure sidebar clears badge
     router.push("/");
   };
-  
+
   const currentPageTitle = pageTitles[pathname] || "Dashboard";
 
   return (
     <header className="flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 sticky top-0 z-30">
-      <div>
+      <div className="md:hidden"> {/* Re-added md:hidden to hide on medium screens and up */}
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="outline" size="icon">
@@ -137,7 +153,7 @@ export function Header() {
       <div className="flex-1">
         <h1 className="text-xl font-semibold">{currentPageTitle}</h1>
       </div>
-      
+
       <form className="hidden md:flex flex-1 ml-auto max-w-sm">
         <div className="relative w-full">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
