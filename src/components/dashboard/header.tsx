@@ -12,8 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetHeader, SheetTitle as SheetPrimitiveTitle, SheetTrigger } from "@/components/ui/sheet"; // Aliased SheetTitle
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader as DialogPrimitiveHeader, DialogTitle as DialogPrimitiveTitleOriginal, DialogTrigger as DialogPrimitiveTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader as DialogPrimitiveHeader, DialogTitle as DialogPrimitiveTitle, DialogTrigger as DialogPrimitiveTrigger } from "@/components/ui/dialog";
 import { SidebarNav } from "./sidebar-nav";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -27,8 +27,8 @@ const pageTitles: { [key: string]: string } = {
   "/dashboard": "Dashboard",
   "/dashboard/profile": "Profile",
   "/dashboard/miqaat-management": "Miqaats",
-  "/dashboard/manage-mohallahs": "Manage Mohallahs", 
-  "/dashboard/manage-members": "Manage Members",   
+  "/dashboard/manage-mohallahs": "Manage Mohallahs",
+  "/dashboard/manage-members": "Manage Members",
   "/dashboard/reports": "Reports",
   "/dashboard/scan-attendance": "Scan My QR",
   "/dashboard/mark-attendance": "Mark Attendance",
@@ -91,7 +91,8 @@ export function Header() {
 
   return (
     <header className="flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 sticky top-0 z-30">
-      <div className="md:hidden">
+      {/* Sidebar Toggle Button - now visible on desktop too */}
+      <div>
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="outline" size="icon">
@@ -99,9 +100,9 @@ export function Header() {
               <span className="sr-only">Toggle navigation menu</span>
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="flex flex-col p-0">
+          <SheetContent side="left" className="flex flex-col p-0 bg-card"> {/* Added bg-card for white background */}
              <SheetHeader className="p-4 border-b">
-               <SheetPrimitiveTitle className="sr-only">Main Navigation Menu</SheetPrimitiveTitle>
+               <SheetTitle className="sr-only">Main Navigation Menu</SheetTitle>
                <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary">
                 <Image 
                   src="https://app.burhaniguards.org/images/logo.png" 
@@ -113,7 +114,10 @@ export function Header() {
                 <span>BGK Attendance</span>
               </Link>
             </SheetHeader>
-            <SidebarNav />
+            {/* Wrapper to override CSS variable for SidebarNav text color in mobile sheet */}
+            <div style={{ '--sidebar-foreground': 'hsl(var(--card-foreground))' } as React.CSSProperties}>
+              <SidebarNav />
+            </div>
           </SheetContent>
         </Sheet>
       </div>
@@ -142,7 +146,7 @@ export function Header() {
         </DialogPrimitiveTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <DialogPrimitiveHeader>
-            <DialogPrimitiveTitleOriginal>Need Assistance?</DialogPrimitiveTitleOriginal>
+            <DialogPrimitiveTitle>Need Assistance?</DialogPrimitiveTitle>
             <DialogDescription>
               Here you can find information on how to use the BGK Attendance system or contact support.
             </DialogDescription>
