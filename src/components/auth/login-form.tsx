@@ -26,8 +26,6 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-// Removed temporary SUPERADMIN_TEMP_ITS_ID and SUPERADMIN_TEMP_NAME
-
 export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
@@ -39,51 +37,44 @@ export function LoginForm() {
   });
 
   async function onSubmit(data: LoginFormValues) {
-    form.setValue('identityId', data.identityId.trim()); // Trim input
+    form.setValue('identityId', data.identityId.trim());
     const { identityId } = data;
-
-    let userRole: UserRole | null = null;
-    let userName: string | null = null;
-    let userItsId: string | null = null;
 
     form.formState.isSubmitting; 
 
-    // Regular database lookup for all users
     try {
       const user = await getUserByItsOrBgkId(identityId);
 
       if (user && user.role) {
-        userRole = user.role;
-        userName = user.name;
-        userItsId = user.itsId; // Ensure itsId is correctly assigned from the fetched user
+        if (typeof window !== "undefined") {
+          localStorage.setItem('userRole', user.role);
+          localStorage.setItem('userName', user.name);
+          localStorage.setItem('userItsId', user.itsId);
+          localStorage.setItem('userPageRights', JSON.stringify(user.pageRights || []));
+        }
+
+        toast({
+          title: "Login Successful",
+          description: `Welcome, ${user.name}! Role: ${user.role.charAt(0).toUpperCase() + user.role.slice(1).replace(/-/g, ' ')}`,
+        });
+        
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1000);
+
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Login Failed",
+          description: "Invalid ID or user not found in database.",
+        });
       }
     } catch (error) {
       console.error("Login error during DB lookup:", error);
-      // Error will be handled by the general "Login Failed" toast below if user remains null
-    }
-    
-
-    if (userRole && userName && userItsId) {
-      if (typeof window !== "undefined") {
-        localStorage.setItem('userRole', userRole);
-        localStorage.setItem('userName', userName);
-        localStorage.setItem('userItsId', userItsId); // Save the user's actual ITS ID
-      }
-
-      toast({
-        title: "Login Successful",
-        description: `Welcome, ${userName}! Role: ${userRole.charAt(0).toUpperCase() + userRole.slice(1).replace(/-/g, ' ')}`,
-      });
-      
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 1000);
-
-    } else {
       toast({
         variant: "destructive",
-        title: "Login Failed",
-        description: "Invalid ID or user not found.",
+        title: "Login Error",
+        description: "An error occurred while trying to log in. Please check console.",
       });
     }
   }

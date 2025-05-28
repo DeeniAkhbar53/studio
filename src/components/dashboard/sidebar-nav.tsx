@@ -76,19 +76,30 @@ const allNavItems: NavItem[] = [
   },
 ];
 
+const ESSENTIAL_PATHS = ["/dashboard", "/dashboard/profile", "/dashboard/notifications"];
+
 export function SidebarNav() {
   const pathname = usePathname();
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [userPageRights, setUserPageRights] = useState<string[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedRole = localStorage.getItem('userRole') as UserRole | null;
       setCurrentUserRole(storedRole || 'user'); 
+
+      const storedPageRights = localStorage.getItem('userPageRights');
+      setUserPageRights(storedPageRights ? JSON.parse(storedPageRights) : []);
+      
       setUnreadCount(getUnreadNotificationsCount());
 
       const handleStorageChange = () => {
          setUnreadCount(getUnreadNotificationsCount());
+         const updatedRole = localStorage.getItem('userRole') as UserRole | null;
+         const updatedPageRights = localStorage.getItem('userPageRights');
+         setCurrentUserRole(updatedRole || 'user');
+         setUserPageRights(updatedPageRights ? JSON.parse(updatedPageRights) : []);
       };
       const handleNotificationsUpdate = () => {
          setUnreadCount(getUnreadNotificationsCount());
@@ -106,8 +117,17 @@ export function SidebarNav() {
   
   const navItems = allNavItems.filter(item => {
     if (!currentUserRole) return false; 
-    if (!item.allowedRoles) return true; 
-    return item.allowedRoles.includes(currentUserRole);
+    // Check base role access
+    const roleAllowed = !item.allowedRoles || item.allowedRoles.includes(currentUserRole);
+    if (!roleAllowed) return false;
+
+    // If user has specific pageRights, check against them, but always allow essential paths
+    if (userPageRights && userPageRights.length > 0) {
+      if (ESSENTIAL_PATHS.includes(item.href)) return true; // Always allow essential if role matches
+      return userPageRights.includes(item.href);
+    }
+    
+    return true; // If no specific pageRights, role-based access is sufficient
   });
   
   if (currentUserRole === null) {
@@ -150,5 +170,3 @@ export function SidebarNav() {
     </nav>
   );
 }
-
-    

@@ -119,7 +119,7 @@ export default function ManageMohallahsPage() {
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <CardTitle className="flex items-center"><Home className="mr-2 h-5 w-5 text-primary" />Manage Mohallahs</CardTitle>
             <Separator className="my-2" />
@@ -127,7 +127,7 @@ export default function ManageMohallahsPage() {
           </div>
           <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>
             <DialogTrigger asChild>
-              <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }}>
+              <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} className="w-full sm:w-auto">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Mohallah
               </Button>
             </DialogTrigger>
@@ -226,5 +226,3 @@ export default function ManageMohallahsPage() {
     </div>
   );
 }
-
-    

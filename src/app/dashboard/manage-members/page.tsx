@@ -5,24 +5,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label"; // Standard Label
+import { Label as StandardLabel } from "@/components/ui/label"; // Renamed to avoid conflict
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { Mohallah, User, UserRole, UserDesignation } from "@/types";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { Mohallah, User, UserRole, UserDesignation, PageRightConfig } from "@/types";
 import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Users as UsersIcon, Download, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel as ShadFormLabel, FormDescription } from "@/components/ui/form";
+import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form"; // Using ShadCN FormLabel as default
 import { getUsers, addUser, updateUser, deleteUser } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
-
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -33,16 +33,26 @@ const memberSchema = z.object({
   role: z.enum(["user", "admin", "superadmin", "attendance-marker"]),
   mohallahId: z.string().min(1, "Mohallah must be selected"),
   designation: z.enum(["Captain", "Vice Captain", "Member"]).optional().or(z.literal("")),
+  pageRights: z.array(z.string()).optional().default([]),
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
 
 const roleDescriptions: Record<UserRole, string> = {
-    user: "Regular user with basic access, can scan their own attendance.",
+    user: "Regular user with basic access. Can scan their own attendance and view profile/notifications.",
     "attendance-marker": "Can mark attendance for members and view reports.",
-    admin: "Can manage users, Miqaats, Mohallahs, and generate reports.",
+    admin: "Can manage users, Miqaats, Mohallahs, and generate reports. Access can be customized.",
     superadmin: "Full access to all system features and settings.",
 };
+
+const AVAILABLE_PAGE_RIGHTS: PageRightConfig[] = [
+  { id: 'mark-attendance', label: 'Mark Attendance', path: '/dashboard/mark-attendance', description: 'Allows user to mark attendance for others.' },
+  { id: 'miqaat-management', label: 'Manage Miqaats', path: '/dashboard/miqaat-management', description: 'Create, edit, delete Miqaats.' },
+  { id: 'manage-mohallahs', label: 'Manage Mohallahs', path: '/dashboard/manage-mohallahs', description: 'Create, edit, delete Mohallahs.' },
+  { id: 'manage-members', label: 'Manage Members', path: '/dashboard/manage-members', description: 'Add, edit, delete members and assign roles/rights.' },
+  { id: 'manage-notifications', label: 'Manage Notifications', path: '/dashboard/manage-notifications', description: 'Create and delete system-wide notifications.' },
+  { id: 'reports', label: 'View Reports', path: '/dashboard/reports', description: 'Generate and view various attendance reports.' },
+];
 
 
 export default function ManageMembersPage() {
@@ -63,10 +73,9 @@ export default function ManageMembersPage() {
   const [selectedFilterMohallahId, setSelectedFilterMohallahId] = useState<string>("all");
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-
   const memberForm = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema),
-    defaultValues: { name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user", mohallahId: "", designation: "Member" },
+    defaultValues: { name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user", mohallahId: "", designation: "Member", pageRights: [] },
   });
 
   const watchedRole = memberForm.watch("role");
@@ -140,6 +149,7 @@ export default function ManageMembersPage() {
         role: editingMember.role,
         mohallahId: editingMember.mohallahId || (mohallahs.length > 0 ? mohallahs[0].id : ""),
         designation: editingMember.designation || "Member",
+        pageRights: editingMember.pageRights || [],
       });
     } else {
       const defaultMohallah = selectedFilterMohallahId !== 'all'
@@ -149,6 +159,7 @@ export default function ManageMembersPage() {
         name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user",
         mohallahId: defaultMohallah,
         designation: "Member",
+        pageRights: [],
       });
     }
   }, [editingMember, memberForm, isMemberDialogOpen, mohallahs, selectedFilterMohallahId]);
@@ -160,7 +171,7 @@ export default function ManageMembersPage() {
         return;
     }
 
-    const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string, designation?: UserDesignation } = {
+    const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string, designation?: UserDesignation, pageRights?: string[] } = {
       name: values.name,
       itsId: values.itsId,
       bgkId: values.bgkId,
@@ -168,7 +179,8 @@ export default function ManageMembersPage() {
       phoneNumber: values.phoneNumber,
       role: values.role as UserRole,
       mohallahId: targetMohallahId,
-      designation: values.designation || "Member" as UserDesignation,
+      designation: values.designation as UserDesignation || "Member",
+      pageRights: values.role === 'user' ? [] : (values.pageRights || []), // Users have no page rights
     };
 
     try {
@@ -216,7 +228,7 @@ export default function ManageMembersPage() {
 
     toast({
         title: "CSV Upload Initialized",
-        description: `File "${selectedFile.name}" selected. Conceptual Process: Parse CSV, validate, check duplicates, add to target Mohallah. This is a future enhancement.`,
+        description: `File "${selectedFile.name}" selected. Conceptual Process: Parse CSV, validate, check duplicates by ITS ID, add new users to target Mohallah. This is a future enhancement. Ensure 'designation' and 'pageRights' (comma-separated paths if any) columns are included.`,
         duration: 10000,
     });
     setIsCsvImportDialogOpen(false);
@@ -224,11 +236,11 @@ export default function ManageMembersPage() {
   };
 
   const downloadSampleCsv = () => {
-    const csvHeaders = "name,itsId,bgkId,team,phoneNumber,role,mohallahName,designation\n";
+    const csvHeaders = "name,itsId,bgkId,team,phoneNumber,role,mohallahName,designation,pageRights\n";
     const csvDummyData = [
-      "Abbas Bhai,10101010,BGK001,Alpha Team,1234567890,user,Houston,Member",
-      "Fatema Ben,20202020,,Bravo Team,0987654321,attendance-marker,Dallas,Vice Captain",
-      "Yusuf Bhai,30303030,BGK003,Alpha Team,,admin,Houston,Captain",
+      "Abbas Bhai,10101010,BGK001,Alpha Team,1234567890,user,Houston,Member,",
+      "Fatema Ben,20202020,,Bravo Team,0987654321,attendance-marker,Dallas,Vice Captain,/dashboard/reports;/dashboard/mark-attendance",
+      "Yusuf Bhai,30303030,BGK003,Alpha Team,,admin,Houston,Captain,/dashboard/reports;/dashboard/manage-members",
     ].join("\n");
     const csvContent = csvHeaders + csvDummyData;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -242,7 +254,7 @@ export default function ManageMembersPage() {
       link.click();
       document.body.removeChild(link);
     }
-     toast({ title: "Sample CSV Downloaded", description: "Replace dummy data. MohallahName must match an existing Mohallah." });
+     toast({ title: "Sample CSV Downloaded", description: "Replace dummy data. MohallahName must match existing. pageRights are semicolon-separated paths." });
   };
 
   const filteredMembers = members.filter(m => {
@@ -276,7 +288,7 @@ export default function ManageMembersPage() {
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Member
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[525px]">
+              <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>{editingMember ? "Edit Member" : "Add New Member"}</DialogTitle>
                    <DialogDescription>
@@ -284,45 +296,45 @@ export default function ManageMembersPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...memberForm}>
-                  <form onSubmit={memberForm.handleSubmit(handleMemberFormSubmit)} className="grid gap-4 py-4">
+                  <form onSubmit={memberForm.handleSubmit(handleMemberFormSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
                     <FormField control={memberForm.control} name="name" render={({ field }) => (
                       <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="name" className="text-right">Name</ShadFormLabel>
+                        <FormLabel htmlFor="name" className="text-right">Name</FormLabel>
                         <FormControl><Input id="name" {...field} className="col-span-3" /></FormControl>
                         <FormMessage className="col-start-2 col-span-3 text-xs" />
                       </FormItem>
                     )} />
                     <FormField control={memberForm.control} name="itsId" render={({ field }) => (
                       <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="itsId" className="text-right">ITS ID</ShadFormLabel>
+                        <FormLabel htmlFor="itsId" className="text-right">ITS ID</FormLabel>
                         <FormControl><Input id="itsId" {...field} className="col-span-3" /></FormControl>
                         <FormMessage className="col-start-2 col-span-3 text-xs" />
                       </FormItem>
                     )} />
                     <FormField control={memberForm.control} name="bgkId" render={({ field }) => (
                       <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="bgkId" className="text-right">BGK ID</ShadFormLabel>
+                        <FormLabel htmlFor="bgkId" className="text-right">BGK ID</FormLabel>
                         <FormControl><Input id="bgkId" {...field} className="col-span-3" placeholder="Optional" /></FormControl>
                         <FormMessage className="col-start-2 col-span-3 text-xs" />
                       </FormItem>
                     )} />
                     <FormField control={memberForm.control} name="team" render={({ field }) => (
                       <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="team" className="text-right">Team</ShadFormLabel>
+                        <FormLabel htmlFor="team" className="text-right">Team</FormLabel>
                         <FormControl><Input id="team" {...field} className="col-span-3" placeholder="Optional" /></FormControl>
                         <FormMessage className="col-start-2 col-span-3 text-xs" />
                       </FormItem>
                     )} />
                     <FormField control={memberForm.control} name="phoneNumber" render={({ field }) => (
                       <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="phoneNumber" className="text-right">Phone</ShadFormLabel>
+                        <FormLabel htmlFor="phoneNumber" className="text-right">Phone</FormLabel>
                         <FormControl><Input id="phoneNumber" {...field} className="col-span-3" placeholder="Optional" /></FormControl>
                         <FormMessage className="col-start-2 col-span-3 text-xs" />
                       </FormItem>
                     )} />
                      <FormField control={memberForm.control} name="designation" render={({ field }) => (
                         <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                          <ShadFormLabel htmlFor="designation" className="text-right">Designation</ShadFormLabel>
+                          <FormLabel htmlFor="designation" className="text-right">Designation</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value || "Member"}>
                             <FormControl><SelectTrigger id="designation" className="col-span-3"><SelectValue placeholder="Select designation" /></SelectTrigger></FormControl>
                             <SelectContent>
@@ -336,8 +348,8 @@ export default function ManageMembersPage() {
                       )} />
                     <FormField control={memberForm.control} name="role" render={({ field }) => (
                       <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="role" className="text-right">Role</ShadFormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormLabel htmlFor="role" className="text-right">Role</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl><SelectTrigger id="role" className="col-span-3"><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
                           <SelectContent>
                             <SelectItem value="user">User</SelectItem>
@@ -356,7 +368,7 @@ export default function ManageMembersPage() {
                     )} />
                     <FormField control={memberForm.control} name="mohallahId" render={({ field }) => (
                       <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="mohallahId" className="text-right">Mohallah</ShadFormLabel>
+                        <FormLabel htmlFor="mohallahId" className="text-right">Mohallah</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
@@ -373,7 +385,61 @@ export default function ManageMembersPage() {
                         <FormMessage className="col-start-2 col-span-3 text-xs" />
                       </FormItem>
                     )} />
-                    <DialogFooter>
+
+                    {watchedRole && watchedRole !== 'user' && (
+                      <FormField
+                        control={memberForm.control}
+                        name="pageRights"
+                        render={({ field }) => (
+                          <FormItem className="grid grid-cols-1 items-start gap-x-4 pt-2">
+                            <FormLabel className="text-left col-span-4 font-semibold mb-1">Page Access Rights</FormLabel>
+                            <FormDescription className="col-span-4 text-xs mb-2">
+                              Select specific pages this member can access. If none are selected, access is based on the default permissions for their role.
+                            </FormDescription>
+                            <div className="col-span-4 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 p-2 border rounded-md max-h-48 overflow-y-auto">
+                              {AVAILABLE_PAGE_RIGHTS.map((pageRight) => (
+                                <FormField
+                                  key={pageRight.id}
+                                  control={memberForm.control}
+                                  name="pageRights"
+                                  render={({ field: pageRightField }) => (
+                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                      <FormControl>
+                                        <Checkbox
+                                          checked={pageRightField.value?.includes(pageRight.path)}
+                                          onCheckedChange={(checked) => {
+                                            return checked
+                                              ? pageRightField.onChange([...(pageRightField.value || []), pageRight.path])
+                                              : pageRightField.onChange(
+                                                (pageRightField.value || []).filter(
+                                                    (value) => value !== pageRight.path
+                                                  )
+                                                );
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <div className="space-y-1 leading-none">
+                                        <FormLabel className="font-normal text-sm">
+                                          {pageRight.label}
+                                        </FormLabel>
+                                        {pageRight.description && (
+                                          <FormDescription className="text-xs">
+                                            {pageRight.description}
+                                          </FormDescription>
+                                        )}
+                                      </div>
+                                    </FormItem>
+                                  )}
+                                />
+                              ))}
+                            </div>
+                             <FormMessage className="col-span-4 text-xs" />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+
+                    <DialogFooter className="pt-4">
                       <Button type="button" variant="outline" onClick={() => setIsMemberDialogOpen(false)}>Cancel</Button>
                       <Button type="submit" disabled={memberForm.formState.isSubmitting || isLoadingMohallahs || (mohallahs.length === 0 && !isLoadingMohallahs && !memberForm.getValues("mohallahId")) }>
                         {memberForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -520,14 +586,14 @@ export default function ManageMembersPage() {
           <DialogHeader>
             <DialogTitle>Import Members via CSV</DialogTitle>
             <DialogDescription>
-              Select CSV file. Columns: `name`, `itsId`, `bgkId`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`. MohallahName must exist.
+              Select CSV file. Columns: `name`, `itsId`, `bgkId`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="csvFile" className="text-right">
+              <StandardLabel htmlFor="csvFile" className="text-right">
                 CSV File
-              </Label>
+              </StandardLabel>
               <Input
                 id="csvFile"
                 type="file"

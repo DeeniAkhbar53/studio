@@ -13,6 +13,7 @@ export type User = {
   role: UserRole;
   avatarUrl?: string;
   designation?: UserDesignation;
+  pageRights?: string[]; // Array of page paths user has explicit access to
 };
 
 // Represents a single attendance entry as stored within a Miqaat's attendance array
@@ -44,7 +45,7 @@ export type AttendanceRecord = {
   userItsId: string;
   userName: string;
   markedAt: string; // ISO Date string of the timestamp when marked
-  markedByItsId: string;
+  markedByItsId?: string; // Changed to optional to align with some report items
 };
 
 export type Team = {
@@ -84,4 +85,12 @@ export interface ReportResultItem {
   date?: string;
   status: "Present" | "Absent" | "Late" | "N/A";
   markedByItsId?: string;
+}
+
+export interface PageRightConfig {
+  id: string;
+  label: string;
+  path: string;
+  description?: string;
+  defaultRoles?: UserRole[]; // Roles that might typically have this right
 }

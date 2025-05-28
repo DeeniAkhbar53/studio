@@ -24,6 +24,7 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
       mohallahId: mohallahId, // Denormalize mohallahId within the member document for collectionGroup queries
       avatarUrl: userData.avatarUrl || `https://placehold.co/40x40.png?text=${userData.name.substring(0,2).toUpperCase()}`,
       designation: userData.designation || "Member", // Default designation
+      pageRights: userData.pageRights || [], // Add pageRights, default to empty array
     };
 
     if (userData.bgkId && userData.bgkId.trim() !== "") {
@@ -35,10 +36,9 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
     if (userData.phoneNumber && userData.phoneNumber.trim() !== "") {
       payloadForFirestore.phoneNumber = userData.phoneNumber;
     }
-    // designation is already handled with a default
 
     const docRef = await addDoc(membersCollectionRef, payloadForFirestore);
-    return { ...userData, id: docRef.id, avatarUrl: payloadForFirestore.avatarUrl, mohallahId } as User;
+    return { ...userData, id: docRef.id, avatarUrl: payloadForFirestore.avatarUrl, mohallahId, pageRights: payloadForFirestore.pageRights } as User;
   } catch (error) {
     console.error(`Error adding user to Mohallah ${mohallahId}: `, error);
     throw error;
@@ -58,15 +58,25 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
     const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
     
     const updatePayload: any = { ...updatedData };
-    // Remove mohallahId from updatedData if present, as it shouldn't be changed here.
-    // The user's mohallah is determined by the subcollection they are in.
     delete updatePayload.mohallahId; 
 
      Object.keys(updatePayload).forEach(key => {
-      if (updatePayload[key as keyof UserDataForUpdate] === undefined) {
-        delete updatePayload[key as keyof UserDataForUpdate]; 
+      const K = key as keyof UserDataForUpdate;
+      if (updatePayload[K] === undefined) {
+        delete updatePayload[K]; 
+      }
+      // Ensure pageRights is an array, even if empty
+      if (K === 'pageRights' && !Array.isArray(updatePayload[K])) {
+        updatePayload[K] = [];
       }
     });
+
+    // If pageRights is explicitly passed as undefined (e.g. from form logic clearing it), set to empty array
+    if (updatedData.hasOwnProperty('pageRights') && updatedData.pageRights === undefined) {
+        updatePayload.pageRights = [];
+    }
+
+
     await updateDoc(userDocRef, updatePayload);
   } catch (error) {
     console.error(`Error updating user ${userId} in Mohallah ${mohallahId}: `, error);
@@ -101,13 +111,11 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
       usersQuery = query(collectionGroup(db, 'members'));
     }
     const data = await getDocs(usersQuery);
-    return data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as User));
+    return data.docs.map((doc) => ({ ...doc.data(), id: doc.id, pageRights: doc.data().pageRights || [] } as User));
   } catch (error) {
     console.error("Error fetching users: ", error);
-    // If it's an index error for collection group, provide a more specific message
     if (error instanceof Error && error.message.includes("index")) {
         console.error("This operation likely requires a Firestore index for the 'members' collection group. Please check your Firebase console.", error);
-        // Potentially throw a custom error or return an empty array with a status
         throw new Error("Firestore query failed, possibly due to a missing index. Super Admins: please ensure Firestore indexes are configured for 'members' collection group queries.");
     }
     throw error;
@@ -123,14 +131,14 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
     const itsSnapshot = await getDocs(itsQuery);
     if (!itsSnapshot.empty) {
       const userDoc = itsSnapshot.docs[0];
-      return { ...userDoc.data(), id: userDoc.id } as User;
+      return { ...userDoc.data(), id: userDoc.id, pageRights: userDoc.data().pageRights || [] } as User;
     }
 
     const bgkQuery = query(membersCollectionGroup, where("bgkId", "==", id));
     const bgkSnapshot = await getDocs(bgkQuery);
     if (!bgkSnapshot.empty) {
       const userDoc = bgkSnapshot.docs[0];
-      return { ...userDoc.data(), id: userDoc.id } as User;
+      return { ...userDoc.data(), id: userDoc.id, pageRights: userDoc.data().pageRights || [] } as User;
     }
     
     return null;
