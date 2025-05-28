@@ -42,7 +42,7 @@
 
     /* Sidebar specific colors (can be adjusted based on primary theme) */
     --sidebar-background: 230 30% 15%; /* Darker blue/gray for sidebar */
-    --sidebar-foreground: 220 20% 90%; /* Light text for dark sidebar */
+    --sidebar-foreground: 220 20% 95%; /* Light text for dark sidebar - ADJUSTED */
     --sidebar-primary: 45 100% 51%; /* Golden for active items in sidebar */
     --sidebar-primary-foreground: 20 100% 15%;
     --sidebar-accent: 230 30% 25%; /* Hover/accent in sidebar */
@@ -81,7 +81,7 @@
     --ring: 260 60% 70%; /* Brighter Purple for focus rings */
     
     --sidebar-background: 220 15% 10%; 
-    --sidebar-foreground: 220 10% 85%;
+    --sidebar-foreground: 220 10% 80%; /* Light Gray text - ADJUSTED */
     --sidebar-primary: 45 100% 51%; 
     --sidebar-primary-foreground: 20 100% 15%;
     --sidebar-accent: 220 15% 20%; 
