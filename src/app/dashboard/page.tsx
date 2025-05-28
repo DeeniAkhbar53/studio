@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Activity, Users, CalendarCheck, BarChartHorizontalBig, ScanLine, UserCheck, BarChart3, User as UserIcon, Loader2, Settings, HelpCircle } from "lucide-react";
+import { Activity, Users, CalendarCheck, ScanLine, Loader2, Settings, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -13,17 +13,11 @@ import type { Miqaat } from "@/types";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 
-
 const adminOverviewStats = [
-  { title: "Active Miqaats", value: "0", icon: CalendarCheck, trend: "Realtime" }, // Initial value, will be updated
-  { title: "Total Members", value: "1,205", icon: Users, trend: "+50 new" }, // Placeholder, update if you have member count logic
-  { title: "Overall Attendance", value: "85%", icon: Activity, trend: "Avg. last 7 days" }, // Placeholder
+  { title: "Active Miqaats", value: "0", icon: CalendarCheck, trend: "Realtime" },
+  { title: "Total Members", value: "1,205", icon: Users, trend: "+50 new" }, 
+  { title: "Overall Attendance", value: "85%", icon: Activity, trend: "Avg. last 7 days" }, 
 ];
-
-const mockCurrentMiqaat = {
-  name: "Miqaat Al-Layl (Evening Session)",
-  details: "Today, 7:00 PM - 9:00 PM at Main Hall",
-};
 
 export default function DashboardOverviewPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
@@ -31,35 +25,33 @@ export default function DashboardOverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  // Admin specific state
   const [miqaats, setMiqaats] = useState<Miqaat[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(false);
 
   useEffect(() => {
     let unsubscribeMiqaats: Unsubscribe | null = null;
-    if (typeof window !== "undefined") {
-      const storedRole = localStorage.getItem('userRole') as UserRole | null;
-      const storedName = localStorage.getItem('userName');
+    const storedRole = localStorage.getItem('userRole') as UserRole | null;
+    const storedName = localStorage.getItem('userName');
 
-      if (storedRole) {
-        setCurrentUserRole(storedRole);
-        if (storedName) {
-          setCurrentUserName(storedName);
-        }
-        if (storedRole === 'admin' || storedRole === 'superadmin') {
-          setIsLoadingMiqaats(true);
-          unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
-            setMiqaats(fetchedMiqaats);
-            setIsLoadingMiqaats(false);
-          });
-        }
-      } else {
-        router.push('/');
-        setIsLoading(false);
-        return;
+    if (storedRole) {
+      setCurrentUserRole(storedRole);
+      if (storedName) {
+        setCurrentUserName(storedName);
       }
+      if (storedRole === 'admin' || storedRole === 'superadmin') {
+        setIsLoadingMiqaats(true);
+        unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
+          setMiqaats(fetchedMiqaats);
+          setIsLoadingMiqaats(false);
+        });
+      }
+    } else {
+      router.push('/');
       setIsLoading(false);
+      return;
     }
+    setIsLoading(false);
+    
     return () => {
       if (unsubscribeMiqaats) {
         unsubscribeMiqaats();
@@ -100,10 +92,8 @@ export default function DashboardOverviewPage() {
                 Scan Attendance
               </CardTitle>
               <Separator className="my-2" />
-              <CardDescription>For {mockCurrentMiqaat.name}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">{mockCurrentMiqaat.details}</p>
               <Button asChild className="w-full" size="lg">
                 <Link href="/dashboard/scan-attendance">
                   <ScanLine className="mr-2 h-5 w-5" /> Mark My Attendance / Scan Barcode
@@ -132,7 +122,6 @@ export default function DashboardOverviewPage() {
               </CardDescription>
             </CardHeader>
           </Card>
-          {/* "Key Actions" card removed as per request */}
         </div>
       </div>
     );
@@ -151,7 +140,7 @@ export default function DashboardOverviewPage() {
             </CardDescription>
           </CardHeader>
         </Card>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"> {/* Adjusted grid columns for better fit without quick actions */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {adminOverviewStats.map((stat) => (
             <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
