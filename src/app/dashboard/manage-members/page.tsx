@@ -67,6 +67,7 @@ export default function ManageMembersPage() {
 
   const [isCsvImportDialogOpen, setIsCsvImportDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isCsvProcessing, setIsCsvProcessing] = useState(false); // New state for CSV processing
   const { toast } = useToast();
 
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
@@ -180,7 +181,7 @@ export default function ManageMembersPage() {
       role: values.role as UserRole,
       mohallahId: targetMohallahId,
       designation: values.designation as UserDesignation || "Member",
-      pageRights: values.role === 'user' ? [] : (values.pageRights || []), // Users have no page rights
+      pageRights: values.role === 'user' ? [] : (values.pageRights || []),
     };
 
     try {
@@ -225,14 +226,22 @@ export default function ManageMembersPage() {
         toast({ title: "No file selected", description: "Please select a CSV file to upload.", variant: "destructive" });
         return;
     }
+    setIsCsvProcessing(true);
 
-    toast({
-        title: "CSV Upload Initialized",
-        description: `File "${selectedFile.name}" selected. Conceptual Process: Parse CSV, validate, check duplicates by ITS ID, add new users to target Mohallah. This is a future enhancement. Ensure 'designation' and 'pageRights' (comma-separated paths if any) columns are included.`,
-        duration: 10000,
-    });
-    setIsCsvImportDialogOpen(false);
-    setSelectedFile(null);
+    // Simulate processing
+    setTimeout(() => {
+      setIsCsvProcessing(false);
+      toast({
+          title: "CSV File Received",
+          description: `File "${selectedFile.name}" received. Conceptual Process: Parse, validate, check duplicates, add new users. Actual database import from CSV is a future enhancement.`,
+          duration: 7000,
+      });
+      setIsCsvImportDialogOpen(false);
+      setSelectedFile(null);
+      // Note: Actual CSV parsing and Firestore batch writes are not implemented here.
+      // This would involve reading the file content, parsing rows, validating data,
+      // checking for existing users (e.g., by ITS ID), and then using addUser for each new, valid record.
+    }, 2500); // Simulate a 2.5 second processing time
   };
 
   const downloadSampleCsv = () => {
@@ -600,15 +609,26 @@ export default function ManageMembersPage() {
                 accept=".csv"
                 className="col-span-3"
                 onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
+                disabled={isCsvProcessing}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => {setIsCsvImportDialogOpen(false); setSelectedFile(null);}}>Cancel</Button>
-            <Button type="button" onClick={handleProcessCsvUpload} disabled={!selectedFile}>Upload and Process</Button>
+            <Button type="button" variant="outline" onClick={() => {setIsCsvImportDialogOpen(false); setSelectedFile(null);}} disabled={isCsvProcessing}>Cancel</Button>
+            <Button type="button" onClick={handleProcessCsvUpload} disabled={!selectedFile || isCsvProcessing}>
+              {isCsvProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                "Upload and Process"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
