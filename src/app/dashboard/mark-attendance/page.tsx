@@ -14,6 +14,8 @@ import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import type { Unsubscribe } from "firebase/firestore";
+
 
 export default function MarkAttendancePage() {
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
@@ -34,27 +36,20 @@ export default function MarkAttendancePage() {
   }, []);
 
   useEffect(() => {
-    const fetchMiqaats = async () => {
-      setIsLoadingMiqaats(true);
-      try {
-        const fetchedMiqaats = await getMiqaats(); // getMiqaats now returns Pick<Miqaat, ...>
-        setAvailableMiqaats(fetchedMiqaats.map(m => ({
-          id: m.id,
-          name: m.name,
-          startTime: m.startTime,
-          endTime: m.endTime,
-          reportingTime: m.reportingTime,
-          attendance: m.attendance || []
-        })));
-      } catch (error) {
-        toast({ title: "Error", description: "Failed to load Miqaats.", variant: "destructive" });
-        console.error("Failed to load Miqaats for attendance marking:", error);
-      } finally {
-        setIsLoadingMiqaats(false);
-      }
-    };
-    fetchMiqaats();
-  }, [toast]);
+    setIsLoadingMiqaats(true);
+    const unsubscribe = getMiqaats((fetchedMiqaats) => {
+      setAvailableMiqaats(fetchedMiqaats.map(m => ({
+        id: m.id,
+        name: m.name,
+        startTime: m.startTime,
+        endTime: m.endTime,
+        reportingTime: m.reportingTime,
+        attendance: m.attendance || [] 
+      })));
+      setIsLoadingMiqaats(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleMarkAttendance = async () => {
     if (!selectedMiqaatId) {
@@ -94,7 +89,6 @@ export default function MarkAttendancePage() {
         return;
     }
 
-    // Check if already marked in Firestore data for this Miqaat
     const alreadyMarkedInDb = selectedMiqaatDetails.attendance?.some(
       (entry) => entry.userItsId === member!.itsId
     );
@@ -128,15 +122,16 @@ export default function MarkAttendancePage() {
           miqaatName: selectedMiqaatDetails.name,
         };
         setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
+        
+        // No longer need to optimistically update here if getMiqaats is realtime, but good for non-realtime
+        // setAvailableMiqaats(prevMiqaats => 
+        //     prevMiqaats.map(m => 
+        //         m.id === selectedMiqaatId 
+        //         ? { ...m, attendance: [...(m.attendance || []), attendanceEntryPayload] } 
+        //         : m
+        //     )
+        // );
 
-        // Optimistically update availableMiqaats state to reflect the new entry
-        setAvailableMiqaats(prevMiqaats =>
-            prevMiqaats.map(m =>
-                m.id === selectedMiqaatId
-                ? { ...m, attendance: [...(m.attendance || []), attendanceEntryPayload] }
-                : m
-            )
-        );
 
         toast({
           title: "Attendance Marked",
@@ -210,6 +205,7 @@ export default function MarkAttendancePage() {
               onClick={handleMarkAttendance}
               disabled={!selectedMiqaatId || !memberIdInput || isProcessing || isLoadingMiqaats}
               className="w-full md:w-auto"
+              size="sm"
             >
               {isProcessing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

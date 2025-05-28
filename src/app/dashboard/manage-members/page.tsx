@@ -92,7 +92,11 @@ export default function ManageMembersPage() {
   const fetchAndSetMohallahs = useCallback(async () => {
     setIsLoadingMohallahs(true);
     try {
-      const fetchedMohallahs = await getMohallahs();
+      // For realtime updates, the service now takes a callback
+      // For this page, a one-time fetch might be enough unless Mohallah list changes very frequently
+      const fetchedMohallahs = await new Promise<Mohallah[]>((resolve) => {
+        getMohallahs(resolve); // Assuming getMohallahs can be adapted for a single fetch or we use a different service fn
+      });
       setMohallahs(fetchedMohallahs);
       if (fetchedMohallahs.length > 0 && !memberForm.getValues("mohallahId") && selectedFilterMohallahId === 'all') {
         memberForm.setValue("mohallahId", fetchedMohallahs[0].id);
@@ -192,9 +196,6 @@ export default function ManageMembersPage() {
     try {
       if (editingMember && editingMember.mohallahId) {
         const updatePayload = { ...memberPayload };
-        // Do not send mohallahId in update payload if it's not meant to be changed via this form
-        // delete (updatePayload as any).mohallahId; 
-
         await updateUser(editingMember.id, editingMember.mohallahId, updatePayload);
         toast({ title: "Member Updated", description: `"${values.name}" has been updated.` });
       } else {
@@ -252,17 +253,14 @@ export default function ManageMembersPage() {
 
           for (const row of dataRows) {
             if (Object.keys(row).length === 0 || Object.values(row).every(val => val === "" || val === null)) {
-                // Skip truly empty rows that PapaParse might not have skipped if only skipEmptyLines: true
                 continue;
             }
-            // Basic validation
             if (!row.name || !row.itsId || !row.mohallahName || !row.role) {
               failedRecords.push({ data: row, reason: "Missing required fields (name, itsId, mohallahName, role)." });
               skippedCount++;
               continue;
             }
 
-            // Find Mohallah ID
             const mohallah = mohallahs.find(m => m.name.toLowerCase() === row.mohallahName.toLowerCase());
             if (!mohallah) {
               failedRecords.push({ data: row, reason: `Mohallah "${row.mohallahName}" not found.` });
@@ -271,7 +269,6 @@ export default function ManageMembersPage() {
             }
             const mohallahId = mohallah.id;
 
-            // Check for duplicate ITS ID (globally)
             try {
               const existingUser = await getUserByItsOrBgkId(row.itsId);
               if (existingUser) {
@@ -328,15 +325,13 @@ export default function ManageMembersPage() {
           if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0 && skippedCount > 0)) {
             toast({
                 title: "CSV Import Error",
-                description: "There was an issue importing some or all users. Please check the console for details.",
+                description: "There was an issue importing some or all users.",
                 variant: "destructive",
-                duration: 7000,
             });
           } else {
             toast({
                 title: "CSV Import Successful",
-                description: "CSV file processed. Check console for detailed status.",
-                duration: 7000,
+                description: `${successfullyAddedCount} users added. ${skippedCount} skipped. ${errorCount} errors.`,
             });
           }
 
@@ -349,9 +344,8 @@ export default function ManageMembersPage() {
           setIsCsvProcessing(false);
           toast({
             title: "CSV Parsing Error",
-            description: `Could not parse file: ${error.message}. See console for details.`,
+            description: `Could not parse file: ${error.message}.`,
             variant: "destructive",
-            duration: 7000,
           });
         }
       });
@@ -362,7 +356,6 @@ export default function ManageMembersPage() {
         title: "File Read Error",
         description: "Could not read the selected file.",
         variant: "destructive",
-        duration: 7000,
       });
     }
   };
@@ -408,15 +401,15 @@ export default function ManageMembersPage() {
             <CardDescription>Add, view, and manage members within Mohallahs. Data from Firestore.</CardDescription>
           </div>
           <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto">
-            <Button variant="outline" onClick={downloadSampleCsv} className="w-full sm:w-auto">
+            <Button variant="outline" onClick={downloadSampleCsv} className="w-full sm:w-auto" size="sm">
                 <Download className="mr-2 h-4 w-4" /> Download Sample CSV
             </Button>
-            <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)} className="w-full sm:w-auto">
+            <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)} className="w-full sm:w-auto" size="sm">
               <FileUp className="mr-2 h-4 w-4" /> Import CSV
             </Button>
             <Dialog open={isMemberDialogOpen} onOpenChange={(open) => { setIsMemberDialogOpen(open); if (!open) setEditingMember(null); }}>
               <DialogTrigger asChild>
-                <Button onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} className="w-full sm:w-auto" disabled={isLoadingMohallahs || (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && mohallahs.length === 0)}>
+                <Button onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} className="w-full sm:w-auto" size="sm" disabled={isLoadingMohallahs || (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && mohallahs.length === 0)}>
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Member
                 </Button>
               </DialogTrigger>

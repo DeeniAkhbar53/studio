@@ -4,7 +4,7 @@
 import type { Miqaat } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Users, Barcode, Edit, Trash2, Clock } from "lucide-react"; // Added Clock
+import { CalendarDays, Users, Barcode, Edit, Trash2, Clock } from "lucide-react"; 
 import { QRCodeSVG } from 'qrcode.react';
 import {
   AlertDialog,
@@ -20,7 +20,7 @@ import {
 import { useState } from "react";
 
 interface MiqaatCardProps {
-  miqaat: Miqaat; // Use the full Miqaat type
+  miqaat: Miqaat; 
   onEdit: (miqaat: Miqaat) => void;
   onDelete: (miqaatId: string) => void;
 }
@@ -62,6 +62,10 @@ export function MiqaatCard({ miqaat, onEdit, onDelete }: MiqaatCardProps) {
           <div className="flex items-center text-muted-foreground">
             <Users className="mr-2 h-4 w-4 text-primary shrink-0" />
             <span>Teams: {miqaat.teams && miqaat.teams.length > 0 ? miqaat.teams.join(", ") : "All"}</span>
+          </div>
+          <div className="flex items-center text-muted-foreground">
+             <Users className="mr-2 h-4 w-4 text-primary shrink-0" />
+             <span>Attendance: {miqaat.attendance?.length || 0} marked</span>
           </div>
         </CardContent>
         <CardFooter className="flex flex-wrap gap-2 justify-between items-center border-t pt-4 mt-auto">

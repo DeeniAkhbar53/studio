@@ -103,8 +103,8 @@ export default function MiqaatManagementPage() {
     const miqaatPayload = {
       name: values.name,
       location: values.location || undefined,
-      startTime: values.startTime, // Already string from datetime-local
-      endTime: values.endTime,     // Already string from datetime-local
+      startTime: values.startTime, 
+      endTime: values.endTime,     
       reportingTime: values.reportingTime || undefined,
       teams: values.teams || [],
       barcodeData: values.barcodeData || undefined,
@@ -120,7 +120,6 @@ export default function MiqaatManagementPage() {
         await addMiqaat(miqaatPayload as MiqaatDataForAdd);
         toast({ title: "Miqaat Created", description: `"${values.name}" has been added.` });
       }
-      // No need to manually refetch, onSnapshot updates the list
       setIsDialogOpen(false);
       setEditingMiqaat(null);
     } catch (error) {
@@ -138,7 +137,6 @@ export default function MiqaatManagementPage() {
     try {
       await fbDeleteMiqaat(miqaatId);
       toast({ title: "Miqaat Deleted", description: "The Miqaat has been deleted.", variant: "destructive" });
-      // No need to manually refetch
     } catch (error) {
       console.error("Error deleting Miqaat:", error);
       toast({ title: "Database Error", description: "Could not delete Miqaat.", variant: "destructive" });
@@ -161,7 +159,7 @@ export default function MiqaatManagementPage() {
           </div>
           <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingMiqaat(null); }}>
             <DialogTrigger asChild>
-              <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}}>
+              <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}} size="sm">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Miqaat
               </Button>
             </DialogTrigger>

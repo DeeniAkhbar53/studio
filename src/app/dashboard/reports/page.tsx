@@ -24,6 +24,8 @@ import { getUsers } from "@/lib/firebase/userService";
 import { getAttendanceRecordsByMiqaat, getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService"; 
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import type { Unsubscribe } from "firebase/firestore";
+
 
 const reportSchema = z.object({
   reportType: z.enum(["miqaat_summary", "member_attendance", "overall_activity", "non_attendance_miqaat"], {
@@ -66,7 +68,7 @@ type ReportFormValues = z.infer<typeof reportSchema>;
 export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportResultItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [availableMiqaats, setAvailableMiqaats] = useState<Miqaat[]>([]);
+  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const { toast } = useToast();
 
@@ -79,22 +81,16 @@ export default function ReportsPage() {
       dateRange: { from: undefined, to: undefined },
     },
   });
-
+  
   useEffect(() => {
-    const fetchMiqaatsForReport = async () => {
-      setIsLoadingMiqaats(true);
-      try {
-        const fetchedMiqaats = await getMiqaats();
-        setAvailableMiqaats(fetchedMiqaats);
-      } catch (error) {
-        toast({ title: "Error", description: "Failed to load Miqaats for report options.", variant: "destructive" });
-        console.error("Failed to load Miqaats for reports page:", error);
-      } finally {
-        setIsLoadingMiqaats(false);
-      }
-    };
-    fetchMiqaatsForReport();
-  }, [toast]);
+    setIsLoadingMiqaats(true);
+    const unsubscribe = getMiqaats((fetchedMiqaats) => {
+      setAvailableMiqaats(fetchedMiqaats);
+      setIsLoadingMiqaats(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
 
   const watchedReportType = form.watch("reportType");
 
@@ -130,8 +126,11 @@ export default function ReportsPage() {
             markedByItsId: att.markedByItsId,
           }));
       } else if (values.reportType === "overall_activity") {
-        const allMiqaats = await getMiqaats(); 
-        const allAttendancePromises = allMiqaats.map(m => getAttendanceRecordsByMiqaat(m.id));
+        // Fetch all miqaats first to get their IDs
+        // This might need adjustment if getMiqaats becomes realtime only
+        const allMiqaatDocs = await new Promise<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance">[]>((resolve) => getMiqaats(resolve));
+
+        const allAttendancePromises = allMiqaatDocs.map(m => getAttendanceRecordsByMiqaat(m.id));
         const allAttendanceArrays = await Promise.all(allAttendancePromises);
         generatedReportData = allAttendanceArrays.flat();
         reportResultItems = generatedReportData.map(att => ({
@@ -150,7 +149,9 @@ export default function ReportsPage() {
           setIsLoading(false);
           return;
         }
-        const allUsers = await getUsers();
+        // Fetch all users, then filter by team if teams are assigned to the miqaat
+        // This could be optimized if getUsers could filter by team directly
+        const allUsers = await getUsers(); 
         
         const attendanceForMiqaat = await getAttendanceRecordsByMiqaat(values.miqaatId); 
         const attendedItsIds = new Set(attendanceForMiqaat.map(att => att.userItsId));
@@ -158,7 +159,7 @@ export default function ReportsPage() {
         let eligibleUsers = allUsers;
         
         if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
-          eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams.includes(user.team));
+          eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
         }
         
         const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
@@ -357,7 +358,7 @@ export default function ReportsPage() {
                   )}
                 />
               </div>
-              <Button type="submit" disabled={isLoading || isLoadingMiqaats} className="min-w-[180px]">
+              <Button type="submit" disabled={isLoading || isLoadingMiqaats} className="min-w-[180px]" size="sm">
                 {isLoading || isLoadingMiqaats ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -384,7 +385,7 @@ export default function ReportsPage() {
                     {form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.
                 </CardDescription>
             </div>
-            <Button variant="outline" onClick={handleExport} disabled={reportData.length === 0 || isLoading}>
+            <Button variant="outline" onClick={handleExport} disabled={reportData.length === 0 || isLoading} size="sm">
               <Download className="mr-2 h-4 w-4" /> Export CSV
             </Button>
           </CardHeader>

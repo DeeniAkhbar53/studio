@@ -47,7 +47,6 @@ export default function ManageMohallahsPage() {
       setIsLoadingMohallahs(false);
     });
 
-    // Fetch members once for deletion checks (could also be realtime if member assignment changes frequently)
     const fetchInitialMembers = async () => {
       setIsLoadingMembers(true);
       try {
@@ -84,7 +83,6 @@ export default function ManageMohallahsPage() {
         await addMohallah(values.name);
         toast({ title: "Mohallah Added", description: `Mohallah "${values.name}" has been added.` });
       }
-      // No need to manually refetch, onSnapshot will update the list
       setIsMohallahDialogOpen(false);
       setEditingMohallah(null);
     } catch (error) {
@@ -103,9 +101,8 @@ export default function ManageMohallahsPage() {
         toast({ title: "Please wait", description: "Checking member assignments...", variant: "default" });
         return;
     }
-    // Re-fetch members to ensure fresh data before delete check (or use realtime members if implemented)
     try {
-      const currentMembers = await getUsers(); // Fresh fetch
+      const currentMembers = await getUsers(); 
       setMembers(currentMembers);
       const membersInMohallah = currentMembers.filter(member => member.mohallahId === mohallah.id);
       if (membersInMohallah.length > 0) {
@@ -119,7 +116,6 @@ export default function ManageMohallahsPage() {
       }
       await fbDeleteMohallah(mohallah.id);
       toast({ title: "Mohallah Deleted", description: `Mohallah "${mohallah.name}" has been deleted.`});
-      // No need to manually refetch mohallahs
     } catch (error) {
       console.error("Error deleting Mohallah:", error);
       toast({ title: "Database Error", description: "Could not delete Mohallah.", variant: "destructive" });
@@ -137,7 +133,7 @@ export default function ManageMohallahsPage() {
           </div>
           <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>
             <DialogTrigger asChild>
-              <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} className="w-full sm:w-auto">
+              <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} className="w-full sm:w-auto" size="sm">
                 <PlusCircle className="mr-2 h-4 w-4" /> Add New Mohallah
               </Button>
             </DialogTrigger>

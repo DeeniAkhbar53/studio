@@ -23,6 +23,8 @@ export default function ManageNotificationsPage() {
   const [newNotificationAudience, setNewNotificationAudience] = useState<'all' | UserRole>('all');
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
 
   const { toast } = useToast();
 
@@ -37,9 +39,6 @@ export default function ManageNotificationsPage() {
     if (!currentUserItsId || !currentUserRole) return;
     setIsLoading(true);
     try {
-      // For management, admin might want to see all or broader scope.
-      // Using getNotificationsForUser which filters by role. Consider a getAll or similar for true management.
-      // For now, this will show notifications targetable by this admin.
       const fetchedNotifications = await getNotificationsForUser(currentUserItsId, currentUserRole);
       setNotifications(fetchedNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (error) {
@@ -70,7 +69,7 @@ export default function ManageNotificationsPage() {
       toast({ title: "Error", description: "User ITS ID not found. Cannot post notification.", variant: "destructive" });
       return;
     }
-
+    setIsSubmitting(true);
     try {
       await addNotification({
         title: newNotificationTitle.trim(),
@@ -85,11 +84,13 @@ export default function ManageNotificationsPage() {
       setNewNotificationTitle("");
       setNewNotificationContent("");
       setNewNotificationAudience('all');
-      fetchNotifications(); // Refresh the list
+      fetchNotifications(); 
       window.dispatchEvent(new CustomEvent('notificationsUpdated'));
     } catch (error) {
       console.error("Failed to post notification:", error);
       toast({ title: "Error", description: "Could not post notification.", variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -100,7 +101,7 @@ export default function ManageNotificationsPage() {
         title: "Notification Deleted",
         description: "The notification has been removed.",
       });
-      fetchNotifications(); // Refresh the list
+      fetchNotifications(); 
       window.dispatchEvent(new CustomEvent('notificationsUpdated'));
     } catch (error) {
       console.error("Failed to delete notification:", error);
@@ -125,6 +126,7 @@ export default function ManageNotificationsPage() {
               onChange={(e) => setNewNotificationTitle(e.target.value)}
               placeholder="Enter notification title"
               className="mt-1"
+              disabled={isSubmitting}
             />
           </div>
           <div>
@@ -135,11 +137,12 @@ export default function ManageNotificationsPage() {
               onChange={(e) => setNewNotificationContent(e.target.value)}
               placeholder="Enter notification details..."
               className="mt-1 min-h-[100px]"
+              disabled={isSubmitting}
             />
           </div>
           <div>
             <Label htmlFor="notification-audience">Target Audience</Label>
-            <Select value={newNotificationAudience} onValueChange={(value) => setNewNotificationAudience(value as 'all' | UserRole)}>
+            <Select value={newNotificationAudience} onValueChange={(value) => setNewNotificationAudience(value as 'all' | UserRole)} disabled={isSubmitting}>
               <SelectTrigger id="notification-audience" className="mt-1">
                 <SelectValue placeholder="Select target audience" />
               </SelectTrigger>
@@ -154,8 +157,8 @@ export default function ManageNotificationsPage() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button onClick={handlePostNotification} disabled={isLoading}>
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+          <Button onClick={handlePostNotification} disabled={isSubmitting || isLoading} size="sm">
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
              Post Notification
           </Button>
         </CardFooter>

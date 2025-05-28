@@ -18,7 +18,6 @@ export default function ScanAttendancePage() {
   const { toast } = useToast();
 
   const startCamera = useCallback(async (mode: 'user' | 'environment') => {
-    // Stop any existing stream
     if (videoRef.current && videoRef.current.srcObject) {
       const currentStream = videoRef.current.srcObject as MediaStream;
       currentStream.getTracks().forEach(track => track.stop());
@@ -52,7 +51,6 @@ export default function ScanAttendancePage() {
           description = `The ${mode === 'user' ? 'front' : 'back'} camera was not found on your device.`;
         } else if (error.name === "OverconstrainedError") {
           description = `The ${mode === 'user' ? 'front' : 'back'} camera doesn't support the requested constraints. Trying default camera.`;
-           // Try again without specific facingMode as a fallback
             try {
                 toast({ title: "Camera Issue", description: `Trying default camera...` });
                 const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -94,7 +92,7 @@ export default function ScanAttendancePage() {
 
   return (
     <div className="space-y-6">
-      <Button variant="outline" onClick={() => router.push("/dashboard")} className="mb-4">
+      <Button variant="outline" onClick={() => router.push("/dashboard")} className="mb-4" size="sm">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Dashboard
       </Button>
@@ -117,8 +115,8 @@ export default function ScanAttendancePage() {
             ref={videoRef}
             className={`w-full h-full object-cover ${hasCameraPermission ? '' : 'hidden'}`}
             autoPlay
-            playsInline // Important for iOS
-            muted // Muting is often required for autoplay
+            playsInline 
+            muted 
           />
           
           {hasCameraPermission === false && (
@@ -129,12 +127,11 @@ export default function ScanAttendancePage() {
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex flex-col items-center space-y-4 pt-6 sm:flex-row sm:justify-between sm:space-y-0">
-          <Button onClick={handleSwitchCamera} disabled={hasCameraPermission === null || !hasCameraPermission} variant="outline">
+        <CardFooter className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:justify-between pt-6">
+          <Button onClick={handleSwitchCamera} disabled={hasCameraPermission === null || !hasCameraPermission} variant="outline" size="sm">
             <SwitchCamera className="mr-2 h-4 w-4" /> Switch Camera
           </Button>
-          {/* Placeholder for actual scan button or automatic detection */}
-          <Button className="w-full sm:w-auto" disabled={!hasCameraPermission}>
+          <Button className="w-full sm:w-auto" disabled={!hasCameraPermission} size="sm">
             <Camera className="mr-2 h-4 w-4" />
             Scan (Placeholder)
           </Button>
