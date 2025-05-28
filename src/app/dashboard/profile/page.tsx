@@ -7,11 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AttendanceRecord, User, Mohallah } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock } from "lucide-react"; 
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getUserByItsOrBgkId } from "@/lib/firebase/userService"; 
-import { getMohallahs } from "@/lib/firebase/mohallahService"; 
-import { getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService"; 
+import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
+import { getMohallahs } from "@/lib/firebase/mohallahService";
+import { getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
@@ -32,41 +32,36 @@ export default function ProfilePage() {
 
     const fetchProfileData = async () => {
       setIsLoading(true);
-      setHistoryError(null); // Reset history error on new fetch
+      setHistoryError(null); 
+
       if (typeof window !== "undefined") {
         const storedItsId = localStorage.getItem('userItsId');
         if (storedItsId) {
           try {
-            // Fetch user details first
             const fetchedUser = await getUserByItsOrBgkId(storedItsId);
             if (isMounted) {
               setUser(fetchedUser);
             }
-            
-            // Subscribe to Mohallahs
+
             unsubscribeMohallahs = getMohallahs((fetchedMohallahsData) => {
               if (isMounted) {
                 setMohallahs(fetchedMohallahsData);
               }
             });
 
-            // If user is fetched, attempt to fetch attendance history
             if (fetchedUser) {
               setIsLoadingHistory(true);
               try {
-                const history = await getAttendanceRecordsByUser(fetchedUser.itsId); 
+                const history = await getAttendanceRecordsByUser(fetchedUser.itsId);
                 if (isMounted) {
                   setAttendanceHistory(history);
                 }
               } catch (historyFetchError: any) {
-                console.error("Failed to fetch attendance history:", historyFetchError);
+                console.error("Failed to fetch attendance history:", historyFetchError); // Crucial log
                 if (isMounted) {
                   setAttendanceHistory([]);
-                  if (historyFetchError.message.includes("index")) {
-                    setHistoryError("Could not load attendance history. Database configuration for history queries might be pending. Please check back later or contact support.");
-                  } else {
-                    setHistoryError("Could not load attendance history at this time.");
-                  }
+                  // Simplified error message - directs user to console for specific Firebase error
+                  setHistoryError("Could not load attendance history at this time. Please check the browser console for more details.");
                 }
               } finally {
                 if (isMounted) {
@@ -74,23 +69,21 @@ export default function ProfilePage() {
                 }
               }
             } else {
-              // No user fetched, so no history to load
               if (isMounted) {
                 setAttendanceHistory([]);
                 setIsLoadingHistory(false);
               }
             }
-
           } catch (error) {
             console.error("Failed to fetch profile data (user details):", error);
             if (isMounted) {
-              setUser(null); 
+              setUser(null);
               setAttendanceHistory([]);
             }
           } finally {
-             if (isMounted) {
-                setIsLoading(false);
-             }
+            if (isMounted) {
+              setIsLoading(false);
+            }
           }
         } else {
           router.push('/');
@@ -118,7 +111,7 @@ export default function ProfilePage() {
     return mohallah ? mohallah.name : "Unknown Mohallah";
   };
 
-  if (isLoading && !user) { // Only show main loader if user data isn't available yet
+  if (isLoading && !user) {
     return (
       <div className="flex items-center justify-center h-full py-10">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -195,7 +188,7 @@ export default function ProfilePage() {
               ) : historyError ? (
                  <div className="text-center py-10">
                   <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-4 text-lg text-destructive">{historyError}</p>
+                  <p className="mt-4 text-lg text-destructive">{historyError}</p> {/* User sees this simplified message */}
                 </div>
               ) : attendanceHistory.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -234,5 +227,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    
