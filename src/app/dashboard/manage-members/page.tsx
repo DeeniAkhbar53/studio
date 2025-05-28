@@ -18,7 +18,7 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form"; // Using ShadCN FormLabel as default
-import { getUsers, addUser, updateUser, deleteUser } from "@/lib/firebase/userService";
+import { getUsers, addUser, updateUser, deleteUser, getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
@@ -241,20 +241,96 @@ export default function ManageMembersPage() {
       Papa.parse(fileContent, {
         header: true,
         skipEmptyLines: true,
-        complete: (results) => {
-          console.log("Parsed CSV Data:", results.data);
-          // Log first 5 rows for brevity, if available
-          const sampleData = results.data.slice(0, 5);
-          console.log("First 5 rows of parsed CSV:", sampleData);
+        complete: async (results) => {
+          let successfullyAddedCount = 0;
+          let skippedCount = 0;
+          let errorCount = 0;
+          const failedRecords: { data: any, reason: string }[] = [];
+
+          const dataRows = results.data as any[];
+
+          for (const row of dataRows) {
+            // Basic validation
+            if (!row.name || !row.itsId || !row.mohallahName || !row.role) {
+              failedRecords.push({ data: row, reason: "Missing required fields (name, itsId, mohallahName, role)." });
+              skippedCount++;
+              continue;
+            }
+
+            // Find Mohallah ID
+            const mohallah = mohallahs.find(m => m.name.toLowerCase() === row.mohallahName.toLowerCase());
+            if (!mohallah) {
+              failedRecords.push({ data: row, reason: `Mohallah "${row.mohallahName}" not found.` });
+              skippedCount++;
+              continue;
+            }
+            const mohallahId = mohallah.id;
+
+            // Check for duplicate ITS ID (globally)
+            try {
+              const existingUser = await getUserByItsOrBgkId(row.itsId);
+              if (existingUser) {
+                failedRecords.push({ data: row, reason: `User with ITS ID ${row.itsId} already exists.` });
+                skippedCount++;
+                continue;
+              }
+            } catch (err) {
+               failedRecords.push({ data: row, reason: `Error checking duplicate for ITS ID ${row.itsId}.` });
+               errorCount++;
+               continue;
+            }
+            
+
+            const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string } = {
+              name: row.name,
+              itsId: row.itsId,
+              bgkId: row.bgkId || undefined,
+              team: row.team || undefined,
+              phoneNumber: row.phoneNumber || undefined,
+              role: row.role as UserRole, // Consider adding validation for role value
+              mohallahId: mohallahId,
+              designation: (row.designation as UserDesignation) || "Member",
+              pageRights: row.pageRights ? row.pageRights.split(';').map((s: string) => s.trim()).filter(Boolean) : [],
+            };
+            
+            // Schema validation before adding (optional but good practice)
+            const validation = memberSchema.safeParse({
+                ...memberPayload,
+                bgkId: memberPayload.bgkId || "", // Ensure empty strings for optional fields not null/undefined for zod
+                team: memberPayload.team || "",
+                phoneNumber: memberPayload.phoneNumber || "",
+            });
+
+            if (!validation.success) {
+                const errorMessages = Object.values(validation.error.flatten().fieldErrors).flat().join(' ');
+                failedRecords.push({ data: row, reason: `Validation failed: ${errorMessages}` });
+                skippedCount++;
+                continue;
+            }
+
+            try {
+              await addUser(validation.data, mohallahId);
+              successfullyAddedCount++;
+            } catch (dbError: any) {
+              failedRecords.push({ data: row, reason: `DB Error: ${dbError.message}` });
+              errorCount++;
+            }
+          }
 
           setIsCsvProcessing(false);
-          toast({
-            title: "CSV File Processed (Conceptual)",
-            description: `File "${selectedFile.name}" parsed. ${sampleData.length} sample rows logged to console. Full database import is a future enhancement.`,
-            duration: 7000,
-          });
           setIsCsvImportDialogOpen(false);
           setSelectedFile(null);
+          fetchAndSetMembers(); // Refresh the member list
+
+          toast({
+            title: "CSV Import Complete",
+            description: `${successfullyAddedCount} users added. ${skippedCount} skipped (duplicates/missing mohallah/validation). ${errorCount} DB errors. Check console for details on failures.`,
+            duration: 10000,
+          });
+
+          if (failedRecords.length > 0) {
+            console.warn("CSV Import - Skipped/Failed Records:", failedRecords);
+          }
         },
         error: (error: any) => {
           console.error("Error parsing CSV:", error);
@@ -666,3 +742,6 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+
+    
