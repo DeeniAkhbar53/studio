@@ -1,3 +1,4 @@
+
 import { Header } from "@/components/dashboard/header";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import Link from "next/link";
@@ -29,3 +30,5 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+  );
+}
