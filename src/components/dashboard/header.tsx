@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"; // Added SheetTrigger
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader as DialogPrimitiveHeader, DialogTitle as DialogPrimitiveTitle, DialogTrigger as DialogPrimitiveTrigger } from "@/components/ui/dialog";
 import { SidebarNav } from "./sidebar-nav";
 import { usePathname, useRouter } from "next/navigation";
@@ -43,63 +43,76 @@ export function Header() {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
-  const [unreadCountForSidebar, setUnreadCountForSidebar] = useState(0);
-
+  // unreadCountForSidebar state removed as sidebar reads directly from localStorage triggered by event
 
   const checkUnreadNotifications = useCallback(async () => {
     if (!currentUserItsId || !currentUserRole) {
       setHasUnreadNotifications(false);
-      localStorage.setItem('unreadNotificationCount', '0');
-      window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Ensure sidebar updates
+      // No need to set localStorage here, logout/login handles it.
+      // SidebarNav will react to 'notificationsUpdated' and cleared localStorage.
       return;
     }
     try {
       const notifications = await getNotificationsForUser(currentUserItsId, currentUserRole);
       const unreadCount = notifications.filter(n => !n.readBy?.includes(currentUserItsId)).length;
       setHasUnreadNotifications(unreadCount > 0);
-      setUnreadCountForSidebar(unreadCount); // for sidebar
-      localStorage.setItem('unreadNotificationCount', unreadCount.toString());
-      window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Notify sidebar
+      if (typeof window !== "undefined") {
+        localStorage.setItem('unreadNotificationCount', unreadCount.toString());
+        window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+      }
     } catch (error) {
       console.error("Failed to check unread notifications:", error);
       setHasUnreadNotifications(false);
-      localStorage.setItem('unreadNotificationCount', '0');
-      window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+      if (typeof window !== "undefined") {
+        localStorage.setItem('unreadNotificationCount', '0');
+        window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+      }
     }
   }, [currentUserItsId, currentUserRole]);
 
 
   useEffect(() => {
-    const itsId = localStorage.getItem('userItsId');
-    const role = localStorage.getItem('userRole') as UserRole | null;
-    setCurrentUserItsId(itsId);
-    setCurrentUserRole(role);
-  }, []);
-
-
-  useEffect(() => {
-    checkUnreadNotifications();
-
-    const handleNotificationsUpdate = () => checkUnreadNotifications();
-    window.addEventListener('notificationsUpdated', handleNotificationsUpdate);
+    const loadAuthData = () => {
+      if (typeof window !== "undefined") {
+        const itsId = localStorage.getItem('userItsId');
+        const role = localStorage.getItem('userRole') as UserRole | null;
+        setCurrentUserItsId(itsId);
+        setCurrentUserRole(role);
+      }
+    };
+    loadAuthData(); // Initial load
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'userItsId' || event.key === 'userRole') {
-        setCurrentUserItsId(localStorage.getItem('userItsId'));
-        setCurrentUserRole(localStorage.getItem('userRole') as UserRole | null);
-      }
-       if (event.key === 'unreadNotificationCount') { // Listen for direct changes to count
-        checkUnreadNotifications();
+      if (typeof window !== "undefined") {
+        if (event.key === 'userItsId' || event.key === 'userRole' || event.key === 'userMohallahId' || event.key === 'userName' || event.key === 'userPageRights') {
+          loadAuthData();
+        }
+        if (event.key === 'unreadNotificationCount') {
+           // This effect already depends on checkUnreadNotifications, which depends on ITS ID / Role.
+           // The explicit call here might be redundant if the notification count is always tied to the user.
+           // For robustness, we can call it.
+          checkUnreadNotifications();
+        }
       }
     };
     window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []); // Runs once on mount to load initial data and set up storage listener
 
+  useEffect(() => {
+    checkUnreadNotifications(); // This will run when currentUserItsId or currentUserRole changes
+
+    const handleNotificationsUpdateEvent = () => {
+      // Re-check notifications if the event is fired from somewhere else (e.g. new notification posted)
+      // This ensures the count is accurate even if ITS ID/Role haven't changed.
+      checkUnreadNotifications();
+    };
+    window.addEventListener('notificationsUpdated', handleNotificationsUpdateEvent);
 
     return () => {
-      window.removeEventListener('notificationsUpdated', handleNotificationsUpdate);
-      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('notificationsUpdated', handleNotificationsUpdateEvent);
     };
-  }, [pathname, checkUnreadNotifications, currentUserItsId, currentUserRole]);
+  }, [checkUnreadNotifications]); // checkUnreadNotifications is memoized and changes when ITS ID/Role change
 
 
   const handleLogout = () => {
@@ -111,9 +124,16 @@ export function Header() {
       localStorage.removeItem('userPageRights');
       localStorage.removeItem('unreadNotificationCount');
     }
-    setHasUnreadNotifications(false);
-    setUnreadCountForSidebar(0);
-    window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Ensure sidebar clears badge
+    // Update local state to reflect logout immediately
+    setCurrentUserItsId(null);
+    setCurrentUserRole(null);
+    setHasUnreadNotifications(false); // Clear badge in header
+
+    // Notify other components like SidebarNav
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+    }
+    
     router.push("/");
   };
 
@@ -223,3 +243,4 @@ export function Header() {
     </header>
   );
 }
+
