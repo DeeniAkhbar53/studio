@@ -60,30 +60,12 @@ export default function DashboardOverviewPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>My Profile</CardTitle>
-              <CardDescription>Access your personal information.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center space-y-4">
-               <User className="h-16 w-16 text-primary" />
-              <Button asChild className="w-full">
-                <Link href="/dashboard/profile">View My Profile</Link>
-              </Button>
-              <p className="text-sm text-muted-foreground text-center">
-                Keep your details up-to-date for seamless communication.
-              </p>
-            </CardContent>
-          </Card>
+          {/* Profile card removed as per request */}
+          
         </div>
-         <Card className="shadow-lg">
-            <CardHeader>
-                <CardTitle>Need Help?</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p className="text-muted-foreground">If you have any questions or need assistance, please contact your Mohallah admin.</p>
-            </CardContent>
-        </Card>
+        <p className="text-sm text-muted-foreground">
+          If you have any questions or need assistance, please contact your Mohallah admin.
+        </p>
       </div>
     );
   }
