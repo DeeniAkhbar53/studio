@@ -459,7 +459,7 @@ export default function ManageMembersPage() {
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
             <div className="flex-grow">
               <CardTitle className="flex items-center"><UsersIcon className="mr-2 h-5 w-5 text-primary"/>Manage Members</CardTitle>
               <CardDescription className="mt-1">
@@ -469,7 +469,7 @@ export default function ManageMembersPage() {
               </CardDescription>
             </div>
              {canManageMembers && (
-                <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto self-start md:self-center shrink-0">
+                <div className="flex items-center gap-2 self-start md:self-center shrink-0">
                   <Button variant="outline" onClick={downloadSampleCsv} size="icon" aria-label="Download Sample CSV">
                       <Download className="h-4 w-4" />
                   </Button>
@@ -478,10 +478,10 @@ export default function ManageMembersPage() {
                   </Button>
                   <Dialog open={isMemberDialogOpen} onOpenChange={(open) => { setIsMemberDialogOpen(open); if (!open) setEditingMember(null); }}>
                     <DialogTrigger asChild>
-                      <Button onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} className="w-full sm:w-auto" size="sm" 
+                      <Button onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} size="icon" aria-label="Add New Member" 
                         disabled={!canAddOrImport() || (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && mohallahs.length === 0 && !isLoadingMohallahs)}
                       >
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add New Member
+                        <PlusCircle className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-lg">
@@ -649,7 +649,7 @@ export default function ManageMembersPage() {
                 </div>
              )}
           </div>
-          <Separator />
+          <Separator className="mb-4" />
         </CardHeader>
         <CardContent>
           {fetchError && (
