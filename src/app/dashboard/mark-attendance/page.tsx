@@ -9,20 +9,29 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, MarkedAttendanceEntry } from "@/types";
+import type { Miqaat, User, MarkedAttendanceEntry, AttendanceRecord } from "@/types";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
-import { getMiqaats } from "@/lib/firebase/miqaatService"; // Import Miqaat service
+import { getMiqaats } from "@/lib/firebase/miqaatService";
+import { addAttendanceRecord, AttendanceDataForAdd } from "@/lib/firebase/attendanceService"; // Import attendance service
 import { CheckCircle, AlertCircle, Users, ListChecks, Loader2 } from "lucide-react";
 
 export default function MarkAttendancePage() {
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
   const [memberIdInput, setMemberIdInput] = useState("");
-  const [markedAttendance, setMarkedAttendance] = useState<MarkedAttendanceEntry[]>([]);
+  const [markedAttendance, setMarkedAttendance] = useState<MarkedAttendanceEntry[]>([]); // For current session display
   const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
-  const [isSearchingMember, setIsSearchingMember] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // Combined loading state
+  const [markerItsId, setMarkerItsId] = useState<string | null>(null);
   
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedMarkerItsId = localStorage.getItem('userItsId');
+      setMarkerItsId(storedMarkerItsId);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchMiqaats = async () => {
@@ -58,18 +67,15 @@ export default function MarkAttendancePage() {
       return;
     }
 
-    setIsSearchingMember(true);
+    setIsProcessing(true);
     let member: User | null = null;
     try {
       member = await getUserByItsOrBgkId(memberIdInput.trim());
     } catch (error) {
       toast({ title: "Database Error", description: "Could not verify member ID.", variant: "destructive" });
-      setIsSearchingMember(false);
+      setIsProcessing(false);
       return;
     }
-    setIsSearchingMember(false);
-
-    const selectedMiqaat = availableMiqaats.find(m => m.id === selectedMiqaatId);
 
     if (!member) {
       toast({
@@ -77,42 +83,69 @@ export default function MarkAttendancePage() {
         description: `No member found with ID: ${memberIdInput} in the database.`,
         variant: "destructive",
       });
+      setIsProcessing(false);
       return;
     }
     
+    const selectedMiqaat = availableMiqaats.find(m => m.id === selectedMiqaatId);
     if (!selectedMiqaat) {
         toast({ title: "Error", description: "Selected Miqaat details not found.", variant: "destructive" });
+        setIsProcessing(false);
         return;
     }
 
-    const alreadyMarked = markedAttendance.find(
+    const alreadyMarkedInSession = markedAttendance.find(
       (entry) => entry.miqaatId === selectedMiqaatId && entry.memberItsId === member.itsId
     );
 
-    if (alreadyMarked) {
+    if (alreadyMarkedInSession) {
       toast({
-        title: "Already Marked",
-        description: `${member.name} (${member.itsId}) has already been marked for ${selectedMiqaat.name}.`,
+        title: "Already Marked in Session",
+        description: `${member.name} (${member.itsId}) has already been marked for ${selectedMiqaat.name} in this session.`,
         variant: "default",
       });
       setMemberIdInput(""); 
+      setIsProcessing(false);
       return;
     }
-
-    const newEntry: MarkedAttendanceEntry = {
-      memberItsId: member.itsId,
-      memberName: member.name,
-      timestamp: new Date(),
-      miqaatId: selectedMiqaat.id,
-      miqaatName: selectedMiqaat.name,
+    
+    // Prepare record for Firestore
+    const attendanceRecordPayload: AttendanceDataForAdd = {
+        miqaatId: selectedMiqaat.id,
+        miqaatName: selectedMiqaat.name,
+        userItsId: member.itsId,
+        userName: member.name,
+        ...(markerItsId && { markedByItsId: markerItsId }) // Add marker ID if available
     };
 
-    setMarkedAttendance(prev => [newEntry, ...prev]); // For this session only, not persisted yet
-    toast({
-      title: "Attendance Marked",
-      description: `${member.name} (${member.itsId}) marked present for ${selectedMiqaat.name}.`,
-    });
-    setMemberIdInput(""); 
+    try {
+        await addAttendanceRecord(attendanceRecordPayload);
+
+        // If Firestore save is successful, update local state for session display
+        const newSessionEntry: MarkedAttendanceEntry = {
+          memberItsId: member.itsId,
+          memberName: member.name,
+          timestamp: new Date(), // Local timestamp for session display
+          miqaatId: selectedMiqaat.id,
+          miqaatName: selectedMiqaat.name,
+        };
+        setMarkedAttendance(prev => [newSessionEntry, ...prev]);
+        
+        toast({
+          title: "Attendance Marked",
+          description: `${member.name} (${member.itsId}) marked present for ${selectedMiqaat.name}. Record saved to database.`,
+        });
+        setMemberIdInput(""); 
+    } catch (dbError) {
+        console.error("Failed to save attendance to database:", dbError);
+        toast({
+            title: "Database Error",
+            description: "Failed to save attendance record. Please try again.",
+            variant: "destructive",
+        });
+    } finally {
+        setIsProcessing(false);
+    }
   };
 
   const currentMiqaatAttendance = markedAttendance.filter(entry => entry.miqaatId === selectedMiqaatId);
@@ -123,16 +156,19 @@ export default function MarkAttendancePage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center"><ListChecks className="mr-2 h-6 w-6 text-primary" />Mark Member Attendance</CardTitle>
-          <CardDescription>Select a Miqaat and enter member ITS/BGK ID to mark them present.</CardDescription>
+          <CardDescription>Select a Miqaat and enter member ITS/BGK ID to mark them present. Records are saved to the database.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="md:col-span-1 space-y-2">
               <Label htmlFor="miqaat-select">Select Miqaat</Label>
               <Select 
-                onValueChange={setSelectedMiqaatId} 
+                onValueChange={(value) => {
+                  setSelectedMiqaatId(value);
+                  setMarkedAttendance([]); // Clear session attendance when Miqaat changes
+                }} 
                 value={selectedMiqaatId || undefined}
-                disabled={isLoadingMiqaats}
+                disabled={isLoadingMiqaats || isProcessing}
               >
                 <SelectTrigger id="miqaat-select">
                   <SelectValue placeholder={isLoadingMiqaats ? "Loading Miqaats..." : "Choose a Miqaat"} />
@@ -155,15 +191,15 @@ export default function MarkAttendancePage() {
                 placeholder="Enter 8-digit ITS or BGK ID"
                 value={memberIdInput}
                 onChange={(e) => setMemberIdInput(e.target.value)}
-                disabled={!selectedMiqaatId || isSearchingMember || isLoadingMiqaats}
+                disabled={!selectedMiqaatId || isProcessing || isLoadingMiqaats}
               />
             </div>
             <Button 
               onClick={handleMarkAttendance} 
-              disabled={!selectedMiqaatId || !memberIdInput || isSearchingMember || isLoadingMiqaats}
+              disabled={!selectedMiqaatId || !memberIdInput || isProcessing || isLoadingMiqaats}
               className="w-full md:w-auto"
             >
-              {isSearchingMember ? (
+              {isProcessing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <CheckCircle className="mr-2 h-4 w-4" />
@@ -176,7 +212,7 @@ export default function MarkAttendancePage() {
             <div className="mt-6 pt-6 border-t">
                 <h3 className="text-lg font-semibold mb-2 flex items-center">
                     <Users className="mr-2 h-5 w-5 text-primary" />
-                    Attendance for: {currentSelectedMiqaatName}
+                    Attendance for: {currentSelectedMiqaatName} (This Session)
                 </h3>
                 <p className="text-muted-foreground mb-4">
                     Total marked in this session: <span className="font-bold text-foreground">{currentMiqaatAttendance.length}</span>

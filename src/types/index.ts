@@ -27,14 +27,13 @@ export type Miqaat = {
 };
 
 export type AttendanceRecord = {
-  id: string;
+  id: string; // Firestore document ID
   miqaatId: string;
-  miqaatName: string; // This can be derived, but good for display
-  userId?: string; // ID of the user whose attendance is recorded
-  userItsId?: string; // ITS ID of the user
-  userName?: string; // Name of the user
-  date: string; // ISO Date string of when attendance was marked
-  status: 'Present' | 'Absent' | 'Late' | 'Excused';
+  miqaatName: string; // Denormalized for easier display
+  userItsId: string;
+  userName: string; // Denormalized for easier display
+  markedAt: string; // ISO Date string of the timestamp when marked
+  markedByItsId?: string; // Optional: ITS ID of the person who marked attendance
 };
 
 export type Team = {
@@ -50,11 +49,11 @@ export type Mohallah = {
   name: string;
 };
 
-// Specific type for attendance marking session
+// Specific type for attendance marking session display on mark-attendance page
 export type MarkedAttendanceEntry = {
   memberItsId: string;
   memberName: string;
-  timestamp: Date;
+  timestamp: Date; // This is a Date object for local display formatting
   miqaatId: string;
   miqaatName: string;
 };
