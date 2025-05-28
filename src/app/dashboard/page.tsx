@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Activity, Users, CalendarCheck, BarChartHorizontalBig, HelpCircle, ScanLine, UserCheck, BarChart3, User as UserIcon, Loader2 } from "lucide-react";
+import { Activity, Users, CalendarCheck, BarChartHorizontalBig, HelpCircle, ScanLine, UserCheck, BarChart3, User as UserIcon, Loader2, Settings } from "lucide-react";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
@@ -77,6 +77,7 @@ export default function DashboardOverviewPage() {
           setCurrentUserName(storedName);
         }
       } else {
+        // If no role, redirect to login
         router.push('/'); 
         return; 
       }
@@ -203,49 +204,9 @@ export default function DashboardOverviewPage() {
             </Card>
           ))}
         </div>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Upcoming Miqaats card removed as requested */}
-          <Card className="shadow-lg md:col-span-2"> {/* Adjust to md:col-span-2 if it's the only one in this row */}
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Common tasks at your fingertips.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Button asChild className="w-full">
-                <Link href="/dashboard/miqaat-management">Manage Miqaats</Link>
-              </Button>
-              <Button asChild className="w-full">
-                <Link href="/dashboard/mohallah-management">Manage Mohallahs</Link>
-              </Button>
-              <Button asChild className="w-full">
-                <Link href="/dashboard/reports">Generate Report</Link>
-              </Button>
-              <Button asChild className="w-full">
-                <Link href="/dashboard/profile">View My Profile</Link>
-              </Button>
-               <Button asChild className="w-full">
-                <Link href="/dashboard/manage-notifications">Manage Notifications</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              <li className="text-sm text-muted-foreground">Admin updated "Miqaat Al-Khamis".</li>
-              <li className="text-sm text-muted-foreground">New member "John Doe" added to Team Alpha.</li>
-              <li className="text-sm text-muted-foreground">Attendance report generated for "Miqaat Al-Jumuah".</li>
-            </ul>
-          </CardContent>
-        </Card>
+        {/* "Quick Actions" and "Recent Activity" cards have been removed */}
       </div>
       <DashboardFooter />
     </div>
   );
 }
-
