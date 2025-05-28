@@ -12,8 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetHeader, SheetTitle as SheetPrimitiveTitle } from "@/components/ui/sheet"; // Aliased SheetTitle
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader as DialogPrimitiveHeader, DialogTitle as DialogPrimitiveTitleOriginal, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle as SheetPrimitiveTitle, SheetTrigger } from "@/components/ui/sheet"; // Aliased SheetTitle
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader as DialogPrimitiveHeader, DialogTitle as DialogPrimitiveTitleOriginal, DialogTrigger as DialogPrimitiveTrigger } from "@/components/ui/dialog";
 import { SidebarNav } from "./sidebar-nav";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -27,8 +27,8 @@ const pageTitles: { [key: string]: string } = {
   "/dashboard": "Dashboard",
   "/dashboard/profile": "Profile",
   "/dashboard/miqaat-management": "Miqaats",
-  "/dashboard/manage-mohallahs": "Manage Mohallahs", // New
-  "/dashboard/manage-members": "Manage Members",   // New (replaces mohallah-management)
+  "/dashboard/manage-mohallahs": "Manage Mohallahs", 
+  "/dashboard/manage-members": "Manage Members",   
   "/dashboard/reports": "Reports",
   "/dashboard/scan-attendance": "Scan My QR",
   "/dashboard/mark-attendance": "Mark Attendance",
@@ -134,12 +134,12 @@ export function Header() {
       </form>
 
       <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
-        <DialogTrigger asChild>
+        <DialogPrimitiveTrigger asChild>
           <Button variant="ghost" size="icon" className="rounded-full">
             <HelpCircle className="h-5 w-5" />
             <span className="sr-only">Need Help?</span>
           </Button>
-        </DialogTrigger>
+        </DialogPrimitiveTrigger>
         <DialogContent className="sm:max-w-[425px]">
           <DialogPrimitiveHeader>
             <DialogPrimitiveTitleOriginal>Need Assistance?</DialogPrimitiveTitleOriginal>
@@ -191,5 +191,3 @@ export function Header() {
     </header>
   );
 }
-
-    
