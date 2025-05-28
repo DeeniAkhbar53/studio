@@ -1,38 +1,73 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { NotificationItem } from "@/types";
-import { Bell, Info } from "lucide-react";
+import type { NotificationItem, UserRole } from "@/types";
+import { Bell, Info, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
-
-const NOTIFICATIONS_STORAGE_KEY = "appNotifications";
+import { getNotificationsForUser, markNotificationAsRead } from "@/lib/firebase/notificationService";
+import { useToast } from "@/hooks/use-toast";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const storedNotificationsString = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-    let updatedNotifications: NotificationItem[] = [];
-    if (storedNotificationsString) {
-      const parsedNotifications: NotificationItem[] = JSON.parse(storedNotificationsString);
-      // Mark all as read
-      updatedNotifications = parsedNotifications.map(notif => ({ ...notif, read: true }));
-      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updatedNotifications));
-      setNotifications(updatedNotifications.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    }
-    setIsLoading(false);
-     // Trigger a custom event to notify the header to update the unread count
-    window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+    const itsId = localStorage.getItem('userItsId');
+    const role = localStorage.getItem('userRole') as UserRole | null;
+    setCurrentUserItsId(itsId);
+    setCurrentUserRole(role);
   }, []);
+
+  const fetchAndMarkNotifications = useCallback(async () => {
+    if (!currentUserItsId || !currentUserRole) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const fetchedNotifications = await getNotificationsForUser(currentUserItsId, currentUserRole);
+      const sortedNotifications = fetchedNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setNotifications(sortedNotifications);
+
+      // Mark fetched notifications as read for the current user
+      const markReadPromises: Promise<void>[] = [];
+      sortedNotifications.forEach(notif => {
+        if (!notif.readBy?.includes(currentUserItsId)) {
+          markReadPromises.push(markNotificationAsRead(notif.id, currentUserItsId));
+        }
+      });
+      if (markReadPromises.length > 0) {
+        await Promise.all(markReadPromises);
+        // Optionally re-fetch or update local state if precise 'readBy' counts are needed immediately
+        // For now, dispatching an event to update header is enough.
+        window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+      }
+
+    } catch (error) {
+      console.error("Failed to fetch or mark notifications:", error);
+      toast({ title: "Error", description: "Could not load notifications.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserItsId, currentUserRole, toast]); // toast is stable
+
+  useEffect(() => {
+    fetchAndMarkNotifications();
+  }, [fetchAndMarkNotifications]);
+
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <p>Loading notifications...</p>
+      <div className="flex flex-col flex-1 items-center justify-center h-full py-10">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Loading notifications...</p>
       </div>
     );
   }
@@ -46,7 +81,7 @@ export default function NotificationsPage() {
             Notifications
           </CardTitle>
           <Separator className="my-2" />
-          <CardDescription>All recent updates and important information. Newest first.</CardDescription>
+          <CardDescription>All recent updates and important information relevant to you. Newest first.</CardDescription>
         </CardHeader>
         <CardContent>
           {notifications.length === 0 ? (
@@ -58,12 +93,15 @@ export default function NotificationsPage() {
           ) : (
             <ul className="space-y-6">
               {notifications.map((notification) => (
-                <li key={notification.id} className={`p-6 border rounded-xl ${notification.read ? 'bg-card' : 'bg-primary/5 border-primary/20'}`}>
+                <li key={notification.id} className={`p-6 border rounded-xl bg-card`}> {/* Removed conditional styling for read, as all are marked read upon view */}
                   <h3 className="text-xl font-semibold text-foreground">{notification.title}</h3>
                   <p className="text-sm text-muted-foreground mt-1 mb-3">
                     Posted on: {format(new Date(notification.createdAt), "MMMM d, yyyy 'at' h:mm a")}
                   </p>
                   <p className="text-foreground whitespace-pre-wrap leading-relaxed">{notification.content}</p>
+                   <p className="text-xs text-muted-foreground mt-2">
+                    Audience: {notification.targetAudience.charAt(0).toUpperCase() + notification.targetAudience.slice(1)}
+                  </p>
                 </li>
               ))}
             </ul>
