@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label as StandardLabel } from "@/components/ui/label"; 
+import { Label as StandardLabel } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,7 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form"; 
+import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
 import { getUsers, addUser, updateUser, deleteUser, getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
@@ -79,6 +79,9 @@ export default function ManageMembersPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
+
 
   const memberForm = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema),
@@ -94,7 +97,7 @@ export default function ManageMembersPage() {
       setCurrentUserRole(role);
       setCurrentUserMohallahId(mohallahId);
       if (role === 'admin' && mohallahId) {
-        setSelectedFilterMohallahId(mohallahId); 
+        setSelectedFilterMohallahId(mohallahId);
       }
     }
   }, []);
@@ -111,7 +114,8 @@ export default function ManageMembersPage() {
   const fetchAndSetMembers = useCallback(async (targetMohallahIdForFetch?: string) => {
     setIsLoadingMembers(true);
     setFetchError(null);
-    setCurrentPage(1); // Reset to first page on new fetch
+    setCurrentPage(1);
+    setSelectedMemberIds([]);
     try {
         const fetchedMembers = await getUsers(targetMohallahIdForFetch);
         setMembers(fetchedMembers);
@@ -121,7 +125,7 @@ export default function ManageMembersPage() {
             const specificErrorMsg = "Could not fetch all members. This may be due to missing database indexes. Please select a specific Mohallah to view its members or configure database indexes in your console.";
             setFetchError(specificErrorMsg);
             toast({ title: "Data Fetch Warning", description: specificErrorMsg, variant: "destructive", duration: 10000 });
-            setMembers([]); 
+            setMembers([]);
         } else {
             toast({ title: "Error", description: "Failed to fetch members.", variant: "destructive" });
             setFetchError("Failed to fetch members. Please try again.");
@@ -172,7 +176,7 @@ export default function ManageMembersPage() {
         designation: editingMember.designation || "Member",
         pageRights: editingMember.pageRights || [],
       });
-    } else { 
+    } else {
       let defaultMohallahForForm = "";
       if (currentUserRole === 'admin' && currentUserMohallahId) {
         defaultMohallahForForm = currentUserMohallahId;
@@ -205,11 +209,11 @@ export default function ManageMembersPage() {
       team: values.team,
       phoneNumber: values.phoneNumber,
       role: values.role as UserRole,
-      mohallahId: targetMohallahId, 
+      mohallahId: targetMohallahId,
       designation: values.designation as UserDesignation || "Member",
       pageRights: values.role === 'user' ? [] : (values.pageRights || []),
     };
-    
+
     console.log("Attempting to save member. Payload for service:", memberPayload, "Target Mohallah ID for path:", targetMohallahId);
 
 
@@ -248,6 +252,7 @@ export default function ManageMembersPage() {
     try {
       await deleteUser(member.id, member.mohallahId);
       toast({ title: "Member Deleted", description: `"${member.name}" has been deleted.`});
+      setSelectedMemberIds(prev => prev.filter(id => id !== member.id)); // Remove from selection
       if (currentUserRole === 'admin' && currentUserMohallahId) {
         fetchAndSetMembers(currentUserMohallahId);
       } else if (currentUserRole === 'superadmin') {
@@ -258,6 +263,48 @@ export default function ManageMembersPage() {
       toast({ title: "Database Error", description: "Could not delete member.", variant: "destructive" });
     }
   };
+
+  const handleBulkDelete = async () => {
+    if (selectedMemberIds.length === 0) {
+      toast({ title: "No members selected", description: "Please select members to delete.", variant: "default" });
+      setIsBulkDeleteAlertOpen(false);
+      return;
+    }
+
+    let deletedCount = 0;
+    let failedCount = 0;
+
+    for (const memberId of selectedMemberIds) {
+      const memberToDelete = members.find(m => m.id === memberId);
+      if (memberToDelete && memberToDelete.mohallahId) {
+        try {
+          await deleteUser(memberToDelete.id, memberToDelete.mohallahId);
+          deletedCount++;
+        } catch (error) {
+          console.error(`Error deleting member ${memberToDelete.name}:`, error);
+          failedCount++;
+        }
+      } else {
+        failedCount++; // Member not found or mohallahId missing
+      }
+    }
+
+    toast({
+      title: "Bulk Delete Complete",
+      description: `${deletedCount} member(s) deleted. ${failedCount} failed.`,
+      variant: failedCount > 0 ? "destructive" : "default",
+    });
+
+    setSelectedMemberIds([]);
+    setIsBulkDeleteAlertOpen(false);
+    // Refresh members list
+    if (currentUserRole === 'admin' && currentUserMohallahId) {
+      fetchAndSetMembers(currentUserMohallahId);
+    } else if (currentUserRole === 'superadmin') {
+      fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
+    }
+  };
+
 
   const handleProcessCsvUpload = async () => {
     if (!selectedFile) {
@@ -314,22 +361,22 @@ export default function ManageMembersPage() {
                errorCount++;
                continue;
             }
-            
+
             const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string } = {
               name: row.name,
               itsId: row.itsId,
               bgkId: row.bgkId || undefined,
               team: row.team || undefined,
               phoneNumber: row.phoneNumber || undefined,
-              role: row.role as UserRole, 
+              role: row.role as UserRole,
               mohallahId: mohallahId,
               designation: (row.designation as UserDesignation) || "Member",
               pageRights: row.pageRights ? row.pageRights.split(';').map((s: string) => s.trim()).filter(Boolean) : [],
             };
-            
+
             const validation = memberSchema.safeParse({
                 ...memberPayload,
-                bgkId: memberPayload.bgkId || "", 
+                bgkId: memberPayload.bgkId || "",
                 team: memberPayload.team || "",
                 phoneNumber: memberPayload.phoneNumber || "",
             });
@@ -358,7 +405,7 @@ export default function ManageMembersPage() {
           } else if (currentUserRole === 'superadmin') {
             fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
           }
-          
+
           if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0)) {
             toast({
                 title: "CSV Import Error",
@@ -442,34 +489,72 @@ export default function ManageMembersPage() {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
 
+  const handleSelectAll = (checked: boolean | string) => {
+    if (checked) {
+      setSelectedMemberIds(currentMembersToDisplay.map(member => member.id));
+    } else {
+      setSelectedMemberIds([]);
+    }
+  };
+
+  const handleSelectMember = (memberId: string, checked: boolean | string) => {
+    if (checked) {
+      setSelectedMemberIds(prev => [...prev, memberId]);
+    } else {
+      setSelectedMemberIds(prev => prev.filter(id => id !== memberId));
+    }
+  };
 
   const getMohallahNameById = (id?: string) => mohallahs.find(m => m.id === id)?.name || "N/A";
-  
+
   const canAddOrImport = () => {
     if (isLoadingMohallahs) return false;
     if (currentUserRole === 'admin') return !!currentUserMohallahId;
     if (currentUserRole === 'superadmin') return true;
     return false;
   };
-  
+
   const canManageMembers = currentUserRole === 'admin' || currentUserRole === 'superadmin';
 
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg">
+      <Card className="shadow-lg flex flex-col">
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
             <div className="flex-grow">
               <CardTitle className="flex items-center"><UsersIcon className="mr-2 h-5 w-5 text-primary"/>Manage Members</CardTitle>
               <CardDescription className="mt-1">
-                {currentUserRole === 'admin' && currentUserMohallahId 
+                {currentUserRole === 'admin' && currentUserMohallahId
                   ? `Managing members for Mohallah: ${getMohallahNameById(currentUserMohallahId)}.`
                   : 'Add, view, and manage members. Data is stored in the system.'}
               </CardDescription>
             </div>
              {canManageMembers && (
                 <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+                   {selectedMemberIds.length > 0 && (
+                     <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}>
+                        <AlertTrigger asChild>
+                          <Button variant="destructive" size="icon" aria-label={`Delete ${selectedMemberIds.length} selected members`}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertTrigger>
+                        <AlertContent>
+                          <AlertHeader>
+                            <AlertTitle>Confirm Bulk Deletion</AlertTitle>
+                            <AlertDesc>
+                              Are you sure you want to delete {selectedMemberIds.length} selected member(s)? This action cannot be undone.
+                            </AlertDesc>
+                          </AlertHeader>
+                          <AlertFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">
+                              Delete Selected
+                            </AlertDialogAction>
+                          </AlertFooter>
+                        </AlertContent>
+                      </AlertDialog>
+                  )}
                   <Button variant="outline" onClick={downloadSampleCsv} size="icon" aria-label="Download Sample CSV">
                       <Download className="h-4 w-4" />
                   </Button>
@@ -478,7 +563,7 @@ export default function ManageMembersPage() {
                   </Button>
                   <Dialog open={isMemberDialogOpen} onOpenChange={(open) => { setIsMemberDialogOpen(open); if (!open) setEditingMember(null); }}>
                     <DialogTrigger asChild>
-                      <Button onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} size="icon" aria-label="Add New Member" 
+                      <Button onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} size="icon" aria-label="Add New Member"
                         disabled={!canAddOrImport() || (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && mohallahs.length === 0 && !isLoadingMohallahs)}
                       >
                         <PlusCircle className="h-4 w-4" />
@@ -651,7 +736,7 @@ export default function ManageMembersPage() {
           </div>
           <Separator className="mb-4" />
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 overflow-y-auto"> {/* Added flex-1 and overflow-y-auto */}
           {fetchError && (
             <Alert variant="destructive" className="mb-4">
               <AlertTriangle className="h-4 w-4" />
@@ -702,6 +787,14 @@ export default function ManageMembersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px] px-2">
+                    <Checkbox
+                      checked={selectedMemberIds.length === currentMembersToDisplay.length && currentMembersToDisplay.length > 0}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all members on current page"
+                      disabled={currentMembersToDisplay.length === 0}
+                    />
+                  </TableHead>
                   <TableHead className="w-[60px] sm:w-[80px]">Avatar</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>ITS ID</TableHead>
@@ -714,7 +807,14 @@ export default function ManageMembersPage() {
               </TableHeader>
               <TableBody>
                 {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member) => (
-                  <TableRow key={member.id}>
+                  <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? "selected" : undefined}>
+                    <TableCell className="px-2">
+                       <Checkbox
+                        checked={selectedMemberIds.includes(member.id)}
+                        onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
+                        aria-label={`Select member ${member.name}`}
+                      />
+                    </TableCell>
                     <TableCell>
                       <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
                         <AvatarImage src={member.avatarUrl || `https://placehold.co/40x40.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
@@ -732,7 +832,7 @@ export default function ManageMembersPage() {
                         <Button variant="ghost" size="icon" onClick={() => handleEditMember(member)} className="mr-1 sm:mr-2" aria-label="Edit Member">
                             <Edit className="h-4 w-4" />
                         </Button>
-                        { (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( // Prevent deleting superadmin unless current user is also superadmin
+                        { (member.role !== 'superadmin' || currentUserRole === 'superadmin') && (
                             <AlertDialog>
                                 <AlertTrigger asChild>
                                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
@@ -760,7 +860,7 @@ export default function ManageMembersPage() {
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={canManageMembers ? 8 : 7} className="text-center h-24">
+                    <TableCell colSpan={canManageMembers ? 9 : 8} className="text-center h-24">
                       No members found { (searchTerm || (currentUserRole === 'superadmin' && selectedFilterMohallahId !=='all') || (currentUserRole === 'admin' && currentUserMohallahId) && !fetchError ) && "matching criteria"}.
                       {(fetchError && currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' ) && "Select a specific Mohallah."}
                       {(currentUserRole === 'admin' && !currentUserMohallahId && !isLoadingMembers) && "Admin Mohallah not set."}
@@ -844,5 +944,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
-    
