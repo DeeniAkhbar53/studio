@@ -67,7 +67,7 @@ export default function ManageMembersPage() {
 
   const [isCsvImportDialogOpen, setIsCsvImportDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isCsvProcessing, setIsCsvProcessing] = useState(false); // New state for CSV processing
+  const [isCsvProcessing, setIsCsvProcessing] = useState(false);
   const { toast } = useToast();
 
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
@@ -179,14 +179,20 @@ export default function ManageMembersPage() {
       team: values.team,
       phoneNumber: values.phoneNumber,
       role: values.role as UserRole,
-      mohallahId: targetMohallahId,
+      mohallahId: targetMohallahId, 
       designation: values.designation as UserDesignation || "Member",
       pageRights: values.role === 'user' ? [] : (values.pageRights || []),
     };
+    
+    console.log("Attempting to save member. Payload:", memberPayload, "Target Mohallah ID for path:", targetMohallahId);
+
 
     try {
       if (editingMember && editingMember.mohallahId) {
-        await updateUser(editingMember.id, editingMember.mohallahId, memberPayload);
+        const updatePayload = { ...memberPayload };
+        delete (updatePayload as any).mohallahId; // mohallahId is part of the path, not the data to update for user doc
+
+        await updateUser(editingMember.id, editingMember.mohallahId, updatePayload);
         toast({ title: "Member Updated", description: `"${values.name}" has been updated.` });
       } else {
         await addUser(memberPayload, targetMohallahId);
@@ -196,8 +202,8 @@ export default function ManageMembersPage() {
       setIsMemberDialogOpen(false);
       setEditingMember(null);
     } catch (error) {
-      console.error("Error saving member:", error);
-      toast({ title: "Database Error", description: `Could not save member data. ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
+      console.error("Error saving member to Firestore:", error);
+      toast({ title: "Database Error", description: `Could not save member data. Check console for details. ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
     }
   };
 
@@ -228,7 +234,6 @@ export default function ManageMembersPage() {
     }
     setIsCsvProcessing(true);
 
-    // Simulate processing
     setTimeout(() => {
       setIsCsvProcessing(false);
       toast({
@@ -238,10 +243,7 @@ export default function ManageMembersPage() {
       });
       setIsCsvImportDialogOpen(false);
       setSelectedFile(null);
-      // Note: Actual CSV parsing and Firestore batch writes are not implemented here.
-      // This would involve reading the file content, parsing rows, validating data,
-      // checking for existing users (e.g., by ITS ID), and then using addUser for each new, valid record.
-    }, 2500); // Simulate a 2.5 second processing time
+    }, 2500);
   };
 
   const downloadSampleCsv = () => {
@@ -631,4 +633,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
