@@ -118,7 +118,7 @@ export default function ManageMembersPage() {
     } catch (error: any) {
         console.error("Failed to fetch members:", error);
         if (currentUserRole === 'superadmin' && (!targetMohallahIdForFetch || targetMohallahIdForFetch === 'all') && error.message.includes("index")) {
-            const specificErrorMsg = "Could not fetch all members. This may be due to missing database indexes. Please select a specific Mohallah to view its members or configure database indexes in your Firebase console.";
+            const specificErrorMsg = "Could not fetch all members. This may be due to missing database indexes. Please select a specific Mohallah to view its members or configure database indexes in your console.";
             setFetchError(specificErrorMsg);
             toast({ title: "Data Fetch Warning", description: specificErrorMsg, variant: "destructive", duration: 10000 });
             setMembers([]); 
@@ -699,7 +699,6 @@ export default function ManageMembersPage() {
               <p className="ml-2 text-muted-foreground">Loading members...</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -770,7 +769,6 @@ export default function ManageMembersPage() {
                 )}
               </TableBody>
             </Table>
-            </div>
           )}
         </CardContent>
          <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
