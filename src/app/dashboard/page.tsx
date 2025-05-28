@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Activity, Users, CalendarCheck, BarChartHorizontalBig, HelpCircle } from "lucide-react";
+import { Activity, Users, CalendarCheck, BarChartHorizontalBig, HelpCircle, ScanLine } from "lucide-react";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
@@ -17,7 +17,13 @@ const adminOverviewStats = [
 ];
 
 // Mock user data for welcome message - in a real app, this would come from user session
-const currentUserName = "Valued Member"; // Example user name, can be dynamic later
+const currentUserName = "Valued Member"; 
+
+// Mock current Miqaat for user view
+const mockCurrentMiqaat = {
+  name: "Miqaat Al-Layl (Evening Session)",
+  details: "Today, 7:00 PM - 9:00 PM at Main Hall",
+};
 
 function DashboardFooter() {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
@@ -88,43 +94,37 @@ export default function DashboardOverviewPage() {
             <CardHeader>
               <CardTitle className="text-3xl font-bold text-foreground">Welcome, {currentUserName}!</CardTitle>
               <CardDescription className="text-muted-foreground">
-                Here's a quick look at your upcoming engagements.
+                Ready to mark your attendance for the current Miqaat.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-foreground">You are doing great! Keep up the good work.</p>
+              <p className="text-foreground">Please ensure you are on time for all Miqaats.</p>
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle>Upcoming Miqaats</CardTitle>
-                <CardDescription>Quick view of scheduled events.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {Array.from({ length: 2 }).map((_, i) => ( // Show fewer for user view
-                  <div key={i} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
-                    <div>
-                      <h3 className="font-semibold text-foreground">Miqaat Name {i + 1}</h3>
-                      <p className="text-sm text-muted-foreground">Date: October {20 + i}, 2024 - 7:00 PM</p>
-                    </div>
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href="/dashboard/miqaat-management">View Details</Link>
-                    </Button>
-                  </div>
-                ))}
-                <Button variant="link" className="w-full" asChild>
-                    <Link href="/dashboard/miqaat-management">View all my Miqaats</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <ScanLine className="mr-3 h-6 w-6 text-primary" />
+                Scan Attendance
+              </CardTitle>
+              <CardDescription>For {mockCurrentMiqaat.name}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">{mockCurrentMiqaat.details}</p>
+              <Button className="w-full" size="lg">
+                <ScanLine className="mr-2 h-5 w-5" /> Mark My Attendance / Scan Barcode
+              </Button>
+              <p className="text-xs text-center text-muted-foreground">
+                Click the button above to open the scanner or enter details manually.
+              </p>
+            </CardContent>
+          </Card>
         </div>
         <DashboardFooter />
       </div>
-    );
-  }
+    ); // Ensure this return statement is properly terminated
+  } // Ensure this if block is properly closed
 
   // Admin or Superadmin View
   return (
@@ -202,7 +202,7 @@ export default function DashboardOverviewPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-          </CardHeader>
+          </Header>
           <CardContent>
             <ul className="space-y-2">
               <li className="text-sm text-muted-foreground">Admin updated "Miqaat Al-Khamis".</li>
