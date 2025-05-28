@@ -27,7 +27,7 @@ const pageTitles: { [key: string]: string } = {
   "/dashboard": "Dashboard",
   "/dashboard/profile": "Profile",
   "/dashboard/miqaat-management": "Miqaats",
-  "/dashboard/manage-mohallahs": "Mohallahs",
+  "/dashboard/manage-mohallahs": "Manage Mohallahs",
   "/dashboard/manage-members": "Members",
   "/dashboard/reports": "Reports",
   "/dashboard/scan-attendance": "Scan QR",
@@ -43,13 +43,14 @@ export function Header() {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
-  // unreadCountForSidebar state removed as sidebar reads directly from localStorage triggered by event
 
   const checkUnreadNotifications = useCallback(async () => {
     if (!currentUserItsId || !currentUserRole) {
       setHasUnreadNotifications(false);
-      // No need to set localStorage here, logout/login handles it.
-      // SidebarNav will react to 'notificationsUpdated' and cleared localStorage.
+      if (typeof window !== "undefined") {
+        localStorage.setItem('unreadNotificationCount', '0'); // Ensure count is zeroed if no user
+        window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Notify sidebar
+      }
       return;
     }
     try {
@@ -80,7 +81,7 @@ export function Header() {
         setCurrentUserRole(role);
       }
     };
-    loadAuthData(); // Initial load
+    loadAuthData(); 
 
     const handleStorageChange = (event: StorageEvent) => {
       if (typeof window !== "undefined") {
@@ -88,23 +89,18 @@ export function Header() {
           loadAuthData();
         }
         if (event.key === 'unreadNotificationCount') {
-           // This effect already depends on checkUnreadNotifications, which depends on ITS ID / Role.
-           // The explicit call here might be redundant if the notification count is always tied to the user.
-           // For robustness, we can call it.
           checkUnreadNotifications();
         }
       }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []); // Runs once on mount to load initial data and set up storage listener
+  }, [checkUnreadNotifications]);
 
   useEffect(() => {
-    checkUnreadNotifications(); // This will run when currentUserItsId or currentUserRole changes
+    checkUnreadNotifications(); 
 
     const handleNotificationsUpdateEvent = () => {
-      // Re-check notifications if the event is fired from somewhere else (e.g. new notification posted)
-      // This ensures the count is accurate even if ITS ID/Role haven't changed.
       checkUnreadNotifications();
     };
     window.addEventListener('notificationsUpdated', handleNotificationsUpdateEvent);
@@ -112,7 +108,7 @@ export function Header() {
     return () => {
       window.removeEventListener('notificationsUpdated', handleNotificationsUpdateEvent);
     };
-  }, [checkUnreadNotifications]); // checkUnreadNotifications is memoized and changes when ITS ID/Role change
+  }, [checkUnreadNotifications]); 
 
 
   const handleLogout = () => {
@@ -124,12 +120,10 @@ export function Header() {
       localStorage.removeItem('userPageRights');
       localStorage.removeItem('unreadNotificationCount');
     }
-    // Update local state to reflect logout immediately
     setCurrentUserItsId(null);
     setCurrentUserRole(null);
-    setHasUnreadNotifications(false); // Clear badge in header
+    setHasUnreadNotifications(false); 
 
-    // Notify other components like SidebarNav
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent('notificationsUpdated'));
     }
@@ -140,7 +134,7 @@ export function Header() {
   const currentPageTitle = pageTitles[pathname] || "Dashboard";
 
   return (
-    <header className="flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6 sticky top-0 z-30">
+    <header className="flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6">
       <div className="md:hidden"> {/* Re-added md:hidden to hide on medium screens and up */}
         <Sheet>
           <SheetTrigger asChild>
@@ -243,4 +237,3 @@ export function Header() {
     </header>
   );
 }
-
