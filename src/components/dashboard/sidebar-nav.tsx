@@ -36,7 +36,7 @@ const allNavItems: NavItem[] = [
     href: "/dashboard/miqaat-management",
     label: "Miqaats",
     icon: CalendarDays,
-    allowedRoles: ['admin', 'superadmin']
+    allowedRoles: ['admin', 'superadmin', 'attendance-marker'] // Added 'attendance-marker'
   },
   {
     href: "/dashboard/manage-mohallahs",
@@ -101,6 +101,8 @@ export function SidebarNav() {
       }
     }
     
+    // console.log("[SidebarNav useEffect] Loaded from localStorage - Role:", storedRole, "Raw PageRights:", storedPageRightsRaw, "Parsed PageRights:", parsedPageRights);
+
     setCurrentUserRole(storedRole);
     setUserPageRights(parsedPageRights);
     setUnreadNotificationCount(storedUnreadCount);
@@ -117,13 +119,16 @@ export function SidebarNav() {
             try {
                 const tempParsed = JSON.parse(updatedPageRightsRaw);
                 if (Array.isArray(tempParsed)) {
-                updatedParsedPageRights = tempParsed;
+                  updatedParsedPageRights = tempParsed;
                 }
             } catch (e) {
                 console.error("Error parsing updated userPageRights from localStorage:", e);
             }
         }
         setUserPageRights(updatedParsedPageRights);
+      }
+      if (event.key === 'unreadNotificationCount') {
+         setUnreadNotificationCount(parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10));
       }
     };
 
@@ -148,26 +153,34 @@ export function SidebarNav() {
       return [];
     }
 
+    // console.log("[SidebarNav navItems] Calculating with - Role:", resolvedCurrentUserRole, "PageRights:", userPageRights);
+
     return allNavItems.filter(item => {
       // 1. Basic Role Check: Does the user's role even allow them to potentially see this item?
       const roleAllowsItem = !item.allowedRoles || item.allowedRoles.includes(resolvedCurrentUserRole);
       if (!roleAllowsItem) {
+        // console.log(`[SidebarNav filter] Hiding ${item.label} due to role restriction. User role: ${resolvedCurrentUserRole}, Allowed: ${item.allowedRoles}`);
         return false;
       }
 
       // 2. Essential Path Check: Is it an essential page?
       if (ESSENTIAL_PATHS.includes(item.href)) {
+        // console.log(`[SidebarNav filter] Showing ${item.label} as essential.`);
         return true;
       }
 
-      // 3. Non-Essential Path Check with Page Rights Override:
+      // 3. Non-Essential Path Check with Page Rights:
       // If specific page rights are defined for the user, these take precedence.
       if (Array.isArray(userPageRights) && userPageRights.length > 0) {
-        return userPageRights.includes(item.href);
+        const hasSpecificRight = userPageRights.includes(item.href);
+        // console.log(`[SidebarNav filter] For ${item.label}, pageRights active. Has specific right (${item.href}): ${hasSpecificRight}`);
+        return hasSpecificRight;
       }
 
       // 4. Fallback for Non-Essential Paths (No Specific Page Rights Defined):
-      // Show if the user's role generally allows it (already checked in step 1).
+      // Show if the user's role generally allows it (already confirmed in step 1).
+      // This means if userPageRights is empty, they get all items their role permits (excluding essentials already handled).
+      // console.log(`[SidebarNav filter] Showing ${item.label} based on role (no specific pageRights to filter by).`);
       return true;
     });
   }, [isMounted, resolvedCurrentUserRole, userPageRights]);
