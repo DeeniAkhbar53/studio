@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Bell, LogOut, Menu, Search, UserCircle, Settings } from "lucide-react";
+import { Bell, LogOut, Menu, Search, UserCircle, Settings, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SidebarNav } from "./sidebar-nav";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -38,6 +39,7 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
 
   useEffect(() => {
     const checkUnread = () => {
@@ -77,8 +79,7 @@ export function Header() {
     if (typeof window !== "undefined") {
       localStorage.removeItem('userRole');
       localStorage.removeItem('userName');
-      localStorage.removeItem('userItsId'); // Clear userItsId on logout
-      // localStorage.removeItem(NOTIFICATIONS_STORAGE_KEY); // Optional: Clear notifications on logout
+      localStorage.removeItem('userItsId'); 
     }
     router.push("/");
     window.dispatchEvent(new CustomEvent('notificationsUpdated')); 
@@ -130,6 +131,33 @@ export function Header() {
         </div>
       </form>
 
+      <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="icon" className="rounded-full">
+            <HelpCircle className="h-5 w-5" />
+            <span className="sr-only">Need Help?</span>
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Need Assistance?</DialogTitle>
+            <DialogDescription>
+              Here you can find information on how to use the BGK Attendance system or contact support.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <h4 className="font-semibold">Contact Support:</h4>
+            <p>If you encounter any issues or have questions, please contact your Mohallah admin or the technical support team at <a href="mailto:support@bgkattendance.example.com" className="text-primary hover:underline">support@bgkattendance.example.com</a>.</p>
+            <h4 className="font-semibold mt-4">FAQs:</h4>
+            <p>Q: How do I mark attendance? <br/> A: Navigate to the specific Miqaat and use the barcode scanner or manual entry (if you are an attendance marker).</p>
+            <p>Q: Where can I see my attendance history? <br/> A: Go to your Profile page.</p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsHelpDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Button variant="ghost" size="icon" className="rounded-full relative" asChild>
         <Link href="/dashboard/notifications">
           <Bell className="h-5 w-5" />
@@ -151,8 +179,6 @@ export function Header() {
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>Profile</DropdownMenuItem>
-          {/* Placeholder for Settings link, can be implemented later */}
-          {/* <DropdownMenuItem>Settings</DropdownMenuItem> */}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />

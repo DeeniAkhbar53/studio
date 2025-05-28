@@ -3,14 +3,13 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Activity, Users, CalendarCheck, BarChartHorizontalBig, HelpCircle, ScanLine, UserCheck, BarChart3, User as UserIcon, Loader2, Settings } from "lucide-react";
+import { Activity, Users, CalendarCheck, BarChartHorizontalBig, ScanLine, UserCheck, BarChart3, User as UserIcon, Loader2, Settings, HelpCircle } from "lucide-react";
 import Link from "next/link";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole } from "@/types";
-import { getMiqaats } from "@/lib/firebase/miqaatService"; // Assuming this is needed for admin
-import type { Miqaat } from "@/types"; // Assuming this is needed for admin
+import { getMiqaats } from "@/lib/firebase/miqaatService"; 
+import type { Miqaat } from "@/types"; 
 
 const adminOverviewStats = [
   { title: "Active Miqaats", value: "3", icon: CalendarCheck, trend: "+5 last week" }, 
@@ -23,46 +22,6 @@ const mockCurrentMiqaat = {
   name: "Miqaat Al-Layl (Evening Session)",
   details: "Today, 7:00 PM - 9:00 PM at Main Hall",
 };
-
-function DashboardFooter() {
-  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
-  return (
-    <footer className="mt-auto border-t bg-card py-4 px-6 text-sm text-muted-foreground">
-      <div className="flex w-full flex-row items-center justify-between gap-4"> {/* Changed to flex-row and removed sm breakpoint */}
-        <p className="text-left"> {/* Added text-left for the paragraph */}
-          Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.
-        </p>
-        <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              <HelpCircle className="mr-2 h-4 w-4" />
-              Need Help?
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Need Assistance?</DialogTitle>
-              <DialogDescription>
-                Here you can find information on how to use the BGK Attendance system or contact support.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4 space-y-2">
-              <h4 className="font-semibold">Contact Support:</h4>
-              <p>If you encounter any issues or have questions, please contact your Mohallah admin or the technical support team at <a href="mailto:support@bgkattendance.example.com" className="text-primary hover:underline">support@bgkattendance.example.com</a>.</p>
-              <h4 className="font-semibold mt-4">FAQs:</h4>
-              <p>Q: How do I mark attendance? <br/> A: Navigate to the specific Miqaat and use the barcode scanner or manual entry (if you are an attendance marker).</p>
-              <p>Q: Where can I see my attendance history? <br/> A: Go to your Profile page.</p>
-            </div>
-            <DialogFooter>
-              <Button onClick={() => setIsHelpDialogOpen(false)}>Close</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </footer>
-  );
-}
-
 
 export default function DashboardOverviewPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
@@ -84,7 +43,6 @@ export default function DashboardOverviewPage() {
         if (storedName) {
           setCurrentUserName(storedName);
         }
-        // If admin/superadmin, fetch Miqaats (example of admin-specific data fetching)
         if (storedRole === 'admin' || storedRole === 'superadmin') {
           setIsLoadingMiqaats(true);
           getMiqaats()
@@ -112,8 +70,8 @@ export default function DashboardOverviewPage() {
 
   if (currentUserRole === 'user') {
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex-grow space-y-6">
+      <div className="flex flex-col h-full"> {/* Ensure full height for flex to work */}
+        <div className="flex-grow space-y-6"> {/* Main content takes available space */}
           <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
             <CardHeader>
               <CardTitle className="text-3xl font-bold text-foreground">Welcome, {currentUserName}!</CardTitle>
@@ -147,15 +105,17 @@ export default function DashboardOverviewPage() {
             </CardContent>
           </Card>
         </div>
-        <DashboardFooter />
+        <footer className="mt-auto border-t bg-card py-4 px-6 text-sm text-muted-foreground text-center">
+           Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.
+        </footer>
       </div>
     );
   }
 
   if (currentUserRole === 'attendance-marker') {
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex-grow space-y-6">
+      <div className="flex flex-col h-full"> {/* Ensure full height */}
+        <div className="flex-grow space-y-6"> {/* Main content takes available space */}
           <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
             <CardHeader>
               <CardTitle className="text-3xl font-bold text-foreground">Attendance Marker Dashboard</CardTitle>
@@ -189,15 +149,17 @@ export default function DashboardOverviewPage() {
             </CardContent>
           </Card>
         </div>
-        <DashboardFooter />
+         <footer className="mt-auto border-t bg-card py-4 px-6 text-sm text-muted-foreground text-center">
+           Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.
+        </footer>
       </div>
     );
   }
 
   // Admin or Superadmin View
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-grow space-y-6">
+    <div className="flex flex-col h-full"> {/* Ensure full height */}
+      <div className="flex-grow space-y-6"> {/* Main content takes available space */}
         <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-foreground">Admin Dashboard</CardTitle>
@@ -220,7 +182,6 @@ export default function DashboardOverviewPage() {
             </Card>
           ))}
         </div>
-         {/* Additional admin-specific content can go here, like Miqaat summaries if needed */}
         {isLoadingMiqaats && (
           <div className="flex justify-center items-center py-6">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -228,8 +189,9 @@ export default function DashboardOverviewPage() {
           </div>
         )}
       </div>
-      <DashboardFooter />
+       <footer className="mt-auto border-t bg-card py-4 px-6 text-sm text-muted-foreground text-center">
+         Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.
+      </footer>
     </div>
   );
 }
-
