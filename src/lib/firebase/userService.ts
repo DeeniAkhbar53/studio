@@ -88,3 +88,20 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
     throw error;
   }
 };
+
+export const getUniqueTeamNames = async (): Promise<string[]> => {
+  try {
+    const usersSnapshot = await getDocs(usersCollectionRef);
+    const teamNames = new Set<string>();
+    usersSnapshot.forEach(doc => {
+      const userData = doc.data() as User;
+      if (userData.team && userData.team.trim() !== "") {
+        teamNames.add(userData.team.trim());
+      }
+    });
+    return Array.from(teamNames).sort();
+  } catch (error) {
+    console.error("Error fetching unique team names: ", error);
+    throw error;
+  }
+};

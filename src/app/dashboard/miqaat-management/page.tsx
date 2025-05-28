@@ -5,24 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label"; // Keep this if used outside RHF context
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { MiqaatCard } from "@/components/dashboard/miqaat-card";
 import type { Miqaat } from "@/types";
-import { PlusCircle, Search, Loader2 } from "lucide-react"; // Added Loader2
+import { PlusCircle, Search, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel as ShadFormLabel, FormDescription } from "@/components/ui/form";
-import { getMiqaats, addMiqaat, updateMiqaat, deleteMiqaat as fbDeleteMiqaat, MiqaatDataForAdd, MiqaatDataForUpdate } from "@/lib/firebase/miqaatService"; // Import Firestore service
+import { getMiqaats, addMiqaat, updateMiqaat, deleteMiqaat as fbDeleteMiqaat, MiqaatDataForAdd, MiqaatDataForUpdate } from "@/lib/firebase/miqaatService";
+import { getUniqueTeamNames } from "@/lib/firebase/userService";
 
 const miqaatSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   location: z.string().optional(),
   startTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid start date" }),
   endTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid end date" }),
-  teams: z.string().transform(val => val.split(',').map(s => s.trim()).filter(Boolean)),
+  teams: z.array(z.string()).optional().default([]),
   barcodeData: z.string().optional(),
 });
 
@@ -31,6 +33,8 @@ type MiqaatFormValues = z.infer<typeof miqaatSchema>;
 export default function MiqaatManagementPage() {
   const [miqaats, setMiqaats] = useState<Miqaat[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
+  const [availableTeams, setAvailableTeams] = useState<string[]>([]);
+  const [isLoadingTeams, setIsLoadingTeams] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMiqaat, setEditingMiqaat] = useState<Miqaat | null>(null);
@@ -43,27 +47,31 @@ export default function MiqaatManagementPage() {
       location: "",
       startTime: "",
       endTime: "",
-      teams: "",
+      teams: [],
       barcodeData: "",
     },
   });
 
-  const fetchAndSetMiqaats = useCallback(async () => {
+  const fetchPageData = useCallback(async () => {
     setIsLoadingMiqaats(true);
+    setIsLoadingTeams(true);
     try {
       const fetchedMiqaats = await getMiqaats();
       setMiqaats(fetchedMiqaats);
+      const fetchedTeams = await getUniqueTeamNames();
+      setAvailableTeams(fetchedTeams);
     } catch (error) {
-      toast({ title: "Error", description: "Failed to fetch Miqaats.", variant: "destructive" });
-      console.error("Failed to fetch Miqaats:", error);
+      toast({ title: "Error", description: "Failed to fetch Miqaats or Teams.", variant: "destructive" });
+      console.error("Failed to fetch Miqaats or Teams:", error);
     } finally {
       setIsLoadingMiqaats(false);
+      setIsLoadingTeams(false);
     }
   }, [toast]);
 
   useEffect(() => {
-    fetchAndSetMiqaats();
-  }, [fetchAndSetMiqaats]);
+    fetchPageData();
+  }, [fetchPageData]);
 
   useEffect(() => {
     if (editingMiqaat) {
@@ -72,25 +80,25 @@ export default function MiqaatManagementPage() {
         location: editingMiqaat.location || "",
         startTime: new Date(editingMiqaat.startTime).toISOString().substring(0, 16),
         endTime: new Date(editingMiqaat.endTime).toISOString().substring(0, 16),
-        teams: editingMiqaat.teams.join(", "),
+        teams: editingMiqaat.teams || [],
         barcodeData: editingMiqaat.barcodeData || "",
       });
     } else {
-      form.reset({ name: "", location: "", startTime: "", endTime: "", teams: "", barcodeData: "" });
+      form.reset({ name: "", location: "", startTime: "", endTime: "", teams: [], barcodeData: "" });
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
   const handleFormSubmit = async (values: MiqaatFormValues) => {
     const miqaatPayload = {
       name: values.name,
-      location: values.location || undefined, // Store as undefined if empty, not ""
+      location: values.location || undefined,
       startTime: new Date(values.startTime).toISOString(),
       endTime: new Date(values.endTime).toISOString(),
-      teams: values.teams, // Zod transform ensures this is an array
-      barcodeData: values.barcodeData || undefined, // Store as undefined if empty
+      teams: values.teams, 
+      barcodeData: values.barcodeData || undefined,
     };
     
-    form.formState.isSubmitting; // to ensure this is accessed if needed later
+    form.formState.isSubmitting;
 
     try {
       if (editingMiqaat) {
@@ -100,7 +108,7 @@ export default function MiqaatManagementPage() {
         await addMiqaat(miqaatPayload as MiqaatDataForAdd);
         toast({ title: "Miqaat Created", description: `"${values.name}" has been added.` });
       }
-      fetchAndSetMiqaats(); // Refresh the list
+      fetchPageData(); 
       setIsDialogOpen(false);
       setEditingMiqaat(null);
     } catch (error) {
@@ -118,7 +126,7 @@ export default function MiqaatManagementPage() {
     try {
       await fbDeleteMiqaat(miqaatId);
       toast({ title: "Miqaat Deleted", description: "The Miqaat has been deleted.", variant: "destructive" });
-      fetchAndSetMiqaats(); // Refresh the list
+      fetchPageData(); 
     } catch (error) {
       console.error("Error deleting Miqaat:", error);
       toast({ title: "Database Error", description: "Could not delete Miqaat.", variant: "destructive" });
@@ -189,20 +197,48 @@ export default function MiqaatManagementPage() {
                       <FormMessage className="col-start-2 col-span-3 text-xs" />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="teams" render={({ field }) => (
-                    <FormItem className="grid grid-cols-4 items-start gap-x-4 gap-y-1">
-                      <ShadFormLabel htmlFor="teams" className="text-right pt-2">Teams</ShadFormLabel>
-                      <div className="col-span-3 space-y-1">
-                        <FormControl>
-                          <Input id="teams" placeholder="e.g. Alpha, Bravo, Charlie" {...field} />
-                        </FormControl>
-                        <FormDescription className="text-xs">
-                          Comma-separated list of teams.
-                        </FormDescription>
-                        <FormMessage className="text-xs" />
-                      </div>
-                    </FormItem>
-                  )} />
+                  
+                  <FormField
+                    control={form.control}
+                    name="teams"
+                    render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-start gap-x-4">
+                        <ShadFormLabel className="text-right pt-2 col-span-1">Teams</ShadFormLabel>
+                        <div className="col-span-3 space-y-1">
+                          <div className="rounded-md border p-3 min-h-[60px] max-h-40 overflow-y-auto space-y-2 bg-background">
+                            {isLoadingTeams ? (
+                              <p className="text-sm text-muted-foreground">Loading teams...</p>
+                            ) : availableTeams.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">No teams found in user profiles.</p>
+                            ) : (
+                              availableTeams.map((teamName) => (
+                                <div key={teamName} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`team-checkbox-${teamName}`}
+                                    checked={field.value?.includes(teamName)}
+                                    onCheckedChange={(checked) => {
+                                      const currentTeams = Array.isArray(field.value) ? field.value : [];
+                                      if (checked) {
+                                        field.onChange([...currentTeams, teamName]);
+                                      } else {
+                                        field.onChange(currentTeams.filter((value) => value !== teamName));
+                                      }
+                                    }}
+                                  />
+                                  <Label htmlFor={`team-checkbox-${teamName}`} className="font-normal text-sm">
+                                    {teamName}
+                                  </Label>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                          <FormDescription className="text-xs">Select teams associated with this Miqaat.</FormDescription>
+                          <FormMessage className="text-xs" />
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+
                   <FormField control={form.control} name="barcodeData" render={({ field }) => (
                     <FormItem className="grid grid-cols-4 items-center gap-x-4">
                       <ShadFormLabel htmlFor="barcodeData" className="text-right">Barcode Data</ShadFormLabel>
@@ -214,8 +250,8 @@ export default function MiqaatManagementPage() {
                   )} />
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={form.formState.isSubmitting}>
-                      {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Button type="submit" disabled={form.formState.isSubmitting || isLoadingTeams}>
+                      {(form.formState.isSubmitting || isLoadingTeams) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       {editingMiqaat ? "Save Changes" : "Create Miqaat"}
                     </Button>
                   </DialogFooter>
