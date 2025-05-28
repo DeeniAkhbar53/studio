@@ -8,16 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { Mohallah, User } from "@/types";
+import type { Mohallah, User, UserRole } from "@/types";
 import { PlusCircle, Search, Edit, Trash2, FileUp } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Form, FormField, FormControl, FormMessage, FormItem } from "@/components/ui/form";
-
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -25,7 +24,7 @@ const memberSchema = z.object({
   bgkId: z.string().optional(),
   team: z.string().optional(),
   phoneNumber: z.string().optional(),
-  role: z.enum(["user", "admin", "superadmin"]),
+  role: z.enum(["user", "admin", "superadmin", "attendance-marker"]),
   mohallahId: z.string().min(1, "Mohallah must be selected"),
 });
 
@@ -37,10 +36,11 @@ const initialMohallahs: Mohallah[] = [
   { id: "moh3", name: "Najmi Mohallah", members: [], admin: undefined },
 ];
 
-const initialMembers: User[] = [
+export const initialMembers: User[] = [ // Export for use in mark-attendance page
   { id: "usr1", name: "Abbas Bhai", itsId: "10101010", team: "Team A", phoneNumber: "123-456-7890", role: "user", mohallah: "Saifee Mohallah", avatarUrl: "https://placehold.co/40x40.png?text=AB" },
   { id: "usr2", name: "Fatema Ben", itsId: "20202020", team: "Team B", phoneNumber: "987-654-3210", role: "admin", mohallah: "Burhani Mohallah", avatarUrl: "https://placehold.co/40x40.png?text=FB"},
   { id: "usr3", name: "Yusuf Bhai", itsId: "30303030", team: "Team A", phoneNumber: "555-555-5555", role: "user", mohallah: "Saifee Mohallah", avatarUrl: "https://placehold.co/40x40.png?text=YB" },
+  { id: "usr4", name: "Zainab Teacher", itsId: "40404040", team: "Team C", phoneNumber: "111-222-3333", role: "attendance-marker", mohallah: "Najmi Mohallah", avatarUrl: "https://placehold.co/40x40.png?text=ZT" },
 ];
 
 export default function MohallahManagementPage() {
@@ -70,9 +70,9 @@ export default function MohallahManagementPage() {
       form.reset({
         name: editingMember.name,
         itsId: editingMember.itsId,
-        bgkId: editingMember.bgkId || "", // Ensure empty string if undefined
-        team: editingMember.team || "", // Ensure empty string if undefined
-        phoneNumber: editingMember.phoneNumber || "", // Ensure empty string if undefined
+        bgkId: editingMember.bgkId || "",
+        team: editingMember.team || "",
+        phoneNumber: editingMember.phoneNumber || "",
         role: editingMember.role,
         mohallahId: mohallah?.id || initialMohallahs[0]?.id || "",
       });
@@ -91,10 +91,11 @@ export default function MohallahManagementPage() {
 
   const handleMemberFormSubmit = (values: MemberFormValues) => {
     const mohallahName = mohallahs.find(m => m.id === values.mohallahId)?.name;
-    const memberData = { ...values, mohallah: mohallahName || "Unknown Mohallah" };
+    const memberData = { ...values, mohallah: mohallahName || "Unknown Mohallah", role: values.role as UserRole };
+
 
     if (editingMember) {
-      setMembers(members.map(m => m.id === editingMember.id ? { ...editingMember, ...memberData, avatarUrl: m.avatarUrl } : m)); // Preserve avatarUrl
+      setMembers(members.map(m => m.id === editingMember.id ? { ...editingMember, ...memberData, avatarUrl: m.avatarUrl } : m)); 
       toast({ title: "Member Updated", description: `"${values.name}" has been updated.` });
     } else {
       setMembers([{ ...memberData, id: `usr${Date.now()}`, avatarUrl: `https://placehold.co/40x40.png?text=${values.name.substring(0,2).toUpperCase()}` }, ...members]);
@@ -115,7 +116,6 @@ export default function MohallahManagementPage() {
   };
   
   const handleImportCSV = () => {
-    // Placeholder for CSV import functionality
     toast({ title: "Import CSV", description: "CSV import functionality is not yet implemented." });
   };
 
@@ -194,6 +194,7 @@ export default function MohallahManagementPage() {
                           <FormControl><SelectTrigger id="role" className="col-span-3"><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl>
                           <SelectContent>
                             <SelectItem value="user">User</SelectItem>
+                            <SelectItem value="attendance-marker">Attendance Marker</SelectItem>
                             <SelectItem value="admin">Admin</SelectItem>
                             <SelectItem value="superadmin">Super Admin</SelectItem>
                           </SelectContent>
@@ -261,7 +262,7 @@ export default function MohallahManagementPage() {
                   <TableCell>{member.itsId}</TableCell>
                   <TableCell>{member.mohallah}</TableCell>
                   <TableCell>{member.team || "N/A"}</TableCell>
-                  <TableCell>{member.role.charAt(0).toUpperCase() + member.role.slice(1)}</TableCell>
+                  <TableCell>{member.role.charAt(0).toUpperCase() + member.role.slice(1).replace(/-/g, ' ')}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" onClick={() => handleEditMember(member)} className="mr-2">
                       <Edit className="h-4 w-4" />
@@ -285,5 +286,3 @@ export default function MohallahManagementPage() {
     </div>
   );
 }
-
-    

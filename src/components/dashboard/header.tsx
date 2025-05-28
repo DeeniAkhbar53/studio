@@ -23,7 +23,8 @@ const pageTitles: { [key: string]: string } = {
   "/dashboard/miqaat-management": "Miqaat Management",
   "/dashboard/mohallah-management": "Mohallah Management",
   "/dashboard/reports": "Attendance Reports",
-  "/dashboard/scan-attendance": "Scan Attendance",
+  "/dashboard/scan-attendance": "Scan My QR Code",
+  "/dashboard/mark-attendance": "Mark Member Attendance",
 };
 
 export function Header() {
@@ -50,7 +51,6 @@ export function Header() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="flex flex-col p-0">
-            {/* Added SheetTitle for accessibility, hidden visually */}
             <SheetTitle className="sr-only">Main Navigation Menu</SheetTitle>
             <div className="p-4 border-b">
                <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary">

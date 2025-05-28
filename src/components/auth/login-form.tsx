@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import type { UserRole } from "@/types";
 import { KeyRound } from "lucide-react";
 
 const loginSchema = z.object({
@@ -24,10 +25,11 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-const testUserRoles: { [key: string]: 'user' | 'admin' | 'superadmin' } = {
+const testUserRoles: { [key: string]: UserRole } = {
   "11111111": "user",
   "22222222": "admin",
   "33333333": "superadmin",
+  "44444444": "attendance-marker", // New role
 };
 
 export function LoginForm() {
@@ -49,7 +51,7 @@ export function LoginForm() {
 
     toast({
       title: "Login Successful",
-      description: `Welcome, ${data.identityId}! Role: ${role}`,
+      description: `Welcome, ${data.identityId}! Role: ${role.charAt(0).toUpperCase() + role.slice(1)}`,
     });
     
     setTimeout(() => {
