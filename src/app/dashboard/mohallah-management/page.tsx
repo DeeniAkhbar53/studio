@@ -132,7 +132,7 @@ export default function MohallahManagementPage() {
 
 
   const handleMemberFormSubmit = async (values: MemberFormValues) => {
-    const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string } = {
+    const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string, designation?: UserDesignation } = {
       name: values.name,
       itsId: values.itsId,
       bgkId: values.bgkId || undefined,
@@ -232,10 +232,10 @@ export default function MohallahManagementPage() {
         description: `File "${selectedFile.name}" selected. 
         Conceptual Process:
         1. Parse CSV data.
-        2. For each row: Validate fields.
-        3. Convert Mohallah Name to Mohallah ID (requires existing Mohallahs).
-        4. Check if ITS ID already exists in the database.
-        5. If new, add user. If duplicate, report error and skip.
+        2. For each row: Validate fields (name, itsId, role, mohallahName, designation are key).
+        3. Convert Mohallah Name to Mohallah ID (requires fetching existing Mohallahs).
+        4. Check if ITS ID already exists in the database using getUserByItsOrBgkId.
+        5. If new, add user. If duplicate, report error in a summary and skip.
         6. Provide summary of successful/failed imports.
         This detailed processing is a future enhancement.`,
         duration: 10000,
@@ -336,7 +336,8 @@ export default function MohallahManagementPage() {
                       <Button variant="ghost" size="icon" onClick={() => handleEditMohallah(mohallah)} className="mr-2">
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <AlertTrigger asChild>
+                      <AlertDialog>
+                        <AlertTrigger asChild>
                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -359,6 +360,7 @@ export default function MohallahManagementPage() {
                             </AlertDialogAction>
                           </AlertFooter>
                         </AlertContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -537,7 +539,8 @@ export default function MohallahManagementPage() {
                       <Button variant="ghost" size="icon" onClick={() => handleEditMember(member)} className="mr-2" aria-label="Edit Member">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <AlertTrigger asChild>
+                      <AlertDialog>
+                        <AlertTrigger asChild>
                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Member">
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -556,6 +559,7 @@ export default function MohallahManagementPage() {
                             </AlertDialogAction>
                           </AlertFooter>
                         </AlertContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 )) : (
