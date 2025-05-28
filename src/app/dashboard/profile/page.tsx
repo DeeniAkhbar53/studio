@@ -15,6 +15,7 @@ import { getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
+import type { Unsubscribe } from "firebase/firestore";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -25,6 +26,9 @@ export default function ProfilePage() {
   const router = useRouter();
 
   useEffect(() => {
+    let unsubscribeMohallahs: Unsubscribe | null = null;
+    let isMounted = true;
+
     const fetchProfileData = async () => {
       setIsLoading(true);
       if (typeof window !== "undefined") {
@@ -32,36 +36,59 @@ export default function ProfilePage() {
         if (storedItsId) {
           try {
             const fetchedUser = await getUserByItsOrBgkId(storedItsId);
-            setUser(fetchedUser);
+            if (isMounted) {
+              setUser(fetchedUser);
+            }
             
-            const fetchedMohallahs = await getMohallahs();
-            setMohallahs(fetchedMohallahs);
+            // Subscribe to Mohallahs
+            unsubscribeMohallahs = getMohallahs((fetchedMohallahsData) => {
+              if (isMounted) {
+                setMohallahs(fetchedMohallahsData);
+              }
+            });
 
             if (fetchedUser) {
               setIsLoadingHistory(true);
               const history = await getAttendanceRecordsByUser(fetchedUser.itsId); 
-              setAttendanceHistory(history);
+              if (isMounted) {
+                setAttendanceHistory(history);
+              }
               setIsLoadingHistory(false);
             }
 
           } catch (error) {
             console.error("Failed to fetch profile data:", error);
-            setUser(null); 
-            setAttendanceHistory([]);
+            if (isMounted) {
+              setUser(null); 
+              setAttendanceHistory([]);
+            }
+          } finally {
+             if (isMounted) {
+                setIsLoading(false);
+             }
           }
         } else {
           router.push('/');
+          if (isMounted) setIsLoading(false);
           return;
         }
+      } else {
+        if (isMounted) setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     fetchProfileData();
+
+    return () => {
+      isMounted = false;
+      if (unsubscribeMohallahs) {
+        unsubscribeMohallahs();
+      }
+    };
   }, [router]);
 
   const getMohallahName = (mohallahId?: string) => {
-    if (!mohallahId) return "N/A";
+    if (!mohallahId || mohallahs.length === 0) return "N/A";
     const mohallah = mohallahs.find(m => m.id === mohallahId);
     return mohallah ? mohallah.name : "Unknown Mohallah";
   };
@@ -88,13 +115,13 @@ export default function ProfilePage() {
       <Card className="overflow-hidden shadow-xl">
         <div className="bg-muted/30 p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
           <Avatar className="h-24 w-24 md:h-32 md:w-32 border-4 border-background shadow-md">
-            <AvatarImage src={user.avatarUrl || `https://placehold.co/100x100.png?text=${user.name.substring(0,2).toUpperCase()}`} alt={user.name} data-ai-hint="profile avatar" />
+            <AvatarImage src={user.avatarUrl || `https://placehold.co/100x100.png?text=${user.name.substring(0,2).toUpperCase()}`} alt={user.name} data-ai-hint="profile avatar"/>
             <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-grow text-center md:text-left w-full">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-1">
               <h3 className="text-2xl font-bold text-foreground">{user.name}</h3>
-              <Button variant="outline" size="sm" className="mt-2 md:mt-0 md:ml-4 self-center md:self-auto" disabled>
+              <Button variant="outline" size="sm" className="self-center md:self-auto md:ml-4 mt-4 md:mt-0" disabled>
                 <Edit3 className="mr-2 h-4 w-4" />
                 Edit Profile (Soon)
               </Button>
