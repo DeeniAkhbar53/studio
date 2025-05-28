@@ -26,8 +26,7 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-const SUPERADMIN_TEMP_ITS_ID = "50487028";
-const SUPERADMIN_TEMP_NAME = "Shabbir bhai Murtaza bhai Shakir";
+// Removed temporary SUPERADMIN_TEMP_ITS_ID and SUPERADMIN_TEMP_NAME
 
 export function LoginForm() {
   const router = useRouter();
@@ -47,48 +46,34 @@ export function LoginForm() {
     let userName: string | null = null;
     let userItsId: string | null = null;
 
-    form.formState.isSubmitting; // Access to ensure reactivity if needed, though direct set below
+    form.formState.isSubmitting; 
 
-    if (identityId === SUPERADMIN_TEMP_ITS_ID) {
-      // Temporary superadmin login
-      userRole = 'superadmin';
-      userName = SUPERADMIN_TEMP_NAME;
-      userItsId = SUPERADMIN_TEMP_ITS_ID;
-      
-      toast({
-        title: "Temporary Admin Login",
-        description: `Welcome, ${userName}! Role: Super Admin (Temporary).`,
-      });
+    // Regular database lookup for all users
+    try {
+      const user = await getUserByItsOrBgkId(identityId);
 
-    } else {
-      // Regular database lookup
-      try {
-        const user = await getUserByItsOrBgkId(identityId);
-
-        if (user && user.role) {
-          userRole = user.role;
-          userName = user.name;
-          userItsId = user.itsId;
-        }
-      } catch (error) {
-        console.error("Login error during DB lookup:", error);
-        // Error will be handled by the general "Login Failed" toast below if user remains null
+      if (user && user.role) {
+        userRole = user.role;
+        userName = user.name;
+        userItsId = user.itsId; // Ensure itsId is correctly assigned from the fetched user
       }
+    } catch (error) {
+      console.error("Login error during DB lookup:", error);
+      // Error will be handled by the general "Login Failed" toast below if user remains null
     }
+    
 
     if (userRole && userName && userItsId) {
       if (typeof window !== "undefined") {
         localStorage.setItem('userRole', userRole);
         localStorage.setItem('userName', userName);
-        localStorage.setItem('userItsId', userItsId);
+        localStorage.setItem('userItsId', userItsId); // Save the user's actual ITS ID
       }
 
-      if (identityId !== SUPERADMIN_TEMP_ITS_ID) { // Avoid double toast for temp admin
-        toast({
-          title: "Login Successful",
-          description: `Welcome, ${userName}! Role: ${userRole.charAt(0).toUpperCase() + userRole.slice(1).replace(/-/g, ' ')}`,
-        });
-      }
+      toast({
+        title: "Login Successful",
+        description: `Welcome, ${userName}! Role: ${userRole.charAt(0).toUpperCase() + userRole.slice(1).replace(/-/g, ' ')}`,
+      });
       
       setTimeout(() => {
         router.push("/dashboard");
