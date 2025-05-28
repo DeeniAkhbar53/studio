@@ -76,6 +76,7 @@ export default function MohallahManagementPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to fetch Mohallahs.", variant: "destructive" });
+      console.error("Failed to fetch Mohallahs:", error);
     } finally {
       setIsLoadingMohallahs(false);
     }
@@ -88,6 +89,7 @@ export default function MohallahManagementPage() {
       setMembers(fetchedMembers);
     } catch (error) {
       toast({ title: "Error", description: "Failed to fetch members.", variant: "destructive" });
+      console.error("Failed to fetch members:", error);
     } finally {
       setIsLoadingMembers(false);
     }
@@ -165,6 +167,7 @@ export default function MohallahManagementPage() {
       toast({ title: "Member Deleted", description: `"${memberName}" has been deleted.`});
       fetchAndSetMembers();
     } catch (error) {
+      console.error("Error deleting member:", error);
       toast({ title: "Database Error", description: "Could not delete member.", variant: "destructive" });
     }
   };
@@ -193,7 +196,6 @@ export default function MohallahManagementPage() {
   };
 
   const handleDeleteMohallah = async (mohallah: Mohallah) => {
-     // Check if any member is assigned to this Mohallah
     const membersInMohallah = members.filter(member => member.mohallahId === mohallah.id);
     if (membersInMohallah.length > 0) {
       toast({
@@ -209,14 +211,19 @@ export default function MohallahManagementPage() {
       toast({ title: "Mohallah Deleted", description: `Mohallah "${mohallah.name}" has been deleted.`});
       fetchAndSetMohallahs();
     } catch (error) {
+      console.error("Error deleting Mohallah:", error);
       toast({ title: "Database Error", description: "Could not delete Mohallah.", variant: "destructive" });
     }
   };
   
   const handleProcessCsvUpload = () => {
-    // ... (CSV import logic remains placeholder)
-    toast({ title: "CSV Upload (Placeholder)", description: "Actual import functionality is not yet implemented." });
+    if (!selectedFile) {
+        toast({ title: "No file selected", description: "Please select a CSV file to upload.", variant: "destructive" });
+        return;
+    }
+    toast({ title: "CSV Upload (Placeholder)", description: `File "${selectedFile.name}" selected. Actual import functionality is not yet implemented.` });
     setIsCsvImportDialogOpen(false);
+    setSelectedFile(null);
   };
 
   const filteredMembers = members.filter(m =>
@@ -289,11 +296,11 @@ export default function MohallahManagementPage() {
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                        <AlertTrigger asChild>
                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        </AlertDialogTrigger>
+                        </AlertTrigger>
                         <AlertContent>
                           <AlertHeader>
                             <AlertTitle>Are you sure?</AlertTitle>
@@ -411,7 +418,7 @@ export default function MohallahManagementPage() {
                     )} />
                     <DialogFooter>
                       <Button type="button" variant="outline" onClick={() => setIsMemberDialogOpen(false)}>Cancel</Button>
-                      <Button type="submit" disabled={memberForm.formState.isSubmitting || isLoadingMohallahs || mohallahs.length === 0}>
+                      <Button type="submit" disabled={memberForm.formState.isSubmitting || isLoadingMohallahs || (mohallahs.length === 0 && !isLoadingMohallahs) }>
                         {memberForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {editingMember ? "Save Changes" : "Add Member"}
                       </Button>
@@ -473,11 +480,11 @@ export default function MohallahManagementPage() {
                         <Edit className="h-4 w-4" />
                       </Button>
                       <AlertDialog>
-                        <AlertDialogTrigger asChild>
+                        <AlertTrigger asChild>
                           <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Member">
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        </AlertDialogTrigger>
+                        </AlertTrigger>
                         <AlertContent>
                           <AlertHeader>
                             <AlertTitle>Are you sure?</AlertTitle>
@@ -539,10 +546,13 @@ export default function MohallahManagementPage() {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => {setIsCsvImportDialogOpen(false); setSelectedFile(null);}}>Cancel</Button>
-            <Button type="button" onClick={handleProcessCsvUpload}>Upload and Process</Button>
+            <Button type="button" onClick={handleProcessCsvUpload} disabled={!selectedFile}>Upload and Process</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
+
+    
