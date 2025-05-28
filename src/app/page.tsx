@@ -27,8 +27,8 @@ export default function LoginPage() {
           <LoginForm />
         </CardContent>
       </Card>
-      <footer className="mt-8 text-center text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
+      <footer className="mt-8 border-t bg-card py-4 px-6 text-center text-sm text-muted-foreground w-full max-w-md">
+        <p>Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
       </footer>
     </main>
   );

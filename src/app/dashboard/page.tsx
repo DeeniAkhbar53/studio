@@ -25,9 +25,9 @@ const mockCurrentMiqaat = {
 function DashboardFooter() {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   return (
-    <footer className="mt-auto border-t pt-6 text-center text-sm text-muted-foreground">
+    <footer className="mt-auto border-t bg-card py-4 px-6 text-center text-sm text-muted-foreground">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <p>&copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
+        <p>Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
         <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
