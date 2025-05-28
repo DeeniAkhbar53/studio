@@ -54,7 +54,13 @@ export default function MohallahManagementPage() {
   const form = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema),
     defaultValues: {
-      name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user", mohallahId: initialMohallahs[0]?.id || ""
+      name: "",
+      itsId: "",
+      bgkId: "",
+      team: "",
+      phoneNumber: "",
+      role: "user",
+      mohallahId: initialMohallahs[0]?.id || ""
     },
   });
 
@@ -62,11 +68,24 @@ export default function MohallahManagementPage() {
     if (editingMember) {
       const mohallah = mohallahs.find(m => m.name === editingMember.mohallah);
       form.reset({
-        ...editingMember,
+        name: editingMember.name,
+        itsId: editingMember.itsId,
+        bgkId: editingMember.bgkId || "", // Ensure empty string if undefined
+        team: editingMember.team || "", // Ensure empty string if undefined
+        phoneNumber: editingMember.phoneNumber || "", // Ensure empty string if undefined
+        role: editingMember.role,
         mohallahId: mohallah?.id || initialMohallahs[0]?.id || "",
       });
     } else {
-      form.reset({ name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user", mohallahId: initialMohallahs[0]?.id || "" });
+      form.reset({
+        name: "",
+        itsId: "",
+        bgkId: "",
+        team: "",
+        phoneNumber: "",
+        role: "user",
+        mohallahId: initialMohallahs[0]?.id || ""
+      });
     }
   }, [editingMember, form, isMemberDialogOpen, mohallahs]);
 
