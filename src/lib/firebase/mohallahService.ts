@@ -1,6 +1,6 @@
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query as firestoreQuery, orderBy, onSnapshot, Unsubscribe, getCountFromServer } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query as firestoreQuery, orderBy, onSnapshot, Unsubscribe, getCountFromServer, query } from 'firebase/firestore';
 import type { Mohallah } from '@/types';
 import { deleteSubcollection } from './utils'; 
 
@@ -67,3 +67,4 @@ export const getMohallahsCount = async (): Promise<number> => {
     return 0; // Return 0 on error
   }
 };
+
