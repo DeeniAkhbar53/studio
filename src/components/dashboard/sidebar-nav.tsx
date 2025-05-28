@@ -65,58 +65,79 @@ const allNavItems: NavItem[] = [
   },
 ];
 
+function SidebarNavSkeleton() {
+  return (
+    <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2 bg-muted/30 h-8 animate-pulse">
+          <div className="h-4 w-4 bg-muted rounded-sm shrink-0" />
+          <div className="h-3 bg-muted rounded-sm flex-grow " />
+        </div>
+      ))}
+    </nav>
+  );
+}
+
 export function SidebarNav() {
   const pathname = usePathname();
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [userPageRights, setUserPageRights] = useState<string[]>([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedRole = localStorage.getItem('userRole') as UserRole | null;
-      const storedPageRights = localStorage.getItem('userPageRights');
-      const storedUnreadCount = parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10);
+    // This effect runs only on the client, after the initial render
+    const storedRole = localStorage.getItem('userRole') as UserRole | null;
+    const storedPageRights = localStorage.getItem('userPageRights');
+    const storedUnreadCount = parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10);
 
-      setCurrentUserRole(storedRole || 'user');
-      setUserPageRights(storedPageRights ? JSON.parse(storedPageRights) : []);
-      setUnreadNotificationCount(storedUnreadCount);
+    setCurrentUserRole(storedRole); // Will be null if nothing in localStorage
+    setUserPageRights(storedPageRights ? JSON.parse(storedPageRights) : []);
+    setUnreadNotificationCount(storedUnreadCount);
+    setIsMounted(true); // Signal that client-side data is loaded
 
-      const handleStorageChange = () => {
-         const updatedRole = localStorage.getItem('userRole') as UserRole | null;
-         const updatedPageRights = localStorage.getItem('userPageRights');
-         const updatedUnreadCount = parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10);
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'userRole') {
+        setCurrentUserRole(localStorage.getItem('userRole') as UserRole | null);
+      }
+      if (event.key === 'userPageRights') {
+        const updatedPageRights = localStorage.getItem('userPageRights');
+        setUserPageRights(updatedPageRights ? JSON.parse(updatedPageRights) : []);
+      }
+      if (event.key === 'unreadNotificationCount') {
+        setUnreadNotificationCount(parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10));
+      }
+    };
 
-         setCurrentUserRole(updatedRole || 'user');
-         setUserPageRights(updatedPageRights ? JSON.parse(updatedPageRights) : []);
-         setUnreadNotificationCount(updatedUnreadCount);
-      };
+    const handleNotificationsUpdate = () => {
+      const updatedUnreadCount = parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10);
+      setUnreadNotificationCount(updatedUnreadCount);
+    };
 
-      const handleNotificationsUpdate = () => {
-        const updatedUnreadCount = parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10);
-        setUnreadNotificationCount(updatedUnreadCount);
-      };
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('notificationsUpdated', handleNotificationsUpdate);
 
-      window.addEventListener('storage', handleStorageChange);
-      window.addEventListener('notificationsUpdated', handleNotificationsUpdate); // Listen for custom event from header
-
-      return () => {
-          window.removeEventListener('storage', handleStorageChange);
-          window.removeEventListener('notificationsUpdated', handleNotificationsUpdate);
-      };
-    }
+    return () => {
+        window.removeEventListener('storage', handleStorageChange);
+        window.removeEventListener('notificationsUpdated', handleNotificationsUpdate);
+    };
   }, []);
 
-  const navItems = allNavItems.filter(item => {
-    if (!currentUserRole) return false;
+  if (!isMounted) {
+    return <SidebarNavSkeleton />;
+  }
 
-    // 1. Check base role access
-    const roleAllowed = !item.allowedRoles || item.allowedRoles.includes(currentUserRole);
+  // If currentUserRole is still null after mounting (i.e., not in localStorage), default to 'user' for filtering
+  const resolvedCurrentUserRole = currentUserRole || 'user';
+
+  const navItems = allNavItems.filter(item => {
+    // Role check
+    const roleAllowed = !item.allowedRoles || item.allowedRoles.includes(resolvedCurrentUserRole);
     if (!roleAllowed) return false;
 
-    // 2. If user has specific pageRights, apply them
     // Essential paths are always shown if role-allowed
     if (ESSENTIAL_PATHS.includes(item.href)) return true;
-
+    
     // If pageRights are defined and non-empty, user must have explicit right for non-essential pages
     if (userPageRights && userPageRights.length > 0) {
       return userPageRights.includes(item.href);
@@ -126,13 +147,6 @@ export function SidebarNav() {
     return true;
   });
 
-  if (currentUserRole === null) {
-      return (
-        <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
-            {/* Placeholder or loading indicator */}
-        </nav>
-      );
-  }
 
   return (
     <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
@@ -157,7 +171,7 @@ export function SidebarNav() {
             </div>
             {typeof currentBadgeCount === 'number' && currentBadgeCount > 0 && (
               <span className="ml-auto min-w-[20px] h-5 flex items-center justify-center rounded-full bg-destructive px-1.5 text-xs text-destructive-foreground">
-                {currentBadgeCount}
+                {currentBadgeCount > 9 ? '9+' : currentBadgeCount}
               </span>
             )}
           </Link>
