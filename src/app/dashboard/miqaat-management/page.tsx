@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { MiqaatCard } from "@/components/dashboard/miqaat-card";
-import type { Miqaat, UserRole, Mohallah } from "@/types"; // Added Mohallah
+import type { Miqaat, UserRole, Mohallah } from "@/types";
 import { PlusCircle, Search, Loader2, CalendarDays } from "lucide-react"; 
 import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
@@ -17,19 +17,19 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel as ShadFormLabel, FormDescription } from "@/components/ui/form";
 import { getMiqaats, addMiqaat, updateMiqaat, deleteMiqaat as fbDeleteMiqaat, MiqaatDataForAdd, MiqaatDataForUpdate } from "@/lib/firebase/miqaatService";
-import { getMohallahs } from "@/lib/firebase/mohallahService"; // Import getMohallahs
+import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 
 const miqaatSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
-  location: z.string().optional(),
+  location: z.string().optional(), // Optional, can be empty string from form
   startTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid start date" }),
   endTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid end date" }),
-  reportingTime: z.string().optional().nullable()
+  reportingTime: z.string().optional().nullable() // Optional, can be empty string from form
     .refine(val => !val || val === "" || !isNaN(Date.parse(val)), { message: "Invalid reporting date if provided" }),
-  mohallahIds: z.array(z.string()).optional().default([]), // Changed from teams
-  barcodeData: z.string().optional(),
+  mohallahIds: z.array(z.string()).optional().default([]),
+  barcodeData: z.string().optional(), // Optional, can be empty string from form
 });
 
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
@@ -37,8 +37,8 @@ type MiqaatFormValues = z.infer<typeof miqaatSchema>;
 export default function MiqaatManagementPage() {
   const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "location" | "barcodeData" | "attendance" | "createdAt">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
-  const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]); // For Mohallah selection
-  const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true); // Loading state for Mohallahs
+  const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
+  const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "location" | "barcodeData" | "attendance" | "createdAt"> | null>(null);
@@ -53,7 +53,7 @@ export default function MiqaatManagementPage() {
       startTime: "",
       endTime: "",
       reportingTime: "",
-      mohallahIds: [], // Changed from teams
+      mohallahIds: [],
       barcodeData: "",
     },
   });
@@ -69,14 +69,14 @@ export default function MiqaatManagementPage() {
     });
 
     setIsLoadingMohallahs(true);
-    const unsubscribeMohallahs = getMohallahs((fetchedMohallahs) => { // Fetch Mohallahs
+    const unsubscribeMohallahs = getMohallahs((fetchedMohallahs) => {
       setAvailableMohallahs(fetchedMohallahs);
       setIsLoadingMohallahs(false);
     });
 
     return () => {
       unsubscribeMiqaats();
-      unsubscribeMohallahs(); // Unsubscribe from Mohallahs
+      unsubscribeMohallahs();
     };
   }, [toast]);
 
@@ -88,7 +88,7 @@ export default function MiqaatManagementPage() {
         startTime: editingMiqaat.startTime ? new Date(editingMiqaat.startTime).toISOString().substring(0, 16) : "",
         endTime: editingMiqaat.endTime ? new Date(editingMiqaat.endTime).toISOString().substring(0, 16) : "",
         reportingTime: editingMiqaat.reportingTime ? new Date(editingMiqaat.reportingTime).toISOString().substring(0, 16) : "",
-        mohallahIds: editingMiqaat.mohallahIds || [], // Changed from teams
+        mohallahIds: editingMiqaat.mohallahIds || [],
         barcodeData: editingMiqaat.barcodeData || "",
       });
     } else {
@@ -97,24 +97,26 @@ export default function MiqaatManagementPage() {
   }, [editingMiqaat, form, isDialogOpen]);
 
   const handleFormSubmit = async (values: MiqaatFormValues) => {
-    const miqaatPayload = {
+    // Prepare data for the service. Zod schema uses .optional() which can lead to undefined.
+    // Form defaultValues use "" for empty strings.
+    // Service functions will handle omitting fields if values are undefined or effectively empty.
+    const dataForService: MiqaatDataForAdd | MiqaatDataForUpdate = {
       name: values.name,
-      location: values.location || undefined,
-      startTime: values.startTime, 
-      endTime: values.endTime,     
-      reportingTime: values.reportingTime || undefined,
-      mohallahIds: values.mohallahIds || [], // Changed from teams
-      barcodeData: values.barcodeData || undefined,
+      startTime: values.startTime,
+      endTime: values.endTime,
+      mohallahIds: values.mohallahIds || [],
+      // Pass form values directly; service layer will clean them (e.g., for undefined/empty string)
+      location: values.location, 
+      reportingTime: values.reportingTime, 
+      barcodeData: values.barcodeData,
     };
     
-    form.formState.isSubmitting;
-
     try {
       if (editingMiqaat) {
-        await updateMiqaat(editingMiqaat.id, miqaatPayload as MiqaatDataForUpdate);
+        await updateMiqaat(editingMiqaat.id, dataForService as MiqaatDataForUpdate);
         toast({ title: "Miqaat Updated", description: `"${values.name}" has been updated.` });
       } else {
-        await addMiqaat(miqaatPayload as MiqaatDataForAdd);
+        await addMiqaat(dataForService as MiqaatDataForAdd);
         toast({ title: "Miqaat Created", description: `"${values.name}" has been added.` });
       }
       setIsDialogOpen(false);
@@ -218,21 +220,21 @@ export default function MiqaatManagementPage() {
                     
                     <FormField
                       control={form.control}
-                      name="mohallahIds" // Changed from teams
+                      name="mohallahIds"
                       render={({ field }) => (
                         <FormItem className="grid grid-cols-4 items-start gap-x-4">
-                          <ShadFormLabel className="text-right pt-2 col-span-1">Assigned Mohallahs</ShadFormLabel> {/* Changed Label */}
+                          <ShadFormLabel className="text-right pt-2 col-span-1">Assigned Mohallahs</ShadFormLabel>
                           <div className="col-span-3 space-y-1">
                             <div className="rounded-md border p-3 min-h-[60px] max-h-40 overflow-y-auto space-y-2 bg-background">
-                              {isLoadingMohallahs ? ( // Check isLoadingMohallahs
+                              {isLoadingMohallahs ? (
                                 <p className="text-sm text-muted-foreground">Loading Mohallahs...</p>
                               ) : availableMohallahs.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">No Mohallahs found. Please add Mohallahs first.</p>
                               ) : (
-                                availableMohallahs.map((mohallah) => ( // Iterate over availableMohallahs
+                                availableMohallahs.map((mohallah) => (
                                   <div key={mohallah.id} className="flex items-center space-x-2">
                                     <Checkbox
-                                      id={`mohallah-checkbox-${mohallah.id}`} // Use mohallah.id
+                                      id={`mohallah-checkbox-${mohallah.id}`}
                                       checked={field.value?.includes(mohallah.id)}
                                       onCheckedChange={(checked) => {
                                         const currentMohallahIds = Array.isArray(field.value) ? field.value : [];
@@ -244,7 +246,7 @@ export default function MiqaatManagementPage() {
                                       }}
                                     />
                                     <Label htmlFor={`mohallah-checkbox-${mohallah.id}`} className="font-normal text-sm">
-                                      {mohallah.name} {/* Show mohallah.name */}
+                                      {mohallah.name}
                                     </Label>
                                   </div>
                                 ))
@@ -268,7 +270,7 @@ export default function MiqaatManagementPage() {
                     )} />
                     <DialogFooter>
                       <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                      <Button type="submit" disabled={form.formState.isSubmitting || isLoadingMohallahs}> {/* Check isLoadingMohallahs */}
+                      <Button type="submit" disabled={form.formState.isSubmitting || isLoadingMohallahs}>
                         {(form.formState.isSubmitting || isLoadingMohallahs) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {editingMiqaat ? "Save Changes" : "Create Miqaat"}
                       </Button>
@@ -316,3 +318,5 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
+
+    
