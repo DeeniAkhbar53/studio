@@ -42,9 +42,9 @@ type MemberFormValues = z.infer<typeof memberSchema>;
 
 const roleDescriptions: Record<UserRole, string> = {
     user: "Regular user with basic access. Can scan their own attendance and view profile/notifications.",
-    "attendance-marker": "Can mark attendance for members and view reports.",
-    admin: "Can manage users, Miqaats, Mohallahs, and generate reports within their assigned Mohallah. Access can be customized.",
-    superadmin: "Full access to all system features and settings, across all Mohallahs.",
+    "attendance-marker": "Can mark attendance for members and view reports. Specific page access can be customized.",
+    admin: "Can manage users, Miqaats, Mohallahs, and generate reports within their assigned Mohallah. Specific page access can be customized.",
+    superadmin: "Full access to all system features and settings, across all Mohallahs. Specific page access can be customized.",
 };
 
 const AVAILABLE_PAGE_RIGHTS: PageRightConfig[] = [
@@ -113,8 +113,8 @@ export default function ManageMembersPage() {
         setMembers(fetchedMembers);
     } catch (error: any) {
         console.error("Failed to fetch members:", error);
-        if (currentUserRole === 'superadmin' && !targetMohallahIdForFetch && error.message.includes("index")) {
-            const specificErrorMsg = "Could not fetch all members. This may be due to missing database indexes. Please select a specific Mohallah to view its members or configure database indexes.";
+        if (currentUserRole === 'superadmin' && (!targetMohallahIdForFetch || targetMohallahIdForFetch === 'all') && error.message.includes("index")) {
+            const specificErrorMsg = "Could not fetch all members. This may be due to missing database indexes. Please select a specific Mohallah to view its members or configure database indexes in your Firebase console.";
             setFetchError(specificErrorMsg);
             toast({ title: "Data Fetch Warning", description: specificErrorMsg, variant: "destructive", duration: 10000 });
             setMembers([]); 
@@ -148,6 +148,7 @@ export default function ManageMembersPage() {
       mohallahIdToFetch = selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId;
       fetchAndSetMembers(mohallahIdToFetch);
     } else {
+      // For other roles like 'user' or 'attendance-marker', who shouldn't be on this page
       setMembers([]);
       setIsLoadingMembers(false);
     }
@@ -353,7 +354,7 @@ export default function ManageMembersPage() {
           } else if (currentUserRole === 'superadmin') {
             fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
           }
-
+          
           if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0)) {
             toast({
                 title: "CSV Import Error",
@@ -366,6 +367,7 @@ export default function ManageMembersPage() {
                 description: `CSV import processed.`,
             });
           }
+
 
           if (failedRecords.length > 0) {
             console.warn("CSV Import - Skipped/Failed Records:", failedRecords);
@@ -448,11 +450,11 @@ export default function ManageMembersPage() {
             </div>
              {canManageMembers && (
                 <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto self-start md:self-center shrink-0">
-                  <Button variant="outline" onClick={downloadSampleCsv} className="w-full sm:w-auto" size="sm">
-                      <Download className="mr-2 h-4 w-4" /> Download Sample CSV
+                  <Button variant="outline" onClick={downloadSampleCsv} size="icon" aria-label="Download Sample CSV">
+                      <Download className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)} className="w-full sm:w-auto" size="sm" disabled={!canAddOrImport()}>
-                    <FileUp className="mr-2 h-4 w-4" /> Import CSV
+                  <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)} size="icon" aria-label="Import CSV" disabled={!canAddOrImport()}>
+                    <FileUp className="h-4 w-4" />
                   </Button>
                   <Dialog open={isMemberDialogOpen} onOpenChange={(open) => { setIsMemberDialogOpen(open); if (!open) setEditingMember(null); }}>
                     <DialogTrigger asChild>
