@@ -46,6 +46,7 @@ export function LoginForm() {
         if (typeof window !== "undefined") {
           localStorage.setItem('userRole', user.role);
           localStorage.setItem('userName', user.name);
+          localStorage.setItem('userItsId', user.itsId); // Store itsId
         }
 
         toast({

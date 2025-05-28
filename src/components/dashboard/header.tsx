@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Bell, LogOut, Menu, Search, UserCircle, Settings } from "lucide-react"; // Added Settings
+import { Bell, LogOut, Menu, Search, UserCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -76,7 +76,8 @@ export function Header() {
   const handleLogout = () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem('userRole');
-      localStorage.removeItem('userName'); // Clear userName on logout
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userItsId'); // Clear userItsId on logout
       // localStorage.removeItem(NOTIFICATIONS_STORAGE_KEY); // Optional: Clear notifications on logout
     }
     router.push("/");
@@ -96,8 +97,8 @@ export function Header() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="flex flex-col p-0">
-            <SheetHeader className="p-4 border-b">
-              <SheetTitle className="sr-only">Main Navigation Menu</SheetTitle>
+             <SheetHeader className="p-4 border-b">
+               <SheetTitle className="sr-only">Main Navigation Menu</SheetTitle>
                <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary">
                 <Image 
                   src="https://app.burhaniguards.org/images/logo.png" 

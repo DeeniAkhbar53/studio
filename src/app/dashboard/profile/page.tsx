@@ -6,43 +6,69 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { AttendanceRecord, User } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin } from "lucide-react";
+import type { AttendanceRecord, User, Mohallah } from "@/types"; // Added Mohallah
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
-
-const mockUser: User = {
-  id: "user123",
-  itsId: "12345678",
-  bgkId: "BGK001",
-  name: "Mohamed Ali",
-  team: "Team Alpha",
-  phoneNumber: "+1 555-123-4567",
-  mohallah: "Saifee Mohallah",
-  role: "admin",
-  avatarUrl: "https://placehold.co/100x100.png",
-};
-
-const mockAttendanceHistory: AttendanceRecord[] = [
-  { id: "att1", miqaatId: "m1", miqaatName: "Miqaat Al-Ahad", date: new Date(2024, 8, 15).toISOString(), status: "Present" },
-  { id: "att2", miqaatId: "m2", miqaatName: "Miqaat Al-Ithnayn", date: new Date(2024, 8, 16).toISOString(), status: "Present" },
-  { id: "att3", miqaatId: "m3", miqaatName: "Miqaat Al-Thulatha", date: new Date(2024, 8, 17).toISOString(), status: "Absent" },
-  { id: "att4", miqaatId: "m4", miqaatName: "Miqaat Al-Arbia", date: new Date(2024, 8, 18).toISOString(), status: "Late" },
-  { id: "att5", miqaatId: "m5", miqaatName: "Miqaat Al-Khamis", date: new Date(2024, 8, 19).toISOString(), status: "Excused" },
-];
-
+import { getUserByItsOrBgkId } from "@/lib/firebase/userService"; // To fetch user
+import { getMohallahs } from "@/lib/firebase/mohallahService"; // To fetch mohallahs for name lookup
+import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
-  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
+  const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    // Simulate data fetching
-    setUser(mockUser);
-    setAttendanceHistory(mockAttendanceHistory);
-  }, []);
+    const fetchProfileData = async () => {
+      setIsLoading(true);
+      if (typeof window !== "undefined") {
+        const storedItsId = localStorage.getItem('userItsId');
+        if (storedItsId) {
+          try {
+            const fetchedUser = await getUserByItsOrBgkId(storedItsId);
+            setUser(fetchedUser);
+            if (fetchedUser?.mohallahId) {
+              const fetchedMohallahs = await getMohallahs();
+              setMohallahs(fetchedMohallahs);
+            }
+          } catch (error) {
+            console.error("Failed to fetch profile data:", error);
+            setUser(null); // Clear user on error
+          }
+        } else {
+          // No ITS ID found, maybe redirect to login
+          router.push('/');
+          return;
+        }
+      }
+      setIsLoading(false);
+    };
+
+    fetchProfileData();
+  }, [router]);
+
+  const getMohallahName = (mohallahId?: string) => {
+    if (!mohallahId) return "N/A";
+    const mohallah = mohallahs.find(m => m.id === mohallahId);
+    return mohallah ? mohallah.name : "Unknown Mohallah";
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2 text-muted-foreground">Loading profile...</p>
+      </div>
+    );
+  }
 
   if (!user) {
-    return <div className="flex items-center justify-center h-full"><p>Loading profile...</p></div>;
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-destructive">Could not load user profile. Please try logging in again.</p>
+      </div>
+    );
   }
 
   return (
@@ -50,20 +76,20 @@ export default function ProfilePage() {
       <Card className="overflow-hidden shadow-xl">
         <div className="bg-muted/30 p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
           <Avatar className="h-24 w-24 md:h-32 md:w-32 border-4 border-background shadow-md">
-            <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="profile avatar" />
+            <AvatarImage src={user.avatarUrl || `https://placehold.co/100x100.png?text=${user.name.substring(0,2).toUpperCase()}`} alt={user.name} data-ai-hint="profile avatar" />
             <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="text-center md:text-left">
             <h1 className="text-3xl font-bold text-foreground">{user.name}</h1>
-            <p className="text-accent">{user.itsId} / {user.bgkId}</p>
+            <p className="text-accent">{user.itsId} {user.bgkId && `/ ${user.bgkId}`}</p>
             <div className="mt-2 flex items-center justify-center md:justify-start gap-2 text-sm text-muted-foreground">
               <ShieldCheck className="h-4 w-4 text-primary" />
-              <span>{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</span>
+              <span>{user.role.charAt(0).toUpperCase() + user.role.slice(1).replace(/-/g, ' ')}</span>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="md:ml-auto mt-4 md:mt-0">
+          <Button variant="outline" size="sm" className="md:ml-auto mt-4 md:mt-0" disabled>
             <Edit3 className="mr-2 h-4 w-4" />
-            Edit Profile
+            Edit Profile (Soon)
           </Button>
         </div>
 
@@ -78,22 +104,24 @@ export default function ProfilePage() {
                 <div>
                   <h3 className="font-semibold text-foreground mb-2">Contact Information</h3>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-primary" /> {user.itsId}@itsjാമia.com (Example)</li>
-                    <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary" /> {user.phoneNumber}</li>
+                    <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-primary" /> {user.itsId}@itsjamea.com (Example Email)</li>
+                    <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary" /> {user.phoneNumber || "Not Provided"}</li>
                   </ul>
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground mb-2">Affiliations</h3>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Team: {user.team}</li>
-                    <li className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Mohallah: {user.mohallah}</li>
+                    <li className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Team: {user.team || "N/A"}</li>
+                    <li className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Mohallah: {getMohallahName(user.mohallahId)}</li>
                   </ul>
                 </div>
               </div>
             </CardContent>
           </TabsContent>
           <TabsContent value="history">
-            <CardContent className="p-0">
+            <CardContent className="p-6">
+              <p className="text-center text-muted-foreground">Attendance history feature coming soon.</p>
+              {/* 
               {attendanceHistory.length > 0 ? (
                 <Table>
                   <TableHeader>
@@ -125,6 +153,7 @@ export default function ProfilePage() {
               ) : (
                 <p className="p-6 text-center text-muted-foreground">No attendance history found.</p>
               )}
+              */}
             </CardContent>
           </TabsContent>
         </Tabs>
