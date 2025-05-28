@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole } from "@/types";
+import { getMiqaats } from "@/lib/firebase/miqaatService"; // Assuming this is needed for admin
+import type { Miqaat } from "@/types"; // Assuming this is needed for admin
 
 const adminOverviewStats = [
   { title: "Active Miqaats", value: "3", icon: CalendarCheck, trend: "+5 last week" }, 
@@ -25,9 +27,11 @@ const mockCurrentMiqaat = {
 function DashboardFooter() {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   return (
-    <footer className="mt-auto border-t bg-card py-4 px-6 text-center text-sm text-muted-foreground">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <p>Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
+    <footer className="mt-auto border-t bg-card py-4 px-6 text-sm text-muted-foreground">
+      <div className="flex w-full flex-row items-center justify-between gap-4"> {/* Changed to flex-row and removed sm breakpoint */}
+        <p className="text-left"> {/* Added text-left for the paragraph */}
+          Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.
+        </p>
         <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
@@ -66,6 +70,10 @@ export default function DashboardOverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
+  // Admin specific state
+  const [miqaats, setMiqaats] = useState<Miqaat[]>([]);
+  const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(false);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedRole = localStorage.getItem('userRole') as UserRole | null;
@@ -76,6 +84,15 @@ export default function DashboardOverviewPage() {
         if (storedName) {
           setCurrentUserName(storedName);
         }
+        // If admin/superadmin, fetch Miqaats (example of admin-specific data fetching)
+        if (storedRole === 'admin' || storedRole === 'superadmin') {
+          setIsLoadingMiqaats(true);
+          getMiqaats()
+            .then(setMiqaats)
+            .catch(err => console.error("Failed to fetch miqaats for admin dashboard", err))
+            .finally(() => setIsLoadingMiqaats(false));
+        }
+
       } else {
         router.push('/'); 
         return; 
@@ -86,7 +103,7 @@ export default function DashboardOverviewPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col flex-1 items-center justify-center">
+      <div className="flex flex-col flex-1 items-center justify-center h-full">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Loading user data...</p>
       </div>
@@ -203,8 +220,16 @@ export default function DashboardOverviewPage() {
             </Card>
           ))}
         </div>
+         {/* Additional admin-specific content can go here, like Miqaat summaries if needed */}
+        {isLoadingMiqaats && (
+          <div className="flex justify-center items-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <p className="ml-2 text-muted-foreground">Loading system data...</p>
+          </div>
+        )}
       </div>
       <DashboardFooter />
     </div>
   );
 }
+
