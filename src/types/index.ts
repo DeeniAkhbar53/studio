@@ -15,6 +15,14 @@ export type User = {
   designation?: UserDesignation;
 };
 
+// Represents a single attendance entry as stored within a Miqaat's attendance array
+export type MiqaatAttendanceEntryItem = {
+  userItsId: string;
+  userName: string;
+  markedAt: string; // ISO string of the timestamp when marked
+  markedByItsId: string; // ITS ID of the person who marked attendance
+};
+
 export type Miqaat = {
   id: string;
   name: string;
@@ -24,17 +32,18 @@ export type Miqaat = {
   barcodeData?: string;
   location?: string;
   createdAt?: string; // ISO Date string, from serverTimestamp after conversion
+  attendance?: MiqaatAttendanceEntryItem[]; // Array of attendance entries for this Miqaat
 };
 
+// This type is primarily for UI/reporting, mapping data from MiqaatAttendanceEntryItem
 export type AttendanceRecord = {
-  id: string; // Firestore document ID
+  id: string; // For UI keys, can be synthetic (e.g., miqaatId + userItsId + markedAt)
   miqaatId: string;
-  miqaatName: string; // Denormalized for easier display
+  miqaatName: string; 
   userItsId: string;
-  userName: string; // Denormalized for easier display
+  userName: string; 
   markedAt: string; // ISO Date string of the timestamp when marked
-  markedByItsId?: string; // Optional: ITS ID of the person who marked attendance
-  // status field is not stored in DB for direct attendance, it's context-dependent (e.g., "Present")
+  markedByItsId: string; 
 };
 
 export type Team = {
@@ -44,17 +53,15 @@ export type Team = {
   leader?: User;
 };
 
-// Represents a Mohallah entity as stored in Firestore
 export type Mohallah = {
   id: string;
   name: string;
 };
 
-// Specific type for attendance marking session display on mark-attendance page
 export type MarkedAttendanceEntry = {
   memberItsId: string;
   memberName: string;
-  timestamp: Date; // This is a Date object for local display formatting
+  timestamp: Date; 
   miqaatId: string;
   miqaatName: string;
 };
@@ -63,17 +70,16 @@ export type NotificationItem = {
   id: string;
   title: string;
   content: string;
-  createdAt: string; // ISO Date string
+  createdAt: string; 
   read: boolean;
 };
 
-// For displaying results in the reports table
 export interface ReportResultItem {
-  id: string; // Can be attendance record ID or user ID for non-attendance
+  id: string; 
   userName: string;
   userItsId: string;
   miqaatName: string; 
-  date?: string; // ISO string, represents markedAt for attendance, or N/A for non-attendance summary
-  status: "Present" | "Absent" | "Late" | "N/A"; // 'Late' is not implemented yet
+  date?: string; 
+  status: "Present" | "Absent" | "Late" | "N/A"; 
   markedByItsId?: string;
 }

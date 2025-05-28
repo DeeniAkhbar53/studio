@@ -7,11 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AttendanceRecord, User, Mohallah } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock, CheckCircle } from "lucide-react";
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock } from "lucide-react"; // Removed CheckCircle as it was unused
 import { useState, useEffect } from "react";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService"; 
 import { getMohallahs } from "@/lib/firebase/mohallahService"; 
-import { getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService";
+import { getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService"; // Updated service
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 
@@ -33,12 +33,12 @@ export default function ProfilePage() {
             const fetchedUser = await getUserByItsOrBgkId(storedItsId);
             setUser(fetchedUser);
             
-            const fetchedMohallahs = await getMohallahs(); // Fetch all mohallahs
+            const fetchedMohallahs = await getMohallahs();
             setMohallahs(fetchedMohallahs);
 
             if (fetchedUser) {
               setIsLoadingHistory(true);
-              const history = await getAttendanceRecordsByUser(fetchedUser.itsId);
+              const history = await getAttendanceRecordsByUser(fetchedUser.itsId); // Uses updated service
               setAttendanceHistory(history);
               setIsLoadingHistory(false);
             }

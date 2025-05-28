@@ -2,60 +2,67 @@
 'use server';
 
 import { db } from './firebase';
-import { collection, addDoc, serverTimestamp, Timestamp, query, where, getDocs, orderBy } from 'firebase/firestore';
-import type { AttendanceRecord } from '@/types';
+import { doc, getDoc, Timestamp, getDocs, collection, query as firestoreQuery, orderBy as firestoreOrderBy } from 'firebase/firestore';
+import type { AttendanceRecord, MiqaatAttendanceEntryItem, Miqaat } from '@/types';
+import { getMiqaats } from './miqaatService'; // To fetch all miqaats for user history
 
-const attendanceCollectionRef = collection(db, 'attendanceRecords');
-
-export type AttendanceDataForAdd = Omit<AttendanceRecord, 'id' | 'markedAt'> & {
-    markedByItsId?: string;
-};
-
-export const addAttendanceRecord = async (recordData: AttendanceDataForAdd): Promise<string> => {
-  try {
-    const docRef = await addDoc(attendanceCollectionRef, {
-      ...recordData,
-      markedAt: serverTimestamp(), // Use Firestore server timestamp
-    });
-    return docRef.id; // Return the ID of the newly created document
-  } catch (error) {
-    console.error("Error adding attendance record: ", error);
-    throw error;
-  }
-};
-
+// This function now gets attendance from *within* a Miqaat document
 export const getAttendanceRecordsByMiqaat = async (miqaatId: string): Promise<AttendanceRecord[]> => {
   try {
-    const q = query(attendanceCollectionRef, where("miqaatId", "==", miqaatId), orderBy("markedAt", "desc"));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        markedAt: (data.markedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(), 
-      } as AttendanceRecord;
-    });
+    const miqaatDocRef = doc(db, 'miqaats', miqaatId);
+    const miqaatDocSnap = await getDoc(miqaatDocRef);
+
+    if (!miqaatDocSnap.exists()) {
+      console.warn(`Miqaat document with ID ${miqaatId} not found.`);
+      return [];
+    }
+
+    const miqaatData = miqaatDocSnap.data() as Miqaat;
+    const attendanceEntries = miqaatData.attendance || [];
+
+    return attendanceEntries.map(entry => ({
+      id: `${miqaatId}-${entry.userItsId}-${entry.markedAt}`, // Synthetic ID for UI key
+      miqaatId: miqaatId,
+      miqaatName: miqaatData.name,
+      userItsId: entry.userItsId,
+      userName: entry.userName,
+      markedAt: entry.markedAt,
+      markedByItsId: entry.markedByItsId,
+    }));
   } catch (error) {
-    console.error("Error fetching attendance records by Miqaat: ", error);
+    console.error(`Error fetching attendance records for Miqaat ${miqaatId}: `, error);
     throw error;
   }
 };
 
+// This function now fetches all Miqaats and filters their attendance arrays
 export const getAttendanceRecordsByUser = async (userItsId: string): Promise<AttendanceRecord[]> => {
   try {
-    const q = query(attendanceCollectionRef, where("userItsId", "==", userItsId), orderBy("markedAt", "desc"));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        markedAt: (data.markedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-      } as AttendanceRecord;
+    const allMiqaats = await getMiqaats(); // Fetches all Miqaats
+    const userAttendanceRecords: AttendanceRecord[] = [];
+
+    allMiqaats.forEach(miqaat => {
+      if (miqaat.attendance && miqaat.attendance.length > 0) {
+        miqaat.attendance.forEach(entry => {
+          if (entry.userItsId === userItsId) {
+            userAttendanceRecords.push({
+              id: `${miqaat.id}-${entry.userItsId}-${entry.markedAt}`, // Synthetic ID
+              miqaatId: miqaat.id,
+              miqaatName: miqaat.name,
+              userItsId: entry.userItsId,
+              userName: entry.userName,
+              markedAt: entry.markedAt,
+              markedByItsId: entry.markedByItsId,
+            });
+          }
+        });
+      }
     });
+
+    // Sort by markedAt date, most recent first
+    return userAttendanceRecords.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());
   } catch (error) {
-    console.error("Error fetching attendance records by User ITS ID: ", error);
+    console.error(`Error fetching attendance records for User ITS ID ${userItsId}: `, error);
     throw error;
   }
 };

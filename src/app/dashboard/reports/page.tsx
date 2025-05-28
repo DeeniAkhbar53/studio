@@ -18,10 +18,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, ReportResultItem, AttendanceRecord } from "@/types";
+import type { Miqaat, User, ReportResultItem, AttendanceRecord, MiqaatAttendanceEntryItem } from "@/types"; // Added MiqaatAttendanceEntryItem
 import { getMiqaats } from "@/lib/firebase/miqaatService";
 import { getUsers } from "@/lib/firebase/userService";
-import { getAttendanceRecordsByMiqaat } from "@/lib/firebase/attendanceService";
+import { getAttendanceRecordsByMiqaat, getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService"; // Updated service
 import { cn } from "@/lib/utils";
 
 const reportSchema = z.object({
@@ -101,27 +101,25 @@ export default function ReportsPage() {
     setIsLoading(true);
     setReportData(null); 
     
-    let generatedReport: ReportResultItem[] = [];
+    let generatedReportData: AttendanceRecord[] = []; // Use AttendanceRecord as the base type from service
+    let reportResultItems: ReportResultItem[] = [];
+
 
     try {
       if (values.reportType === "miqaat_summary" && values.miqaatId) {
-        const attendance = await getAttendanceRecordsByMiqaat(values.miqaatId);
-        generatedReport = attendance.map(att => ({
+        generatedReportData = await getAttendanceRecordsByMiqaat(values.miqaatId);
+        reportResultItems = generatedReportData.map(att => ({
           id: att.id,
           userName: att.userName,
           userItsId: att.userItsId,
           miqaatName: att.miqaatName,
           date: att.markedAt,
-          status: "Present", // Assuming all fetched records are 'Present'
+          status: "Present",
           markedByItsId: att.markedByItsId,
         }));
       } else if (values.reportType === "member_attendance" && values.itsId) {
-        // This would require getAttendanceRecordsByUser, similar to profile page.
-        // For now, using mock/filtered data as an example.
-        const allAttendance = (await Promise.all(availableMiqaats.map(m => getAttendanceRecordsByMiqaat(m.id)))).flat();
-        generatedReport = allAttendance
-          .filter(att => att.userItsId === values.itsId)
-          .map(att => ({
+        generatedReportData = await getAttendanceRecordsByUser(values.itsId);
+         reportResultItems = generatedReportData.map(att => ({
             id: att.id,
             userName: att.userName,
             userItsId: att.userItsId,
@@ -131,8 +129,11 @@ export default function ReportsPage() {
             markedByItsId: att.markedByItsId,
           }));
       } else if (values.reportType === "overall_activity") {
-        const allAttendance = (await Promise.all(availableMiqaats.map(m => getAttendanceRecordsByMiqaat(m.id)))).flat();
-         generatedReport = allAttendance.map(att => ({
+        const allMiqaats = await getMiqaats(); // Re-fetch or use availableMiqaats if fresh enough
+        const allAttendancePromises = allMiqaats.map(m => getAttendanceRecordsByMiqaat(m.id));
+        const allAttendanceArrays = await Promise.all(allAttendancePromises);
+        generatedReportData = allAttendanceArrays.flat();
+        reportResultItems = generatedReportData.map(att => ({
             id: att.id,
             userName: att.userName,
             userItsId: att.userItsId,
@@ -140,7 +141,7 @@ export default function ReportsPage() {
             date: att.markedAt,
             status: "Present",
             markedByItsId: att.markedByItsId,
-          }));
+        }));
       } else if (values.reportType === "non_attendance_miqaat" && values.miqaatId) {
         const selectedMiqaat = availableMiqaats.find(m => m.id === values.miqaatId);
         if (!selectedMiqaat) {
@@ -149,36 +150,39 @@ export default function ReportsPage() {
           return;
         }
         const allUsers = await getUsers();
-        const attendanceForMiqaat = await getAttendanceRecordsByMiqaat(values.miqaatId);
+        // Attendance from miqaatService.getAttendanceRecordsByMiqaat already gives MiqaatAttendanceEntryItem[] effectively
+        const attendanceForMiqaat = await getAttendanceRecordsByMiqaat(values.miqaatId); // Returns AttendanceRecord[]
         const attendedItsIds = new Set(attendanceForMiqaat.map(att => att.userItsId));
 
         let eligibleUsers = allUsers;
+        // Use teams from the Miqaat object which now should have teams directly
         if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
           eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams.includes(user.team));
         }
         
         const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
-        generatedReport = nonAttendantUsers.map(user => ({
-          id: user.id,
+        reportResultItems = nonAttendantUsers.map(user => ({
+          id: user.id, // User's own ID
           userName: user.name,
           userItsId: user.itsId,
           miqaatName: selectedMiqaat.name,
-          date: new Date(selectedMiqaat.startTime).toISOString(), // Or N/A
+          date: new Date(selectedMiqaat.startTime).toISOString(), 
           status: "Absent",
+          // markedByItsId is not applicable here
         }));
       }
 
-      // Apply date range filter if present
+      // Apply date range filter if present to reportResultItems
       if (values.dateRange?.from) {
-        generatedReport = generatedReport.filter(r => r.date && new Date(r.date) >= values.dateRange!.from!);
+        reportResultItems = reportResultItems.filter(r => r.date && new Date(r.date) >= values.dateRange!.from!);
       }
       if (values.dateRange?.to) {
-        generatedReport = generatedReport.filter(r => r.date && new Date(r.date) <= values.dateRange!.to!);
+        reportResultItems = reportResultItems.filter(r => r.date && new Date(r.date) <= values.dateRange!.to!);
       }
       
-      setReportData(generatedReport);
-      if (generatedReport.length > 0) {
-          toast({ title: "Report Generated", description: `Your report is ready below. Found ${generatedReport.length} record(s).` });
+      setReportData(reportResultItems);
+      if (reportResultItems.length > 0) {
+          toast({ title: "Report Generated", description: `Your report is ready below. Found ${reportResultItems.length} record(s).` });
       } else {
           toast({ title: "No Data", description: "No data found for the selected criteria.", variant: "default" });
       }
@@ -196,7 +200,6 @@ export default function ReportsPage() {
       toast({ title: "No data to export", description: "Please generate a report first.", variant: "destructive" });
       return;
     }
-    // Basic CSV export (can be enhanced with a library like papaparse)
     const headers = ["User Name", "ITS ID", "Miqaat", "Date", "Status", "Marked By ITS ID"];
     const csvRows = [
       headers.join(','),
