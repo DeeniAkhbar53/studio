@@ -5,7 +5,7 @@ import type { Miqaat, MiqaatAttendanceEntryItem } from '@/types';
 
 const miqaatsCollectionRef = collection(db, 'miqaats');
 
-export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "location" | "barcodeData" | "attendance" | "createdAt">[]) => void): Unsubscribe => {
+export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt">[]) => void): Unsubscribe => {
   const q = query(miqaatsCollectionRef, orderBy('startTime', 'desc'));
   
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -15,16 +15,17 @@ export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "sta
         if (timestampField instanceof Timestamp) {
           return timestampField.toDate().toISOString();
         }
-        return timestampField; // Already a string or undefined
+        return timestampField; 
       };
 
-      const miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "location" | "barcodeData" | "attendance" | "createdAt"> = {
+      const miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt"> = {
         id: docSnapshot.id,
         name: miqaatData.name,
         startTime: convertTimestampToString(miqaatData.startTime)!,
         endTime: convertTimestampToString(miqaatData.endTime)!,
         reportingTime: convertTimestampToString(miqaatData.reportingTime),
         mohallahIds: Array.isArray(miqaatData.mohallahIds) ? miqaatData.mohallahIds : [],
+        teams: Array.isArray(miqaatData.teams) ? miqaatData.teams : [], // Fetch teams
         barcodeData: miqaatData.barcodeData,
         location: miqaatData.location,
         createdAt: convertTimestampToString(miqaatData.createdAt),
@@ -54,17 +55,16 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
         startTime: new Date(miqaatData.startTime).toISOString(),
         endTime: new Date(miqaatData.endTime).toISOString(),
         mohallahIds: Array.isArray(miqaatData.mohallahIds) ? miqaatData.mohallahIds : [],
-        attendance: [], // Initialize attendance as an empty array
+        teams: Array.isArray(miqaatData.teams) ? miqaatData.teams : [], // Add teams
+        attendance: [], 
         createdAt: serverTimestamp(),
     };
 
-    // Only add optional fields if they have a valid, non-empty string value
     if (typeof miqaatData.location === 'string' && miqaatData.location.trim() !== "") {
       firestorePayload.location = miqaatData.location;
     }
     
     if (typeof miqaatData.reportingTime === 'string' && miqaatData.reportingTime) {
-      // Check if it's a non-empty string that can be parsed as a date
       const reportingDate = new Date(miqaatData.reportingTime);
       if (!isNaN(reportingDate.getTime())) {
         firestorePayload.reportingTime = reportingDate.toISOString();
@@ -74,24 +74,23 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
     if (typeof miqaatData.barcodeData === 'string' && miqaatData.barcodeData.trim() !== "") {
       firestorePayload.barcodeData = miqaatData.barcodeData;
     } else if (!miqaatData.barcodeData || (typeof miqaatData.barcodeData === 'string' && miqaatData.barcodeData.trim() === "")) {
-      // Auto-generate barcodeData if it's not provided or is an empty string
       firestorePayload.barcodeData = `MIQAAT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     }
 
     const docRef = await addDoc(miqaatsCollectionRef, firestorePayload);
     
-    // Construct the return object based on what was actually saved or generated
     const newMiqaat: Miqaat = {
       id: docRef.id,
       name: firestorePayload.name,
       startTime: firestorePayload.startTime,
       endTime: firestorePayload.endTime,
       mohallahIds: firestorePayload.mohallahIds,
+      teams: firestorePayload.teams, // Include teams
       attendance: firestorePayload.attendance,
-      createdAt: new Date().toISOString(), // Approximate, actual is serverTimestamp
-      location: firestorePayload.location, // Will be undefined if not in firestorePayload
-      reportingTime: firestorePayload.reportingTime, // Will be undefined if not in firestorePayload
-      barcodeData: firestorePayload.barcodeData, // Will be undefined if not in firestorePayload (unless auto-generated)
+      createdAt: new Date().toISOString(), 
+      location: firestorePayload.location, 
+      reportingTime: firestorePayload.reportingTime, 
+      barcodeData: firestorePayload.barcodeData, 
     };
     return newMiqaat;
   } catch (error) {
@@ -107,13 +106,10 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
     const miqaatDoc = doc(db, 'miqaats', miqaatId);
     const firestorePayload: { [key: string]: any } = {};
 
-    // Add fields to payload only if they are provided in miqaatData (not undefined)
     if (miqaatData.name !== undefined) firestorePayload.name = miqaatData.name;
     if (miqaatData.startTime !== undefined) firestorePayload.startTime = new Date(miqaatData.startTime).toISOString();
     if (miqaatData.endTime !== undefined) firestorePayload.endTime = new Date(miqaatData.endTime).toISOString();
     
-    // For optional fields, if the key exists in miqaatData, process it.
-    // This allows clearing a field by passing an empty string.
     if (miqaatData.hasOwnProperty('location')) {
         firestorePayload.location = (typeof miqaatData.location === 'string' && miqaatData.location.trim() !== "") ? miqaatData.location : null;
     }
@@ -121,17 +117,18 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
         const reportingDate = miqaatData.reportingTime ? new Date(miqaatData.reportingTime) : null;
         firestorePayload.reportingTime = (reportingDate && !isNaN(reportingDate.getTime())) ? reportingDate.toISOString() : null;
     }
-     if (miqaatData.hasOwnProperty('barcodeData')) {
+    if (miqaatData.hasOwnProperty('barcodeData')) {
         firestorePayload.barcodeData = (typeof miqaatData.barcodeData === 'string' && miqaatData.barcodeData.trim() !== "") ? miqaatData.barcodeData : null;
     }
     if (miqaatData.mohallahIds !== undefined) {
       firestorePayload.mohallahIds = Array.isArray(miqaatData.mohallahIds) ? miqaatData.mohallahIds : [];
     }
+    if (miqaatData.teams !== undefined) { // Add teams
+      firestorePayload.teams = Array.isArray(miqaatData.teams) ? miqaatData.teams : [];
+    }
     
     if (Object.keys(firestorePayload).length > 0) {
         await updateDoc(miqaatDoc, firestorePayload);
-    } else {
-        // console.log("No fields to update for Miqaat:", miqaatId);
     }
   } catch (error) {
     console.error("Error updating miqaat: ", error);
@@ -160,5 +157,3 @@ export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAtte
     throw error;
   }
 };
-
-    

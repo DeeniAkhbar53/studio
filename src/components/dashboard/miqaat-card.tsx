@@ -1,10 +1,10 @@
 
 "use client";
 
-import type { Miqaat, UserRole, Mohallah } from "@/types"; // Added Mohallah
+import type { Miqaat, UserRole, Mohallah } from "@/types"; 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Users, Barcode, Edit, Trash2, Clock, MapPin } from "lucide-react"; // Added MapPin
+import { CalendarDays, Users, Barcode, Edit, Trash2, Clock, MapPin, Tag } from "lucide-react"; // Added Tag for teams
 import { QRCodeSVG } from 'qrcode.react';
 import {
   AlertDialog,
@@ -24,7 +24,7 @@ interface MiqaatCardProps {
   onEdit: (miqaat: Miqaat) => void;
   onDelete: (miqaatId: string) => void;
   currentUserRole: UserRole | null;
-  allMohallahs: Mohallah[]; // Added to map mohallahIds to names
+  allMohallahs: Mohallah[]; 
 }
 
 export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohallahs }: MiqaatCardProps) {
@@ -43,6 +43,10 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
   const assignedMohallahNames = miqaat.mohallahIds && miqaat.mohallahIds.length > 0
     ? miqaat.mohallahIds.map(id => allMohallahs.find(m => m.id === id)?.name || 'Unknown ID').join(", ")
     : "All Mohallahs / Not Specified";
+  
+  const assignedTeamNames = miqaat.teams && miqaat.teams.length > 0
+    ? miqaat.teams.join(", ")
+    : "All Teams / Not Specified";
 
   return (
     <>
@@ -67,8 +71,12 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
             </div>
           )}
           <div className="flex items-center text-muted-foreground">
-            <MapPin className="mr-2 h-4 w-4 text-primary shrink-0" /> {/* Changed Icon */}
-            <span>Mohallahs: {assignedMohallahNames}</span> {/* Changed Text */}
+            <MapPin className="mr-2 h-4 w-4 text-primary shrink-0" /> 
+            <span>Mohallahs: {assignedMohallahNames}</span> 
+          </div>
+           <div className="flex items-center text-muted-foreground">
+            <Tag className="mr-2 h-4 w-4 text-primary shrink-0" /> 
+            <span>Teams: {assignedTeamNames}</span> 
           </div>
           <div className="flex items-center text-muted-foreground">
              <Users className="mr-2 h-4 w-4 text-primary shrink-0" />
