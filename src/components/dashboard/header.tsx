@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"; // Added SheetHeader and SheetTitle
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"; // Added SheetTrigger
 import { SidebarNav } from "./sidebar-nav";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
