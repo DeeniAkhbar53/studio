@@ -31,7 +31,7 @@ function DashboardFooter() {
   return (
     <footer className="mt-auto border-t pt-6 text-center text-sm text-muted-foreground">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <p>&copy; {new Date().getFullYear()} MAttendance. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
         <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
@@ -43,12 +43,12 @@ function DashboardFooter() {
             <DialogHeader>
               <DialogTitle>Need Assistance?</DialogTitle>
               <DialogDescription>
-                Here you can find information on how to use the MAttendance system or contact support.
+                Here you can find information on how to use the BGK Attendance system or contact support.
               </DialogDescription>
             </DialogHeader>
             <div className="py-4 space-y-2">
               <h4 className="font-semibold">Contact Support:</h4>
-              <p>If you encounter any issues or have questions, please contact your Mohallah admin or the technical support team at <a href="mailto:support@mattendance.example.com" className="text-primary hover:underline">support@mattendance.example.com</a>.</p>
+              <p>If you encounter any issues or have questions, please contact your Mohallah admin or the technical support team at <a href="mailto:support@bgkattendance.example.com" className="text-primary hover:underline">support@bgkattendance.example.com</a>.</p>
               <h4 className="font-semibold mt-4">FAQs:</h4>
               <p>Q: How do I mark attendance? <br/> A: Navigate to the specific Miqaat and use the barcode scanner or manual entry (if you are an attendance marker).</p>
               <p>Q: Where can I see my attendance history? <br/> A: Go to your Profile page.</p>
@@ -261,5 +261,3 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
-
-    
