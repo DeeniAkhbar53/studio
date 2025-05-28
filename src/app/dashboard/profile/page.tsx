@@ -23,6 +23,7 @@ export default function ProfilePage() {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -31,10 +32,12 @@ export default function ProfilePage() {
 
     const fetchProfileData = async () => {
       setIsLoading(true);
+      setHistoryError(null); // Reset history error on new fetch
       if (typeof window !== "undefined") {
         const storedItsId = localStorage.getItem('userItsId');
         if (storedItsId) {
           try {
+            // Fetch user details first
             const fetchedUser = await getUserByItsOrBgkId(storedItsId);
             if (isMounted) {
               setUser(fetchedUser);
@@ -47,17 +50,39 @@ export default function ProfilePage() {
               }
             });
 
+            // If user is fetched, attempt to fetch attendance history
             if (fetchedUser) {
               setIsLoadingHistory(true);
-              const history = await getAttendanceRecordsByUser(fetchedUser.itsId); 
-              if (isMounted) {
-                setAttendanceHistory(history);
+              try {
+                const history = await getAttendanceRecordsByUser(fetchedUser.itsId); 
+                if (isMounted) {
+                  setAttendanceHistory(history);
+                }
+              } catch (historyFetchError: any) {
+                console.error("Failed to fetch attendance history:", historyFetchError);
+                if (isMounted) {
+                  setAttendanceHistory([]);
+                  if (historyFetchError.message.includes("index")) {
+                    setHistoryError("Could not load attendance history. Database configuration for history queries might be pending. Please check back later or contact support.");
+                  } else {
+                    setHistoryError("Could not load attendance history at this time.");
+                  }
+                }
+              } finally {
+                if (isMounted) {
+                  setIsLoadingHistory(false);
+                }
               }
-              setIsLoadingHistory(false);
+            } else {
+              // No user fetched, so no history to load
+              if (isMounted) {
+                setAttendanceHistory([]);
+                setIsLoadingHistory(false);
+              }
             }
 
           } catch (error) {
-            console.error("Failed to fetch profile data:", error);
+            console.error("Failed to fetch profile data (user details):", error);
             if (isMounted) {
               setUser(null); 
               setAttendanceHistory([]);
@@ -93,7 +118,7 @@ export default function ProfilePage() {
     return mohallah ? mohallah.name : "Unknown Mohallah";
   };
 
-  if (isLoading) {
+  if (isLoading && !user) { // Only show main loader if user data isn't available yet
     return (
       <div className="flex items-center justify-center h-full py-10">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -138,7 +163,7 @@ export default function ProfilePage() {
         <Tabs defaultValue="details" className="w-full">
           <TabsList className="grid w-full grid-cols-2 rounded-none border-b">
             <TabsTrigger value="details">Profile Details</TabsTrigger>
-            <TabsTrigger value="history">Attendance History ({attendanceHistory.length})</TabsTrigger>
+            <TabsTrigger value="history">Attendance History ({!isLoadingHistory && !historyError ? attendanceHistory.length : '...'})</TabsTrigger>
           </TabsList>
           <TabsContent value="details">
             <CardContent className="p-6 space-y-4">
@@ -166,6 +191,11 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-center py-10">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
                   <p className="ml-2 text-muted-foreground">Loading attendance history...</p>
+                </div>
+              ) : historyError ? (
+                 <div className="text-center py-10">
+                  <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <p className="mt-4 text-lg text-destructive">{historyError}</p>
                 </div>
               ) : attendanceHistory.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -204,3 +234,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    
