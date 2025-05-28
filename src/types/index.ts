@@ -56,3 +56,11 @@ export type MarkedAttendanceEntry = {
   miqaatId: string;
   miqaatName: string;
 };
+
+export type NotificationItem = {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string; // ISO Date string
+  read: boolean;
+};

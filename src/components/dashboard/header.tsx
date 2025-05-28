@@ -12,10 +12,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"; // Added SheetTitle
 import { SidebarNav } from "./sidebar-nav";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import type { NotificationItem } from "@/types";
+import { cn } from "@/lib/utils";
+
+const NOTIFICATIONS_STORAGE_KEY = "appNotifications";
 
 const pageTitles: { [key: string]: string } = {
   "/dashboard": "Dashboard Overview",
@@ -25,17 +30,59 @@ const pageTitles: { [key: string]: string } = {
   "/dashboard/reports": "Attendance Reports",
   "/dashboard/scan-attendance": "Scan My QR Code",
   "/dashboard/mark-attendance": "Mark Member Attendance",
+  "/dashboard/notifications": "Notifications",
+  "/dashboard/manage-notifications": "Manage Notifications",
 };
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+
+  useEffect(() => {
+    const checkUnread = () => {
+      if (typeof window !== "undefined") {
+        const storedNotifications = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+        if (storedNotifications) {
+          const notifications: NotificationItem[] = JSON.parse(storedNotifications);
+          setHasUnreadNotifications(notifications.some(n => !n.read));
+        } else {
+          setHasUnreadNotifications(false);
+        }
+      }
+    };
+
+    checkUnread(); // Initial check
+    
+    // Listen for custom event from notifications page or manage notifications page
+    const handleNotificationsUpdate = () => checkUnread();
+    window.addEventListener('notificationsUpdated', handleNotificationsUpdate);
+    // Also listen to storage changes, as notifications might be updated in another tab/window
+    window.addEventListener('storage', (event) => {
+      if (event.key === NOTIFICATIONS_STORAGE_KEY) {
+        checkUnread();
+      }
+    });
+
+    return () => {
+      window.removeEventListener('notificationsUpdated', handleNotificationsUpdate);
+      window.removeEventListener('storage', (event) => {
+        if (event.key === NOTIFICATIONS_STORAGE_KEY) {
+          checkUnread();
+        }
+      });
+    };
+  }, [pathname]); // Re-check if pathname changes, e.g., after visiting notifications page
+
 
   const handleLogout = () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem('userRole');
+      // Optionally, clear notifications for logged-out user to avoid confusion if another user logs in
+      // localStorage.removeItem(NOTIFICATIONS_STORAGE_KEY); 
     }
     router.push("/");
+    window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Ensure header updates after logout
   };
   
   const currentPageTitle = pageTitles[pathname] || "Dashboard";
@@ -51,13 +98,14 @@ export function Header() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="flex flex-col p-0">
-            <SheetTitle className="sr-only">Main Navigation Menu</SheetTitle>
-            <div className="p-4 border-b">
+            {/* Added SheetTitle and sr-only for accessibility */}
+            <SheetHeader className="p-4 border-b">
+              <SheetTitle className="sr-only">Main Navigation Menu</SheetTitle>
                <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
                 <span>MAttendance</span>
               </Link>
-            </div>
+            </SheetHeader>
             <SidebarNav />
           </SheetContent>
         </Sheet>
@@ -78,9 +126,14 @@ export function Header() {
         </div>
       </form>
 
-      <Button variant="ghost" size="icon" className="rounded-full">
-        <Bell className="h-5 w-5" />
-        <span className="sr-only">Toggle notifications</span>
+      <Button variant="ghost" size="icon" className="rounded-full relative" asChild>
+        <Link href="/dashboard/notifications">
+          <Bell className="h-5 w-5" />
+          {hasUnreadNotifications && (
+            <span className="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-card" />
+          )}
+          <span className="sr-only">Toggle notifications</span>
+        </Link>
       </Button>
 
       <DropdownMenu>
