@@ -36,7 +36,8 @@ export default function DashboardLayout({
           {children}
         </main>
         <footer className="border-t bg-card py-3 px-6 text-xs text-muted-foreground text-center">
-          Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.
+          <p>&copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
+          <p>Designed and Managed by Shabbir Shakir</p>
         </footer>
       </div>
     </div>
