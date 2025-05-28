@@ -2,47 +2,50 @@
 'use server';
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import type { Miqaat, MiqaatAttendanceEntryItem } from '@/types';
 
 const miqaatsCollectionRef = collection(db, 'miqaats');
 
-export const getMiqaats = async (): Promise<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance">[]> => {
-  try {
-    const q = query(miqaatsCollectionRef, orderBy('startTime', 'desc'));
-    const data = await getDocs(q);
-    return data.docs.map((docSnapshot) => {
+// Modified to use onSnapshot for realtime updates
+export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance">[]) => void): Unsubscribe => {
+  const q = query(miqaatsCollectionRef, orderBy('startTime', 'desc'));
+  
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const miqaats = querySnapshot.docs.map((docSnapshot) => {
       const miqaatData = docSnapshot.data();
-      // Ensure all date fields are converted to ISO strings if they are Timestamps
       const convertTimestampToString = (timestampField: any): string | undefined => {
         if (timestampField instanceof Timestamp) {
           return timestampField.toDate().toISOString();
         }
-        return timestampField; // Assumes it's already a string or undefined
+        return timestampField;
       };
 
       const miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance"> = {
         id: docSnapshot.id,
         name: miqaatData.name,
-        startTime: convertTimestampToString(miqaatData.startTime)!, // startTime should always exist
-        endTime: convertTimestampToString(miqaatData.endTime)!,   // endTime should always exist
+        startTime: convertTimestampToString(miqaatData.startTime)!,
+        endTime: convertTimestampToString(miqaatData.endTime)!,
         reportingTime: convertTimestampToString(miqaatData.reportingTime),
         teams: Array.isArray(miqaatData.teams) ? miqaatData.teams : [],
         barcodeData: miqaatData.barcodeData,
         location: miqaatData.location,
-        // createdAt: convertTimestampToString(miqaatData.createdAt), // Not explicitly requested for return Pick type
         attendance: Array.isArray(miqaatData.attendance) ? miqaatData.attendance.map((att: any) => ({
             ...att,
-            markedAt: convertTimestampToString(att.markedAt) || new Date().toISOString() // ensure markedAt is string
+            markedAt: convertTimestampToString(att.markedAt) || new Date().toISOString()
         })) : [],
       };
       return miqaat;
     });
-  } catch (error) {
-    console.error("Error fetching miqaats: ", error);
-    throw error;
-  }
+    onUpdate(miqaats);
+  }, (error) => {
+    console.error("Error fetching miqaats with onSnapshot: ", error);
+    onUpdate([]);
+  });
+
+  return unsubscribe;
 };
+
 
 export type MiqaatDataForAdd = Omit<Miqaat, 'id' | 'barcodeData' | 'createdAt' | 'attendance'> & { barcodeData?: string };
 
@@ -50,15 +53,18 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
   try {
     const payload: any = {
         ...miqaatData,
+        startTime: new Date(miqaatData.startTime).toISOString(),
+        endTime: new Date(miqaatData.endTime).toISOString(),
+        reportingTime: miqaatData.reportingTime ? new Date(miqaatData.reportingTime).toISOString() : undefined,
         teams: Array.isArray(miqaatData.teams) ? miqaatData.teams : [],
-        attendance: [], // Initialize with an empty attendance array
+        attendance: [], 
         createdAt: serverTimestamp(),
     };
-    if (miqaatData.reportingTime) {
-        payload.reportingTime = miqaatData.reportingTime;
-    }
+    
+    if (payload.reportingTime === undefined) delete payload.reportingTime;
+
+
     if (!payload.barcodeData) {
-        // Generate a unique ID for barcodeData if not provided
         payload.barcodeData = `MIQAAT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     }
 
@@ -68,7 +74,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
       id: docRef.id,
       barcodeData: payload.barcodeData,
       attendance: [],
-      // createdAt will be a server timestamp, not directly usable as string here without re-fetch
+      // createdAt will be a server timestamp
     } as Miqaat;
   } catch (error) {
     console.error("Error adding miqaat: ", error);
@@ -83,14 +89,19 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
     const miqaatDoc = doc(db, 'miqaats', miqaatId);
     const updatePayload: any = { ...miqaatData };
 
+    if (updatePayload.startTime) updatePayload.startTime = new Date(updatePayload.startTime).toISOString();
+    if (updatePayload.endTime) updatePayload.endTime = new Date(updatePayload.endTime).toISOString();
+    if (updatePayload.reportingTime) updatePayload.reportingTime = new Date(updatePayload.reportingTime).toISOString();
+    else if (updatePayload.hasOwnProperty('reportingTime') && !updatePayload.reportingTime) {
+       // If reportingTime is explicitly set to empty/null, remove it
+      updatePayload.reportingTime = null; // Or use delete updatePayload.reportingTime based on Firestore preference
+    }
+
+
     if (updatePayload.teams && !Array.isArray(updatePayload.teams)) {
         updatePayload.teams = [];
     }
-     if (updatePayload.reportingTime === "") { // Handle empty string for optional field
-      updatePayload.reportingTime = null; // or delete updatePayload.reportingTime;
-    }
-
-
+    
     delete updatePayload.createdAt;
     delete updatePayload.id;
     delete updatePayload.attendance;
@@ -112,7 +123,6 @@ export const deleteMiqaat = async (miqaatId: string): Promise<void> => {
   }
 };
 
-// Function to add an attendance entry to a Miqaat's 'attendance' array
 export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAttendanceEntryItem): Promise<void> => {
   try {
     const miqaatDocRef = doc(db, 'miqaats', miqaatId);
@@ -124,3 +134,4 @@ export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAtte
     throw error;
   }
 };
+

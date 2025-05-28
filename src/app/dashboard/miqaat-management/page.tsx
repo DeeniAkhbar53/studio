@@ -19,6 +19,7 @@ import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel as ShadF
 import { getMiqaats, addMiqaat, updateMiqaat, deleteMiqaat as fbDeleteMiqaat, MiqaatDataForAdd, MiqaatDataForUpdate } from "@/lib/firebase/miqaatService";
 import { getUniqueTeamNames } from "@/lib/firebase/userService";
 import { Separator } from "@/components/ui/separator";
+import type { Unsubscribe } from "firebase/firestore";
 
 const miqaatSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -26,7 +27,7 @@ const miqaatSchema = z.object({
   startTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid start date" }),
   endTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid end date" }),
   reportingTime: z.string().optional().nullable()
-    .refine(val => !val || !isNaN(Date.parse(val)), { message: "Invalid reporting date if provided" }),
+    .refine(val => !val || val === "" || !isNaN(Date.parse(val)), { message: "Invalid reporting date if provided" }),
   teams: z.array(z.string()).optional().default([]),
   barcodeData: z.string().optional(),
 });
@@ -56,26 +57,31 @@ export default function MiqaatManagementPage() {
     },
   });
 
-  const fetchPageData = useCallback(async () => {
-    setIsLoadingMiqaats(true);
-    setIsLoadingTeams(true);
-    try {
-      const fetchedMiqaats = await getMiqaats();
-      setMiqaats(fetchedMiqaats);
-      const fetchedTeams = await getUniqueTeamNames();
-      setAvailableTeams(fetchedTeams);
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to fetch Miqaats or Teams.", variant: "destructive" });
-      console.error("Failed to fetch Miqaats or Teams:", error);
-    } finally {
-      setIsLoadingMiqaats(false);
-      setIsLoadingTeams(false);
-    }
-  }, [toast]);
-
   useEffect(() => {
-    fetchPageData();
-  }, [fetchPageData]);
+    setIsLoadingMiqaats(true);
+    const unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
+      setMiqaats(fetchedMiqaats);
+      setIsLoadingMiqaats(false);
+    });
+
+    const fetchTeams = async () => {
+      setIsLoadingTeams(true);
+      try {
+        const fetchedTeams = await getUniqueTeamNames();
+        setAvailableTeams(fetchedTeams);
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to fetch Teams.", variant: "destructive" });
+        console.error("Failed to fetch Teams:", error);
+      } finally {
+        setIsLoadingTeams(false);
+      }
+    };
+    fetchTeams();
+
+    return () => {
+      unsubscribeMiqaats();
+    };
+  }, [toast]);
 
   useEffect(() => {
     if (editingMiqaat) {
@@ -97,9 +103,9 @@ export default function MiqaatManagementPage() {
     const miqaatPayload = {
       name: values.name,
       location: values.location || undefined,
-      startTime: new Date(values.startTime).toISOString(),
-      endTime: new Date(values.endTime).toISOString(),
-      reportingTime: values.reportingTime ? new Date(values.reportingTime).toISOString() : undefined,
+      startTime: values.startTime, // Already string from datetime-local
+      endTime: values.endTime,     // Already string from datetime-local
+      reportingTime: values.reportingTime || undefined,
       teams: values.teams || [],
       barcodeData: values.barcodeData || undefined,
     };
@@ -114,7 +120,7 @@ export default function MiqaatManagementPage() {
         await addMiqaat(miqaatPayload as MiqaatDataForAdd);
         toast({ title: "Miqaat Created", description: `"${values.name}" has been added.` });
       }
-      fetchPageData(); 
+      // No need to manually refetch, onSnapshot updates the list
       setIsDialogOpen(false);
       setEditingMiqaat(null);
     } catch (error) {
@@ -132,7 +138,7 @@ export default function MiqaatManagementPage() {
     try {
       await fbDeleteMiqaat(miqaatId);
       toast({ title: "Miqaat Deleted", description: "The Miqaat has been deleted.", variant: "destructive" });
-      fetchPageData(); 
+      // No need to manually refetch
     } catch (error) {
       console.error("Error deleting Miqaat:", error);
       toast({ title: "Database Error", description: "Could not delete Miqaat.", variant: "destructive" });
@@ -151,7 +157,7 @@ export default function MiqaatManagementPage() {
           <div>
             <CardTitle>Manage Miqaats</CardTitle>
             <Separator className="my-2" />
-            <CardDescription>Create, view, and manage all Miqaats from Firestore.</CardDescription>
+            <CardDescription>Create, view, and manage all Miqaats from Firestore. List updates in realtime.</CardDescription>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingMiqaat(null); }}>
             <DialogTrigger asChild>
@@ -167,7 +173,7 @@ export default function MiqaatManagementPage() {
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleFormSubmit)} className="grid gap-4 py-4">
+                <form onSubmit={form.handleSubmit(handleFormSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem className="grid grid-cols-4 items-center gap-x-4">
                       <ShadFormLabel htmlFor="name" className="text-right">Name</ShadFormLabel>
@@ -208,8 +214,9 @@ export default function MiqaatManagementPage() {
                     <FormItem className="grid grid-cols-4 items-center gap-x-4">
                       <ShadFormLabel htmlFor="reportingTime" className="text-right">Reporting Time</ShadFormLabel>
                       <FormControl className="col-span-3">
-                        <Input id="reportingTime" type="datetime-local" {...field} placeholder="Optional" />
+                        <Input id="reportingTime" type="datetime-local" {...field} value={field.value || ""} />
                       </FormControl>
+                       <FormDescription className="col-start-2 col-span-3 text-xs">Optional. Leave blank if not applicable.</FormDescription>
                       <FormMessage className="col-start-2 col-span-3 text-xs" />
                     </FormItem>
                   )} />

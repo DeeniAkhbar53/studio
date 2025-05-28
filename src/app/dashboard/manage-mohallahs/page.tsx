@@ -15,9 +15,10 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel as ShadFormLabel } from "@/components/ui/form";
 import { getMohallahs, addMohallah, updateMohallahName, deleteMohallah as fbDeleteMohallah } from "@/lib/firebase/mohallahService";
-import { getUsers } from "@/lib/firebase/userService"; // To check if members are assigned before deleting mohallah
+import { getUsers } from "@/lib/firebase/userService"; 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
+import type { Unsubscribe } from "firebase/firestore";
 
 const mohallahFormSchema = z.object({
   name: z.string().min(3, "Mohallah name must be at least 3 characters"),
@@ -27,8 +28,8 @@ type MohallahFormValues = z.infer<typeof mohallahFormSchema>;
 export default function ManageMohallahsPage() {
   const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
-  const [members, setMembers] = useState<User[]>([]); // To check for assigned members
-  const [isLoadingMembers, setIsLoadingMembers] = useState(true); // For fetching members
+  const [members, setMembers] = useState<User[]>([]); 
+  const [isLoadingMembers, setIsLoadingMembers] = useState(true); 
   
   const [isMohallahDialogOpen, setIsMohallahDialogOpen] = useState(false);
   const [editingMohallah, setEditingMohallah] = useState<Mohallah | null>(null);
@@ -39,26 +40,32 @@ export default function ManageMohallahsPage() {
     defaultValues: { name: "" },
   });
 
-  const fetchPageData = useCallback(async () => {
-    setIsLoadingMohallahs(true);
-    setIsLoadingMembers(true);
-    try {
-      const fetchedMohallahs = await getMohallahs();
-      setMohallahs(fetchedMohallahs);
-      const fetchedMembers = await getUsers(); // Fetch members to check assignments
-      setMembers(fetchedMembers);
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to fetch Mohallahs or Members.", variant: "destructive" });
-      console.error("Failed to fetch Mohallahs or Members:", error);
-    } finally {
-      setIsLoadingMohallahs(false);
-      setIsLoadingMembers(false);
-    }
-  }, [toast]);
-
   useEffect(() => {
-    fetchPageData();
-  }, [fetchPageData]);
+    setIsLoadingMohallahs(true);
+    const unsubscribeMohallahs = getMohallahs((fetchedMohallahs) => {
+      setMohallahs(fetchedMohallahs);
+      setIsLoadingMohallahs(false);
+    });
+
+    // Fetch members once for deletion checks (could also be realtime if member assignment changes frequently)
+    const fetchInitialMembers = async () => {
+      setIsLoadingMembers(true);
+      try {
+        const fetchedMembers = await getUsers(); 
+        setMembers(fetchedMembers);
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to fetch Members for validation.", variant: "destructive" });
+        console.error("Failed to fetch Members:", error);
+      } finally {
+        setIsLoadingMembers(false);
+      }
+    };
+    fetchInitialMembers();
+
+    return () => {
+      unsubscribeMohallahs();
+    };
+  }, [toast]);
 
   useEffect(() => {
     if (editingMohallah) {
@@ -77,7 +84,7 @@ export default function ManageMohallahsPage() {
         await addMohallah(values.name);
         toast({ title: "Mohallah Added", description: `Mohallah "${values.name}" has been added.` });
       }
-      fetchPageData();
+      // No need to manually refetch, onSnapshot will update the list
       setIsMohallahDialogOpen(false);
       setEditingMohallah(null);
     } catch (error) {
@@ -96,20 +103,23 @@ export default function ManageMohallahsPage() {
         toast({ title: "Please wait", description: "Checking member assignments...", variant: "default" });
         return;
     }
-    const membersInMohallah = members.filter(member => member.mohallahId === mohallah.id);
-    if (membersInMohallah.length > 0) {
-      toast({
-        title: "Cannot Delete Mohallah",
-        description: `Mohallah "${mohallah.name}" has ${membersInMohallah.length} member(s) assigned. Please reassign them before deleting.`,
-        variant: "destructive",
-        duration: 7000,
-      });
-      return;
-    }
+    // Re-fetch members to ensure fresh data before delete check (or use realtime members if implemented)
     try {
+      const currentMembers = await getUsers(); // Fresh fetch
+      setMembers(currentMembers);
+      const membersInMohallah = currentMembers.filter(member => member.mohallahId === mohallah.id);
+      if (membersInMohallah.length > 0) {
+        toast({
+          title: "Cannot Delete Mohallah",
+          description: `Mohallah "${mohallah.name}" has ${membersInMohallah.length} member(s) assigned. Please reassign or delete them before deleting this Mohallah.`,
+          variant: "destructive",
+          duration: 7000,
+        });
+        return;
+      }
       await fbDeleteMohallah(mohallah.id);
       toast({ title: "Mohallah Deleted", description: `Mohallah "${mohallah.name}" has been deleted.`});
-      fetchPageData();
+      // No need to manually refetch mohallahs
     } catch (error) {
       console.error("Error deleting Mohallah:", error);
       toast({ title: "Database Error", description: "Could not delete Mohallah.", variant: "destructive" });
@@ -123,7 +133,7 @@ export default function ManageMohallahsPage() {
           <div>
             <CardTitle className="flex items-center"><Home className="mr-2 h-5 w-5 text-primary" />Manage Mohallahs</CardTitle>
             <Separator className="my-2" />
-            <CardDescription>Add, edit, or delete Mohallahs stored in Firestore.</CardDescription>
+            <CardDescription>Add, edit, or delete Mohallahs stored in Firestore. List updates in realtime.</CardDescription>
           </div>
           <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>
             <DialogTrigger asChild>
@@ -160,7 +170,7 @@ export default function ManageMohallahsPage() {
           </Dialog>
         </CardHeader>
         <CardContent>
-          {isLoadingMohallahs || isLoadingMembers ? (
+          {isLoadingMohallahs ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <p className="ml-2 text-muted-foreground">Loading Mohallahs data...</p>
