@@ -91,8 +91,14 @@ export default function ProfilePage() {
             <AvatarImage src={user.avatarUrl || `https://placehold.co/100x100.png?text=${user.name.substring(0,2).toUpperCase()}`} alt={user.name} data-ai-hint="profile avatar" />
             <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
-          <div className="text-center md:text-left">
-            <h1 className="text-2xl font-bold text-foreground">{user.name}</h1>
+          <div className="flex-grow text-center md:text-left w-full">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-1">
+              <h3 className="text-2xl font-bold text-foreground">{user.name}</h3>
+              <Button variant="outline" size="sm" className="mt-2 md:mt-0 md:ml-4 self-center md:self-auto" disabled>
+                <Edit3 className="mr-2 h-4 w-4" />
+                Edit Profile (Soon)
+              </Button>
+            </div>
             <p className="text-accent">{user.itsId} {user.bgkId && `/ ${user.bgkId}`}</p>
             <p className="text-sm text-muted-foreground mt-1">{user.designation || "Member"}</p>
             <div className="mt-2 flex items-center justify-center md:justify-start gap-2 text-sm text-muted-foreground">
@@ -100,10 +106,6 @@ export default function ProfilePage() {
               <span>{user.role.charAt(0).toUpperCase() + user.role.slice(1).replace(/-/g, ' ')}</span>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="self-center md:self-auto md:ml-auto mt-4 md:mt-0" disabled>
-            <Edit3 className="mr-2 h-4 w-4" />
-            Edit Profile (Soon)
-          </Button>
         </div>
         <Separator className="my-0"/>
         <Tabs defaultValue="details" className="w-full">
