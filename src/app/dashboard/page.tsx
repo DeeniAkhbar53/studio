@@ -1,9 +1,12 @@
 
+"use client";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Activity, Users, CalendarCheck, BarChartHorizontalBig, User, Clock } from "lucide-react";
+import { Activity, Users, CalendarCheck, BarChartHorizontalBig, HelpCircle } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useState } from "react";
 
 // Simulate current user role. In a real app, get this from auth context or user data.
 // Change to 'user', 'admin', or 'superadmin' to test.
@@ -20,21 +23,109 @@ const adminOverviewStats = [
 // Mock user data for welcome message - in a real app, this would come from user session
 const currentUserName = "Mohamed Ali"; // Example user name
 
+function DashboardFooter() {
+  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
+  return (
+    <footer className="mt-8 border-t pt-6 text-center text-sm text-muted-foreground">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <p>&copy; {new Date().getFullYear()} MAttendance. All rights reserved.</p>
+        <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm">
+              <HelpCircle className="mr-2 h-4 w-4" />
+              Need Help?
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Need Assistance?</DialogTitle>
+              <DialogDescription>
+                Here you can find information on how to use the MAttendance system or contact support.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 space-y-2">
+              <h4 className="font-semibold">Contact Support:</h4>
+              <p>If you encounter any issues or have questions, please contact your Mohallah admin or the technical support team at <a href="mailto:support@mattendance.example.com" className="text-primary hover:underline">support@mattendance.example.com</a>.</p>
+              <h4 className="font-semibold mt-4">FAQs:</h4>
+              <p>Q: How do I mark attendance? <br/> A: Navigate to the specific Miqaat and use the barcode scanner or manual entry.</p>
+              <p>Q: Where can I see my attendance history? <br/> A: Go to your Profile page.</p>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setIsHelpDialogOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </footer>
+  );
+}
+
+
 export default function DashboardOverviewPage() {
   if (currentUserRole === 'user') {
     return (
-      <div className="space-y-6">
-        <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold text-foreground">Welcome, {currentUserName}!</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Here's a quick look at your upcoming engagements.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-foreground">You are doing great! Keep up the good work.</p>
-          </CardContent>
-        </Card>
+      <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))]"> {/* Adjust 16 for header, 12 for p-6 main padding */}
+        <div className="flex-grow space-y-6">
+          <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
+            <CardHeader>
+              <CardTitle className="text-3xl font-bold text-foreground">Welcome, {currentUserName}!</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Here's a quick look at your upcoming engagements.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-foreground">You are doing great! Keep up the good work.</p>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle>Upcoming Miqaats</CardTitle>
+                <CardDescription>Quick view of scheduled events.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {Array.from({ length: 2 }).map((_, i) => ( // Show fewer for user view
+                  <div key={i} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
+                    <div>
+                      <h3 className="font-semibold text-foreground">Miqaat Name {i + 1}</h3>
+                      <p className="text-sm text-muted-foreground">Date: October {20 + i}, 2024 - 7:00 PM</p>
+                    </div>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href="/dashboard/miqaat-management">View Details</Link>
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="link" className="w-full" asChild>
+                    <Link href="/dashboard/miqaat-management">View all my Miqaats</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+        <DashboardFooter />
+      </div>
+    );
+  }
+
+  // Admin View
+  return (
+    <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))]">
+      <div className="flex-grow space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {adminOverviewStats.map((stat) => (
+            <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
+                <stat.icon className="h-5 w-5 text-accent" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">{stat.value}</div>
+                <p className="text-xs text-muted-foreground">{stat.trend}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
         <div className="grid gap-6 md:grid-cols-2">
           <Card className="shadow-lg">
@@ -43,7 +134,7 @@ export default function DashboardOverviewPage() {
               <CardDescription>Quick view of scheduled events.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {Array.from({ length: 2 }).map((_, i) => ( // Show fewer for user view
+              {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
                   <div>
                     <h3 className="font-semibold text-foreground">Miqaat Name {i + 1}</h3>
@@ -55,97 +146,47 @@ export default function DashboardOverviewPage() {
                 </div>
               ))}
               <Button variant="link" className="w-full" asChild>
-                  <Link href="/dashboard/miqaat-management">View all my Miqaats</Link>
+                  <Link href="/dashboard/miqaat-management">View all Miqaats</Link>
               </Button>
             </CardContent>
           </Card>
 
-          {/* Profile card removed as per request */}
-          
-        </div>
-        <p className="text-sm text-muted-foreground">
-          If you have any questions or need assistance, please contact your Mohallah admin.
-        </p>
-      </div>
-    );
-  }
-
-  // Admin View
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {adminOverviewStats.map((stat) => (
-          <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
-              <stat.icon className="h-5 w-5 text-accent" />
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Common tasks at your fingertips.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">{stat.trend}</p>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Button asChild className="w-full">
+                <Link href="/dashboard/miqaat-management">Manage Miqaats</Link>
+              </Button>
+              <Button asChild className="w-full">
+                <Link href="/dashboard/mohallah-management">Manage Mohallahs</Link>
+              </Button>
+              <Button asChild className="w-full">
+                <Link href="/dashboard/reports">Generate Report</Link>
+              </Button>
+              <Button asChild className="w-full">
+                <Link href="/dashboard/profile">View My Profile</Link>
+              </Button>
             </CardContent>
           </Card>
-        ))}
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
+        </div>
+        
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Upcoming Miqaats</CardTitle>
-            <CardDescription>Quick view of scheduled events.</CardDescription>
+            <CardTitle>Recent Activity</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
-                <div>
-                  <h3 className="font-semibold text-foreground">Miqaat Name {i + 1}</h3>
-                  <p className="text-sm text-muted-foreground">Date: October {20 + i}, 2024 - 7:00 PM</p>
-                </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/dashboard/miqaat-management">View Details</Link>
-                </Button>
-              </div>
-            ))}
-             <Button variant="link" className="w-full" asChild>
-                <Link href="/dashboard/miqaat-management">View all Miqaats</Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common tasks at your fingertips.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Button asChild className="w-full">
-              <Link href="/dashboard/miqaat-management">Manage Miqaats</Link>
-            </Button>
-            <Button asChild className="w-full">
-              <Link href="/dashboard/mohallah-management">Manage Mohallahs</Link>
-            </Button>
-            <Button asChild className="w-full">
-              <Link href="/dashboard/reports">Generate Report</Link>
-            </Button>
-             <Button asChild className="w-full">
-              <Link href="/dashboard/profile">View My Profile</Link>
-            </Button>
+          <CardContent>
+            <ul className="space-y-2">
+              <li className="text-sm text-muted-foreground">Admin updated "Miqaat Al-Khamis".</li>
+              <li className="text-sm text-muted-foreground">New member "John Doe" added to Team Alpha.</li>
+              <li className="text-sm text-muted-foreground">Attendance report generated for "Miqaat Al-Jumuah".</li>
+            </ul>
           </CardContent>
         </Card>
       </div>
-      
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-2">
-            <li className="text-sm text-muted-foreground">Admin updated "Miqaat Al-Khamis".</li>
-            <li className="text-sm text-muted-foreground">New member "John Doe" added to Team Alpha.</li>
-            <li className="text-sm text-muted-foreground">Attendance report generated for "Miqaat Al-Jumuah".</li>
-          </ul>
-        </CardContent>
-      </Card>
+      <DashboardFooter />
     </div>
   );
 }
