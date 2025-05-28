@@ -1,7 +1,7 @@
 
 "use client";
 
-import Image from 'next/image';
+import { QRCodeSVG } from 'qrcode.react'; // Import QRCodeSVG
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface BarcodeDisplayProps {
@@ -18,17 +18,19 @@ export function BarcodeDisplay({ miqaatName, barcodeData }: BarcodeDisplayProps)
       </CardHeader>
       <CardContent className="flex flex-col items-center justify-center p-6">
         <div className="p-4 bg-white rounded-lg shadow-inner">
-          {/* In a real app, this would be a dynamically generated barcode image */}
-          <Image 
-            src={`https://placehold.co/250x250.png?text=${encodeURIComponent(barcodeData)}`} 
-            alt={`Barcode for ${miqaatName}`} 
-            width={250} 
-            height={250} 
-            data-ai-hint="barcode code"
-            className="rounded"
-          />
+          {barcodeData ? (
+            <QRCodeSVG 
+              value={barcodeData} 
+              size={200} // Adjust size as needed
+              bgColor={"#ffffff"}
+              fgColor={"#000000"}
+              level={"Q"} // Error correction level
+            />
+          ) : (
+            <p className="text-muted-foreground">Barcode data not available.</p>
+          )}
         </div>
-        <p className="mt-4 text-sm text-muted-foreground">Data: {barcodeData}</p>
+        <p className="mt-4 text-sm text-muted-foreground">Data: {barcodeData || 'N/A'}</p>
       </CardContent>
     </Card>
   );

@@ -5,7 +5,7 @@ import type { Miqaat } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, Users, Barcode, Edit, Trash2 } from "lucide-react";
-import Image from "next/image";
+import { QRCodeSVG } from 'qrcode.react'; // Import QRCodeSVG
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,7 +49,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete }: MiqaatCardProps) {
           </div>
         </CardContent>
         <CardFooter className="flex justify-between items-center border-t pt-4 mt-auto">
-          <Button variant="outline" size="sm" onClick={() => setShowBarcodeDialog(true)}>
+          <Button variant="outline" size="sm" onClick={() => setShowBarcodeDialog(true)} disabled={!(miqaat.barcodeData || miqaat.id)}>
             <Barcode className="mr-2 h-4 w-4" />
             Barcode
           </Button>
@@ -91,17 +91,20 @@ export function MiqaatCard({ miqaat, onEdit, onDelete }: MiqaatCardProps) {
               Scan this barcode for attendance marking.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="flex justify-center items-center my-4">
-            <Image
-              src={`https://placehold.co/250x250.png?text=${encodeURIComponent(miqaat.barcodeData || miqaat.id)}`}
-              alt={`Barcode for ${miqaat.name}`}
-              width={250}
-              height={250}
-              data-ai-hint="barcode scan"
-              className="rounded"
-            />
+          <div className="flex justify-center items-center my-4 p-4 bg-white rounded-lg shadow-inner">
+            {(miqaat.barcodeData || miqaat.id) ? (
+              <QRCodeSVG 
+                value={miqaat.barcodeData || miqaat.id} 
+                size={200} // Adjust size as needed
+                bgColor={"#ffffff"}
+                fgColor={"#000000"}
+                level={"Q"} // Error correction level
+              />
+            ) : (
+              <p className="text-muted-foreground">Barcode data not available.</p>
+            )}
           </div>
-          <p className="text-center text-sm text-muted-foreground">Data: {miqaat.barcodeData || miqaat.id}</p>
+          <p className="text-center text-sm text-muted-foreground">Data: {miqaat.barcodeData || miqaat.id || 'N/A'}</p>
           <AlertDialogFooter>
             <AlertDialogCancel>Close</AlertDialogCancel>
           </AlertDialogFooter>
