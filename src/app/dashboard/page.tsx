@@ -123,8 +123,8 @@ export default function DashboardOverviewPage() {
         </div>
         <DashboardFooter />
       </div>
-    ); // Ensure this return statement is properly terminated
-  } // Ensure this if block is properly closed
+    ); // Ensure this return statement is properly terminated.
+  } // Ensure this if block is properly closed.
 
   // Admin or Superadmin View
   return (
