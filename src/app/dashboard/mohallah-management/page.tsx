@@ -21,9 +21,9 @@ import { Form, FormField, FormControl, FormMessage, FormItem } from "@/component
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   itsId: z.string().min(8, "ITS ID must be 8 characters").max(8, "ITS ID must be 8 characters"),
-  bgkId: z.string().optional(),
-  team: z.string().optional(),
-  phoneNumber: z.string().optional(),
+  bgkId: z.string().optional().or(z.literal("")),
+  team: z.string().optional().or(z.literal("")),
+  phoneNumber: z.string().optional().or(z.literal("")),
   role: z.enum(["user", "admin", "superadmin", "attendance-marker"]),
   mohallahId: z.string().min(1, "Mohallah must be selected"),
 });
@@ -49,6 +49,8 @@ export default function MohallahManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<User | null>(null);
+  const [isCsvImportDialogOpen, setIsCsvImportDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { toast } = useToast();
 
   const form = useForm<MemberFormValues>({
@@ -93,7 +95,6 @@ export default function MohallahManagementPage() {
     const mohallahName = mohallahs.find(m => m.id === values.mohallahId)?.name;
     const memberData = { ...values, mohallah: mohallahName || "Unknown Mohallah", role: values.role as UserRole };
 
-
     if (editingMember) {
       setMembers(members.map(m => m.id === editingMember.id ? { ...editingMember, ...memberData, avatarUrl: m.avatarUrl } : m)); 
       toast({ title: "Member Updated", description: `"${values.name}" has been updated.` });
@@ -115,8 +116,21 @@ export default function MohallahManagementPage() {
     toast({ title: "Member Deleted", description: "The member has been deleted.", variant: "destructive" });
   };
   
-  const handleImportCSV = () => {
-    toast({ title: "Import CSV", description: "CSV import functionality is not yet implemented." });
+  const handleProcessCsvUpload = () => {
+    if (!selectedFile) {
+      toast({
+        title: "No File Selected",
+        description: "Please select a CSV file to upload.",
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({
+      title: "CSV Upload (Placeholder)",
+      description: `File "${selectedFile.name}" would be processed. Actual import functionality is not yet implemented.`,
+    });
+    setSelectedFile(null);
+    setIsCsvImportDialogOpen(false);
   };
 
   const filteredMembers = members.filter(m =>
@@ -134,7 +148,7 @@ export default function MohallahManagementPage() {
             <CardDescription>Add, view, and manage members by Mohallah.</CardDescription>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleImportCSV}>
+            <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)}>
               <FileUp className="mr-2 h-4 w-4" /> Import CSV
             </Button>
             <Dialog open={isMemberDialogOpen} onOpenChange={(open) => { setIsMemberDialogOpen(open); if (!open) setEditingMember(null); }}>
@@ -283,6 +297,36 @@ export default function MohallahManagementPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* CSV Import Dialog */}
+      <Dialog open={isCsvImportDialogOpen} onOpenChange={(open) => { setIsCsvImportDialogOpen(open); if(!open) setSelectedFile(null); }}>
+        <DialogContent className="sm:max-w-[525px]">
+          <DialogHeader>
+            <DialogTitle>Import Members via CSV</DialogTitle>
+            <DialogDescription>
+              Select a CSV file with member data. Expected columns: `name`, `itsId`, `bgkId` (optional), `team` (optional), `phoneNumber` (optional), `role` ('user', 'admin', 'superadmin', or 'attendance-marker'), `mohallahName` (must match an existing Mohallah name).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="csvFile" className="text-right">
+                CSV File
+              </Label>
+              <Input
+                id="csvFile"
+                type="file"
+                accept=".csv"
+                className="col-span-3"
+                onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => {setIsCsvImportDialogOpen(false); setSelectedFile(null);}}>Cancel</Button>
+            <Button type="button" onClick={handleProcessCsvUpload}>Upload and Process</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
