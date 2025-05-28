@@ -188,7 +188,7 @@ export default function ProfilePage() {
               ) : historyError ? (
                  <div className="text-center py-10">
                   <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-4 text-lg text-destructive">{historyError}</p> {/* User sees this simplified message */}
+                  <p className="mt-4 text-lg text-destructive">{historyError}</p>
                 </div>
               ) : attendanceHistory.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -227,3 +227,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    
