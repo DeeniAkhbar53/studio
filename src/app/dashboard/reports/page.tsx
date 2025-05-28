@@ -68,7 +68,7 @@ type ReportFormValues = z.infer<typeof reportSchema>;
 export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportResultItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance">[]>([]);
+  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const { toast } = useToast();
 
@@ -126,9 +126,13 @@ export default function ReportsPage() {
             markedByItsId: att.markedByItsId,
           }));
       } else if (values.reportType === "overall_activity") {
-        // Fetch all miqaats first to get their IDs
-        // This might need adjustment if getMiqaats becomes realtime only
-        const allMiqaatDocs = await new Promise<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance">[]>((resolve) => getMiqaats(resolve));
+        
+        const allMiqaatDocs = await new Promise<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>((resolve) => {
+            const unsubscribe = getMiqaats((data) => {
+                resolve(data);
+                unsubscribe(); // Unsubscribe after the first fetch for this one-time operation
+            });
+        });
 
         const allAttendancePromises = allMiqaatDocs.map(m => getAttendanceRecordsByMiqaat(m.id));
         const allAttendanceArrays = await Promise.all(allAttendancePromises);
@@ -149,8 +153,6 @@ export default function ReportsPage() {
           setIsLoading(false);
           return;
         }
-        // Fetch all users, then filter by team if teams are assigned to the miqaat
-        // This could be optimized if getUsers could filter by team directly
         const allUsers = await getUsers(); 
         
         const attendanceForMiqaat = await getAttendanceRecordsByMiqaat(values.miqaatId); 
@@ -158,7 +160,9 @@ export default function ReportsPage() {
 
         let eligibleUsers = allUsers;
         
-        if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
+        if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
+          eligibleUsers = allUsers.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
+        } else if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
           eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
         }
         
@@ -235,7 +239,7 @@ export default function ReportsPage() {
         <CardHeader>
           <CardTitle>Generate Attendance Report</CardTitle>
           <Separator className="my-2" />
-          <CardDescription>Select criteria to generate a detailed attendance report from Firestore data.</CardDescription>
+          <CardDescription>Select criteria to generate a detailed attendance report from the system data.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>

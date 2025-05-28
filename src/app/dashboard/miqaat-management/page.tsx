@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel as ShadFormLabel, FormDescription } from "@/components/ui/form";
 import { getMiqaats, addMiqaat, updateMiqaat, deleteMiqaat as fbDeleteMiqaat, MiqaatDataForAdd, MiqaatDataForUpdate } from "@/lib/firebase/miqaatService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
-import { getUniqueTeamNames } from "@/lib/firebase/userService"; // Import function to get team names
+import { getUniqueTeamNames } from "@/lib/firebase/userService"; 
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 
@@ -30,7 +30,7 @@ const miqaatSchema = z.object({
   reportingTime: z.string().optional().nullable()
     .refine(val => !val || val === "" || !isNaN(Date.parse(val)), { message: "Invalid reporting date if provided" }),
   mohallahIds: z.array(z.string()).optional().default([]),
-  teams: z.array(z.string()).optional().default([]), // Added teams
+  teams: z.array(z.string()).optional().default([]), 
   barcodeData: z.string().optional(),
 });
 
@@ -41,8 +41,8 @@ export default function MiqaatManagementPage() {
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
-  const [availableTeams, setAvailableTeams] = useState<string[]>([]); // State for teams
-  const [isLoadingTeams, setIsLoadingTeams] = useState(true); // Loading state for teams
+  const [availableTeams, setAvailableTeams] = useState<string[]>([]); 
+  const [isLoadingTeams, setIsLoadingTeams] = useState(true); 
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt"> | null>(null);
@@ -58,7 +58,7 @@ export default function MiqaatManagementPage() {
       endTime: "",
       reportingTime: "",
       mohallahIds: [],
-      teams: [], // Default teams
+      teams: [], 
       barcodeData: "",
     },
   });
@@ -79,7 +79,7 @@ export default function MiqaatManagementPage() {
       setIsLoadingMohallahs(false);
     });
 
-    setIsLoadingTeams(true); // Fetch teams
+    setIsLoadingTeams(true); 
     getUniqueTeamNames()
       .then(setAvailableTeams)
       .catch(err => {
@@ -103,7 +103,7 @@ export default function MiqaatManagementPage() {
         endTime: editingMiqaat.endTime ? new Date(editingMiqaat.endTime).toISOString().substring(0, 16) : "",
         reportingTime: editingMiqaat.reportingTime ? new Date(editingMiqaat.reportingTime).toISOString().substring(0, 16) : "",
         mohallahIds: editingMiqaat.mohallahIds || [],
-        teams: editingMiqaat.teams || [], // Reset teams
+        teams: editingMiqaat.teams || [], 
         barcodeData: editingMiqaat.barcodeData || "",
       });
     } else {
@@ -117,7 +117,7 @@ export default function MiqaatManagementPage() {
       startTime: values.startTime,
       endTime: values.endTime,
       mohallahIds: values.mohallahIds || [],
-      teams: values.teams || [], // Include teams
+      teams: values.teams || [], 
       location: values.location, 
       reportingTime: values.reportingTime, 
       barcodeData: values.barcodeData,
@@ -166,7 +166,7 @@ export default function MiqaatManagementPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
             <div className="flex-grow">
               <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-primary"/>Manage Miqaats</CardTitle>
-              <CardDescription className="mt-1">Create, view, and manage all Miqaats from Firestore. List updates in realtime.</CardDescription>
+              <CardDescription className="mt-1">Create, view, and manage all Miqaats. List updates in realtime.</CardDescription>
             </div>
             <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingMiqaat(null); }}>
               <DialogTrigger asChild>

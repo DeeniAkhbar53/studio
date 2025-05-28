@@ -1,6 +1,6 @@
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query as firestoreQuery, orderBy, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query as firestoreQuery, orderBy, onSnapshot, Unsubscribe, getCountFromServer } from 'firebase/firestore';
 import type { Mohallah } from '@/types';
 import { deleteSubcollection } from './utils'; 
 
@@ -15,7 +15,6 @@ export const getMohallahs = (onUpdate: (mohallahs: Mohallah[]) => void): Unsubsc
     onUpdate(mohallahs);
   }, (error) => {
     console.error("Error fetching mohallahs with onSnapshot: ", error);
-    // Optionally call onUpdate with an empty array or handle error state
     onUpdate([]); 
   });
 
@@ -28,10 +27,7 @@ export const addMohallah = async (name: string): Promise<Mohallah> => {
       name,
       createdAt: serverTimestamp()
     });
-    // To get the full object including serverTimestamp, we might need to fetch it,
-    // but for simplicity, we return what we know.
-    // Firestore automatically handles createdAt on the server.
-    return { id: docRef.id, name } as Mohallah; 
+    return { id: docRef.id, name, createdAt: new Date().toISOString() } as Mohallah; 
   } catch (error) {
     console.error("Error adding mohallah: ", error);
     throw error;
@@ -50,15 +46,24 @@ export const updateMohallahName = async (mohallahId: string, newName: string): P
 
 export const deleteMohallah = async (mohallahId: string): Promise<void> => {
   try {
-    // First, delete the 'members' subcollection
     const membersPath = `mohallahs/${mohallahId}/members`;
-    await deleteSubcollection(db, membersPath, 100); // Batch size 100
+    await deleteSubcollection(db, membersPath, 100); 
 
-    // Then, delete the Mohallah document itself
     const mohallahDoc = doc(db, 'mohallahs', mohallahId);
     await deleteDoc(mohallahDoc);
   } catch (error) {
     console.error("Error deleting mohallah and its members: ", error);
     throw error;
+  }
+};
+
+export const getMohallahsCount = async (): Promise<number> => {
+  try {
+    const q = query(collection(db, 'mohallahs'));
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count;
+  } catch (error) {
+    console.error('Error fetching mohallahs count:', error);
+    return 0; // Return 0 on error
   }
 };

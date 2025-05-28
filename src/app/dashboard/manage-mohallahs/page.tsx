@@ -137,7 +137,7 @@ export default function ManageMohallahsPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
             <div className="flex-grow">
               <CardTitle className="flex items-center"><Home className="mr-2 h-5 w-5 text-primary" />Manage Mohallahs</CardTitle>
-              <CardDescription className="mt-1">Add, edit, or delete Mohallahs stored in Firestore. List updates in realtime.</CardDescription>
+              <CardDescription className="mt-1">Add, edit, or delete Mohallahs. List updates in realtime.</CardDescription>
             </div>
             {canManage && (
               <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>

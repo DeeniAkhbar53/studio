@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label as StandardLabel } from "@/components/ui/label"; // Renamed to avoid conflict
+import { Label as StandardLabel } from "@/components/ui/label"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,7 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form"; // Using ShadCN FormLabel as default
+import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form"; 
 import { getUsers, addUser, updateUser, deleteUser, getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
@@ -91,7 +91,7 @@ export default function ManageMembersPage() {
       setCurrentUserRole(role);
       setCurrentUserMohallahId(mohallahId);
       if (role === 'admin' && mohallahId) {
-        setSelectedFilterMohallahId(mohallahId); // Admin is locked to their mohallah
+        setSelectedFilterMohallahId(mohallahId); 
       }
     }
   }, []);
@@ -114,7 +114,7 @@ export default function ManageMembersPage() {
     } catch (error: any) {
         console.error("Failed to fetch members:", error);
         if (currentUserRole === 'superadmin' && !targetMohallahIdForFetch && error.message.includes("index")) {
-            const specificErrorMsg = "Could not fetch all members. This may be due to missing Firestore indexes. Please select a specific Mohallah to view its members or configure Firestore indexes.";
+            const specificErrorMsg = "Could not fetch all members. This may be due to missing database indexes. Please select a specific Mohallah to view its members or configure database indexes.";
             setFetchError(specificErrorMsg);
             toast({ title: "Data Fetch Warning", description: specificErrorMsg, variant: "destructive", duration: 10000 });
             setMembers([]); 
@@ -148,7 +148,6 @@ export default function ManageMembersPage() {
       mohallahIdToFetch = selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId;
       fetchAndSetMembers(mohallahIdToFetch);
     } else {
-      // For roles like 'user' or 'attendance-marker' who shouldn't manage members
       setMembers([]);
       setIsLoadingMembers(false);
     }
@@ -168,7 +167,7 @@ export default function ManageMembersPage() {
         designation: editingMember.designation || "Member",
         pageRights: editingMember.pageRights || [],
       });
-    } else { // Adding new member
+    } else { 
       let defaultMohallahForForm = "";
       if (currentUserRole === 'admin' && currentUserMohallahId) {
         defaultMohallahForForm = currentUserMohallahId;
@@ -218,7 +217,6 @@ export default function ManageMembersPage() {
         await addUser(memberPayload, targetMohallahId);
         toast({ title: "Member Added", description: `"${values.name}" has been added to ${getMohallahNameById(targetMohallahId)}.` });
       }
-      // Smart refresh based on role and filter
       if (currentUserRole === 'admin' && currentUserMohallahId) {
         fetchAndSetMembers(currentUserMohallahId);
       } else if (currentUserRole === 'superadmin') {
@@ -227,7 +225,7 @@ export default function ManageMembersPage() {
       setIsMemberDialogOpen(false);
       setEditingMember(null);
     } catch (error) {
-      console.error("Error saving member to Firestore:", error);
+      console.error("Error saving member to database:", error);
       toast({ title: "Database Error", description: `Could not save member data. Check console for details. ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
     }
   };
@@ -245,7 +243,6 @@ export default function ManageMembersPage() {
     try {
       await deleteUser(member.id, member.mohallahId);
       toast({ title: "Member Deleted", description: `"${member.name}" has been deleted.`});
-       // Smart refresh based on role and filter
       if (currentUserRole === 'admin' && currentUserMohallahId) {
         fetchAndSetMembers(currentUserMohallahId);
       } else if (currentUserRole === 'superadmin') {
@@ -294,7 +291,6 @@ export default function ManageMembersPage() {
               continue;
             }
             const mohallahId = mohallah.id;
-             // Admin role check: if admin is uploading, they can only upload to their own mohallah
             if (currentUserRole === 'admin' && mohallahId !== currentUserMohallahId) {
                 failedRecords.push({ data: row, reason: `Admins can only import to their assigned Mohallah. Row skipped for Mohallah "${row.mohallahName}".` });
                 skippedCount++;
@@ -352,7 +348,6 @@ export default function ManageMembersPage() {
           setIsCsvProcessing(false);
           setIsCsvImportDialogOpen(false);
           setSelectedFile(null);
-           // Smart refresh based on role and filter
           if (currentUserRole === 'admin' && currentUserMohallahId) {
             fetchAndSetMembers(currentUserMohallahId);
           } else if (currentUserRole === 'superadmin') {
@@ -448,7 +443,7 @@ export default function ManageMembersPage() {
               <CardDescription className="mt-1">
                 {currentUserRole === 'admin' && currentUserMohallahId 
                   ? `Managing members for Mohallah: ${getMohallahNameById(currentUserMohallahId)}.`
-                  : 'Add, view, and manage members. Data from Firestore.'}
+                  : 'Add, view, and manage members. Data is stored in the system.'}
               </CardDescription>
             </div>
              {canManageMembers && (
@@ -716,27 +711,29 @@ export default function ManageMembersPage() {
                         <Button variant="ghost" size="icon" onClick={() => handleEditMember(member)} className="mr-1 sm:mr-2" aria-label="Edit Member">
                             <Edit className="h-4 w-4" />
                         </Button>
-                        <AlertDialog>
-                            <AlertTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Member">
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                            </AlertTrigger>
-                            <AlertContent>
-                            <AlertHeader>
-                                <AlertTitle>Are you sure?</AlertTitle>
-                                <AlertDesc>
-                                This action cannot be undone. This will permanently delete "{member.name}".
-                                </AlertDesc>
-                            </AlertHeader>
-                            <AlertFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">
-                                Delete
-                                </AlertDialogAction>
-                            </AlertFooter>
-                            </AlertContent>
-                        </AlertDialog>
+                        { (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( // Prevent deleting superadmin unless current user is also superadmin
+                            <AlertDialog>
+                                <AlertTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                                </AlertTrigger>
+                                <AlertContent>
+                                <AlertHeader>
+                                    <AlertTitle>Are you sure?</AlertTitle>
+                                    <AlertDesc>
+                                    This action cannot be undone. This will permanently delete "{member.name}".
+                                    </AlertDesc>
+                                </AlertHeader>
+                                <AlertFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">
+                                    Delete
+                                    </AlertDialogAction>
+                                </AlertFooter>
+                                </AlertContent>
+                            </AlertDialog>
+                        )}
                         </TableCell>
                     )}
                   </TableRow>

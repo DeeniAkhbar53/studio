@@ -3,30 +3,36 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Activity, Users, CalendarCheck, ScanLine, Loader2, Settings, HelpCircle, ListChecks, BarChart3 } from "lucide-react";
+import { Activity, Users, CalendarCheck, ScanLine, Loader2, Settings, HelpCircle, ListChecks, BarChart3, Home as HomeIcon, Building } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole, Miqaat } from "@/types";
 import { getMiqaats } from "@/lib/firebase/miqaatService";
+import { getUsersCount } from "@/lib/firebase/userService";
+import { getMohallahsCount } from "@/lib/firebase/mohallahService";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 
-const adminOverviewStats = [
-  { title: "Active Miqaats", value: "0", icon: CalendarCheck, trend: "Realtime" },
-  { title: "Total Members (Mock)", value: "1,205", icon: Users, trend: "+50 new" },
-  { title: "Overall Attendance (Mock)", value: "85%", icon: Activity, trend: "Avg. last 7 days" },
-];
-
+interface AdminStat {
+  title: string;
+  value: string | number;
+  icon: React.ElementType;
+  trend?: string;
+  isLoading?: boolean;
+}
 
 export default function DashboardOverviewPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>("Valued Member");
+  const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime">[]>([]);
-  const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(false);
+  const [activeMiqaatsCount, setActiveMiqaatsCount] = useState<number>(0);
+  const [totalMembersCount, setTotalMembersCount] = useState<number>(0);
+  const [totalMohallahsCount, setTotalMohallahsCount] = useState<number>(0);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
 
   useEffect(() => {
@@ -34,18 +40,38 @@ export default function DashboardOverviewPage() {
     const storedRole = localStorage.getItem('userRole') as UserRole | null;
     const storedName = localStorage.getItem('userName');
     const storedItsId = localStorage.getItem('userItsId');
+    const storedMohallahId = localStorage.getItem('userMohallahId');
 
     if (storedItsId && storedRole) {
       setCurrentUserRole(storedRole);
+      setCurrentUserMohallahId(storedMohallahId);
       if (storedName) {
         setCurrentUserName(storedName);
       }
+
       if (storedRole === 'admin' || storedRole === 'superadmin') {
-        setIsLoadingMiqaats(true);
+        setIsLoadingStats(true);
+        
         unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
-          setMiqaats(fetchedMiqaats.map(m => ({ id: m.id, name: m.name, startTime: m.startTime, endTime: m.endTime })));
-          setIsLoadingMiqaats(false);
+          setActiveMiqaatsCount(fetchedMiqaats.filter(m => new Date(m.endTime) > new Date()).length);
         });
+
+        const fetchCounts = async () => {
+          try {
+            const membersCount = await getUsersCount(storedRole === 'admin' ? storedMohallahId || undefined : undefined);
+            setTotalMembersCount(membersCount);
+            
+            if (storedRole === 'superadmin') {
+              const mohallahsCount = await getMohallahsCount();
+              setTotalMohallahsCount(mohallahsCount);
+            }
+          } catch (err) {
+            console.error("Failed to fetch dashboard counts", err);
+          } finally {
+            setIsLoadingStats(false);
+          }
+        };
+        fetchCounts();
       }
     } else {
       router.push('/');
@@ -58,6 +84,20 @@ export default function DashboardOverviewPage() {
       }
     };
   }, [router]);
+
+  const adminOverviewStats: AdminStat[] = [
+    { title: "Active Miqaats", value: activeMiqaatsCount, icon: CalendarCheck, isLoading: isLoadingStats && (currentUserRole === 'admin' || currentUserRole === 'superadmin') },
+    { title: "Total Members", value: totalMembersCount, icon: Users, isLoading: isLoadingStats && (currentUserRole === 'admin' || currentUserRole === 'superadmin'), trend: currentUserRole === 'admin' ? "In your Mohallah" : "System-wide" },
+  ];
+
+  if (currentUserRole === 'superadmin') {
+    adminOverviewStats.push(
+      { title: "Total Mohallahs", value: totalMohallahsCount, icon: Building, isLoading: isLoadingStats }
+    );
+  }
+   adminOverviewStats.push(
+     { title: "Overall Attendance", value: "85%", icon: Activity, trend: "Avg. last 7 days (Mock)" } // Mock data
+   );
 
 
   if (isLoading) {
@@ -76,9 +116,9 @@ export default function DashboardOverviewPage() {
           <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
             <CardHeader>
               <CardTitle className="text-3xl font-bold text-foreground">Welcome, {currentUserName}!</CardTitle>
-              <Separator className="my-2" />
+              <Separator className="my-2"/>
               <CardDescription className="text-muted-foreground">
-                Ready to mark your attendance for the current Miqaat.
+                Ready to mark your attendance.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -92,7 +132,7 @@ export default function DashboardOverviewPage() {
                 <ScanLine className="mr-3 h-6 w-6 text-primary" />
                 Scan Attendance
               </CardTitle>
-              <Separator className="my-2" />
+              <Separator className="my-2"/>
             </CardHeader>
             <CardContent className="space-y-4">
               <Button asChild className="w-full" size="lg">
@@ -117,12 +157,13 @@ export default function DashboardOverviewPage() {
           <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
             <CardHeader>
               <CardTitle className="text-3xl font-bold text-foreground">Attendance Marker Dashboard</CardTitle>
-              <Separator className="my-2" />
+               <Separator className="my-2"/>
               <CardDescription className="text-muted-foreground">
                 Welcome, {currentUserName}! Use the sidebar to navigate to Mark Attendance or View Reports.
               </CardDescription>
             </CardHeader>
           </Card>
+          {/* Potentially add a card here for "Miqaats available for marking" if desired */}
         </div>
       </div>
     );
@@ -135,9 +176,9 @@ export default function DashboardOverviewPage() {
         <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-foreground">Admin Dashboard</CardTitle>
-            <Separator className="my-2" />
+            <Separator className="my-2"/>
             <CardDescription className="text-muted-foreground">
-              Welcome, {currentUserName}! Overview of system activity and management tools. Current Role: {currentUserRole}
+              Welcome, {currentUserName}! Overview of system activity. Current Role: {currentUserRole}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -150,14 +191,14 @@ export default function DashboardOverviewPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-foreground break-all">
-                  {stat.title === "Active Miqaats" ? (isLoadingMiqaats ? <Loader2 className="h-5 w-5 animate-spin" /> : miqaats.filter(m => new Date(m.endTime) > new Date()).length) : stat.value}
+                  {stat.isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : stat.value}
                 </div>
-                <p className="text-xs text-muted-foreground break-words">{stat.trend}</p>
+                {stat.trend && <p className="text-xs text-muted-foreground break-words">{stat.trend}</p>}
               </CardContent>
             </Card>
           ))}
         </div>
-        {isLoadingMiqaats && !miqaats.length && (
+         {(isLoadingStats && (currentUserRole === 'admin' || currentUserRole === 'superadmin') && !adminOverviewStats.some(s => !s.isLoading)) && (
           <div className="flex justify-center items-center py-6">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <p className="ml-2 text-muted-foreground">Loading system data...</p>
