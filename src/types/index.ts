@@ -8,7 +8,7 @@ export type User = {
   name: string;
   team?: string;
   phoneNumber?: string;
-  mohallah?: string;
+  mohallahId?: string; // Changed from mohallah (name) to mohallahId
   role: UserRole;
   avatarUrl?: string;
 };
@@ -41,11 +41,12 @@ export type Team = {
   leader?: User;
 };
 
+// Represents a Mohallah entity as stored in Firestore
 export type Mohallah = {
   id: string;
   name: string;
-  members: User[];
-  admin?: User
+  // Members and admin are not directly stored on the Mohallah document in this model
+  // They would be derived or managed separately if needed at the Mohallah level
 };
 
 // Specific type for attendance marking session
@@ -64,3 +65,4 @@ export type NotificationItem = {
   createdAt: string; // ISO Date string
   read: boolean;
 };
+
