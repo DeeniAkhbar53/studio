@@ -192,7 +192,8 @@ export default function ManageMembersPage() {
     try {
       if (editingMember && editingMember.mohallahId) {
         const updatePayload = { ...memberPayload };
-        delete (updatePayload as any).mohallahId; 
+        // Do not send mohallahId in update payload if it's not meant to be changed via this form
+        // delete (updatePayload as any).mohallahId; 
 
         await updateUser(editingMember.id, editingMember.mohallahId, updatePayload);
         toast({ title: "Member Updated", description: `"${values.name}" has been updated.` });
@@ -250,6 +251,10 @@ export default function ManageMembersPage() {
           const dataRows = results.data as any[];
 
           for (const row of dataRows) {
+            if (Object.keys(row).length === 0 || Object.values(row).every(val => val === "" || val === null)) {
+                // Skip truly empty rows that PapaParse might not have skipped if only skipEmptyLines: true
+                continue;
+            }
             // Basic validation
             if (!row.name || !row.itsId || !row.mohallahName || !row.role) {
               failedRecords.push({ data: row, reason: "Missing required fields (name, itsId, mohallahName, role)." });
@@ -280,23 +285,21 @@ export default function ManageMembersPage() {
                continue;
             }
             
-
             const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string } = {
               name: row.name,
               itsId: row.itsId,
               bgkId: row.bgkId || undefined,
               team: row.team || undefined,
               phoneNumber: row.phoneNumber || undefined,
-              role: row.role as UserRole, // Consider adding validation for role value
+              role: row.role as UserRole, 
               mohallahId: mohallahId,
               designation: (row.designation as UserDesignation) || "Member",
               pageRights: row.pageRights ? row.pageRights.split(';').map((s: string) => s.trim()).filter(Boolean) : [],
             };
             
-            // Schema validation before adding (optional but good practice)
             const validation = memberSchema.safeParse({
                 ...memberPayload,
-                bgkId: memberPayload.bgkId || "", // Ensure empty strings for optional fields not null/undefined for zod
+                bgkId: memberPayload.bgkId || "", 
                 team: memberPayload.team || "",
                 phoneNumber: memberPayload.phoneNumber || "",
             });
@@ -320,13 +323,22 @@ export default function ManageMembersPage() {
           setIsCsvProcessing(false);
           setIsCsvImportDialogOpen(false);
           setSelectedFile(null);
-          fetchAndSetMembers(); // Refresh the member list
+          fetchAndSetMembers(); 
 
-          toast({
-            title: "CSV Import Complete",
-            description: `${successfullyAddedCount} users added. ${skippedCount} skipped (duplicates/missing mohallah/validation). ${errorCount} DB errors. Check console for details on failures.`,
-            duration: 10000,
-          });
+          if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0 && skippedCount > 0)) {
+            toast({
+                title: "CSV Import Error",
+                description: "There was an issue importing some or all users. Please check the console for details.",
+                variant: "destructive",
+                duration: 7000,
+            });
+          } else {
+            toast({
+                title: "CSV Import Successful",
+                description: "CSV file processed. Check console for detailed status.",
+                duration: 7000,
+            });
+          }
 
           if (failedRecords.length > 0) {
             console.warn("CSV Import - Skipped/Failed Records:", failedRecords);
@@ -742,6 +754,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
-
-    
