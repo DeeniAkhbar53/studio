@@ -4,16 +4,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import type { UserRole, NotificationItem } from "@/types";
+import type { UserRole } from "@/types"; // Removed unused NotificationItem
 import { Home, User, CalendarDays, Building, BarChart3, UserCheck, ScanBarcode, Bell, Settings, Users as UsersIcon } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react"; // Added useMemo
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
   allowedRoles?: UserRole[];
-  badgeCount?: () => number;
 }
 
 const ESSENTIAL_PATHS = ["/dashboard", "/dashboard/profile", "/dashboard/notifications"];
@@ -54,7 +53,7 @@ const allNavItems: NavItem[] = [
    {
     href: "/dashboard/manage-notifications",
     label: "Manage Notifications",
-    icon: Settings,
+    icon: Settings, // Changed from Bell to Settings for differentiation
     allowedRoles: ['admin', 'superadmin']
   },
   {
@@ -86,23 +85,29 @@ export function SidebarNav() {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    // This effect runs only on the client, after the initial render
     const storedRole = localStorage.getItem('userRole') as UserRole | null;
     const storedPageRights = localStorage.getItem('userPageRights');
     const storedUnreadCount = parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10);
 
-    setCurrentUserRole(storedRole); // Will be null if nothing in localStorage
-    setUserPageRights(storedPageRights ? JSON.parse(storedPageRights) : []);
+    console.log("[SidebarNav useEffect] Stored Role:", storedRole);
+    console.log("[SidebarNav useEffect] Stored PageRights (string):", storedPageRights);
+    
+    const parsedPageRights = storedPageRights ? JSON.parse(storedPageRights) : [];
+    console.log("[SidebarNav useEffect] Parsed PageRights (array):", parsedPageRights);
+
+    setCurrentUserRole(storedRole);
+    setUserPageRights(Array.isArray(parsedPageRights) ? parsedPageRights : []);
     setUnreadNotificationCount(storedUnreadCount);
-    setIsMounted(true); // Signal that client-side data is loaded
+    setIsMounted(true);
 
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'userRole') {
         setCurrentUserRole(localStorage.getItem('userRole') as UserRole | null);
       }
       if (event.key === 'userPageRights') {
-        const updatedPageRights = localStorage.getItem('userPageRights');
-        setUserPageRights(updatedPageRights ? JSON.parse(updatedPageRights) : []);
+        const updatedPageRightsRaw = localStorage.getItem('userPageRights');
+        const updatedParsedPageRights = updatedPageRightsRaw ? JSON.parse(updatedPageRightsRaw) : [];
+        setUserPageRights(Array.isArray(updatedParsedPageRights) ? updatedParsedPageRights : []);
       }
       if (event.key === 'unreadNotificationCount') {
         setUnreadNotificationCount(parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10));
@@ -123,30 +128,44 @@ export function SidebarNav() {
     };
   }, []);
 
+  const resolvedCurrentUserRole = isMounted ? (currentUserRole || 'user') : 'user';
+
+  const navItems = useMemo(() => {
+    if (!isMounted) {
+        // console.log("[SidebarNav navItems] Not mounted, returning empty array for navItems initially");
+      // Return a minimal set or empty during skeleton to avoid flash of incorrect items
+      // For skeleton, no items are actually rendered based on this, SidebarNavSkeleton is shown.
+      return [];
+    }
+
+    // console.log("[SidebarNav navItems] Calculating with resolvedCurrentUserRole:", resolvedCurrentUserRole, "and userPageRights:", userPageRights);
+
+    return allNavItems.filter(item => {
+      const roleAllowsItem = !item.allowedRoles || item.allowedRoles.includes(resolvedCurrentUserRole);
+    //   console.log(`  [Item: ${item.label}] Role allows: ${roleAllowsItem} (User role: ${resolvedCurrentUserRole}, Item roles: ${item.allowedRoles})`);
+      if (!roleAllowsItem) {
+        return false;
+      }
+
+      if (ESSENTIAL_PATHS.includes(item.href)) {
+        // console.log(`  [Item: ${item.label}] Is essential. Showing.`);
+        return true;
+      }
+
+      if (Array.isArray(userPageRights) && userPageRights.length > 0) {
+        const hasExplicitRight = userPageRights.includes(item.href);
+        // console.log(`  [Item: ${item.label}] User has specific rights. Explicitly granted: ${hasExplicitRight}. Rights: ${userPageRights}`);
+        return hasExplicitRight;
+      }
+      // console.log(`  [Item: ${item.label}] No specific rights or empty list. Showing based on role.`);
+      return true;
+    });
+  }, [isMounted, resolvedCurrentUserRole, userPageRights]);
+
+
   if (!isMounted) {
     return <SidebarNavSkeleton />;
   }
-
-  // If currentUserRole is still null after mounting (i.e., not in localStorage), default to 'user' for filtering
-  const resolvedCurrentUserRole = currentUserRole || 'user';
-
-  const navItems = allNavItems.filter(item => {
-    // Role check
-    const roleAllowed = !item.allowedRoles || item.allowedRoles.includes(resolvedCurrentUserRole);
-    if (!roleAllowed) return false;
-
-    // Essential paths are always shown if role-allowed
-    if (ESSENTIAL_PATHS.includes(item.href)) return true;
-    
-    // If pageRights are defined and non-empty, user must have explicit right for non-essential pages
-    if (userPageRights && userPageRights.length > 0) {
-      return userPageRights.includes(item.href);
-    }
-
-    // If no specific pageRights are set (or array is empty), role-based access is sufficient for non-essential pages
-    return true;
-  });
-
 
   return (
     <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
