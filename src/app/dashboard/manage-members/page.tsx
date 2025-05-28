@@ -394,192 +394,194 @@ export default function ManageMembersPage() {
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <CardTitle className="flex items-center"><UsersIcon className="mr-2 h-5 w-5 text-primary"/>Manage Members</CardTitle>
-            <Separator className="my-2" />
-            <CardDescription>Add, view, and manage members within Mohallahs. Data from Firestore.</CardDescription>
-          </div>
-          <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto">
-            <Button variant="outline" onClick={downloadSampleCsv} className="w-full sm:w-auto" size="sm">
-                <Download className="mr-2 h-4 w-4" /> Download Sample CSV
-            </Button>
-            <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)} className="w-full sm:w-auto" size="sm">
-              <FileUp className="mr-2 h-4 w-4" /> Import CSV
-            </Button>
-            <Dialog open={isMemberDialogOpen} onOpenChange={(open) => { setIsMemberDialogOpen(open); if (!open) setEditingMember(null); }}>
-              <DialogTrigger asChild>
-                <Button onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} className="w-full sm:w-auto" size="sm" disabled={isLoadingMohallahs || (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && mohallahs.length === 0)}>
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Member
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>{editingMember ? "Edit Member" : "Add New Member"}</DialogTitle>
-                   <DialogDescription>
-                    {editingMember ? "Update details." : `Add to Mohallah: ${getMohallahNameById(memberForm.getValues("mohallahId")) || "selected"}.`}
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...memberForm}>
-                  <form onSubmit={memberForm.handleSubmit(handleMemberFormSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-                    <FormField control={memberForm.control} name="name" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <FormLabel htmlFor="name" className="text-right">Name</FormLabel>
-                        <FormControl><Input id="name" {...field} className="col-span-3" /></FormControl>
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                      </FormItem>
-                    )} />
-                    <FormField control={memberForm.control} name="itsId" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <FormLabel htmlFor="itsId" className="text-right">ITS ID</FormLabel>
-                        <FormControl><Input id="itsId" {...field} className="col-span-3" /></FormControl>
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                      </FormItem>
-                    )} />
-                    <FormField control={memberForm.control} name="bgkId" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <FormLabel htmlFor="bgkId" className="text-right">BGK ID</FormLabel>
-                        <FormControl><Input id="bgkId" {...field} className="col-span-3" placeholder="Optional" /></FormControl>
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                      </FormItem>
-                    )} />
-                    <FormField control={memberForm.control} name="team" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <FormLabel htmlFor="team" className="text-right">Team</FormLabel>
-                        <FormControl><Input id="team" {...field} className="col-span-3" placeholder="Optional" /></FormControl>
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                      </FormItem>
-                    )} />
-                    <FormField control={memberForm.control} name="phoneNumber" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <FormLabel htmlFor="phoneNumber" className="text-right">Phone</FormLabel>
-                        <FormControl><Input id="phoneNumber" {...field} className="col-span-3" placeholder="Optional" /></FormControl>
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                      </FormItem>
-                    )} />
-                     <FormField control={memberForm.control} name="designation" render={({ field }) => (
+        <CardHeader>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+            <div className="flex-grow">
+              <CardTitle className="flex items-center"><UsersIcon className="mr-2 h-5 w-5 text-primary"/>Manage Members</CardTitle>
+              <CardDescription className="mt-1">Add, view, and manage members within Mohallahs. Data from Firestore.</CardDescription>
+            </div>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto self-start md:self-center shrink-0">
+              <Button variant="outline" onClick={downloadSampleCsv} className="w-full sm:w-auto" size="sm">
+                  <Download className="mr-2 h-4 w-4" /> Download Sample CSV
+              </Button>
+              <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)} className="w-full sm:w-auto" size="sm">
+                <FileUp className="mr-2 h-4 w-4" /> Import CSV
+              </Button>
+              <Dialog open={isMemberDialogOpen} onOpenChange={(open) => { setIsMemberDialogOpen(open); if (!open) setEditingMember(null); }}>
+                <DialogTrigger asChild>
+                  <Button onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} className="w-full sm:w-auto" size="sm" disabled={isLoadingMohallahs || (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && mohallahs.length === 0)}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Member
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>{editingMember ? "Edit Member" : "Add New Member"}</DialogTitle>
+                    <DialogDescription>
+                      {editingMember ? "Update details." : `Add to Mohallah: ${getMohallahNameById(memberForm.getValues("mohallahId")) || "selected"}.`}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Form {...memberForm}>
+                    <form onSubmit={memberForm.handleSubmit(handleMemberFormSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+                      <FormField control={memberForm.control} name="name" render={({ field }) => (
                         <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                          <FormLabel htmlFor="designation" className="text-right">Designation</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || "Member"}>
-                            <FormControl><SelectTrigger id="designation" className="col-span-3"><SelectValue placeholder="Select designation" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                              <SelectItem value="Member">Member</SelectItem>
-                              <SelectItem value="Vice Captain">Vice Captain</SelectItem>
-                              <SelectItem value="Captain">Captain</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <FormLabel htmlFor="name" className="text-right">Name</FormLabel>
+                          <FormControl><Input id="name" {...field} className="col-span-3" /></FormControl>
                           <FormMessage className="col-start-2 col-span-3 text-xs" />
                         </FormItem>
                       )} />
-                    <FormField control={memberForm.control} name="role" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <FormLabel htmlFor="role" className="text-right">Role</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl><SelectTrigger id="role" className="col-span-3"><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            <SelectItem value="user">User</SelectItem>
-                            <SelectItem value="attendance-marker">Attendance Marker</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="superadmin">Super Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                         {watchedRole && (
-                            <FormDescription className="col-start-2 col-span-3 text-xs mt-1">
-                                {roleDescriptions[watchedRole]}
-                            </FormDescription>
-                        )}
-                      </FormItem>
-                    )} />
-                    <FormField control={memberForm.control} name="mohallahId" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <FormLabel htmlFor="mohallahId" className="text-right">Mohallah</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          disabled={isLoadingMohallahs || mohallahs.length === 0 || !!editingMember}
-                        >
-                           <FormControl><SelectTrigger id="mohallahId" className="col-span-3"><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
-                          <SelectContent>
-                            {isLoadingMohallahs ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
-                             mohallahs.length === 0 ? <SelectItem value="no-mohallah" disabled>No Mohallahs</SelectItem> :
-                             mohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        {!!editingMember && <FormDescription className="col-start-2 col-span-3 text-xs">To change Mohallah, delete and re-add member.</FormDescription>}
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                      </FormItem>
-                    )} />
-
-                    {watchedRole && watchedRole !== 'user' && (
-                      <FormField
-                        control={memberForm.control}
-                        name="pageRights"
-                        render={({ field }) => (
-                          <FormItem className="grid grid-cols-1 items-start gap-x-4 pt-2">
-                            <FormLabel className="text-left col-span-4 font-semibold mb-1">Page Access Rights</FormLabel>
-                            <FormDescription className="col-span-4 text-xs mb-2">
-                              Select specific pages this member can access. If none are selected, access is based on the default permissions for their role.
-                            </FormDescription>
-                            <div className="col-span-4 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 p-2 border rounded-md max-h-48 overflow-y-auto">
-                              {AVAILABLE_PAGE_RIGHTS.map((pageRight) => (
-                                <FormField
-                                  key={pageRight.id}
-                                  control={memberForm.control}
-                                  name="pageRights"
-                                  render={({ field: pageRightField }) => (
-                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                                      <FormControl>
-                                        <Checkbox
-                                          checked={pageRightField.value?.includes(pageRight.path)}
-                                          onCheckedChange={(checked) => {
-                                            return checked
-                                              ? pageRightField.onChange([...(pageRightField.value || []), pageRight.path])
-                                              : pageRightField.onChange(
-                                                (pageRightField.value || []).filter(
-                                                    (value) => value !== pageRight.path
-                                                  )
-                                                );
-                                          }}
-                                        />
-                                      </FormControl>
-                                      <div className="space-y-1 leading-none">
-                                        <FormLabel className="font-normal text-sm">
-                                          {pageRight.label}
-                                        </FormLabel>
-                                        {pageRight.description && (
-                                          <FormDescription className="text-xs">
-                                            {pageRight.description}
-                                          </FormDescription>
-                                        )}
-                                      </div>
-                                    </FormItem>
-                                  )}
-                                />
-                              ))}
-                            </div>
-                             <FormMessage className="col-span-4 text-xs" />
+                      <FormField control={memberForm.control} name="itsId" render={({ field }) => (
+                        <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                          <FormLabel htmlFor="itsId" className="text-right">ITS ID</FormLabel>
+                          <FormControl><Input id="itsId" {...field} className="col-span-3" /></FormControl>
+                          <FormMessage className="col-start-2 col-span-3 text-xs" />
+                        </FormItem>
+                      )} />
+                      <FormField control={memberForm.control} name="bgkId" render={({ field }) => (
+                        <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                          <FormLabel htmlFor="bgkId" className="text-right">BGK ID</FormLabel>
+                          <FormControl><Input id="bgkId" {...field} className="col-span-3" placeholder="Optional" /></FormControl>
+                          <FormMessage className="col-start-2 col-span-3 text-xs" />
+                        </FormItem>
+                      )} />
+                      <FormField control={memberForm.control} name="team" render={({ field }) => (
+                        <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                          <FormLabel htmlFor="team" className="text-right">Team</FormLabel>
+                          <FormControl><Input id="team" {...field} className="col-span-3" placeholder="Optional" /></FormControl>
+                          <FormMessage className="col-start-2 col-span-3 text-xs" />
+                        </FormItem>
+                      )} />
+                      <FormField control={memberForm.control} name="phoneNumber" render={({ field }) => (
+                        <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                          <FormLabel htmlFor="phoneNumber" className="text-right">Phone</FormLabel>
+                          <FormControl><Input id="phoneNumber" {...field} className="col-span-3" placeholder="Optional" /></FormControl>
+                          <FormMessage className="col-start-2 col-span-3 text-xs" />
+                        </FormItem>
+                      )} />
+                      <FormField control={memberForm.control} name="designation" render={({ field }) => (
+                          <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                            <FormLabel htmlFor="designation" className="text-right">Designation</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || "Member"}>
+                              <FormControl><SelectTrigger id="designation" className="col-span-3"><SelectValue placeholder="Select designation" /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                <SelectItem value="Member">Member</SelectItem>
+                                <SelectItem value="Vice Captain">Vice Captain</SelectItem>
+                                <SelectItem value="Captain">Captain</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage className="col-start-2 col-span-3 text-xs" />
                           </FormItem>
-                        )}
-                      />
-                    )}
+                        )} />
+                      <FormField control={memberForm.control} name="role" render={({ field }) => (
+                        <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                          <FormLabel htmlFor="role" className="text-right">Role</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger id="role" className="col-span-3"><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="user">User</SelectItem>
+                              <SelectItem value="attendance-marker">Attendance Marker</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="superadmin">Super Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage className="col-start-2 col-span-3 text-xs" />
+                          {watchedRole && (
+                              <FormDescription className="col-start-2 col-span-3 text-xs mt-1">
+                                  {roleDescriptions[watchedRole]}
+                              </FormDescription>
+                          )}
+                        </FormItem>
+                      )} />
+                      <FormField control={memberForm.control} name="mohallahId" render={({ field }) => (
+                        <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                          <FormLabel htmlFor="mohallahId" className="text-right">Mohallah</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            disabled={isLoadingMohallahs || mohallahs.length === 0 || !!editingMember}
+                          >
+                            <FormControl><SelectTrigger id="mohallahId" className="col-span-3"><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              {isLoadingMohallahs ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                              mohallahs.length === 0 ? <SelectItem value="no-mohallah" disabled>No Mohallahs</SelectItem> :
+                              mohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          {!!editingMember && <FormDescription className="col-start-2 col-span-3 text-xs">To change Mohallah, delete and re-add member.</FormDescription>}
+                          <FormMessage className="col-start-2 col-span-3 text-xs" />
+                        </FormItem>
+                      )} />
 
-                    <DialogFooter className="pt-4">
-                      <Button type="button" variant="outline" onClick={() => setIsMemberDialogOpen(false)}>Cancel</Button>
-                      <Button type="submit" disabled={memberForm.formState.isSubmitting || isLoadingMohallahs || (mohallahs.length === 0 && !isLoadingMohallahs && !memberForm.getValues("mohallahId")) }>
-                        {memberForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {editingMember ? "Save Changes" : "Add Member"}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
+                      {watchedRole && watchedRole !== 'user' && (
+                        <FormField
+                          control={memberForm.control}
+                          name="pageRights"
+                          render={({ field }) => (
+                            <FormItem className="grid grid-cols-1 items-start gap-x-4 pt-2">
+                              <FormLabel className="text-left col-span-4 font-semibold mb-1">Page Access Rights</FormLabel>
+                              <FormDescription className="col-span-4 text-xs mb-2">
+                                Select specific pages this member can access. If none are selected, access is based on the default permissions for their role.
+                              </FormDescription>
+                              <div className="col-span-4 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 p-2 border rounded-md max-h-48 overflow-y-auto">
+                                {AVAILABLE_PAGE_RIGHTS.map((pageRight) => (
+                                  <FormField
+                                    key={pageRight.id}
+                                    control={memberForm.control}
+                                    name="pageRights"
+                                    render={({ field: pageRightField }) => (
+                                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                        <FormControl>
+                                          <Checkbox
+                                            checked={pageRightField.value?.includes(pageRight.path)}
+                                            onCheckedChange={(checked) => {
+                                              return checked
+                                                ? pageRightField.onChange([...(pageRightField.value || []), pageRight.path])
+                                                : pageRightField.onChange(
+                                                  (pageRightField.value || []).filter(
+                                                      (value) => value !== pageRight.path
+                                                    )
+                                                  );
+                                            }}
+                                          />
+                                        </FormControl>
+                                        <div className="space-y-1 leading-none">
+                                          <FormLabel className="font-normal text-sm">
+                                            {pageRight.label}
+                                          </FormLabel>
+                                          {pageRight.description && (
+                                            <FormDescription className="text-xs">
+                                              {pageRight.description}
+                                            </FormDescription>
+                                          )}
+                                        </div>
+                                      </FormItem>
+                                    )}
+                                  />
+                                ))}
+                              </div>
+                              <FormMessage className="col-span-4 text-xs" />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+
+                      <DialogFooter className="pt-4">
+                        <Button type="button" variant="outline" onClick={() => setIsMemberDialogOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={memberForm.formState.isSubmitting || isLoadingMohallahs || (mohallahs.length === 0 && !isLoadingMohallahs && !memberForm.getValues("mohallahId")) }>
+                          {memberForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {editingMember ? "Save Changes" : "Add Member"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
+          <Separator />
         </CardHeader>
         <CardContent>
           {fetchError && (
-             <Alert variant="destructive" className="mb-4">
+            <Alert variant="destructive" className="mb-4">
               <AlertTriangle className="h-4 w-4" />
               <ShadAlertTitle>Data Fetch Error</ShadAlertTitle>
               <ShadAlertDescription>{fetchError}</ShadAlertDescription>

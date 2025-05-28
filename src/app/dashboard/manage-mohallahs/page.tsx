@@ -125,45 +125,47 @@ export default function ManageMohallahsPage() {
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <CardTitle className="flex items-center"><Home className="mr-2 h-5 w-5 text-primary" />Manage Mohallahs</CardTitle>
-            <Separator className="my-2" />
-            <CardDescription>Add, edit, or delete Mohallahs stored in Firestore. List updates in realtime.</CardDescription>
+        <CardHeader>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+            <div className="flex-grow">
+              <CardTitle className="flex items-center"><Home className="mr-2 h-5 w-5 text-primary" />Manage Mohallahs</CardTitle>
+              <CardDescription className="mt-1">Add, edit, or delete Mohallahs stored in Firestore. List updates in realtime.</CardDescription>
+            </div>
+            <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>
+              <DialogTrigger asChild>
+                <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} className="w-full md:w-auto self-start md:self-center" size="sm">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Mohallah
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>{editingMohallah ? "Edit Mohallah Name" : "Add New Mohallah"}</DialogTitle>
+                  <DialogDescription>
+                    {editingMohallah ? "Update the name of this Mohallah." : "Enter the name for the new Mohallah."}
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...mohallahForm}>
+                  <form onSubmit={mohallahForm.handleSubmit(handleMohallahFormSubmit)} className="grid gap-4 py-4">
+                    <FormField control={mohallahForm.control} name="name" render={({ field }) => (
+                      <FormItem>
+                        <ShadFormLabel htmlFor="mohallahName">Mohallah Name</ShadFormLabel>
+                        <FormControl><Input id="mohallahName" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsMohallahDialogOpen(false)}>Cancel</Button>
+                      <Button type="submit" disabled={mohallahForm.formState.isSubmitting || isLoadingMembers}>
+                          {(mohallahForm.formState.isSubmitting || isLoadingMembers) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {editingMohallah ? "Save Changes" : "Add Mohallah"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
           </div>
-          <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>
-            <DialogTrigger asChild>
-              <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} className="w-full sm:w-auto" size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add New Mohallah
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>{editingMohallah ? "Edit Mohallah Name" : "Add New Mohallah"}</DialogTitle>
-                 <DialogDescription>
-                  {editingMohallah ? "Update the name of this Mohallah." : "Enter the name for the new Mohallah."}
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...mohallahForm}>
-                <form onSubmit={mohallahForm.handleSubmit(handleMohallahFormSubmit)} className="grid gap-4 py-4">
-                  <FormField control={mohallahForm.control} name="name" render={({ field }) => (
-                    <FormItem>
-                      <ShadFormLabel htmlFor="mohallahName">Mohallah Name</ShadFormLabel>
-                      <FormControl><Input id="mohallahName" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsMohallahDialogOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={mohallahForm.formState.isSubmitting || isLoadingMembers}>
-                        {(mohallahForm.formState.isSubmitting || isLoadingMembers) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {editingMohallah ? "Save Changes" : "Add Mohallah"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+          <Separator />
         </CardHeader>
         <CardContent>
           {isLoadingMohallahs ? (

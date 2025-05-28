@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { MiqaatCard } from "@/components/dashboard/miqaat-card";
 import type { Miqaat } from "@/types";
-import { PlusCircle, Search, Loader2 } from "lucide-react";
+import { PlusCircle, Search, Loader2, CalendarDays } from "lucide-react"; // Added CalendarDays
 import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -151,135 +151,137 @@ export default function MiqaatManagementPage() {
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <CardTitle>Manage Miqaats</CardTitle>
-            <Separator className="my-2" />
-            <CardDescription>Create, view, and manage all Miqaats from Firestore. List updates in realtime.</CardDescription>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingMiqaat(null); }}>
-            <DialogTrigger asChild>
-              <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}} size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add New Miqaat
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[525px]">
-              <DialogHeader>
-                <DialogTitle>{editingMiqaat ? "Edit Miqaat" : "Create New Miqaat"}</DialogTitle>
-                <DialogDescription>
-                  {editingMiqaat ? "Update the details of the Miqaat." : "Fill in the details for the new Miqaat."}
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleFormSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-                  <FormField control={form.control} name="name" render={({ field }) => (
-                    <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                      <ShadFormLabel htmlFor="name" className="text-right">Name</ShadFormLabel>
-                      <FormControl className="col-span-3">
-                        <Input id="name" {...field} />
-                      </FormControl>
-                      <FormMessage className="col-start-2 col-span-3 text-xs" />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="location" render={({ field }) => (
-                    <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                      <ShadFormLabel htmlFor="location" className="text-right">Location</ShadFormLabel>
-                      <FormControl className="col-span-3">
-                        <Input id="location" placeholder="Optional" {...field} />
-                      </FormControl>
-                      <FormMessage className="col-start-2 col-span-3 text-xs" />
-                    </FormItem>
-                  )} />
-                   <FormField control={form.control} name="startTime" render={({ field }) => (
-                    <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                      <ShadFormLabel htmlFor="startTime" className="text-right">Start Time</ShadFormLabel>
-                      <FormControl className="col-span-3">
-                        <Input id="startTime" type="datetime-local" {...field} />
-                      </FormControl>
-                      <FormMessage className="col-start-2 col-span-3 text-xs" />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="endTime" render={({ field }) => (
-                    <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                      <ShadFormLabel htmlFor="endTime" className="text-right">End Time</ShadFormLabel>
-                      <FormControl className="col-span-3">
-                        <Input id="endTime" type="datetime-local" {...field} />
-                      </FormControl>
-                      <FormMessage className="col-start-2 col-span-3 text-xs" />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="reportingTime" render={({ field }) => (
-                    <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                      <ShadFormLabel htmlFor="reportingTime" className="text-right">Reporting Time</ShadFormLabel>
-                      <FormControl className="col-span-3">
-                        <Input id="reportingTime" type="datetime-local" {...field} value={field.value || ""} />
-                      </FormControl>
-                       <FormDescription className="col-start-2 col-span-3 text-xs">Optional. Leave blank if not applicable.</FormDescription>
-                      <FormMessage className="col-start-2 col-span-3 text-xs" />
-                    </FormItem>
-                  )} />
-                  
-                  <FormField
-                    control={form.control}
-                    name="teams"
-                    render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-start gap-x-4">
-                        <ShadFormLabel className="text-right pt-2 col-span-1">Teams</ShadFormLabel>
-                        <div className="col-span-3 space-y-1">
-                          <div className="rounded-md border p-3 min-h-[60px] max-h-40 overflow-y-auto space-y-2 bg-background">
-                            {isLoadingTeams ? (
-                              <p className="text-sm text-muted-foreground">Loading teams...</p>
-                            ) : availableTeams.length === 0 ? (
-                              <p className="text-sm text-muted-foreground">No teams found in user profiles.</p>
-                            ) : (
-                              availableTeams.map((teamName) => (
-                                <div key={teamName} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`team-checkbox-${teamName}`}
-                                    checked={field.value?.includes(teamName)}
-                                    onCheckedChange={(checked) => {
-                                      const currentTeams = Array.isArray(field.value) ? field.value : [];
-                                      if (checked) {
-                                        field.onChange([...currentTeams, teamName]);
-                                      } else {
-                                        field.onChange(currentTeams.filter((value) => value !== teamName));
-                                      }
-                                    }}
-                                  />
-                                  <Label htmlFor={`team-checkbox-${teamName}`} className="font-normal text-sm">
-                                    {teamName}
-                                  </Label>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                          <FormDescription className="text-xs">Select teams associated with this Miqaat.</FormDescription>
-                          <FormMessage className="text-xs" />
-                        </div>
+        <CardHeader>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+            <div className="flex-grow">
+              <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-primary"/>Manage Miqaats</CardTitle>
+              <CardDescription className="mt-1">Create, view, and manage all Miqaats from Firestore. List updates in realtime.</CardDescription>
+            </div>
+            <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingMiqaat(null); }}>
+              <DialogTrigger asChild>
+                <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}} size="sm" className="w-full md:w-auto self-start md:self-center">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Miqaat
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[525px]">
+                <DialogHeader>
+                  <DialogTitle>{editingMiqaat ? "Edit Miqaat" : "Create New Miqaat"}</DialogTitle>
+                  <DialogDescription>
+                    {editingMiqaat ? "Update the details of the Miqaat." : "Fill in the details for the new Miqaat."}
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleFormSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+                    <FormField control={form.control} name="name" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                        <ShadFormLabel htmlFor="name" className="text-right">Name</ShadFormLabel>
+                        <FormControl className="col-span-3">
+                          <Input id="name" {...field} />
+                        </FormControl>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
                       </FormItem>
-                    )}
-                  />
+                    )} />
+                    <FormField control={form.control} name="location" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                        <ShadFormLabel htmlFor="location" className="text-right">Location</ShadFormLabel>
+                        <FormControl className="col-span-3">
+                          <Input id="location" placeholder="Optional" {...field} />
+                        </FormControl>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="startTime" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                        <ShadFormLabel htmlFor="startTime" className="text-right">Start Time</ShadFormLabel>
+                        <FormControl className="col-span-3">
+                          <Input id="startTime" type="datetime-local" {...field} />
+                        </FormControl>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="endTime" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                        <ShadFormLabel htmlFor="endTime" className="text-right">End Time</ShadFormLabel>
+                        <FormControl className="col-span-3">
+                          <Input id="endTime" type="datetime-local" {...field} />
+                        </FormControl>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="reportingTime" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                        <ShadFormLabel htmlFor="reportingTime" className="text-right">Reporting Time</ShadFormLabel>
+                        <FormControl className="col-span-3">
+                          <Input id="reportingTime" type="datetime-local" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormDescription className="col-start-2 col-span-3 text-xs">Optional. Leave blank if not applicable.</FormDescription>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
+                      </FormItem>
+                    )} />
+                    
+                    <FormField
+                      control={form.control}
+                      name="teams"
+                      render={({ field }) => (
+                        <FormItem className="grid grid-cols-4 items-start gap-x-4">
+                          <ShadFormLabel className="text-right pt-2 col-span-1">Teams</ShadFormLabel>
+                          <div className="col-span-3 space-y-1">
+                            <div className="rounded-md border p-3 min-h-[60px] max-h-40 overflow-y-auto space-y-2 bg-background">
+                              {isLoadingTeams ? (
+                                <p className="text-sm text-muted-foreground">Loading teams...</p>
+                              ) : availableTeams.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">No teams found in user profiles.</p>
+                              ) : (
+                                availableTeams.map((teamName) => (
+                                  <div key={teamName} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`team-checkbox-${teamName}`}
+                                      checked={field.value?.includes(teamName)}
+                                      onCheckedChange={(checked) => {
+                                        const currentTeams = Array.isArray(field.value) ? field.value : [];
+                                        if (checked) {
+                                          field.onChange([...currentTeams, teamName]);
+                                        } else {
+                                          field.onChange(currentTeams.filter((value) => value !== teamName));
+                                        }
+                                      }}
+                                    />
+                                    <Label htmlFor={`team-checkbox-${teamName}`} className="font-normal text-sm">
+                                      {teamName}
+                                    </Label>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                            <FormDescription className="text-xs">Select teams associated with this Miqaat.</FormDescription>
+                            <FormMessage className="text-xs" />
+                          </div>
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField control={form.control} name="barcodeData" render={({ field }) => (
-                    <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                      <ShadFormLabel htmlFor="barcodeData" className="text-right">Barcode Data</ShadFormLabel>
-                      <FormControl className="col-span-3">
-                        <Input id="barcodeData" placeholder="Optional (auto-generates if empty)" {...field} />
-                      </FormControl>
-                      <FormMessage className="col-start-2 col-span-3 text-xs" />
-                    </FormItem>
-                  )} />
-                  <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={form.formState.isSubmitting || isLoadingTeams}>
-                      {(form.formState.isSubmitting || isLoadingTeams) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {editingMiqaat ? "Save Changes" : "Create Miqaat"}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
+                    <FormField control={form.control} name="barcodeData" render={({ field }) => (
+                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                        <ShadFormLabel htmlFor="barcodeData" className="text-right">Barcode Data</ShadFormLabel>
+                        <FormControl className="col-span-3">
+                          <Input id="barcodeData" placeholder="Optional (auto-generates if empty)" {...field} />
+                        </FormControl>
+                        <FormMessage className="col-start-2 col-span-3 text-xs" />
+                      </FormItem>
+                    )} />
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                      <Button type="submit" disabled={form.formState.isSubmitting || isLoadingTeams}>
+                        {(form.formState.isSubmitting || isLoadingTeams) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {editingMiqaat ? "Save Changes" : "Create Miqaat"}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
+          <Separator />
         </CardHeader>
         <CardContent>
           <div className="mb-4">
