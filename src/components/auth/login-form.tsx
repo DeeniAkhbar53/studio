@@ -18,12 +18,16 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { KeyRound, Loader2 } from "lucide-react";
+import type { UserRole } from "@/types";
 
 const loginSchema = z.object({
   identityId: z.string().min(5, { message: "ID must be at least 5 characters." }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+const SUPERADMIN_TEMP_ITS_ID = "50487028";
+const SUPERADMIN_TEMP_NAME = "Shabbir bhai Murtaza bhai Shakir";
 
 export function LoginForm() {
   const router = useRouter();
@@ -39,37 +43,62 @@ export function LoginForm() {
     form.setValue('identityId', data.identityId.trim()); // Trim input
     const { identityId } = data;
 
-    try {
-      const user = await getUserByItsOrBgkId(identityId);
+    let userRole: UserRole | null = null;
+    let userName: string | null = null;
+    let userItsId: string | null = null;
 
-      if (user && user.role) {
-        if (typeof window !== "undefined") {
-          localStorage.setItem('userRole', user.role);
-          localStorage.setItem('userName', user.name);
-          localStorage.setItem('userItsId', user.itsId); // Store itsId
+    form.formState.isSubmitting; // Access to ensure reactivity if needed, though direct set below
+
+    if (identityId === SUPERADMIN_TEMP_ITS_ID) {
+      // Temporary superadmin login
+      userRole = 'superadmin';
+      userName = SUPERADMIN_TEMP_NAME;
+      userItsId = SUPERADMIN_TEMP_ITS_ID;
+      
+      toast({
+        title: "Temporary Admin Login",
+        description: `Welcome, ${userName}! Role: Super Admin (Temporary).`,
+      });
+
+    } else {
+      // Regular database lookup
+      try {
+        const user = await getUserByItsOrBgkId(identityId);
+
+        if (user && user.role) {
+          userRole = user.role;
+          userName = user.name;
+          userItsId = user.itsId;
         }
+      } catch (error) {
+        console.error("Login error during DB lookup:", error);
+        // Error will be handled by the general "Login Failed" toast below if user remains null
+      }
+    }
 
+    if (userRole && userName && userItsId) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem('userRole', userRole);
+        localStorage.setItem('userName', userName);
+        localStorage.setItem('userItsId', userItsId);
+      }
+
+      if (identityId !== SUPERADMIN_TEMP_ITS_ID) { // Avoid double toast for temp admin
         toast({
           title: "Login Successful",
-          description: `Welcome, ${user.name}! Role: ${user.role.charAt(0).toUpperCase() + user.role.slice(1).replace(/-/g, ' ')}`,
-        });
-        
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 1000);
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Login Failed",
-          description: "Invalid ID or user not found in the system.",
+          description: `Welcome, ${userName}! Role: ${userRole.charAt(0).toUpperCase() + userRole.slice(1).replace(/-/g, ' ')}`,
         });
       }
-    } catch (error) {
-      console.error("Login error:", error);
+      
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1000);
+
+    } else {
       toast({
         variant: "destructive",
-        title: "Login Error",
-        description: "An unexpected error occurred. Please try again.",
+        title: "Login Failed",
+        description: "Invalid ID or user not found.",
       });
     }
   }
