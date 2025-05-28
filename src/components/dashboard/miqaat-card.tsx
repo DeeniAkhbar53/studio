@@ -4,8 +4,8 @@
 import type { Miqaat } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Users, Barcode, Edit, Trash2 } from "lucide-react";
-import { QRCodeSVG } from 'qrcode.react'; // Import QRCodeSVG
+import { CalendarDays, Users, Barcode, Edit, Trash2, Clock } from "lucide-react"; // Added Clock
+import { QRCodeSVG } from 'qrcode.react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +20,7 @@ import {
 import { useState } from "react";
 
 interface MiqaatCardProps {
-  miqaat: Miqaat;
+  miqaat: Miqaat; // Use the full Miqaat type
   onEdit: (miqaat: Miqaat) => void;
   onDelete: (miqaatId: string) => void;
 }
@@ -28,32 +28,48 @@ interface MiqaatCardProps {
 export function MiqaatCard({ miqaat, onEdit, onDelete }: MiqaatCardProps) {
   const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
 
-  const formattedStartDate = new Date(miqaat.startTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
-  const formattedEndDate = new Date(miqaat.endTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+  };
+
+  const formattedStartDate = formatDate(miqaat.startTime);
+  const formattedEndDate = formatDate(miqaat.endTime);
+  const formattedReportingTime = formatDate(miqaat.reportingTime);
 
   return (
     <>
-      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col">
+      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
         <CardHeader>
-          <CardTitle className="text-xl">{miqaat.name}</CardTitle>
+          <CardTitle className="text-lg font-semibold">{miqaat.name}</CardTitle>
           <CardDescription>{miqaat.location || "Location not specified"}</CardDescription>
         </CardHeader>
-        <CardContent className="flex-grow space-y-3">
-          <div className="flex items-center text-sm text-muted-foreground">
-            <CalendarDays className="mr-2 h-4 w-4 text-primary" />
-            <span>{formattedStartDate} - {formattedEndDate}</span>
+        <CardContent className="flex-grow space-y-2 text-sm">
+          <div className="flex items-center text-muted-foreground">
+            <CalendarDays className="mr-2 h-4 w-4 text-primary shrink-0" />
+            <span>Start: {formattedStartDate}</span>
           </div>
-          <div className="flex items-center text-sm text-muted-foreground">
-            <Users className="mr-2 h-4 w-4 text-primary" />
-            <span>Teams: {miqaat.teams.join(", ") || "N/A"}</span>
+          <div className="flex items-center text-muted-foreground">
+            <CalendarDays className="mr-2 h-4 w-4 text-primary shrink-0" />
+            <span>End: {formattedEndDate}</span>
+          </div>
+          {miqaat.reportingTime && (
+            <div className="flex items-center text-muted-foreground">
+              <Clock className="mr-2 h-4 w-4 text-primary shrink-0" />
+              <span>Reporting: {formattedReportingTime}</span>
+            </div>
+          )}
+          <div className="flex items-center text-muted-foreground">
+            <Users className="mr-2 h-4 w-4 text-primary shrink-0" />
+            <span>Teams: {miqaat.teams && miqaat.teams.length > 0 ? miqaat.teams.join(", ") : "All"}</span>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-between items-center border-t pt-4 mt-auto">
+        <CardFooter className="flex flex-wrap gap-2 justify-between items-center border-t pt-4 mt-auto">
           <Button variant="outline" size="sm" onClick={() => setShowBarcodeDialog(true)} disabled={!(miqaat.barcodeData || miqaat.id)}>
             <Barcode className="mr-2 h-4 w-4" />
             Barcode
           </Button>
-          <div className="space-x-2">
+          <div className="flex gap-1">
             <Button variant="ghost" size="icon" onClick={() => onEdit(miqaat)} aria-label="Edit Miqaat">
               <Edit className="h-4 w-4" />
             </Button>
@@ -82,7 +98,6 @@ export function MiqaatCard({ miqaat, onEdit, onDelete }: MiqaatCardProps) {
         </CardFooter>
       </Card>
 
-      {/* Barcode Dialog */}
       <AlertDialog open={showBarcodeDialog} onOpenChange={setShowBarcodeDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -93,12 +108,12 @@ export function MiqaatCard({ miqaat, onEdit, onDelete }: MiqaatCardProps) {
           </AlertDialogHeader>
           <div className="flex justify-center items-center my-4 p-4 bg-white rounded-lg shadow-inner">
             {(miqaat.barcodeData || miqaat.id) ? (
-              <QRCodeSVG 
-                value={miqaat.barcodeData || miqaat.id} 
-                size={200} // Adjust size as needed
+              <QRCodeSVG
+                value={miqaat.barcodeData || miqaat.id}
+                size={200}
                 bgColor={"#ffffff"}
                 fgColor={"#000000"}
-                level={"Q"} // Error correction level
+                level={"Q"}
               />
             ) : (
               <p className="text-muted-foreground">Barcode data not available.</p>

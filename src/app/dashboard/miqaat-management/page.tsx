@@ -25,6 +25,8 @@ const miqaatSchema = z.object({
   location: z.string().optional(),
   startTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid start date" }),
   endTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid end date" }),
+  reportingTime: z.string().optional().nullable()
+    .refine(val => !val || !isNaN(Date.parse(val)), { message: "Invalid reporting date if provided" }),
   teams: z.array(z.string()).optional().default([]),
   barcodeData: z.string().optional(),
 });
@@ -32,13 +34,13 @@ const miqaatSchema = z.object({
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
 
 export default function MiqaatManagementPage() {
-  const [miqaats, setMiqaats] = useState<Miqaat[]>([]);
+  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [availableTeams, setAvailableTeams] = useState<string[]>([]);
   const [isLoadingTeams, setIsLoadingTeams] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMiqaat, setEditingMiqaat] = useState<Miqaat | null>(null);
+  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance"> | null>(null);
   const { toast } = useToast();
 
   const form = useForm<MiqaatFormValues>({
@@ -48,6 +50,7 @@ export default function MiqaatManagementPage() {
       location: "",
       startTime: "",
       endTime: "",
+      reportingTime: "",
       teams: [],
       barcodeData: "",
     },
@@ -79,13 +82,14 @@ export default function MiqaatManagementPage() {
       form.reset({
         name: editingMiqaat.name,
         location: editingMiqaat.location || "",
-        startTime: new Date(editingMiqaat.startTime).toISOString().substring(0, 16),
-        endTime: new Date(editingMiqaat.endTime).toISOString().substring(0, 16),
+        startTime: editingMiqaat.startTime ? new Date(editingMiqaat.startTime).toISOString().substring(0, 16) : "",
+        endTime: editingMiqaat.endTime ? new Date(editingMiqaat.endTime).toISOString().substring(0, 16) : "",
+        reportingTime: editingMiqaat.reportingTime ? new Date(editingMiqaat.reportingTime).toISOString().substring(0, 16) : "",
         teams: editingMiqaat.teams || [],
         barcodeData: editingMiqaat.barcodeData || "",
       });
     } else {
-      form.reset({ name: "", location: "", startTime: "", endTime: "", teams: [], barcodeData: "" });
+      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", teams: [], barcodeData: "" });
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
@@ -95,7 +99,8 @@ export default function MiqaatManagementPage() {
       location: values.location || undefined,
       startTime: new Date(values.startTime).toISOString(),
       endTime: new Date(values.endTime).toISOString(),
-      teams: values.teams, 
+      reportingTime: values.reportingTime ? new Date(values.reportingTime).toISOString() : undefined,
+      teams: values.teams || [],
       barcodeData: values.barcodeData || undefined,
     };
     
@@ -118,7 +123,7 @@ export default function MiqaatManagementPage() {
     }
   };
 
-  const handleEdit = (miqaat: Miqaat) => {
+  const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance">) => {
     setEditingMiqaat(miqaat);
     setIsDialogOpen(true);
   };
@@ -142,7 +147,7 @@ export default function MiqaatManagementPage() {
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <CardTitle>Manage Miqaats</CardTitle>
             <Separator className="my-2" />
@@ -195,6 +200,15 @@ export default function MiqaatManagementPage() {
                       <ShadFormLabel htmlFor="endTime" className="text-right">End Time</ShadFormLabel>
                       <FormControl className="col-span-3">
                         <Input id="endTime" type="datetime-local" {...field} />
+                      </FormControl>
+                      <FormMessage className="col-start-2 col-span-3 text-xs" />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="reportingTime" render={({ field }) => (
+                    <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                      <ShadFormLabel htmlFor="reportingTime" className="text-right">Reporting Time</ShadFormLabel>
+                      <FormControl className="col-span-3">
+                        <Input id="reportingTime" type="datetime-local" {...field} placeholder="Optional" />
                       </FormControl>
                       <FormMessage className="col-start-2 col-span-3 text-xs" />
                     </FormItem>
@@ -269,7 +283,7 @@ export default function MiqaatManagementPage() {
               <Input
                 type="search"
                 placeholder="Search Miqaats by name or location..."
-                className="pl-8 w-full md:w-1/3"
+                className="pl-8 w-full md:w-1/2 lg:w-1/3"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -281,9 +295,9 @@ export default function MiqaatManagementPage() {
                 <p className="ml-2 text-muted-foreground">Loading Miqaats...</p>
             </div>
           ) : filteredMiqaats.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredMiqaats.map((miqaat) => (
-                <MiqaatCard key={miqaat.id} miqaat={miqaat} onEdit={handleEdit} onDelete={handleDelete} />
+                <MiqaatCard key={miqaat.id} miqaat={miqaat as Miqaat} onEdit={handleEdit} onDelete={handleDelete} />
               ))}
             </div>
           ) : (

@@ -7,24 +7,33 @@ import type { Miqaat, MiqaatAttendanceEntryItem } from '@/types';
 
 const miqaatsCollectionRef = collection(db, 'miqaats');
 
-export const getMiqaats = async (): Promise<Miqaat[]> => {
+export const getMiqaats = async (): Promise<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance">[]> => {
   try {
     const q = query(miqaatsCollectionRef, orderBy('startTime', 'desc'));
     const data = await getDocs(q);
     return data.docs.map((docSnapshot) => {
       const miqaatData = docSnapshot.data();
-      const miqaat: Miqaat = {
+      // Ensure all date fields are converted to ISO strings if they are Timestamps
+      const convertTimestampToString = (timestampField: any): string | undefined => {
+        if (timestampField instanceof Timestamp) {
+          return timestampField.toDate().toISOString();
+        }
+        return timestampField; // Assumes it's already a string or undefined
+      };
+
+      const miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "teams" | "location" | "barcodeData" | "attendance"> = {
         id: docSnapshot.id,
         name: miqaatData.name,
-        startTime: miqaatData.startTime, 
-        endTime: miqaatData.endTime,     
+        startTime: convertTimestampToString(miqaatData.startTime)!, // startTime should always exist
+        endTime: convertTimestampToString(miqaatData.endTime)!,   // endTime should always exist
+        reportingTime: convertTimestampToString(miqaatData.reportingTime),
         teams: Array.isArray(miqaatData.teams) ? miqaatData.teams : [],
         barcodeData: miqaatData.barcodeData,
         location: miqaatData.location,
-        createdAt: miqaatData.createdAt instanceof Timestamp ? miqaatData.createdAt.toDate().toISOString() : undefined,
-        attendance: Array.isArray(miqaatData.attendance) ? miqaatData.attendance.map(att => ({
+        // createdAt: convertTimestampToString(miqaatData.createdAt), // Not explicitly requested for return Pick type
+        attendance: Array.isArray(miqaatData.attendance) ? miqaatData.attendance.map((att: any) => ({
             ...att,
-            markedAt: att.markedAt instanceof Timestamp ? att.markedAt.toDate().toISOString() : att.markedAt
+            markedAt: convertTimestampToString(att.markedAt) || new Date().toISOString() // ensure markedAt is string
         })) : [],
       };
       return miqaat;
@@ -45,21 +54,22 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
         attendance: [], // Initialize with an empty attendance array
         createdAt: serverTimestamp(),
     };
+    if (miqaatData.reportingTime) {
+        payload.reportingTime = miqaatData.reportingTime;
+    }
     if (!payload.barcodeData) {
         // Generate a unique ID for barcodeData if not provided
         payload.barcodeData = `MIQAAT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     }
 
     const docRef = await addDoc(miqaatsCollectionRef, payload);
-    // Construct the returned Miqaat object, ensuring createdAt is handled correctly for client components if needed immediately
-    // For now, we'll return based on input data and generated ID/barcode, as createdAt would be a Timestamp
     return {
       ...miqaatData,
       id: docRef.id,
       barcodeData: payload.barcodeData,
-      attendance: [], // Return with empty attendance array
-      // createdAt: new Date().toISOString(), // Or fetch the doc again to get the server timestamp converted
-    } as Miqaat; // Cast as Miqaat, acknowledging createdAt might be undefined if not fetched back
+      attendance: [],
+      // createdAt will be a server timestamp, not directly usable as string here without re-fetch
+    } as Miqaat;
   } catch (error) {
     console.error("Error adding miqaat: ", error);
     throw error;
@@ -72,13 +82,18 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
   try {
     const miqaatDoc = doc(db, 'miqaats', miqaatId);
     const updatePayload: any = { ...miqaatData };
+
     if (updatePayload.teams && !Array.isArray(updatePayload.teams)) {
-        updatePayload.teams = []; // Ensure teams is always an array or handle as per your logic
+        updatePayload.teams = [];
     }
-    // Prevent updating fields that should not be directly changed by this function
+     if (updatePayload.reportingTime === "") { // Handle empty string for optional field
+      updatePayload.reportingTime = null; // or delete updatePayload.reportingTime;
+    }
+
+
     delete updatePayload.createdAt;
     delete updatePayload.id;
-    delete updatePayload.attendance; // Attendance is managed by a separate function
+    delete updatePayload.attendance;
 
     await updateDoc(miqaatDoc, updatePayload);
   } catch (error) {
@@ -101,9 +116,8 @@ export const deleteMiqaat = async (miqaatId: string): Promise<void> => {
 export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAttendanceEntryItem): Promise<void> => {
   try {
     const miqaatDocRef = doc(db, 'miqaats', miqaatId);
-    // Atomically add the new attendance entry to the 'attendance' array
     await updateDoc(miqaatDocRef, {
-      attendance: arrayUnion(entry) // Corrected: use arrayUnion directly
+      attendance: arrayUnion(entry)
     });
   } catch (error) {
     console.error("Error marking attendance in Miqaat document: ", error);

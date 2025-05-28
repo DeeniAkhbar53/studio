@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label } from "@/components/ui/label"; // Standard Label
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Mohallah, User, UserRole, UserDesignation } from "@/types";
@@ -37,16 +37,24 @@ const memberSchema = z.object({
 
 type MemberFormValues = z.infer<typeof memberSchema>;
 
+const roleDescriptions: Record<UserRole, string> = {
+    user: "Regular user with basic access, can scan their own attendance.",
+    "attendance-marker": "Can mark attendance for members and view reports.",
+    admin: "Can manage users, Miqaats, Mohallahs, and generate reports.",
+    superadmin: "Full access to all system features and settings.",
+};
+
+
 export default function ManageMembersPage() {
   const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
   const [members, setMembers] = useState<User[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  
+
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<User | null>(null);
-  
+
   const [isCsvImportDialogOpen, setIsCsvImportDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { toast } = useToast();
@@ -61,13 +69,12 @@ export default function ManageMembersPage() {
     defaultValues: { name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user", mohallahId: "", designation: "Member" },
   });
 
+  const watchedRole = memberForm.watch("role");
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const role = localStorage.getItem('userRole') as UserRole | null;
       setCurrentUserRole(role);
-      // If user is not superadmin, they should not see "all" mohallahs by default.
-      // This part depends on how you want to restrict non-superadmin views.
-      // For now, the filter is only visible to superadmin.
     }
   }, []);
 
@@ -76,8 +83,6 @@ export default function ManageMembersPage() {
     try {
       const fetchedMohallahs = await getMohallahs();
       setMohallahs(fetchedMohallahs);
-      // If it's not a superadmin or if no specific mohallah is selected for filter,
-      // and if the form's mohallahId isn't set, default to the first available mohallah.
       if (fetchedMohallahs.length > 0 && !memberForm.getValues("mohallahId") && selectedFilterMohallahId === 'all') {
         memberForm.setValue("mohallahId", fetchedMohallahs[0].id);
       } else if (selectedFilterMohallahId !== 'all') {
@@ -100,10 +105,10 @@ export default function ManageMembersPage() {
     } catch (error: any) {
       console.error("Failed to fetch members:", error);
       if (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && error.message.includes("index")) {
-        const specificErrorMsg = "Could not fetch all members across Mohallahs. This might be due to missing Firestore indexes for collection group queries. Please select a specific Mohallah to view and manage its members, or contact your system administrator to configure Firestore indexes (e.g., on 'itsId', 'bgkId' for the 'members' collection group).";
+        const specificErrorMsg = "Could not fetch all members. This may be due to missing Firestore indexes. Please select a specific Mohallah to view its members or configure Firestore indexes.";
         setFetchError(specificErrorMsg);
         toast({ title: "Data Fetch Warning", description: specificErrorMsg, variant: "destructive", duration: 10000 });
-        setMembers([]); // Clear members to prevent displaying stale data
+        setMembers([]);
       } else {
         toast({ title: "Error", description: "Failed to fetch members.", variant: "destructive" });
         setFetchError("Failed to fetch members. Please try again.");
@@ -118,8 +123,6 @@ export default function ManageMembersPage() {
   }, [fetchAndSetMohallahs]);
 
   useEffect(() => {
-    // Fetch members when role is known AND ( (superadmin AND a mohallah filter is set) OR not a superadmin )
-    // This ensures we don't try to fetch "all" if superadmin hasn't picked a filter yet, or if it fails
     if (currentUserRole) {
         fetchAndSetMembers();
     }
@@ -139,10 +142,8 @@ export default function ManageMembersPage() {
         designation: editingMember.designation || "Member",
       });
     } else {
-      // When adding a new member, default mohallahId to the selected filter if it's not "all",
-      // otherwise default to the first mohallah or empty if none.
-      const defaultMohallah = selectedFilterMohallahId !== 'all' 
-                              ? selectedFilterMohallahId 
+      const defaultMohallah = selectedFilterMohallahId !== 'all'
+                              ? selectedFilterMohallahId
                               : (mohallahs.length > 0 ? mohallahs[0].id : "");
       memberForm.reset({
         name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user",
@@ -153,7 +154,6 @@ export default function ManageMembersPage() {
   }, [editingMember, memberForm, isMemberDialogOpen, mohallahs, selectedFilterMohallahId]);
 
   const handleMemberFormSubmit = async (values: MemberFormValues) => {
-    // mohallahId from form values is the one to use for add/update action
     const targetMohallahId = values.mohallahId;
     if (!targetMohallahId) {
         toast({ title: "Error", description: "Mohallah ID is missing.", variant: "destructive" });
@@ -163,21 +163,20 @@ export default function ManageMembersPage() {
     const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string, designation?: UserDesignation } = {
       name: values.name,
       itsId: values.itsId,
-      // Pass empty strings as is; userService will handle if they should be omitted or stored
-      bgkId: values.bgkId, 
+      bgkId: values.bgkId,
       team: values.team,
       phoneNumber: values.phoneNumber,
       role: values.role as UserRole,
-      mohallahId: targetMohallahId, // Ensure this is part of the payload for denormalization
+      mohallahId: targetMohallahId,
       designation: values.designation || "Member" as UserDesignation,
     };
 
     try {
-      if (editingMember && editingMember.mohallahId) { // Ensure editingMember.mohallahId exists for update path
+      if (editingMember && editingMember.mohallahId) {
         await updateUser(editingMember.id, editingMember.mohallahId, memberPayload);
         toast({ title: "Member Updated", description: `"${values.name}" has been updated.` });
       } else {
-        await addUser(memberPayload, targetMohallahId); // Pass targetMohallahId for subcollection path
+        await addUser(memberPayload, targetMohallahId);
         toast({ title: "Member Added", description: `"${values.name}" has been added to ${getMohallahNameById(targetMohallahId)}.` });
       }
       fetchAndSetMembers();
@@ -208,25 +207,17 @@ export default function ManageMembersPage() {
       toast({ title: "Database Error", description: "Could not delete member.", variant: "destructive" });
     }
   };
-  
+
   const handleProcessCsvUpload = async () => {
     if (!selectedFile) {
         toast({ title: "No file selected", description: "Please select a CSV file to upload.", variant: "destructive" });
         return;
     }
-    
-    toast({ 
-        title: "CSV Upload Initialized", 
-        description: `File "${selectedFile.name}" selected. 
-        Conceptual Process:
-        1. Parse CSV data.
-        2. For each row: Validate fields (name, itsId, role, mohallahName, designation are key).
-        3. Convert Mohallah Name to Mohallah ID (requires fetching existing Mohallahs or ensuring CSV uses IDs).
-        4. Check if ITS ID already exists IN THE TARGET MOHALLAH using getUserByItsOrBgkId (or a similar targeted check).
-        5. If new, add user to the specified Mohallah's subcollection. If duplicate in that Mohallah, report error.
-        6. Provide summary of successful/failed imports.
-        This detailed processing is a future enhancement.`,
-        duration: 15000, // Increased duration for longer message
+
+    toast({
+        title: "CSV Upload Initialized",
+        description: `File "${selectedFile.name}" selected. Conceptual Process: Parse CSV, validate, check duplicates, add to target Mohallah. This is a future enhancement.`,
+        duration: 10000,
     });
     setIsCsvImportDialogOpen(false);
     setSelectedFile(null);
@@ -251,18 +242,13 @@ export default function ManageMembersPage() {
       link.click();
       document.body.removeChild(link);
     }
-     toast({ title: "Sample CSV Downloaded", description: "Please replace dummy data with your actual member information. MohallahName must match an existing Mohallah." });
+     toast({ title: "Sample CSV Downloaded", description: "Replace dummy data. MohallahName must match an existing Mohallah." });
   };
 
   const filteredMembers = members.filter(m => {
     const searchTermMatch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             m.itsId.includes(searchTerm) ||
                             (mohallahs.find(moh => moh.id === m.mohallahId)?.name.toLowerCase() || "").includes(searchTerm.toLowerCase());
-    
-    // Mohallah filter is already applied at data fetching level (fetchAndSetMembers)
-    // So, no additional client-side filtering by mohallahId is strictly needed here IF selectedFilterMohallahId is not 'all'.
-    // However, if 'all' was fetched and errored, 'members' could be empty.
-    // The `getUsers` service call now handles the mohallahId filter.
     return searchTermMatch;
   });
 
@@ -277,7 +263,7 @@ export default function ManageMembersPage() {
             <Separator className="my-2" />
             <CardDescription>Add, view, and manage members within Mohallahs. Data from Firestore.</CardDescription>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto">
             <Button variant="outline" onClick={downloadSampleCsv} className="w-full sm:w-auto">
                 <Download className="mr-2 h-4 w-4" /> Download Sample CSV
             </Button>
@@ -294,7 +280,7 @@ export default function ManageMembersPage() {
                 <DialogHeader>
                   <DialogTitle>{editingMember ? "Edit Member" : "Add New Member"}</DialogTitle>
                    <DialogDescription>
-                    {editingMember ? "Update the details for this member." : `Fill in the details for the new member. They will be added to Mohallah: ${getMohallahNameById(memberForm.getValues("mohallahId")) || "selected Mohallah"}.`}
+                    {editingMember ? "Update details." : `Add to Mohallah: ${getMohallahNameById(memberForm.getValues("mohallahId")) || "selected"}.`}
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...memberForm}>
@@ -338,7 +324,7 @@ export default function ManageMembersPage() {
                         <FormItem className="grid grid-cols-4 items-center gap-x-4">
                           <ShadFormLabel htmlFor="designation" className="text-right">Designation</ShadFormLabel>
                           <Select onValueChange={field.onChange} value={field.value || "Member"}>
-                            <FormControl><SelectTrigger id="designation" className="col-span-3"><SelectValue placeholder="Select a designation" /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger id="designation" className="col-span-3"><SelectValue placeholder="Select designation" /></SelectTrigger></FormControl>
                             <SelectContent>
                               <SelectItem value="Member">Member</SelectItem>
                               <SelectItem value="Vice Captain">Vice Captain</SelectItem>
@@ -352,7 +338,7 @@ export default function ManageMembersPage() {
                       <FormItem className="grid grid-cols-4 items-center gap-x-4">
                         <ShadFormLabel htmlFor="role" className="text-right">Role</ShadFormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl><SelectTrigger id="role" className="col-span-3"><SelectValue placeholder="Select a role" /></SelectTrigger></FormControl>
+                          <FormControl><SelectTrigger id="role" className="col-span-3"><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
                           <SelectContent>
                             <SelectItem value="user">User</SelectItem>
                             <SelectItem value="attendance-marker">Attendance Marker</SelectItem>
@@ -361,24 +347,29 @@ export default function ManageMembersPage() {
                           </SelectContent>
                         </Select>
                         <FormMessage className="col-start-2 col-span-3 text-xs" />
+                         {watchedRole && (
+                            <FormDescription className="col-start-2 col-span-3 text-xs mt-1">
+                                {roleDescriptions[watchedRole]}
+                            </FormDescription>
+                        )}
                       </FormItem>
                     )} />
                     <FormField control={memberForm.control} name="mohallahId" render={({ field }) => (
                       <FormItem className="grid grid-cols-4 items-center gap-x-4">
                         <ShadFormLabel htmlFor="mohallahId" className="text-right">Mohallah</ShadFormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          value={field.value} 
-                          disabled={isLoadingMohallahs || mohallahs.length === 0 || !!editingMember} // Disable if editing, mohallah change is not direct
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          disabled={isLoadingMohallahs || mohallahs.length === 0 || !!editingMember}
                         >
-                           <FormControl><SelectTrigger id="mohallahId" className="col-span-3"><SelectValue placeholder="Select a Mohallah" /></SelectTrigger></FormControl>
+                           <FormControl><SelectTrigger id="mohallahId" className="col-span-3"><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
                           <SelectContent>
                             {isLoadingMohallahs ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
-                             mohallahs.length === 0 ? <SelectItem value="no-mohallah" disabled>No Mohallahs available</SelectItem> :
+                             mohallahs.length === 0 ? <SelectItem value="no-mohallah" disabled>No Mohallahs</SelectItem> :
                              mohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
-                        {!!editingMember && <FormDescription className="col-start-2 col-span-3 text-xs">To change a member's Mohallah, delete and re-add them to the new Mohallah.</FormDescription>}
+                        {!!editingMember && <FormDescription className="col-start-2 col-span-3 text-xs">To change Mohallah, delete and re-add member.</FormDescription>}
                         <FormMessage className="col-start-2 col-span-3 text-xs" />
                       </FormItem>
                     )} />
@@ -408,7 +399,7 @@ export default function ManageMembersPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search members by name, ITS, or Mohallah..."
+                placeholder="Search members by name, ITS, Mohallah..."
                 className="pl-8 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -416,17 +407,16 @@ export default function ManageMembersPage() {
             </div>
             {currentUserRole === 'superadmin' && (
               <div className="w-full sm:w-auto sm:min-w-[200px]">
-                <Select 
-                    value={selectedFilterMohallahId} 
+                <Select
+                    value={selectedFilterMohallahId}
                     onValueChange={(value) => {
                         setSelectedFilterMohallahId(value);
-                        // If a specific mohallah is selected for filtering, update the form's default mohallahId for new members
                         if (value !== 'all') {
                             memberForm.setValue("mohallahId", value);
                         } else if (mohallahs.length > 0) {
-                            memberForm.setValue("mohallahId", mohallahs[0].id); // Or clear it, or set to first
+                            memberForm.setValue("mohallahId", mohallahs[0].id);
                         }
-                    }} 
+                    }}
                     disabled={isLoadingMohallahs}
                 >
                   <SelectTrigger>
@@ -468,7 +458,7 @@ export default function ManageMembersPage() {
                   <TableRow key={member.id}>
                     <TableCell>
                       <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
-                        <AvatarImage src={member.avatarUrl || `https://placehold.co/40x40.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person" />
+                        <AvatarImage src={member.avatarUrl || `https://placehold.co/40x40.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
                         <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
                       </Avatar>
                     </TableCell>
@@ -492,7 +482,7 @@ export default function ManageMembersPage() {
                           <AlertHeader>
                             <AlertTitle>Are you sure?</AlertTitle>
                             <AlertDesc>
-                              This action cannot be undone. This will permanently delete the member "{member.name}".
+                              This action cannot be undone. This will permanently delete "{member.name}".
                             </AlertDesc>
                           </AlertHeader>
                           <AlertFooter>
@@ -508,8 +498,8 @@ export default function ManageMembersPage() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center h-24">
-                      No members found { (searchTerm || (selectedFilterMohallahId && selectedFilterMohallahId !=='all' && !fetchError)) && "matching your criteria"}.
-                      {fetchError && selectedFilterMohallahId === 'all' && "Select a specific Mohallah to view members."}
+                      No members found { (searchTerm || (selectedFilterMohallahId && selectedFilterMohallahId !=='all' && !fetchError)) && "matching criteria"}.
+                      {fetchError && selectedFilterMohallahId === 'all' && "Select a specific Mohallah."}
                     </TableCell>
                   </TableRow>
                 )}
@@ -520,7 +510,7 @@ export default function ManageMembersPage() {
         </CardContent>
          <CardFooter>
             <p className="text-xs text-muted-foreground">
-              Total Members Displayed: {filteredMembers.length} / { (selectedFilterMohallahId === 'all' && !fetchError) ? members.length : (filteredMembers.length > 0 ? filteredMembers.length : members.length) }
+              Total Displayed: {filteredMembers.length} / { (selectedFilterMohallahId === 'all' && !fetchError) ? members.length : (filteredMembers.length > 0 ? filteredMembers.length : members.length) }
             </p>
         </CardFooter>
       </Card>
@@ -530,7 +520,7 @@ export default function ManageMembersPage() {
           <DialogHeader>
             <DialogTitle>Import Members via CSV</DialogTitle>
             <DialogDescription>
-              Select a CSV file with member data. Expected columns: `name`, `itsId`, `bgkId` (optional), `team` (optional), `phoneNumber` (optional), `role` ('user', 'admin', 'superadmin', or 'attendance-marker'), `mohallahName` (must match an existing Mohallah name), `designation` ('Captain', 'Vice Captain', 'Member', optional). Members will be added to the Mohallah specified in the CSV.
+              Select CSV file. Columns: `name`, `itsId`, `bgkId`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`. MohallahName must exist.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">

@@ -9,7 +9,7 @@ export type User = {
   name: string;
   team?: string;
   phoneNumber?: string;
-  mohallahId?: string;
+  mohallahId?: string; // Should be the ID of the Mohallah document
   role: UserRole;
   avatarUrl?: string;
   designation?: UserDesignation;
@@ -28,6 +28,7 @@ export type Miqaat = {
   name: string;
   startTime: string; // ISO Date string from datetime-local input
   endTime: string; // ISO Date string from datetime-local input
+  reportingTime?: string; // ISO Date string from datetime-local input
   teams: string[];
   barcodeData?: string;
   location?: string;
@@ -35,15 +36,15 @@ export type Miqaat = {
   attendance?: MiqaatAttendanceEntryItem[]; // Array of attendance entries for this Miqaat
 };
 
-// This type is primarily for UI/reporting, mapping data from MiqaatAttendanceEntryItem
+// This type is primarily for UI/reporting, mapping data from MiqaatAttendanceEntryItem or direct user list
 export type AttendanceRecord = {
   id: string; // For UI keys, can be synthetic (e.g., miqaatId + userItsId + markedAt)
   miqaatId: string;
-  miqaatName: string; 
+  miqaatName: string;
   userItsId: string;
-  userName: string; 
+  userName: string;
   markedAt: string; // ISO Date string of the timestamp when marked
-  markedByItsId: string; 
+  markedByItsId: string;
 };
 
 export type Team = {
@@ -58,10 +59,11 @@ export type Mohallah = {
   name: string;
 };
 
+// Used for local display in MarkAttendancePage for current session
 export type MarkedAttendanceEntry = {
   memberItsId: string;
   memberName: string;
-  timestamp: Date; 
+  timestamp: Date;
   miqaatId: string;
   miqaatName: string;
 };
@@ -70,16 +72,16 @@ export type NotificationItem = {
   id: string;
   title: string;
   content: string;
-  createdAt: string; 
+  createdAt: string;
   read: boolean;
 };
 
 export interface ReportResultItem {
-  id: string; 
+  id: string;
   userName: string;
   userItsId: string;
-  miqaatName: string; 
-  date?: string; 
-  status: "Present" | "Absent" | "Late" | "N/A"; 
+  miqaatName: string;
+  date?: string;
+  status: "Present" | "Absent" | "Late" | "N/A";
   markedByItsId?: string;
 }

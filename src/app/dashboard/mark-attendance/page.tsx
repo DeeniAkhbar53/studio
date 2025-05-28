@@ -11,19 +11,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem } from "@/types";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
-import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService"; // Updated import
-import { CheckCircle, AlertCircle, Users, ListChecks, Loader2 } from "lucide-react";
+import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
+import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 export default function MarkAttendancePage() {
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
   const [memberIdInput, setMemberIdInput] = useState("");
-  const [markedAttendance, setMarkedAttendance] = useState<MarkedAttendanceEntry[]>([]); 
-  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "attendance">[]>([]);
+  const [markedAttendanceThisSession, setMarkedAttendanceThisSession] = useState<MarkedAttendanceEntry[]>([]);
+  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "attendance">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false); 
+  const [isProcessing, setIsProcessing] = useState(false);
   const [markerItsId, setMarkerItsId] = useState<string | null>(null);
-  
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -37,8 +37,15 @@ export default function MarkAttendancePage() {
     const fetchMiqaats = async () => {
       setIsLoadingMiqaats(true);
       try {
-        const fetchedMiqaats = await getMiqaats(); // getMiqaats now returns full Miqaat objects
-        setAvailableMiqaats(fetchedMiqaats.map(m => ({ id: m.id, name: m.name, startTime: m.startTime, attendance: m.attendance || [] })));
+        const fetchedMiqaats = await getMiqaats(); // getMiqaats now returns Pick<Miqaat, ...>
+        setAvailableMiqaats(fetchedMiqaats.map(m => ({
+          id: m.id,
+          name: m.name,
+          startTime: m.startTime,
+          endTime: m.endTime,
+          reportingTime: m.reportingTime,
+          attendance: m.attendance || []
+        })));
       } catch (error) {
         toast({ title: "Error", description: "Failed to load Miqaats.", variant: "destructive" });
         console.error("Failed to load Miqaats for attendance marking:", error);
@@ -79,7 +86,7 @@ export default function MarkAttendancePage() {
       setIsProcessing(false);
       return;
     }
-    
+
     const selectedMiqaatDetails = availableMiqaats.find(m => m.id === selectedMiqaatId);
     if (!selectedMiqaatDetails) {
         toast({ title: "Error", description: "Selected Miqaat details not found.", variant: "destructive" });
@@ -98,11 +105,11 @@ export default function MarkAttendancePage() {
         description: `${member.name} (${member.itsId}) has already been marked for ${selectedMiqaatDetails.name} in the database.`,
         variant: "default",
       });
-      setMemberIdInput(""); 
+      setMemberIdInput("");
       setIsProcessing(false);
       return;
     }
-    
+
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
         userItsId: member.itsId,
         userName: member.name,
@@ -113,30 +120,29 @@ export default function MarkAttendancePage() {
     try {
         await markAttendanceInMiqaat(selectedMiqaatDetails.id, attendanceEntryPayload);
 
-        // Update local session display
         const newSessionEntry: MarkedAttendanceEntry = {
           memberItsId: member.itsId,
           memberName: member.name,
-          timestamp: new Date(), 
+          timestamp: new Date(),
           miqaatId: selectedMiqaatDetails.id,
           miqaatName: selectedMiqaatDetails.name,
         };
-        setMarkedAttendance(prev => [newSessionEntry, ...prev]);
-        
-        // Optimistically update availableMiqaats state to reflect the new entry for checks within the same session
-        setAvailableMiqaats(prevMiqaats => 
-            prevMiqaats.map(m => 
-                m.id === selectedMiqaatId 
-                ? { ...m, attendance: [...(m.attendance || []), attendanceEntryPayload] } 
+        setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
+
+        // Optimistically update availableMiqaats state to reflect the new entry
+        setAvailableMiqaats(prevMiqaats =>
+            prevMiqaats.map(m =>
+                m.id === selectedMiqaatId
+                ? { ...m, attendance: [...(m.attendance || []), attendanceEntryPayload] }
                 : m
             )
         );
-        
+
         toast({
           title: "Attendance Marked",
           description: `${member.name} (${member.itsId}) marked present for ${selectedMiqaatDetails.name}. Record saved to database.`,
         });
-        setMemberIdInput(""); 
+        setMemberIdInput("");
     } catch (dbError) {
         console.error("Failed to save attendance to Miqaat document:", dbError);
         toast({
@@ -149,8 +155,12 @@ export default function MarkAttendancePage() {
     }
   };
 
-  const currentMiqaatAttendanceCount = availableMiqaats.find(m => m.id === selectedMiqaatId)?.attendance?.length || 0;
-  const currentSelectedMiqaatName = availableMiqaats.find(m => m.id === selectedMiqaatId)?.name || 'Selected Miqaat';
+  const currentMiqaatDetails = availableMiqaats.find(m => m.id === selectedMiqaatId);
+  const currentMiqaatAttendanceCount = currentMiqaatDetails?.attendance?.length || 0;
+  const currentSelectedMiqaatName = currentMiqaatDetails?.name || 'Selected Miqaat';
+  const currentMiqaatReportingTime = currentMiqaatDetails?.reportingTime 
+    ? new Date(currentMiqaatDetails.reportingTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+    : null;
 
   return (
     <div className="space-y-6">
@@ -164,11 +174,11 @@ export default function MarkAttendancePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="md:col-span-1 space-y-2">
               <Label htmlFor="miqaat-select">Select Miqaat</Label>
-              <Select 
+              <Select
                 onValueChange={(value) => {
                   setSelectedMiqaatId(value);
-                  setMarkedAttendance([]); 
-                }} 
+                  setMarkedAttendanceThisSession([]);
+                }}
                 value={selectedMiqaatId || undefined}
                 disabled={isLoadingMiqaats || isProcessing}
               >
@@ -196,8 +206,8 @@ export default function MarkAttendancePage() {
                 disabled={!selectedMiqaatId || isProcessing || isLoadingMiqaats}
               />
             </div>
-            <Button 
-              onClick={handleMarkAttendance} 
+            <Button
+              onClick={handleMarkAttendance}
               disabled={!selectedMiqaatId || !memberIdInput || isProcessing || isLoadingMiqaats}
               className="w-full md:w-auto"
             >
@@ -209,20 +219,26 @@ export default function MarkAttendancePage() {
                Mark Present
             </Button>
           </div>
-          
-          {selectedMiqaatId && (
+
+          {selectedMiqaatId && currentMiqaatDetails && (
             <div className="mt-6 pt-6 border-t">
-                <h3 className="text-lg font-semibold mb-2 flex items-center">
+                <h3 className="text-lg font-semibold mb-1 flex items-center">
                     <Users className="mr-2 h-5 w-5 text-primary" />
                     Attendance for: {currentSelectedMiqaatName}
                 </h3>
-                <p className="text-muted-foreground mb-1">
+                {currentMiqaatReportingTime && (
+                    <p className="text-sm text-muted-foreground mb-1 flex items-center">
+                        <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
+                        Reporting Time: {currentMiqaatReportingTime}
+                    </p>
+                )}
+                <p className="text-sm text-muted-foreground mb-1">
                     Total marked in database for this Miqaat: <span className="font-bold text-foreground">{currentMiqaatAttendanceCount}</span>
                 </p>
-                <p className="text-muted-foreground mb-4">
-                    Marked in this session (local view): <span className="font-bold text-foreground">{markedAttendance.filter(entry => entry.miqaatId === selectedMiqaatId).length}</span>
+                <p className="text-sm text-muted-foreground mb-4">
+                    Marked in this session (local view): <span className="font-bold text-foreground">{markedAttendanceThisSession.filter(entry => entry.miqaatId === selectedMiqaatId).length}</span>
                 </p>
-                {markedAttendance.filter(entry => entry.miqaatId === selectedMiqaatId).length > 0 ? (
+                {markedAttendanceThisSession.filter(entry => entry.miqaatId === selectedMiqaatId).length > 0 ? (
                     <div className="max-h-60 overflow-y-auto rounded-md border">
                         <Table>
                             <TableHeader>
@@ -233,7 +249,7 @@ export default function MarkAttendancePage() {
                             </TableRow>
                             </TableHeader>
                             <TableBody>
-                            {markedAttendance.filter(entry => entry.miqaatId === selectedMiqaatId).map((entry) => (
+                            {markedAttendanceThisSession.filter(entry => entry.miqaatId === selectedMiqaatId).map((entry) => (
                                 <TableRow key={`${entry.memberItsId}-${entry.timestamp.toISOString()}`}>
                                 <TableCell className="font-medium">{entry.memberName}</TableCell>
                                 <TableCell>{entry.memberItsId}</TableCell>
