@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -355,6 +356,22 @@ function getPayloadConfigFromPayload(
     : config[key as keyof typeof config]
 }
 
+// Export Recharts components
+const BarChart = RechartsPrimitive.BarChart;
+const Bar = RechartsPrimitive.Bar;
+const XAxis = RechartsPrimitive.XAxis;
+const YAxis = RechartsPrimitive.YAxis;
+const CartesianGrid = RechartsPrimitive.CartesianGrid;
+const ResponsiveContainer = RechartsPrimitive.ResponsiveContainer;
+const LineChart = RechartsPrimitive.LineChart;
+const Line = RechartsPrimitive.Line;
+const AreaChart = RechartsPrimitive.AreaChart;
+const Area = RechartsPrimitive.Area;
+const PieChart = RechartsPrimitive.PieChart;
+const Pie = RechartsPrimitive.Pie;
+const Cell = RechartsPrimitive.Cell;
+
+
 export {
   ChartContainer,
   ChartTooltip,
@@ -362,4 +379,18 @@ export {
   ChartLegend,
   ChartLegendContent,
   ChartStyle,
+  // Recharts components
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell
 }
