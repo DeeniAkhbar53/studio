@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Bell, LogOut, Menu, Search, UserCircle } from "lucide-react";
+import { Bell, LogOut, Menu, Search, UserCircle, Settings } from "lucide-react"; // Added Settings
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,7 +18,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { NotificationItem } from "@/types";
-import Image from "next/image"; // Added Image import
+import Image from "next/image";
 
 const NOTIFICATIONS_STORAGE_KEY = "appNotifications";
 
@@ -52,12 +52,10 @@ export function Header() {
       }
     };
 
-    checkUnread(); // Initial check
+    checkUnread(); 
     
-    // Listen for custom event from notifications page or manage notifications page
     const handleNotificationsUpdate = () => checkUnread();
     window.addEventListener('notificationsUpdated', handleNotificationsUpdate);
-    // Also listen to storage changes, as notifications might be updated in another tab/window
     window.addEventListener('storage', (event) => {
       if (event.key === NOTIFICATIONS_STORAGE_KEY) {
         checkUnread();
@@ -72,17 +70,17 @@ export function Header() {
         }
       });
     };
-  }, [pathname]); // Re-check if pathname changes, e.g., after visiting notifications page
+  }, [pathname]); 
 
 
   const handleLogout = () => {
     if (typeof window !== "undefined") {
       localStorage.removeItem('userRole');
-      // Optionally, clear notifications for logged-out user to avoid confusion if another user logs in
-      // localStorage.removeItem(NOTIFICATIONS_STORAGE_KEY); 
+      localStorage.removeItem('userName'); // Clear userName on logout
+      // localStorage.removeItem(NOTIFICATIONS_STORAGE_KEY); // Optional: Clear notifications on logout
     }
     router.push("/");
-    window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Ensure header updates after logout
+    window.dispatchEvent(new CustomEvent('notificationsUpdated')); 
   };
   
   const currentPageTitle = pageTitles[pathname] || "Dashboard";
@@ -152,7 +150,8 @@ export function Header() {
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>Profile</DropdownMenuItem>
-          <DropdownMenuItem>Settings</DropdownMenuItem>
+          {/* Placeholder for Settings link, can be implemented later */}
+          {/* <DropdownMenuItem>Settings</DropdownMenuItem> */}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />

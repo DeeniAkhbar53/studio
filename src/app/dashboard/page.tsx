@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Activity, Users, CalendarCheck, BarChartHorizontalBig, HelpCircle, ScanLine, UserCheck, BarChart3, User as UserIcon } from "lucide-react";
+import { Activity, Users, CalendarCheck, BarChartHorizontalBig, HelpCircle, ScanLine, UserCheck, BarChart3, User as UserIcon, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
@@ -16,9 +16,6 @@ const adminOverviewStats = [
   { title: "Overall Attendance", value: "85%", icon: Activity, trend: "Avg. last 7 days" },
   { title: "Pending Reports", value: "2", icon: BarChartHorizontalBig, trend: "Needs attention" },
 ];
-
-// Mock user data for welcome message - in a real app, this would come from user session
-const currentUserName = "Valued Member"; 
 
 // Mock current Miqaat for user view
 const mockCurrentMiqaat = {
@@ -66,23 +63,33 @@ function DashboardFooter() {
 
 export default function DashboardOverviewPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>("Valued Member");
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedRole = localStorage.getItem('userRole') as UserRole | null;
+      const storedName = localStorage.getItem('userName');
+      
       if (storedRole) {
         setCurrentUserRole(storedRole);
+        if (storedName) {
+          setCurrentUserName(storedName);
+        }
       } else {
         router.push('/'); // Redirect to login if no role is found
+        return; // Important to prevent further execution if redirecting
       }
+      setIsLoading(false);
     }
   }, [router]);
 
-  if (currentUserRole === null) {
+  if (isLoading) {
     return (
       <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] items-center justify-center">
-        <p>Loading user data...</p>
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Loading user data...</p>
       </div>
     );
   }
@@ -137,7 +144,7 @@ export default function DashboardOverviewPage() {
             <CardHeader>
               <CardTitle className="text-3xl font-bold text-foreground">Attendance Marker Dashboard</CardTitle>
               <CardDescription className="text-muted-foreground">
-                Manage member attendance and view reports.
+                Welcome, {currentUserName}! Manage member attendance and view reports.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -179,7 +186,7 @@ export default function DashboardOverviewPage() {
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-foreground">Admin Dashboard</CardTitle>
             <CardDescription className="text-muted-foreground">
-              Overview of system activity and management tools. Current Role: {currentUserRole}
+              Welcome, {currentUserName}! Overview of system activity and management tools. Current Role: {currentUserRole}
             </CardDescription>
           </CardHeader>
         </Card>

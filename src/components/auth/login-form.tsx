@@ -16,21 +16,14 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole } from "@/types";
-import { KeyRound } from "lucide-react";
+import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
+import { KeyRound, Loader2 } from "lucide-react";
 
 const loginSchema = z.object({
   identityId: z.string().min(5, { message: "ID must be at least 5 characters." }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
-
-const testUserRoles: { [key: string]: UserRole } = {
-  "11111111": "user",
-  "22222222": "admin",
-  "33333333": "superadmin",
-  "44444444": "attendance-marker", // New role
-};
 
 export function LoginForm() {
   const router = useRouter();
@@ -43,20 +36,41 @@ export function LoginForm() {
   });
 
   async function onSubmit(data: LoginFormValues) {
-    const role = testUserRoles[data.identityId] || 'user'; // Default to 'user' if ID not found
+    form.setValue('identityId', data.identityId.trim()); // Trim input
+    const { identityId } = data;
 
-    if (typeof window !== "undefined") {
-      localStorage.setItem('userRole', role);
+    try {
+      const user = await getUserByItsOrBgkId(identityId);
+
+      if (user && user.role) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem('userRole', user.role);
+          localStorage.setItem('userName', user.name);
+        }
+
+        toast({
+          title: "Login Successful",
+          description: `Welcome, ${user.name}! Role: ${user.role.charAt(0).toUpperCase() + user.role.slice(1).replace(/-/g, ' ')}`,
+        });
+        
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1000);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Login Failed",
+          description: "Invalid ID or user not found in the system.",
+        });
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      toast({
+        variant: "destructive",
+        title: "Login Error",
+        description: "An unexpected error occurred. Please try again.",
+      });
     }
-
-    toast({
-      title: "Login Successful",
-      description: `Welcome, ${data.identityId}! Role: ${role.charAt(0).toUpperCase() + role.slice(1)}`,
-    });
-    
-    setTimeout(() => {
-      router.push("/dashboard");
-    }, 1000);
   }
 
   return (
@@ -71,7 +85,7 @@ export function LoginForm() {
               <FormControl>
                 <div className="relative">
                   <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Enter your ID (e.g., 11111111)" {...field} className="pl-10" />
+                  <Input placeholder="Enter your ID" {...field} className="pl-10" />
                 </div>
               </FormControl>
               <FormMessage />
@@ -79,7 +93,14 @@ export function LoginForm() {
           )}
         />
         <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? "Signing In..." : "Sign In"}
+          {form.formState.isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Signing In...
+            </>
+          ) : (
+            "Sign In"
+          )}
         </Button>
       </form>
     </Form>
