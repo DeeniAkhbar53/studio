@@ -112,8 +112,10 @@ export default function DashboardOverviewPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">{mockCurrentMiqaat.details}</p>
-              <Button className="w-full" size="lg">
-                <ScanLine className="mr-2 h-5 w-5" /> Mark My Attendance / Scan Barcode
+              <Button asChild className="w-full" size="lg">
+                <Link href="/dashboard/scan-attendance">
+                  <ScanLine className="mr-2 h-5 w-5" /> Mark My Attendance / Scan Barcode
+                </Link>
               </Button>
               <p className="text-xs text-center text-muted-foreground">
                 Click the button above to open the scanner or enter details manually.

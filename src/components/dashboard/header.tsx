@@ -23,6 +23,7 @@ const pageTitles: { [key: string]: string } = {
   "/dashboard/miqaat-management": "Miqaat Management",
   "/dashboard/mohallah-management": "Mohallah Management",
   "/dashboard/reports": "Attendance Reports",
+  "/dashboard/scan-attendance": "Scan Attendance",
 };
 
 export function Header() {
