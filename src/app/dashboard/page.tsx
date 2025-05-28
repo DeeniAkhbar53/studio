@@ -109,9 +109,6 @@ export default function DashboardOverviewPage() {
             </CardContent>
           </Card>
         </div>
-        <footer className="mt-auto border-t bg-card py-4 px-6 text-sm text-muted-foreground text-center">
-           Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.
-        </footer>
       </div>
     );
   }
@@ -155,9 +152,6 @@ export default function DashboardOverviewPage() {
             </CardContent>
           </Card>
         </div>
-         <footer className="mt-auto border-t bg-card py-4 px-6 text-sm text-muted-foreground text-center">
-           Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.
-        </footer>
       </div>
     );
   }
@@ -196,11 +190,6 @@ export default function DashboardOverviewPage() {
           </div>
         )}
       </div>
-       <footer className="mt-auto border-t bg-card py-4 px-6 text-sm text-muted-foreground">
-         <div className="flex flex-row justify-between items-center">
-            <p>Designed and Managed by Shabbir Shakir &copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
-         </div>
-      </footer>
     </div>
   );
 }
