@@ -10,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Mohallah, User, UserRole, UserDesignation, PageRightConfig } from "@/types";
-import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Users as UsersIcon, Download, AlertTriangle } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Users as UsersIcon, Download, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -56,6 +56,7 @@ const AVAILABLE_PAGE_RIGHTS: PageRightConfig[] = [
   { id: 'reports', label: 'View Reports', path: '/dashboard/reports', description: 'Generate and view various attendance reports.' },
 ];
 
+const ITEMS_PER_PAGE = 10;
 
 export default function ManageMembersPage() {
   const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
@@ -76,6 +77,8 @@ export default function ManageMembersPage() {
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const [selectedFilterMohallahId, setSelectedFilterMohallahId] = useState<string>("all");
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
 
   const memberForm = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema),
@@ -108,6 +111,7 @@ export default function ManageMembersPage() {
   const fetchAndSetMembers = useCallback(async (targetMohallahIdForFetch?: string) => {
     setIsLoadingMembers(true);
     setFetchError(null);
+    setCurrentPage(1); // Reset to first page on new fetch
     try {
         const fetchedMembers = await getUsers(targetMohallahIdForFetch);
         setMembers(fetchedMembers);
@@ -121,6 +125,7 @@ export default function ManageMembersPage() {
         } else {
             toast({ title: "Error", description: "Failed to fetch members.", variant: "destructive" });
             setFetchError("Failed to fetch members. Please try again.");
+            setMembers([]);
         }
     } finally {
         setIsLoadingMembers(false);
@@ -148,7 +153,6 @@ export default function ManageMembersPage() {
       mohallahIdToFetch = selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId;
       fetchAndSetMembers(mohallahIdToFetch);
     } else {
-      // For other roles like 'user' or 'attendance-marker', who shouldn't be on this page
       setMembers([]);
       setIsLoadingMembers(false);
     }
@@ -416,12 +420,28 @@ export default function ManageMembersPage() {
      toast({ title: "Sample CSV Downloaded", description: "Replace dummy data. MohallahName must match existing. pageRights are semicolon-separated paths." });
   };
 
-  const filteredMembers = members.filter(m => {
+  const filteredMembers = useMemo(() => members.filter(m => {
     const searchTermMatch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             m.itsId.includes(searchTerm) ||
                             (mohallahs.find(moh => moh.id === m.mohallahId)?.name.toLowerCase() || "").includes(searchTerm.toLowerCase());
     return searchTermMatch;
-  });
+  }), [members, searchTerm, mohallahs]);
+
+  const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
+  const currentMembersToDisplay = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredMembers.slice(startIndex, endIndex);
+  }, [filteredMembers, currentPage]);
+
+  const handlePreviousPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  };
+
 
   const getMohallahNameById = (id?: string) => mohallahs.find(m => m.id === id)?.name || "N/A";
   
@@ -453,7 +473,7 @@ export default function ManageMembersPage() {
                   <Button variant="outline" onClick={downloadSampleCsv} size="icon" aria-label="Download Sample CSV">
                       <Download className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)} size="icon" aria-label="Import CSV" disabled={!canAddOrImport()}>
+                  <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)} size="icon" aria-label="Import Members via CSV" disabled={!canAddOrImport()}>
                     <FileUp className="h-4 w-4" />
                   </Button>
                   <Dialog open={isMemberDialogOpen} onOpenChange={(open) => { setIsMemberDialogOpen(open); if (!open) setEditingMember(null); }}>
@@ -694,7 +714,7 @@ export default function ManageMembersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredMembers.length > 0 ? filteredMembers.map((member) => (
+                {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member) => (
                   <TableRow key={member.id}>
                     <TableCell>
                       <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
@@ -753,10 +773,35 @@ export default function ManageMembersPage() {
             </div>
           )}
         </CardContent>
-         <CardFooter>
+         <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
             <p className="text-xs text-muted-foreground">
-              Total Displayed: {filteredMembers.length} / { members.length }
+              Showing {currentMembersToDisplay.length > 0 ? ((currentPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredMembers.length)} of {filteredMembers.length} members
             </p>
+            {totalPages > 1 && (
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePreviousPage}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
         </CardFooter>
       </Card>
 
@@ -801,3 +846,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    
