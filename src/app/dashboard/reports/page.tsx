@@ -6,11 +6,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChartHorizontal } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -25,6 +25,16 @@ import { getAttendanceRecordsByMiqaat, getAttendanceRecordsByUser } from "@/lib/
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
+import {
+  ChartContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 
 
 const reportSchema = z.object({
@@ -64,9 +74,11 @@ const reportSchema = z.object({
 });
 
 type ReportFormValues = z.infer<typeof reportSchema>;
+type ChartDataItem = { name: string; attendance: number };
 
 export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportResultItem[] | null>(null);
+  const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
@@ -97,6 +109,7 @@ export default function ReportsPage() {
   const onSubmit = async (values: ReportFormValues) => {
     setIsLoading(true);
     setReportData(null); 
+    setChartData(null);
     
     let generatedReportData: AttendanceRecord[] = []; 
     let reportResultItems: ReportResultItem[] = [];
@@ -130,7 +143,7 @@ export default function ReportsPage() {
         const allMiqaatDocs = await new Promise<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>((resolve) => {
             const unsubscribe = getMiqaats((data) => {
                 resolve(data);
-                unsubscribe(); // Unsubscribe after the first fetch for this one-time operation
+                unsubscribe(); 
             });
         });
 
@@ -174,11 +187,9 @@ export default function ReportsPage() {
           miqaatName: selectedMiqaat.name,
           date: new Date(selectedMiqaat.startTime).toISOString(), 
           status: "Absent",
-          
         }));
       }
 
-      
       if (values.dateRange?.from) {
         reportResultItems = reportResultItems.filter(r => r.date && new Date(r.date) >= values.dateRange!.from!);
       }
@@ -187,6 +198,23 @@ export default function ReportsPage() {
       }
       
       setReportData(reportResultItems);
+
+      if (values.reportType === "miqaat_summary" || values.reportType === "overall_activity") {
+        const attendanceByMiqaat: { [key: string]: number } = {};
+        reportResultItems.forEach(record => {
+          if (record.status === "Present") {
+            attendanceByMiqaat[record.miqaatName] = (attendanceByMiqaat[record.miqaatName] || 0) + 1;
+          }
+        });
+        const newChartData = Object.entries(attendanceByMiqaat).map(([name, attendance]) => ({
+          name,
+          attendance,
+        }));
+        setChartData(newChartData);
+      } else {
+        setChartData(null);
+      }
+
       if (reportResultItems.length > 0) {
           toast({ title: "Report Generated", description: `Your report is ready below. Found ${reportResultItems.length} record(s).` });
       } else {
@@ -221,14 +249,18 @@ export default function ReportsPage() {
     const csvString = csvRows.join('\n');
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", "attendance_report.csv");
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast({ title: "Report Exported", description: "CSV file downloaded." });
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", "attendance_report.csv");
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({ title: "Report Exported", description: "CSV file downloaded." });
+    } else {
+      toast({ title: "Export Failed", description: "Your browser does not support this feature.", variant: "destructive" });
+    }
   };
   
   const selectedMiqaatDetails = availableMiqaats.find(m => m.id === form.getValues("miqaatId"));
@@ -237,7 +269,7 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Generate Attendance Report</CardTitle>
+          <CardTitle className="flex items-center"><BarChartHorizontal className="mr-2 h-5 w-5 text-primary"/>Generate Attendance Report</CardTitle>
           <Separator className="my-2" />
           <CardDescription>Select criteria to generate a detailed attendance report from the system data.</CardDescription>
         </CardHeader>
@@ -376,7 +408,7 @@ export default function ReportsPage() {
       </Card>
 
       {reportData && (
-        <Card className="shadow-lg">
+        <Card className="shadow-lg mt-6">
           <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
             <div>
                 <CardTitle>Report Results</CardTitle>
@@ -441,8 +473,49 @@ export default function ReportsPage() {
         </Card>
       )}
 
+      {chartData && chartData.length > 0 && (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity") && (
+        <Card className="shadow-lg mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center"><BarChartHorizontal className="mr-2 h-5 w-5 text-primary"/>Attendance per Miqaat</CardTitle>
+            <Separator className="my-2" />
+            <CardDescription>
+              Visual representation of members marked present for each Miqaat in the current report.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="h-[350px] p-2 sm:p-4">
+            <ChartContainer config={{
+              attendance: { label: "Present", color: "hsl(var(--primary))" },
+            }} className="w-full h-full">
+              <BarChart accessibilityLayer data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="name"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  interval={0} // Show all labels if possible
+                  // tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value} // Optional: Truncate long labels
+                />
+                <YAxis
+                  dataKey="attendance"
+                  allowDecimals={false}
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent indicator="dot" />}
+                />
+                <Bar dataKey="attendance" fill="var(--color-attendance)" radius={4} />
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      )}
+
       {!isLoading && reportData === null && !isLoadingMiqaats && (
-         <Card className="shadow-lg">
+         <Card className="shadow-lg mt-6">
             <CardContent className="py-10 flex flex-col items-center justify-center">
                 <AlertTriangle className="h-10 w-10 text-muted-foreground mb-3" />
                 <p className="text-center text-muted-foreground">
@@ -452,7 +525,7 @@ export default function ReportsPage() {
          </Card>
       )}
       {(isLoadingMiqaats && reportData === null) && (
-        <Card className="shadow-lg">
+        <Card className="shadow-lg mt-6">
             <CardContent className="py-10 flex justify-center items-center">
                 <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                 <p className="text-center text-muted-foreground">
@@ -464,3 +537,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
