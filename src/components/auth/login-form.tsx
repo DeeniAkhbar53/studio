@@ -21,7 +21,7 @@ import { KeyRound, Loader2 } from "lucide-react";
 import type { UserRole } from "@/types";
 
 const loginSchema = z.object({
-  identityId: z.string().min(5, { message: "ID must be at least 5 characters." }),
+  identityId: z.string().length(8, { message: "ITS ID must be 8 characters." }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -40,9 +40,7 @@ export function LoginForm() {
     form.setValue('identityId', data.identityId.trim());
     const { identityId } = data;
 
-    form.control.register('identityId'); // Mark as submitting
-    const isSubmitting = form.formState.isSubmitting;
-
+    // No need to manually manage isSubmitting with react-hook-form's formState
 
     try {
       const user = await getUserByItsOrBgkId(identityId);
@@ -52,8 +50,10 @@ export function LoginForm() {
           localStorage.setItem('userRole', user.role);
           localStorage.setItem('userName', user.name);
           localStorage.setItem('userItsId', user.itsId);
-          localStorage.setItem('userMohallahId', user.mohallahId || ''); // Store mohallahId
+          localStorage.setItem('userMohallahId', user.mohallahId || '');
           localStorage.setItem('userPageRights', JSON.stringify(user.pageRights || []));
+          localStorage.setItem('unreadNotificationCount', '0'); // Reset unread count on login
+          window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Notify header/sidebar
         }
 
         toast({
@@ -69,19 +69,16 @@ export function LoginForm() {
         toast({
           variant: "destructive",
           title: "Login Failed",
-          description: "Invalid ID or user not found in database.",
+          description: "Invalid ID or user not found in the system.",
         });
       }
     } catch (error) {
-      console.error("Login error during DB lookup:", error);
+      console.error("Login error during data lookup:", error);
       toast({
         variant: "destructive",
         title: "Login Error",
-        description: "An error occurred while trying to log in. Please check console.",
+        description: "An error occurred while trying to log in. Please check the console.",
       });
-    } finally {
-        // Manually reset isSubmitting if needed, though react-hook-form usually handles it.
-        // This part might not be necessary if form.formState.isSubmitting updates correctly.
     }
   }
 
@@ -93,11 +90,11 @@ export function LoginForm() {
           name="identityId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>ITS / BGK ID</FormLabel>
+              <FormLabel>ITS ID</FormLabel>
               <FormControl>
                 <div className="relative">
                   <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Enter your ID" {...field} className="pl-10" />
+                  <Input placeholder="Enter your 8-digit ITS ID" {...field} className="pl-10" />
                 </div>
               </FormControl>
               <FormMessage />
