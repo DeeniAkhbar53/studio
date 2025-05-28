@@ -5,35 +5,55 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Home, User, CalendarDays, Users, BarChart3, Building } from "lucide-react";
+import { useState, useEffect } from "react";
 
 const allNavItems = [
-  { href: "/dashboard", label: "Overview", icon: Home, adminOnly: false },
-  { href: "/dashboard/profile", label: "Profile", icon: User, adminOnly: false },
-  { href: "/dashboard/miqaat-management", label: "Miqaats", icon: CalendarDays, adminOnly: true },
-  { href: "/dashboard/mohallah-management", label: "Mohallahs", icon: Building, adminOnly: true },
-  { href: "/dashboard/reports", label: "Reports", icon: BarChart3, adminOnly: true },
+  { href: "/dashboard", label: "Overview", icon: Home, adminOnly: false, superAdminOnly: false },
+  { href: "/dashboard/profile", label: "Profile", icon: User, adminOnly: false, superAdminOnly: false },
+  { href: "/dashboard/miqaat-management", label: "Miqaats", icon: CalendarDays, adminOnly: true, superAdminOnly: false },
+  { href: "/dashboard/mohallah-management", label: "Mohallahs", icon: Building, adminOnly: true, superAdminOnly: false },
+  // Example: A page only superadmins can see
+  // { href: "/dashboard/system-settings", label: "System Settings", icon: Settings, adminOnly: true, superAdminOnly: true }, 
+  { href: "/dashboard/reports", label: "Reports", icon: BarChart3, adminOnly: true, superAdminOnly: false },
 ];
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const [currentUserRole, setCurrentUserRole] = useState<'user' | 'admin' | 'superadmin' | null>(null);
 
-  // Simulate current user role. In a real app, get this from auth context or user data.
-  // Change to 'user', 'admin', or 'superadmin' to test.
-  const currentUserRole: 'user' | 'admin' | 'superadmin' = 'user'; 
-
-  const navItems = allNavItems.filter(item => {
-    if (currentUserRole === 'admin' || currentUserRole === 'superadmin') {
-      return true; // Admins/Superadmins see all items
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedRole = localStorage.getItem('userRole') as 'user' | 'admin' | 'superadmin' | null;
+      setCurrentUserRole(storedRole || 'user'); // Default to 'user' if no role found or during SSR
     }
-    return !item.adminOnly; // Non-admins see only items not marked as adminOnly
+  }, []);
+  
+  const navItems = allNavItems.filter(item => {
+    if (currentUserRole === 'superadmin') {
+      return true; // Superadmins see all items
+    }
+    if (currentUserRole === 'admin') {
+      return !item.superAdminOnly; // Admins see all non-superadmin-only items
+    }
+    // For 'user' role or if role is null (initial state before useEffect)
+    return !item.adminOnly && !item.superAdminOnly; 
   });
-
-  // If the user is not an admin and only profile is shown, ensure "Profile" is the only item.
-  // This handles the case where a non-admin might have only profile.
-  const finalNavItems = (currentUserRole !== 'admin' && currentUserRole !== 'superadmin')
-    ? allNavItems.filter(item => item.href === "/dashboard/profile")
+  
+  // Handle case where user is not admin and only 'Profile' should be shown
+  // This logic might need adjustment based on exact requirements for non-admin roles.
+  // For now, if it's a 'user', they see items marked with adminOnly: false.
+  const finalNavItems = (currentUserRole === 'user') 
+    ? allNavItems.filter(item => !item.adminOnly && !item.superAdminOnly)
     : navItems;
 
+  if (currentUserRole === null) {
+      // Optionally, render a loading state or fewer items
+      return (
+        <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
+            {/* Placeholder or loading indicator */}
+        </nav>
+      );
+  }
 
   return (
     <nav className="flex flex-col gap-2 p-4 text-sm font-medium">

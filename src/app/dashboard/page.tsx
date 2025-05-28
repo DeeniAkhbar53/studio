@@ -6,12 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Activity, Users, CalendarCheck, BarChartHorizontalBig, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useState } from "react";
-
-// Simulate current user role. In a real app, get this from auth context or user data.
-// Change to 'user', 'admin', or 'superadmin' to test.
-const currentUserRole: 'user' | 'admin' | 'superadmin' = 'user'; 
-// const currentUserRole: 'user' | 'admin' | 'superadmin' = 'admin'; 
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 const adminOverviewStats = [
   { title: "Active Miqaats", value: "3", icon: CalendarCheck, trend: "+5 last week" },
@@ -21,12 +17,12 @@ const adminOverviewStats = [
 ];
 
 // Mock user data for welcome message - in a real app, this would come from user session
-const currentUserName = "Mohamed Ali"; // Example user name
+const currentUserName = "Valued Member"; // Example user name, can be dynamic later
 
 function DashboardFooter() {
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   return (
-    <footer className="mt-8 border-t pt-6 text-center text-sm text-muted-foreground">
+    <footer className="mt-auto border-t pt-6 text-center text-sm text-muted-foreground">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <p>&copy; {new Date().getFullYear()} MAttendance. All rights reserved.</p>
         <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
@@ -62,6 +58,28 @@ function DashboardFooter() {
 
 
 export default function DashboardOverviewPage() {
+  const [currentUserRole, setCurrentUserRole] = useState<'user' | 'admin' | 'superadmin' | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedRole = localStorage.getItem('userRole') as 'user' | 'admin' | 'superadmin' | null;
+      if (storedRole) {
+        setCurrentUserRole(storedRole);
+      } else {
+        router.push('/'); // Redirect to login if no role is found
+      }
+    }
+  }, [router]);
+
+  if (currentUserRole === null) {
+    return (
+      <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))] items-center justify-center">
+        <p>Loading user data...</p>
+      </div>
+    );
+  }
+
   if (currentUserRole === 'user') {
     return (
       <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))]"> {/* Adjust 16 for header, 12 for p-6 main padding */}
@@ -108,10 +126,18 @@ export default function DashboardOverviewPage() {
     );
   }
 
-  // Admin View
+  // Admin or Superadmin View
   return (
     <div className="flex flex-col min-h-[calc(100vh-theme(spacing.16)-theme(spacing.12))]">
       <div className="flex-grow space-y-6">
+        <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
+          <CardHeader>
+            <CardTitle className="text-3xl font-bold text-foreground">Admin Dashboard</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Overview of system activity and management tools. Current Role: {currentUserRole}
+            </CardDescription>
+          </CardHeader>
+        </Card>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {adminOverviewStats.map((stat) => (
             <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300">

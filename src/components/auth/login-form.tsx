@@ -24,6 +24,12 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+const testUserRoles: { [key: string]: 'user' | 'admin' | 'superadmin' } = {
+  "11111111": "user",
+  "22222222": "admin",
+  "33333333": "superadmin",
+};
+
 export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
@@ -34,15 +40,18 @@ export function LoginForm() {
     },
   });
 
-  // Simulate login
   async function onSubmit(data: LoginFormValues) {
-    // In a real app, you'd call an authentication API here
-    // For now, simulate a successful login
+    const role = testUserRoles[data.identityId] || 'user'; // Default to 'user' if ID not found
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem('userRole', role);
+    }
+
     toast({
       title: "Login Successful",
-      description: `Welcome, ${data.identityId}!`,
+      description: `Welcome, ${data.identityId}! Role: ${role}`,
     });
-    // Redirect to dashboard after a short delay
+    
     setTimeout(() => {
       router.push("/dashboard");
     }, 1000);
@@ -60,7 +69,7 @@ export function LoginForm() {
               <FormControl>
                 <div className="relative">
                   <KeyRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input placeholder="Enter your ID" {...field} className="pl-10" />
+                  <Input placeholder="Enter your ID (e.g., 11111111)" {...field} className="pl-10" />
                 </div>
               </FormControl>
               <FormMessage />

@@ -30,7 +30,9 @@ export function Header() {
   const router = useRouter();
 
   const handleLogout = () => {
-    // Simulate logout
+    if (typeof window !== "undefined") {
+      localStorage.removeItem('userRole');
+    }
     router.push("/");
   };
   
@@ -47,7 +49,8 @@ export function Header() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="flex flex-col p-0">
-            <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+            {/* Added SheetTitle for accessibility, hidden visually */}
+            <SheetTitle className="sr-only">Main Navigation Menu</SheetTitle>
             <div className="p-4 border-b">
                <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><path d="M12 2L2 7l10 5 10-5-10-5z"></path><path d="M2 17l10 5 10-5"></path><path d="M2 12l10 5 10-5"></path></svg>
