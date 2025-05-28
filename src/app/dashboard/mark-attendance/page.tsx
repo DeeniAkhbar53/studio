@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,10 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import type { Miqaat, User, MarkedAttendanceEntry } from "@/types";
-import { initialMembers } from "@/app/dashboard/mohallah-management/page"; // Using mock members
-import { CheckCircle, AlertCircle, Users, ListChecks } from "lucide-react";
+import { getUserByItsOrBgkId } from "@/lib/firebase/userService"; // Import Firestore service
+import { CheckCircle, AlertCircle, Users, ListChecks, Loader2 } from "lucide-react";
 
-// Mock Miqaat data (in a real app, this would be fetched)
+// Mock Miqaat data (in a real app, this would be fetched from Firestore)
 const mockMiqaats: Pick<Miqaat, "id" | "name" | "startTime">[] = [
   { id: "m1", name: "Miqaat Al-Layl", startTime: new Date(2024, 9, 10, 19, 0).toISOString()},
   { id: "m2", name: "Ashara Mubarakah - Day 1", startTime: new Date(2024, 9, 15, 9, 0).toISOString() },
@@ -26,15 +26,16 @@ export default function MarkAttendancePage() {
   const [memberIdInput, setMemberIdInput] = useState("");
   const [markedAttendance, setMarkedAttendance] = useState<MarkedAttendanceEntry[]>([]);
   const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime">[]>([]);
+  const [isSearchingMember, setIsSearchingMember] = useState(false);
   
   const { toast } = useToast();
 
   useEffect(() => {
-    // Simulate fetching miqaats
+    // Simulate fetching miqaats (replace with Firestore fetch later)
     setAvailableMiqaats(mockMiqaats.sort((a,b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()));
   }, []);
 
-  const handleMarkAttendance = () => {
+  const handleMarkAttendance = async () => {
     if (!selectedMiqaatId) {
       toast({
         title: "Miqaat Not Selected",
@@ -52,13 +53,23 @@ export default function MarkAttendancePage() {
       return;
     }
 
-    const member = initialMembers.find(m => m.itsId === memberIdInput.trim() || m.bgkId === memberIdInput.trim());
+    setIsSearchingMember(true);
+    let member: User | null = null;
+    try {
+      member = await getUserByItsOrBgkId(memberIdInput.trim());
+    } catch (error) {
+      toast({ title: "Database Error", description: "Could not verify member ID.", variant: "destructive" });
+      setIsSearchingMember(false);
+      return;
+    }
+    setIsSearchingMember(false);
+
     const selectedMiqaat = availableMiqaats.find(m => m.id === selectedMiqaatId);
 
     if (!member) {
       toast({
         title: "Member Not Found",
-        description: `No member found with ID: ${memberIdInput}.`,
+        description: `No member found with ID: ${memberIdInput} in the database.`,
         variant: "destructive",
       });
       return;
@@ -69,7 +80,6 @@ export default function MarkAttendancePage() {
         return;
     }
 
-    // Check if already marked for this miqaat in this session (client-side check)
     const alreadyMarked = markedAttendance.find(
       (entry) => entry.miqaatId === selectedMiqaatId && entry.memberItsId === member.itsId
     );
@@ -80,7 +90,7 @@ export default function MarkAttendancePage() {
         description: `${member.name} (${member.itsId}) has already been marked for ${selectedMiqaat.name}.`,
         variant: "default",
       });
-      setMemberIdInput(""); // Clear input for next entry
+      setMemberIdInput(""); 
       return;
     }
 
@@ -97,7 +107,7 @@ export default function MarkAttendancePage() {
       title: "Attendance Marked",
       description: `${member.name} (${member.itsId}) marked present for ${selectedMiqaat.name}.`,
     });
-    setMemberIdInput(""); // Clear input for next entry
+    setMemberIdInput(""); 
   };
 
   const currentMiqaatAttendance = markedAttendance.filter(entry => entry.miqaatId === selectedMiqaatId);
@@ -133,15 +143,20 @@ export default function MarkAttendancePage() {
                 placeholder="Enter 8-digit ITS or BGK ID"
                 value={memberIdInput}
                 onChange={(e) => setMemberIdInput(e.target.value)}
-                disabled={!selectedMiqaatId}
+                disabled={!selectedMiqaatId || isSearchingMember}
               />
             </div>
             <Button 
               onClick={handleMarkAttendance} 
-              disabled={!selectedMiqaatId || !memberIdInput}
+              disabled={!selectedMiqaatId || !memberIdInput || isSearchingMember}
               className="w-full md:w-auto"
             >
-              <CheckCircle className="mr-2 h-4 w-4" /> Mark Present
+              {isSearchingMember ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle className="mr-2 h-4 w-4" />
+              )}
+               Mark Present
             </Button>
           </div>
           
@@ -165,7 +180,7 @@ export default function MarkAttendancePage() {
                             </TableRow>
                             </TableHeader>
                             <TableBody>
-                            {currentMiqaatAttendance.map((entry, index) => (
+                            {currentMiqaatAttendance.map((entry) => (
                                 <TableRow key={`${entry.memberItsId}-${entry.timestamp.toISOString()}`}>
                                 <TableCell className="font-medium">{entry.memberName}</TableCell>
                                 <TableCell>{entry.memberItsId}</TableCell>
