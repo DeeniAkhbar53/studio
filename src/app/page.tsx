@@ -1,6 +1,7 @@
+
 import { LoginForm } from "@/components/auth/login-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2 } from "lucide-react";
+import Image from "next/image"; // Import next/image
 
 export default function LoginPage() {
   return (
@@ -8,7 +9,14 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Building2 size={32} />
+            {/* Replace Lucide icon with Image component */}
+            <Image
+              src="https://app.burhaniguards.org/images/logo.png"
+              alt="BGK Attendance Logo"
+              width={40} // Adjust width as needed
+              height={40} // Adjust height as needed
+              className="h-10 w-10" // Ensure consistent sizing
+            />
           </div>
           <CardTitle className="text-3xl font-bold text-foreground">BGK Attendance</CardTitle>
           <CardDescription className="text-muted-foreground">
