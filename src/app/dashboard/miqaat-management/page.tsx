@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -10,10 +11,11 @@ import { MiqaatCard } from "@/components/dashboard/miqaat-card";
 import type { Miqaat } from "@/types";
 import { PlusCircle, Search } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel, FormDescription } from "@/components/ui/form";
 
 const miqaatSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -67,7 +69,7 @@ export default function MiqaatManagementPage() {
   const handleFormSubmit = (values: MiqaatFormValues) => {
     const miqaatData : Omit<Miqaat, 'id' | 'barcodeData'> & { id?: string; barcodeData?: string } = {
       ...values,
-      teams: Array.isArray(values.teams) ? values.teams : values.teams.split(',').map(s => s.trim()).filter(Boolean),
+      teams: values.teams, // Zod transform already converts this to an array
       startTime: new Date(values.startTime).toISOString(),
       endTime: new Date(values.endTime).toISOString(),
     };
@@ -123,46 +125,64 @@ export default function MiqaatManagementPage() {
                   {editingMiqaat ? "Update the details of the Miqaat." : "Fill in the details for the new Miqaat."}
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={form.handleSubmit(handleFormSubmit)} className="grid gap-4 py-4">
-                <FormField control={form.control} name="name" render={({ field }) => (
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">Name</Label>
-                    <Input id="name" {...field} className="col-span-3" />
-                    {form.formState.errors.name && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.name.message}</p>}
-                  </div>
-                )} />
-                <FormField control={form.control} name="location" render={({ field }) => (
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="location" className="text-right">Location</Label>
-                    <Input id="location" {...field} className="col-span-3" />
-                  </div>
-                )} />
-                 <FormField control={form.control} name="startTime" render={({ field }) => (
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="startTime" className="text-right">Start Time</Label>
-                    <Input id="startTime" type="datetime-local" {...field} className="col-span-3" />
-                    {form.formState.errors.startTime && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.startTime.message}</p>}
-                  </div>
-                )} />
-                <FormField control={form.control} name="endTime" render={({ field }) => (
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="endTime" className="text-right">End Time</Label>
-                    <Input id="endTime" type="datetime-local" {...field} className="col-span-3" />
-                     {form.formState.errors.endTime && <p className="col-span-4 text-red-500 text-xs text-right">{form.formState.errors.endTime.message}</p>}
-                  </div>
-                )} />
-                <FormField control={form.control} name="teams" render={({ field }) => (
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="teams" className="text-right">Teams</Label>
-                    <Input id="teams" placeholder="e.g. Alpha, Bravo, Charlie" {...field} className="col-span-3" />
-                    <p className="col-start-2 col-span-3 text-xs text-muted-foreground">Comma-separated list of teams.</p>
-                  </div>
-                )} />
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                  <Button type="submit">{editingMiqaat ? "Save Changes" : "Create Miqaat"}</Button>
-                </DialogFooter>
-              </form>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleFormSubmit)} className="grid gap-4 py-4">
+                  <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                      <FormLabel htmlFor="name" className="text-right">Name</FormLabel>
+                      <FormControl className="col-span-3">
+                        <Input id="name" {...field} />
+                      </FormControl>
+                      <FormMessage className="col-start-2 col-span-3 text-xs" />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="location" render={({ field }) => (
+                    <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                      <FormLabel htmlFor="location" className="text-right">Location</FormLabel>
+                      <FormControl className="col-span-3">
+                        <Input id="location" {...field} />
+                      </FormControl>
+                      <FormMessage className="col-start-2 col-span-3 text-xs" />
+                    </FormItem>
+                  )} />
+                   <FormField control={form.control} name="startTime" render={({ field }) => (
+                    <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                      <FormLabel htmlFor="startTime" className="text-right">Start Time</FormLabel>
+                      <FormControl className="col-span-3">
+                        <Input id="startTime" type="datetime-local" {...field} />
+                      </FormControl>
+                      <FormMessage className="col-start-2 col-span-3 text-xs" />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="endTime" render={({ field }) => (
+                    <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                      <FormLabel htmlFor="endTime" className="text-right">End Time</FormLabel>
+                      <FormControl className="col-span-3">
+                        <Input id="endTime" type="datetime-local" {...field} />
+                      </FormControl>
+                      <FormMessage className="col-start-2 col-span-3 text-xs" />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="teams" render={({ field }) => (
+                    <FormItem className="grid grid-cols-4 items-start gap-x-4 gap-y-1"> {/* items-start for label, gap-y-1 for desc/msg */}
+                      <FormLabel htmlFor="teams" className="text-right pt-2">Teams</FormLabel> {/* pt-2 to align with input */}
+                      <div className="col-span-3 space-y-1">
+                        <FormControl>
+                          <Input id="teams" placeholder="e.g. Alpha, Bravo, Charlie" {...field} />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Comma-separated list of teams.
+                        </FormDescription>
+                        <FormMessage className="text-xs" />
+                      </div>
+                    </FormItem>
+                  )} />
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit">{editingMiqaat ? "Save Changes" : "Create Miqaat"}</Button>
+                  </DialogFooter>
+                </form>
+              </Form>
             </DialogContent>
           </Dialog>
         </CardHeader>
@@ -195,3 +215,4 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
+
