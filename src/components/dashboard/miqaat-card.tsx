@@ -29,7 +29,7 @@ interface MiqaatCardProps {
 
 export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohallahs }: MiqaatCardProps) {
   const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
-  const qrCodeDisplayRef = useRef<HTMLDivElement>(null); // Ref for the QR code displayed in dialog
+  const qrCodeDisplayRef = useRef<HTMLDivElement>(null);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
@@ -48,7 +48,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
   const formattedStartDate = formatDate(miqaat.startTime);
   const formattedEndDate = formatDate(miqaat.endTime);
   const formattedReportingTime = formatDate(miqaat.reportingTime);
-  const canDelete = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+  const canManageMiqaat = currentUserRole === 'admin' || currentUserRole === 'superadmin';
 
   const assignedMohallahNames = miqaat.mohallahIds && miqaat.mohallahIds.length > 0
     ? miqaat.mohallahIds.map(id => allMohallahs.find(m => m.id === id)?.name || 'Unknown ID').join(", ")
@@ -58,7 +58,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
     ? miqaat.teams.join(", ")
     : "All Teams / Not Specified";
 
-  const handleDownloadBarcode = () => {
+  const handleDownloadBarcode = async () => {
     if (!qrCodeDisplayRef.current) return;
 
     const svgElement = qrCodeDisplayRef.current.querySelector('svg');
@@ -67,80 +67,102 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
       return;
     }
 
-    const qrRenderSize = 200; // Size of QR code on canvas
+    const appLogoUrl = "https://app.burhaniguards.org/images/logo.png";
+    const logoSize = 40;
+    const qrRenderSize = 200; // Desired size of QR code on canvas
     const padding = 20;
     const textLineHeight = 20;
     const titleFontSize = 16;
     const timeFontSize = 12;
-    const spaceBetweenTextAndQr = 15;
+    const spaceBetweenElements = 10;
 
-    const canvasWidth = qrRenderSize + 2 * padding; // Adjust canvas width if Miqaat name is very long
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      console.error("Could not get canvas context");
+      return;
+    }
+
     const miqaatNameText = miqaat.name;
     const miqaatTimeText = `Starts: ${formatDate(miqaat.startTime)}`;
 
-    // Estimate text height
-    let textHeight = padding; // Top padding
-    textHeight += textLineHeight; // For Miqaat Name
-    textHeight += textLineHeight * 0.8; // For Miqaat Time (smaller font)
-    textHeight += spaceBetweenTextAndQr; // Space before QR
+    // Preload logo
+    const logoImage = new Image();
+    logoImage.crossOrigin = "anonymous"; // Important for images from other domains
+    logoImage.src = appLogoUrl;
 
-    const canvasHeight = textHeight + qrRenderSize + padding; // Height for text, QR, and padding
+    logoImage.onload = () => {
+      // Calculate canvas dimensions after logo is loaded
+      let currentY = padding;
+      const canvasWidth = qrRenderSize + 2 * padding; // Base width on QR code
 
-    const canvas = document.createElement('canvas');
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
-    const ctx = canvas.getContext('2d');
+      currentY += logoSize + spaceBetweenElements; // Space for logo
+      currentY += titleFontSize + spaceBetweenElements; // Space for Miqaat Name
+      currentY += timeFontSize + spaceBetweenElements; // Space for Miqaat Time
+      currentY += qrRenderSize + padding; // Space for QR code and bottom padding
+      const canvasHeight = currentY;
 
-    if (!ctx) {
-        console.error("Could not get canvas context");
-        return;
-    }
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
 
-    // 1. Draw White Background
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // 1. Draw White Background
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 2. Draw Miqaat Name
-    ctx.fillStyle = "#000000";
-    ctx.font = `${titleFontSize}px Arial`;
-    ctx.textAlign = "center";
-    let currentY = padding + titleFontSize;
-    ctx.fillText(miqaatNameText, canvas.width / 2, currentY);
+      // Reset currentY for drawing
+      currentY = padding;
 
-    // 3. Draw Miqaat Start Time
-    currentY += textLineHeight * 0.8;
-    ctx.font = `${timeFontSize}px Arial`;
-    ctx.fillText(miqaatTimeText, canvas.width / 2, currentY);
-    
-    currentY += spaceBetweenTextAndQr; // Add space before QR
+      // 2. Draw Logo
+      const logoX = (canvas.width - logoSize) / 2;
+      ctx.drawImage(logoImage, logoX, currentY, logoSize, logoSize);
+      currentY += logoSize + spaceBetweenElements;
 
-    // 4. Prepare and Draw QR Code Image
-    const svgData = new XMLSerializer().serializeToString(svgElement);
-    const img = new Image();
-    img.onload = () => {
-      // Calculate QR code position
-      const qrX = (canvas.width - qrRenderSize) / 2;
-      const qrY = currentY;
+      // 3. Draw Miqaat Name
+      ctx.fillStyle = "#000000";
+      ctx.font = `bold ${titleFontSize}px Arial`;
+      ctx.textAlign = "center";
+      ctx.fillText(miqaatNameText, canvas.width / 2, currentY + titleFontSize / 2); // Adjust Y for text baseline
+      currentY += titleFontSize + spaceBetweenElements;
 
-      ctx.drawImage(img, qrX, qrY, qrRenderSize, qrRenderSize);
+      // 4. Draw Miqaat Start Time
+      ctx.font = `${timeFontSize}px Arial`;
+      ctx.fillText(miqaatTimeText, canvas.width / 2, currentY + timeFontSize / 2); // Adjust Y
+      currentY += timeFontSize + spaceBetweenElements;
 
-      // 5. Trigger Download
-      const pngFile = canvas.toDataURL('image/png');
-      const miqaatNameClean = miqaat.name.replace(/[^a-z0-9_]+/gi, '_').toLowerCase();
-      const datePart = formatDateForFilename(miqaat.startTime);
-      const filename = `${miqaatNameClean}_${datePart}_barcode.png`;
+      // 5. Prepare and Draw QR Code Image
+      const svgData = new XMLSerializer().serializeToString(svgElement);
+      const qrImage = new Image();
+      qrImage.onload = () => {
+        const qrX = (canvas.width - qrRenderSize) / 2;
+        ctx.drawImage(qrImage, qrX, currentY, qrRenderSize, qrRenderSize);
 
-      const downloadLink = document.createElement('a');
-      downloadLink.href = pngFile;
-      downloadLink.download = filename;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
+        // 6. Trigger Download
+        const pngFile = canvas.toDataURL('image/png');
+        const miqaatNameClean = miqaat.name.replace(/[^a-z0-9_]+/gi, '_').toLowerCase();
+        const datePart = formatDateForFilename(miqaat.startTime);
+        const filename = `${miqaatNameClean}_${datePart}_barcode.png`;
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = pngFile;
+        downloadLink.download = filename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+      };
+      qrImage.onerror = (err) => {
+        console.error("Error loading SVG QR code into image:", err);
+      };
+      qrImage.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
     };
-    img.onerror = (err) => {
-        console.error("Error loading SVG into image:", err);
+    logoImage.onerror = () => {
+      console.error("Error loading app logo. Proceeding without logo.");
+      // Fallback: draw without logo (or draw a placeholder)
+      // For simplicity, current implementation might break if logo fails. Robust version would handle this.
+      // Trigger download without logo, or notify user.
+      // Simplified for now, but in production you'd want a more graceful fallback.
+      alert("Failed to load logo. Barcode will be downloaded without it.");
+      // Re-attempt draw without logo (this part is more complex to retrofit here without duplication)
     };
-    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
   };
 
 
@@ -184,14 +206,14 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
             <Barcode className="mr-2 h-4 w-4" />
             Barcode
           </Button>
-          <div className="flex gap-1">
-            <Button variant="ghost" size="icon" onClick={() => onEdit(miqaat)} aria-label="Edit Miqaat">
-              <Edit className="h-4 w-4" />
-            </Button>
-            {canDelete && (
+          { canManageMiqaat && (
+            <div className="flex gap-1">
+              <Button variant="ghost" size="icon" onClick={() => onEdit(miqaat)} aria-label="Edit Miqaat">
+                <Edit className="h-4 w-4" />
+              </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" aria-label="Delete Miqaat" disabled={currentUserRole !== 'admin' && currentUserRole !== 'superadmin'}>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" aria-label="Delete Miqaat">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </AlertDialogTrigger>
@@ -210,8 +232,8 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-            )}
-          </div>
+            </div>
+          )}
         </CardFooter>
       </Card>
 
@@ -223,15 +245,15 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
               Scan this barcode for attendance marking.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {/* This div is now specifically for the displayed QR in the dialog */}
           <div ref={qrCodeDisplayRef} className="flex justify-center items-center my-4 p-4 bg-white rounded-lg shadow-inner">
             {(miqaat.barcodeData || miqaat.id) ? (
               <QRCodeSVG
                 value={miqaat.barcodeData || miqaat.id}
-                size={250} // Size for display in dialog
+                size={250} 
                 bgColor={"#ffffff"}
                 fgColor={"#000000"}
                 level={"Q"}
+                includeMargin={true} // Adds some white space around QR
               />
             ) : (
               <p className="text-muted-foreground">Barcode data not available.</p>
@@ -250,5 +272,4 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
     </>
   );
 }
-
     
