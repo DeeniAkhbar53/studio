@@ -18,6 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useState, useRef } from "react";
+import { useToast } from "@/hooks/use-toast"; // Added import
 
 interface MiqaatCardProps {
   miqaat: Miqaat;
@@ -30,6 +31,7 @@ interface MiqaatCardProps {
 export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohallahs }: MiqaatCardProps) {
   const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
   const qrCodeDisplayRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast(); // Initialize toast
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
@@ -64,14 +66,14 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
     const svgElement = qrCodeDisplayRef.current.querySelector('svg');
     if (!svgElement) {
       console.error("QR Code SVG element not found");
+      toast({ title: "Error", description: "QR code element not found.", variant: "destructive" });
       return;
     }
 
     const appLogoUrl = "https://app.burhaniguards.org/images/logo.png";
     const logoSize = 40;
-    const qrRenderSize = 200; // Desired size of QR code on canvas
+    const qrRenderSize = 200; 
     const padding = 20;
-    const textLineHeight = 20;
     const titleFontSize = 16;
     const timeFontSize = 12;
     const spaceBetweenElements = 10;
@@ -79,62 +81,60 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-      console.error("Could not get canvas context");
+      toast({ title: "Error", description: "Could not create image for download.", variant: "destructive" });
       return;
     }
 
     const miqaatNameText = miqaat.name;
     const miqaatTimeText = `Starts: ${formatDate(miqaat.startTime)}`;
+    const canvasWidth = qrRenderSize + 2 * padding;
 
-    // Preload logo
-    const logoImage = new Image();
-    logoImage.crossOrigin = "anonymous"; // Important for images from other domains
-    logoImage.src = appLogoUrl;
+    // Function to draw content on canvas
+    const drawFinalImage = (includeLogo: boolean, loadedLogoImage: HTMLImageElement | null) => {
+      let currentDynamicHeight = padding; // Start with top padding
 
-    logoImage.onload = () => {
-      // Calculate canvas dimensions after logo is loaded
-      let currentY = padding;
-      const canvasWidth = qrRenderSize + 2 * padding; // Base width on QR code
+      if (includeLogo && loadedLogoImage) {
+        currentDynamicHeight += logoSize + spaceBetweenElements;
+      }
+      currentDynamicHeight += titleFontSize + spaceBetweenElements; // For Miqaat Name
+      currentDynamicHeight += timeFontSize + spaceBetweenElements;   // For Miqaat Time
+      currentDynamicHeight += qrRenderSize + padding;                // For QR Code + Bottom padding
 
-      currentY += logoSize + spaceBetweenElements; // Space for logo
-      currentY += titleFontSize + spaceBetweenElements; // Space for Miqaat Name
-      currentY += timeFontSize + spaceBetweenElements; // Space for Miqaat Time
-      currentY += qrRenderSize + padding; // Space for QR code and bottom padding
-      const canvasHeight = currentY;
-
+      canvas.height = currentDynamicHeight;
       canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
+
+      let yDrawPos = padding; // Y position for drawing elements
 
       // 1. Draw White Background
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Reset currentY for drawing
-      currentY = padding;
-
       // 2. Draw Logo
-      const logoX = (canvas.width - logoSize) / 2;
-      ctx.drawImage(logoImage, logoX, currentY, logoSize, logoSize);
-      currentY += logoSize + spaceBetweenElements;
+      if (includeLogo && loadedLogoImage) {
+        const logoX = (canvas.width - logoSize) / 2;
+        ctx.drawImage(loadedLogoImage, logoX, yDrawPos, logoSize, logoSize);
+        yDrawPos += logoSize + spaceBetweenElements;
+      }
 
       // 3. Draw Miqaat Name
       ctx.fillStyle = "#000000";
       ctx.font = `bold ${titleFontSize}px Arial`;
       ctx.textAlign = "center";
-      ctx.fillText(miqaatNameText, canvas.width / 2, currentY + titleFontSize / 2); // Adjust Y for text baseline
-      currentY += titleFontSize + spaceBetweenElements;
+      ctx.textBaseline = "top";
+      ctx.fillText(miqaatNameText, canvas.width / 2, yDrawPos);
+      yDrawPos += titleFontSize + spaceBetweenElements;
 
       // 4. Draw Miqaat Start Time
       ctx.font = `${timeFontSize}px Arial`;
-      ctx.fillText(miqaatTimeText, canvas.width / 2, currentY + timeFontSize / 2); // Adjust Y
-      currentY += timeFontSize + spaceBetweenElements;
+      ctx.fillText(miqaatTimeText, canvas.width / 2, yDrawPos);
+      yDrawPos += timeFontSize + spaceBetweenElements;
 
       // 5. Prepare and Draw QR Code Image
       const svgData = new XMLSerializer().serializeToString(svgElement);
       const qrImage = new Image();
       qrImage.onload = () => {
         const qrX = (canvas.width - qrRenderSize) / 2;
-        ctx.drawImage(qrImage, qrX, currentY, qrRenderSize, qrRenderSize);
+        ctx.drawImage(qrImage, qrX, yDrawPos, qrRenderSize, qrRenderSize);
 
         // 6. Trigger Download
         const pngFile = canvas.toDataURL('image/png');
@@ -148,20 +148,29 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
         document.body.appendChild(downloadLink);
         downloadLink.click();
         document.body.removeChild(downloadLink);
+        toast({ title: "Barcode Downloaded", description: (includeLogo && loadedLogoImage) ? "Image with logo generated." : "Image generated (logo could not be loaded)." });
       };
       qrImage.onerror = (err) => {
         console.error("Error loading SVG QR code into image:", err);
+        toast({ title: "QR Generation Error", description: "Could not render QR code for download.", variant: "destructive" });
       };
-      qrImage.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+      const cleanSvgData = unescape(encodeURIComponent(svgData));
+      qrImage.src = 'data:image/svg+xml;base64,' + btoa(cleanSvgData);
     };
+
+    // Attempt to load logo
+    const logoImage = new Image();
+    logoImage.crossOrigin = "anonymous"; 
+    logoImage.src = appLogoUrl;
+
+    logoImage.onload = () => {
+      drawFinalImage(true, logoImage);
+    };
+
     logoImage.onerror = () => {
       console.error("Error loading app logo. Proceeding without logo.");
-      // Fallback: draw without logo (or draw a placeholder)
-      // For simplicity, current implementation might break if logo fails. Robust version would handle this.
-      // Trigger download without logo, or notify user.
-      // Simplified for now, but in production you'd want a more graceful fallback.
-      alert("Failed to load logo. Barcode will be downloaded without it.");
-      // Re-attempt draw without logo (this part is more complex to retrofit here without duplication)
+      toast({ title: "Logo Load Failed", description: "Barcode will be generated without the app logo.", variant: "default", duration: 5000 });
+      drawFinalImage(false, null); // Proceed to draw without logo
     };
   };
 
@@ -253,7 +262,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
                 bgColor={"#ffffff"}
                 fgColor={"#000000"}
                 level={"Q"}
-                includeMargin={true} // Adds some white space around QR
+                includeMargin={true}
               />
             ) : (
               <p className="text-muted-foreground">Barcode data not available.</p>
