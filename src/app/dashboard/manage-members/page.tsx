@@ -404,7 +404,7 @@ export default function ManageMembersPage() {
             fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
           }
 
-          if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0)) {
+           if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0)) {
             toast({
                 title: "CSV Import Error",
                 description: "There was an issue importing some or all users. Check console for details.",
@@ -779,7 +779,7 @@ export default function ManageMembersPage() {
       </Card>
 
       <Card className="shadow-lg flex flex-col">
-        <CardContent className="flex-1 pt-6 overflow-auto">
+        <CardContent className="pt-6">
           {isLoadingMembers ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -946,6 +946,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
 
     
