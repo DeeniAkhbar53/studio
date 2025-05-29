@@ -82,7 +82,6 @@ export default function ManageMembersPage() {
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
 
-
   const memberForm = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema),
     defaultValues: { name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user", mohallahId: "", designation: "Member", pageRights: [] },
@@ -216,7 +215,6 @@ export default function ManageMembersPage() {
 
     console.log("Attempting to save member. Payload for service:", memberPayload, "Target Mohallah ID for path:", targetMohallahId);
 
-
     try {
       if (editingMember && editingMember.mohallahId) {
         const updatePayload = { ...memberPayload };
@@ -297,7 +295,6 @@ export default function ManageMembersPage() {
 
     setSelectedMemberIds([]);
     setIsBulkDeleteAlertOpen(false);
-    // Refresh members list
     if (currentUserRole === 'admin' && currentUserMohallahId) {
       fetchAndSetMembers(currentUserMohallahId);
     } else if (currentUserRole === 'superadmin') {
@@ -419,7 +416,6 @@ export default function ManageMembersPage() {
             });
           }
 
-
           if (failedRecords.length > 0) {
             console.warn("CSV Import - Skipped/Failed Records:", failedRecords);
           }
@@ -516,7 +512,6 @@ export default function ManageMembersPage() {
 
   const canManageMembers = currentUserRole === 'admin' || currentUserRole === 'superadmin';
 
-
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -563,7 +558,10 @@ export default function ManageMembersPage() {
                   </Button>
                   <Dialog open={isMemberDialogOpen} onOpenChange={(open) => { setIsMemberDialogOpen(open); if (!open) setEditingMember(null); }}>
                     <DialogTrigger asChild>
-                      <Button onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} size="icon" aria-label="Add New Member"
+                       <Button 
+                        onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} 
+                        size="icon" 
+                        aria-label="Add New Member"
                         disabled={!canAddOrImport() || (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && mohallahs.length === 0 && !isLoadingMohallahs)}
                       >
                         <PlusCircle className="h-4 w-4" />
@@ -776,11 +774,11 @@ export default function ManageMembersPage() {
               <ShadAlertDescription>{fetchError}</ShadAlertDescription>
             </Alert>
           )}
-        </CardContent>
+        </CardHeader>
       </Card>
 
-      <Card className="shadow-lg flex flex-col"> {/* New card for the table */}
-        <CardContent className="flex-1 pt-6"> {/* pt-6 to give some space if no header */}
+      <Card className="shadow-lg flex flex-col">
+        <CardContent className="flex-1 pt-6 overflow-y-auto">
           {isLoadingMembers ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -948,3 +946,4 @@ export default function ManageMembersPage() {
   );
 }
 
+    
