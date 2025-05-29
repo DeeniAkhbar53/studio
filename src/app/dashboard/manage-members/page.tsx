@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label as StandardLabel } from "@/components/ui/label";
+import { Label as StandardLabel } from "@/components/ui/label"; // Renamed to avoid conflict with FormLabel
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -156,6 +156,7 @@ export default function ManageMembersPage() {
       mohallahIdToFetch = selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId;
       fetchAndSetMembers(mohallahIdToFetch);
     } else {
+      // For other roles like 'user' or 'attendance-marker', they don't manage members here
       setMembers([]);
       setIsLoadingMembers(false);
     }
@@ -778,7 +779,7 @@ export default function ManageMembersPage() {
       </Card>
 
       <Card className="shadow-lg flex flex-col">
-        <CardContent className="flex-1 pt-6 overflow-y-auto">
+        <CardContent className="flex-1 pt-6 overflow-auto">
           {isLoadingMembers ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -945,5 +946,6 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
 
     
