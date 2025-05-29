@@ -213,7 +213,7 @@ export default function ManageMembersPage() {
       pageRights: values.role === 'user' ? [] : (values.pageRights || []),
     };
 
-    console.log("Attempting to save member to Firestore. Payload for service:", memberPayload, "Target Mohallah ID for path:", targetMohallahId);
+    console.log("Attempting to save member to database. Payload for service:", memberPayload, "Target Mohallah ID for path:", targetMohallahId);
 
     try {
       if (editingMember && editingMember.mohallahId) {
@@ -406,13 +406,13 @@ export default function ManageMembersPage() {
            if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0)) {
             toast({
                 title: "CSV Import Error",
-                description: "Could not import users from CSV. See console for details.",
+                description: "Could not import some or all users from CSV. See console for details.",
                 variant: "destructive",
             });
           } else {
             toast({
-                title: "CSV Import Successful",
-                description: `Successfully processed CSV file.`,
+                title: "CSV Import Processed",
+                description: `Successfully processed CSV file. ${successfullyAddedCount} users added. ${skippedCount} skipped.`,
             });
           }
 
@@ -513,7 +513,7 @@ export default function ManageMembersPage() {
   const canManageMembers = currentUserRole === 'admin' || currentUserRole === 'superadmin';
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full gap-6">
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
@@ -817,7 +817,7 @@ export default function ManageMembersPage() {
         </CardHeader>
       </Card>
 
-      <Card className="shadow-lg flex flex-col">
+      <Card className="shadow-lg flex flex-col flex-1 min-h-0"> {/* min-h-0 allows flex-1 to shrink if needed */}
         <CardContent className="pt-6 flex-1 overflow-auto">
           {isLoadingMembers ? (
             <div className="flex justify-center items-center py-10">
@@ -985,5 +985,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
-    
