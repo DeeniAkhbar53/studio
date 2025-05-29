@@ -10,7 +10,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyB6sOs0IdR8ov6R3szYmrCbdP2APnRBl5M",
   authDomain: "bgk-attendance-new.firebaseapp.com",
   projectId: "bgk-attendance-new",
-  storageBucket: "bgk-attendance-new.firebasestorage.app",
+  storageBucket: "bgk-attendance-new.appspot.com", // Corrected format
   messagingSenderId: "451468104438",
   appId: "1:451468104438:web:961a8b4488a8fa548152d7"
 };

@@ -39,17 +39,8 @@ export const addNotification = async (notificationData: NotificationDataForAdd):
 
 export const getNotificationsForUser = async (currentUserItsId: string, currentUserRole: UserRole): Promise<NotificationItem[]> => {
   try {
-    // Base query ordered by creation time
     let q = query(notificationsCollectionRef, orderBy('createdAt', 'desc'));
     
-    // More complex audience filtering might require multiple queries or client-side filtering
-    // For simplicity, this example fetches notifications targeted to 'all' or the specific user's role.
-    // Firestore does not support 'OR' queries across different fields directly in this manner easily.
-    // A common pattern is to fetch 'all' and then filter client-side, or have separate queries.
-    // For now, let's fetch all and filter on client-side in the components, or adjust query strategy later.
-    // This query will fetch all notifications and then they must be filtered in the component.
-    // Or use a more specific query if possible.
-
     const querySnapshot = await getDocs(q);
     const notifications: NotificationItem[] = [];
 
@@ -75,7 +66,8 @@ export const getNotificationsForUser = async (currentUserItsId: string, currentU
     return notifications;
   } catch (error) {
     console.error("Error fetching notifications: ", error);
-    throw error;
+    // Return empty array on error to prevent crashing upstream components
+    return []; 
   }
 };
 

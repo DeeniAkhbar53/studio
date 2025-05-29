@@ -20,12 +20,13 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
       name: userData.name,
       itsId: userData.itsId,
       role: userData.role,
-      mohallahId: mohallahId,
+      mohallahId: mohallahId, // Storing mohallahId within the member document as well
       avatarUrl: userData.avatarUrl || `https://placehold.co/40x40.png?text=${userData.name.substring(0,2).toUpperCase()}`,
       designation: userData.designation || "Member",
       pageRights: userData.pageRights || [],
     };
 
+    // Only add optional fields if they have a value
     if (userData.bgkId && userData.bgkId.trim() !== "") {
       payloadForFirestore.bgkId = userData.bgkId;
     }
@@ -139,11 +140,12 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
     
     return null;
   } catch (error) {
-    console.error("Error fetching user by ITS/BGK ID using collection group query: ", error);
+    console.error("CRITICAL: Error fetching user by ITS/BGK ID using collection group query: ", error);
     if (error instanceof Error && error.message.includes("index")) {
         console.error("This operation requires a Firestore index on 'itsId' and 'bgkId' for the 'members' collection group. Please check your Firebase console.");
     }
-    throw error; 
+    // Return null instead of re-throwing to make the caller more resilient
+    return null; 
   }
 };
 
@@ -178,10 +180,11 @@ export const getUsersCount = async (mohallahId?: string): Promise<number> => {
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count;
   } catch (error) {
-    console.error('Error fetching users count:', error);
+    console.error('CRITICAL: Error fetching users count:', error);
     if (error instanceof Error && error.message.includes("index") && !mohallahId) {
          console.error("Counting all members requires collection group query support or indexes.");
     }
-    return 0; // Return 0 on error
+    // Return 0 on error instead of re-throwing
+    return 0; 
   }
 };

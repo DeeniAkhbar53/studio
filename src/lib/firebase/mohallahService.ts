@@ -63,8 +63,8 @@ export const getMohallahsCount = async (): Promise<number> => {
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count;
   } catch (error) {
-    console.error('Error fetching mohallahs count:', error);
-    return 0; // Return 0 on error
+    console.error('CRITICAL: Error fetching mohallahs count:', error);
+    // Return 0 on error instead of re-throwing
+    return 0; 
   }
 };
-
