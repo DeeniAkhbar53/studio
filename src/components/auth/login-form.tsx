@@ -18,10 +18,10 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { KeyRound, Loader2 } from "lucide-react";
-import type { UserRole } from "@/types";
+import type { User, UserRole } from "@/types";
 
 const loginSchema = z.object({
-  identityId: z.string().length(8, { message: "ITS ID must be 8 characters." }),
+  identityId: z.string().length(8, { message: "ITS ID must be exactly 8 characters." }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -40,20 +40,20 @@ export function LoginForm() {
     form.setValue('identityId', data.identityId.trim());
     const { identityId } = data;
 
-    // No need to manually manage isSubmitting with react-hook-form's formState
-
     try {
-      const user = await getUserByItsOrBgkId(identityId);
+      console.log(`Attempting to find user with ID: ${identityId}`);
+      const user: User | null = await getUserByItsOrBgkId(identityId);
 
       if (user && user.role) {
+        console.log("User found:", JSON.stringify(user));
         if (typeof window !== "undefined") {
           localStorage.setItem('userRole', user.role);
           localStorage.setItem('userName', user.name);
           localStorage.setItem('userItsId', user.itsId);
           localStorage.setItem('userMohallahId', user.mohallahId || '');
           localStorage.setItem('userPageRights', JSON.stringify(user.pageRights || []));
-          localStorage.setItem('unreadNotificationCount', '0'); // Reset unread count on login
-          window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Notify header/sidebar
+          localStorage.setItem('unreadNotificationCount', '0');
+          window.dispatchEvent(new CustomEvent('notificationsUpdated'));
         }
 
         toast({
@@ -66,6 +66,7 @@ export function LoginForm() {
         }, 1000);
 
       } else {
+        console.log("User not found in system for ID:", identityId);
         toast({
           variant: "destructive",
           title: "Login Failed",
@@ -77,7 +78,7 @@ export function LoginForm() {
       toast({
         variant: "destructive",
         title: "Login Error",
-        description: "An error occurred while trying to log in. Please check the console.",
+        description: `An error occurred: ${error instanceof Error ? error.message : "Please check console for details."}`,
       });
     }
   }
