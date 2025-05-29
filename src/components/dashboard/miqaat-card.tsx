@@ -18,7 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useState, useRef } from "react";
-import { useToast } from "@/hooks/use-toast"; // Added import
+import { useToast } from "@/hooks/use-toast";
 
 interface MiqaatCardProps {
   miqaat: Miqaat;
@@ -31,7 +31,7 @@ interface MiqaatCardProps {
 export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohallahs }: MiqaatCardProps) {
   const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
   const qrCodeDisplayRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast(); // Initialize toast
+  const { toast } = useToast();
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
@@ -65,14 +65,14 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
 
     const svgElement = qrCodeDisplayRef.current.querySelector('svg');
     if (!svgElement) {
-      console.error("QR Code SVG element not found");
+      console.error("QR Code SVG element not found for download.");
       toast({ title: "Error", description: "QR code element not found.", variant: "destructive" });
       return;
     }
 
     const appLogoUrl = "https://app.burhaniguards.org/images/logo.png";
     const logoSize = 40;
-    const qrRenderSize = 200; 
+    const qrRenderSize = 200;
     const padding = 20;
     const titleFontSize = 16;
     const timeFontSize = 12;
@@ -87,7 +87,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
 
     const miqaatNameText = miqaat.name;
     const miqaatTimeText = `Starts: ${formatDate(miqaat.startTime)}`;
-    const canvasWidth = qrRenderSize + 2 * padding;
+    const canvasWidth = qrRenderSize + 2 * padding; // Base width on QR code
 
     // Function to draw content on canvas
     const drawFinalImage = (includeLogo: boolean, loadedLogoImage: HTMLImageElement | null) => {
@@ -151,16 +151,17 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
         toast({ title: "Barcode Downloaded", description: (includeLogo && loadedLogoImage) ? "Image with logo generated." : "Image generated (logo could not be loaded)." });
       };
       qrImage.onerror = (err) => {
-        console.error("Error loading SVG QR code into image:", err);
+        console.error("Error loading SVG QR code into image during download:", err);
         toast({ title: "QR Generation Error", description: "Could not render QR code for download.", variant: "destructive" });
       };
+      // Ensure SVG data is correctly formatted for data URI
       const cleanSvgData = unescape(encodeURIComponent(svgData));
       qrImage.src = 'data:image/svg+xml;base64,' + btoa(cleanSvgData);
     };
 
     // Attempt to load logo
     const logoImage = new Image();
-    logoImage.crossOrigin = "anonymous"; 
+    logoImage.crossOrigin = "anonymous"; // Important for cross-origin images on canvas
     logoImage.src = appLogoUrl;
 
     logoImage.onload = () => {
@@ -168,7 +169,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
     };
 
     logoImage.onerror = () => {
-      console.error("Error loading app logo. Proceeding without logo.");
+      console.warn("Warning: Error loading app logo. Proceeding without logo. This is likely due to CORS restrictions on the image server.");
       toast({ title: "Logo Load Failed", description: "Barcode will be generated without the app logo.", variant: "default", duration: 5000 });
       drawFinalImage(false, null); // Proceed to draw without logo
     };
@@ -258,7 +259,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
             {(miqaat.barcodeData || miqaat.id) ? (
               <QRCodeSVG
                 value={miqaat.barcodeData || miqaat.id}
-                size={250} 
+                size={250}
                 bgColor={"#ffffff"}
                 fgColor={"#000000"}
                 level={"Q"}
@@ -281,4 +282,3 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
     </>
   );
 }
-    
