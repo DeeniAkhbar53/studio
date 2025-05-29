@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label as StandardLabel } from "@/components/ui/label"; // Renamed to avoid conflict with FormLabel
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -214,7 +213,7 @@ export default function ManageMembersPage() {
       pageRights: values.role === 'user' ? [] : (values.pageRights || []),
     };
 
-    console.log("Attempting to save member. Payload for service:", memberPayload, "Target Mohallah ID for path:", targetMohallahId);
+    console.log("Attempting to save member to Firestore. Payload for service:", memberPayload, "Target Mohallah ID for path:", targetMohallahId);
 
     try {
       if (editingMember && editingMember.mohallahId) {
@@ -234,7 +233,7 @@ export default function ManageMembersPage() {
       setEditingMember(null);
     } catch (error) {
       console.error("Error saving member to database:", error);
-      toast({ title: "Database Error", description: `Could not save member data. Check console for details. ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
+      toast({ title: "Database Error", description: `Could not save member data. ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
     }
   };
 
@@ -407,13 +406,13 @@ export default function ManageMembersPage() {
            if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0)) {
             toast({
                 title: "CSV Import Error",
-                description: "There was an issue importing some or all users. Check console for details.",
+                description: "Could not import users from CSV. See console for details.",
                 variant: "destructive",
             });
           } else {
             toast({
                 title: "CSV Import Successful",
-                description: `CSV import processed.`,
+                description: `Successfully processed CSV file.`,
             });
           }
 
@@ -569,9 +568,9 @@ export default function ManageMembersPage() {
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
-                        <StandardLabel htmlFor="csvFile" className="text-right">
+                        <FormLabel htmlFor="csvFile" className="text-right">
                             CSV File
-                        </StandardLabel>
+                        </FormLabel>
                         <Input
                             id="csvFile"
                             type="file"
@@ -955,9 +954,9 @@ export default function ManageMembersPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <StandardLabel htmlFor="csvFile" className="text-right">
+              <FormLabel htmlFor="csvFile" className="text-right">
                 CSV File
-              </StandardLabel>
+              </FormLabel>
               <Input
                 id="csvFile"
                 type="file"
