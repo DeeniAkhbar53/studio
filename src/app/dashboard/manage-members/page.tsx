@@ -554,9 +554,49 @@ export default function ManageMembersPage() {
                   <Button variant="outline" onClick={downloadSampleCsv} size="icon" aria-label="Download Sample CSV">
                       <Download className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" onClick={() => setIsCsvImportDialogOpen(true)} size="icon" aria-label="Import Members via CSV" disabled={!canAddOrImport()}>
-                    <FileUp className="h-4 w-4" />
-                  </Button>
+                  <Dialog open={isCsvImportDialogOpen} onOpenChange={(open) => { setIsCsvImportDialogOpen(open); if(!open) setSelectedFile(null); }}>
+                    <DialogTrigger asChild>
+                        <Button variant="outline" size="icon" aria-label="Import Members via CSV" disabled={!canAddOrImport()}>
+                            <FileUp className="h-4 w-4" />
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[525px]">
+                    <DialogHeader>
+                        <DialogTitle>Import Members via CSV</DialogTitle>
+                        <DialogDescription>
+                        Select CSV file. Columns: `name`, `itsId`, `bgkId`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist. Admins can only import to their assigned Mohallah.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                        <StandardLabel htmlFor="csvFile" className="text-right">
+                            CSV File
+                        </StandardLabel>
+                        <Input
+                            id="csvFile"
+                            type="file"
+                            accept=".csv"
+                            className="col-span-3"
+                            onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
+                            disabled={isCsvProcessing}
+                        />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => {setIsCsvImportDialogOpen(false); setSelectedFile(null);}} disabled={isCsvProcessing}>Cancel</Button>
+                        <Button type="button" onClick={handleProcessCsvUpload} disabled={!selectedFile || isCsvProcessing || !canAddOrImport()}>
+                        {isCsvProcessing ? (
+                            <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                            </>
+                        ) : (
+                            "Upload and Process"
+                        )}
+                        </Button>
+                    </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                   <Dialog open={isMemberDialogOpen} onOpenChange={(open) => { setIsMemberDialogOpen(open); if (!open) setEditingMember(null); }}>
                     <DialogTrigger asChild>
                        <Button 
@@ -779,7 +819,7 @@ export default function ManageMembersPage() {
       </Card>
 
       <Card className="shadow-lg flex flex-col">
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 flex-1 overflow-auto">
           {isLoadingMembers ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
