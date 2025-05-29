@@ -519,7 +519,7 @@ export default function ManageMembersPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg flex flex-col">
+      <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
             <div className="flex-grow">
@@ -735,15 +735,6 @@ export default function ManageMembersPage() {
              )}
           </div>
           <Separator className="mb-4" />
-        </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto"> {/* Added flex-1 and overflow-y-auto */}
-          {fetchError && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertTriangle className="h-4 w-4" />
-              <ShadAlertTitle>Data Fetch Error</ShadAlertTitle>
-              <ShadAlertDescription>{fetchError}</ShadAlertDescription>
-            </Alert>
-          )}
           <div className="flex flex-col sm:flex-row gap-4 mb-4">
             <div className="relative flex-grow">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -778,6 +769,18 @@ export default function ManageMembersPage() {
               </div>
             )}
           </div>
+          {fetchError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangle className="h-4 w-4" />
+              <ShadAlertTitle>Data Fetch Error</ShadAlertTitle>
+              <ShadAlertDescription>{fetchError}</ShadAlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-lg flex flex-col"> {/* New card for the table */}
+        <CardContent className="flex-1 pt-6"> {/* pt-6 to give some space if no header */}
           {isLoadingMembers ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -944,3 +947,4 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
