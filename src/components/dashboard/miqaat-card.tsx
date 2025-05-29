@@ -1,10 +1,10 @@
 
 "use client";
 
-import type { Miqaat, UserRole, Mohallah } from "@/types"; 
+import type { Miqaat, UserRole, Mohallah } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Users, Barcode, Edit, Trash2, Clock, MapPin, Tag } from "lucide-react"; // Added Tag for teams
+import { CalendarDays, Users, Barcode, Edit, Trash2, Clock, MapPin, Tag, Download } from "lucide-react"; // Added Download
 import { QRCodeSVG } from 'qrcode.react';
 import {
   AlertDialog,
@@ -17,22 +17,32 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useState } from "react";
+import { useState, useRef } from "react"; // Added useRef
 
 interface MiqaatCardProps {
-  miqaat: Miqaat; 
+  miqaat: Miqaat;
   onEdit: (miqaat: Miqaat) => void;
   onDelete: (miqaatId: string) => void;
   currentUserRole: UserRole | null;
-  allMohallahs: Mohallah[]; 
+  allMohallahs: Mohallah[];
 }
 
 export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohallahs }: MiqaatCardProps) {
   const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
+  const qrCodeWrapperRef = useRef<HTMLDivElement>(null); // Ref for the QR code wrapper
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+  };
+
+  const formatDateForFilename = (isoDateString?: string): string => {
+    if (!isoDateString) return 'nodate';
+    const date = new Date(isoDateString);
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const formattedStartDate = formatDate(miqaat.startTime);
@@ -43,10 +53,58 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
   const assignedMohallahNames = miqaat.mohallahIds && miqaat.mohallahIds.length > 0
     ? miqaat.mohallahIds.map(id => allMohallahs.find(m => m.id === id)?.name || 'Unknown ID').join(", ")
     : "All Mohallahs / Not Specified";
-  
+
   const assignedTeamNames = miqaat.teams && miqaat.teams.length > 0
     ? miqaat.teams.join(", ")
     : "All Teams / Not Specified";
+
+  const handleDownloadBarcode = () => {
+    if (!qrCodeWrapperRef.current) return;
+
+    const svgElement = qrCodeWrapperRef.current.querySelector('svg');
+    if (!svgElement) {
+      console.error("QR Code SVG element not found");
+      return;
+    }
+
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const canvas = document.createElement('canvas');
+    const svgSize = parseInt(svgElement.getAttribute('width') || '250', 10); // Use the size from QRCodeSVG
+    canvas.width = svgSize;
+    canvas.height = svgSize;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+        console.error("Could not get canvas context");
+        return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+      ctx.fillStyle = "#ffffff"; // Set background to white (if needed, QRCodeSVG might handle this)
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, svgSize, svgSize);
+      const pngFile = canvas.toDataURL('image/png');
+
+      const miqaatNameClean = miqaat.name.replace(/[^a-z0-9_]+/gi, '_').toLowerCase();
+      const datePart = formatDateForFilename(miqaat.startTime);
+      const filename = `${miqaatNameClean}_${datePart}_barcode.png`;
+
+      const downloadLink = document.createElement('a');
+      downloadLink.href = pngFile;
+      downloadLink.download = filename;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    };
+    img.onerror = (err) => {
+        console.error("Error loading SVG into image:", err);
+    };
+    // Use btoa(unescape(encodeURIComponent(svgData))) for better special character handling
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  };
+
 
   return (
     <>
@@ -71,12 +129,12 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
             </div>
           )}
           <div className="flex items-center text-muted-foreground">
-            <MapPin className="mr-2 h-4 w-4 text-primary shrink-0" /> 
-            <span>Mohallahs: {assignedMohallahNames}</span> 
+            <MapPin className="mr-2 h-4 w-4 text-primary shrink-0" />
+            <span>Mohallahs: {assignedMohallahNames}</span>
           </div>
            <div className="flex items-center text-muted-foreground">
-            <Tag className="mr-2 h-4 w-4 text-primary shrink-0" /> 
-            <span>Teams: {assignedTeamNames}</span> 
+            <Tag className="mr-2 h-4 w-4 text-primary shrink-0" />
+            <span>Teams: {assignedTeamNames}</span>
           </div>
           <div className="flex items-center text-muted-foreground">
              <Users className="mr-2 h-4 w-4 text-primary shrink-0" />
@@ -127,7 +185,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
               Scan this barcode for attendance marking.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="flex justify-center items-center my-4 p-4 bg-white rounded-lg shadow-inner">
+          <div ref={qrCodeWrapperRef} className="flex justify-center items-center my-4 p-4 bg-white rounded-lg shadow-inner">
             {(miqaat.barcodeData || miqaat.id) ? (
               <QRCodeSVG
                 value={miqaat.barcodeData || miqaat.id}
@@ -142,6 +200,10 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
           </div>
           <p className="text-center text-sm text-muted-foreground">Data: {miqaat.barcodeData || miqaat.id || 'N/A'}</p>
           <AlertDialogFooter>
+            <Button variant="outline" onClick={handleDownloadBarcode}>
+              <Download className="mr-2 h-4 w-4" />
+              Download Barcode
+            </Button>
             <AlertDialogCancel>Close</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
