@@ -14,6 +14,7 @@ export type User = {
   avatarUrl?: string;
   designation?: UserDesignation;
   pageRights?: string[];
+  // oneSignalPlayerIds?: string[]; // For storing OneSignal Player IDs if needed later
 };
 
 export type MiqaatAttendanceEntryItem = {
@@ -35,7 +36,7 @@ export type Miqaat = {
   location?: string;
   createdAt?: string;
   attendance?: MiqaatAttendanceEntryItem[];
-  attendedUserItsIds?: string[]; // New field for optimized queries
+  attendedUserItsIds?: string[];
 };
 
 export type AttendanceRecord = {
@@ -58,7 +59,7 @@ export type Team = {
 export type Mohallah = {
   id: string;
   name: string;
-  createdAt?: string; // Added from previous changes, ensure consistency
+  createdAt?: string;
 };
 
 export type MarkedAttendanceEntry = {

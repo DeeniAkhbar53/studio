@@ -2,13 +2,11 @@
 'use server';
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion } from 'firebase/firestore';
 import type { User, UserRole, UserDesignation } from '@/types';
 
-// UserData type for adding should reflect the User type, minus 'id' and with optional 'avatarUrl'
 export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string };
 
-// This function adds a user to a specific Mohallah's 'members' subcollection
 export const addUser = async (userData: UserDataForAdd, mohallahId: string): Promise<User> => {
   if (!mohallahId) {
     throw new Error("Mohallah ID is required to add a user.");
@@ -20,13 +18,13 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
       name: userData.name,
       itsId: userData.itsId,
       role: userData.role,
-      mohallahId: mohallahId, // Storing mohallahId within the member document as well
+      mohallahId: mohallahId,
       avatarUrl: userData.avatarUrl || `https://placehold.co/40x40.png?text=${userData.name.substring(0,2).toUpperCase()}`,
       designation: userData.designation || "Member",
       pageRights: userData.pageRights || [],
+      // oneSignalPlayerIds: [], // Initialize if you decide to store player IDs
     };
 
-    // Only add optional fields if they have a value
     if (userData.bgkId && userData.bgkId.trim() !== "") {
       payloadForFirestore.bgkId = userData.bgkId;
     }
@@ -45,11 +43,8 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
   }
 };
 
-
-// UpdatedData type for updating should be Partial of User, minus 'id'
 type UserDataForUpdate = Partial<Omit<User, 'id'>>;
 
-// This function updates a user within a specific Mohallah's 'members' subcollection
 export const updateUser = async (userId: string, mohallahId: string, updatedData: UserDataForUpdate): Promise<void> => {
   if (!mohallahId) {
     throw new Error("Mohallah ID is required to update a user.");
@@ -58,7 +53,6 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
     const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
     
     const updatePayload: any = { ...updatedData };
-     // Explicitly remove mohallahId from payload if present, as it's path-defined
     delete updatePayload.mohallahId; 
 
      Object.keys(updatePayload).forEach(key => {
@@ -82,7 +76,6 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
   }
 };
 
-// This function deletes a user from a specific Mohallah's 'members' subcollection
 export const deleteUser = async (userId: string, mohallahId: string): Promise<void> => {
   if (!mohallahId) {
     throw new Error("Mohallah ID is required to delete a user.");
@@ -90,15 +83,12 @@ export const deleteUser = async (userId: string, mohallahId: string): Promise<vo
   try {
     const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
     await deleteDoc(userDocRef);
-  } catch (error)
-{
+  } catch (error) {
     console.error(`Error deleting user ${userId} from Mohallah ${mohallahId}: `, error);
     throw error;
   }
 };
 
-// Fetches users. If mohallahId is provided, fetches from that Mohallah's 'members' subcollection.
-// Otherwise, fetches all users across all Mohallahs using a collection group query.
 export const getUsers = async (mohallahId?: string): Promise<User[]> => {
   try {
     let usersQuery;
@@ -108,7 +98,12 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
       usersQuery = query(collectionGroup(db, 'members'));
     }
     const data = await getDocs(usersQuery);
-    return data.docs.map((doc) => ({ ...doc.data(), id: doc.id, pageRights: doc.data().pageRights || [] } as User));
+    return data.docs.map((doc) => ({ 
+      ...doc.data(), 
+      id: doc.id, 
+      pageRights: doc.data().pageRights || [],
+      // oneSignalPlayerIds: doc.data().oneSignalPlayerIds || [] // If storing player IDs
+    } as User));
   } catch (error) {
     console.error("Error fetching users: ", error);
     if (error instanceof Error && error.message.includes("index")) {
@@ -119,7 +114,6 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
   }
 };
 
-
 export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
   try {
     const membersCollectionGroup = collectionGroup(db, 'members');
@@ -128,23 +122,34 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
     const itsSnapshot = await getDocs(itsQuery);
     if (!itsSnapshot.empty) {
       const userDoc = itsSnapshot.docs[0];
-      return { ...userDoc.data(), id: userDoc.id, pageRights: userDoc.data().pageRights || [], mohallahId: userDoc.data().mohallahId } as User;
+      return { 
+        ...userDoc.data(), 
+        id: userDoc.id, 
+        pageRights: userDoc.data().pageRights || [], 
+        mohallahId: userDoc.data().mohallahId,
+        // oneSignalPlayerIds: userDoc.data().oneSignalPlayerIds || [] // If storing player IDs
+      } as User;
     }
 
     const bgkQuery = query(membersCollectionGroup, where("bgkId", "==", id));
     const bgkSnapshot = await getDocs(bgkQuery);
     if (!bgkSnapshot.empty) {
       const userDoc = bgkSnapshot.docs[0];
-      return { ...userDoc.data(), id: userDoc.id, pageRights: userDoc.data().pageRights || [], mohallahId: userDoc.data().mohallahId } as User;
+      return { 
+        ...userDoc.data(), 
+        id: userDoc.id, 
+        pageRights: userDoc.data().pageRights || [], 
+        mohallahId: userDoc.data().mohallahId,
+        // oneSignalPlayerIds: userDoc.data().oneSignalPlayerIds || [] // If storing player IDs
+      } as User;
     }
     
     return null;
   } catch (error) {
-    console.error("CRITICAL: Error fetching user by ITS/BGK ID using collection group query: ", error);
+    console.error('CRITICAL: Error fetching user by ITS/BGK ID using collection group query: ', error);
     if (error instanceof Error && error.message.includes("index")) {
         console.error("This operation requires a Firestore index on 'itsId' and 'bgkId' for the 'members' collection group. Please check your Firebase console.");
     }
-    // Return null instead of re-throwing to make the caller more resilient
     return null; 
   }
 };
@@ -184,7 +189,23 @@ export const getUsersCount = async (mohallahId?: string): Promise<number> => {
     if (error instanceof Error && error.message.includes("index") && !mohallahId) {
          console.error("Counting all members requires collection group query support or indexes.");
     }
-    // Return 0 on error instead of re-throwing
     return 0; 
   }
 };
+
+// Function to update user with OneSignal Player ID (if you decide to store it)
+// export const updateUserOneSignalPlayerId = async (userId: string, mohallahId: string, playerId: string): Promise<void> => {
+//   if (!mohallahId || !userId) {
+//     console.error("Mohallah ID and User ID are required to update OneSignal Player ID.");
+//     return;
+//   }
+//   try {
+//     const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
+//     await updateDoc(userDocRef, {
+//       oneSignalPlayerIds: arrayUnion(playerId)
+//     });
+//     console.log(`OneSignal Player ID ${playerId} added for user ${userId} in Mohallah ${mohallahId}`);
+//   } catch (error) {
+//     console.error(`Error updating OneSignal Player ID for user ${userId} in Mohallah ${mohallahId}: `, error);
+//   }
+// };
