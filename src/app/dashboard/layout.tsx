@@ -9,6 +9,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { updateUserOneSignalPlayerId } from "@/lib/firebase/userService"; // Import the service
 
 // Declare OneSignal on window type for TypeScript
 declare global {
@@ -43,34 +44,37 @@ export default function DashboardLayout({
     if (isAuthenticated === false) return; // Don't initialize if not authenticated
     if (isAuthenticated === null) return; // Don't initialize if auth state is still loading
 
-    // Initialize OneSignal using the deferred pattern
     if (typeof window !== 'undefined') {
       window.OneSignalDeferred = window.OneSignalDeferred || [];
-      window.OneSignalDeferred.push(async function(OneSignal: any) { // OneSignal will be passed here
+      window.OneSignalDeferred.push(async function(OneSignal: any) {
         if (!OneSignal) {
             console.error("OneSignal SDK not loaded.");
             return;
         }
         await OneSignal.init({
-          appId: "c5b623d9-48b0-460a-b525-8ddfc7553058", // Your specific App ID
-          safari_web_id: "YOUR_SAFARI_WEB_ID_IF_APPLICABLE", // Optional, for Safari
-          allowLocalhostAsSecureOrigin: true, // Useful for development
-          autoRegister: false, // We will prompt manually
+          appId: "c5b623d9-48b0-460a-b525-8ddfc7553058",
+          safari_web_id: "YOUR_SAFARI_WEB_ID_IF_APPLICABLE", 
+          allowLocalhostAsSecureOrigin: true,
+          autoRegister: false,
           notifyButton: {
-             enable: false, // We will use our own UI/prompt logic
+             enable: false,
           },
         });
 
-        // Check if user is already subscribed
         const isEnabled = await OneSignal.isPushNotificationsEnabled();
         if (isEnabled) {
             console.log("Push notifications are already enabled!");
-            // Optionally, you could get the OneSignal Player ID here and store it
-            // const playerId = await OneSignal.getUserId();
-            // console.log("OneSignal User ID:", playerId);
+            const playerId = OneSignal.User.PushSubscription.id;
+            if (playerId) {
+              const userItsId = localStorage.getItem('userItsId');
+              const userMohallahId = localStorage.getItem('userMohallahId');
+              if (userItsId && userMohallahId) {
+                console.log("Attempting to save OneSignal Player ID:", playerId, "for user:", userItsId);
+                await updateUserOneSignalPlayerId(userItsId, userMohallahId, playerId);
+              }
+            }
         } else {
             console.log("Push notifications are not enabled. Will attempt to prompt.");
-            // Prompt after a short delay to ensure page context is clear
             setTimeout(() => {
               OneSignal.Slidedown.promptPush({
                 force: false,
@@ -82,17 +86,22 @@ export default function DashboardLayout({
               }).then(async (accepted: boolean) => {
                 if (accepted) {
                   console.log("User accepted push notifications.");
-                  // const playerId = await OneSignal.getUserId();
-                  // console.log("OneSignal User ID:", playerId);
-                  // Here you would typically send this userId to your backend
+                  const playerId = OneSignal.User.PushSubscription.id;
+                  if (playerId) {
+                    const userItsId = localStorage.getItem('userItsId');
+                    const userMohallahId = localStorage.getItem('userMohallahId');
+                    if (userItsId && userMohallahId) {
+                       console.log("Attempting to save OneSignal Player ID after prompt:", playerId, "for user:", userItsId);
+                       await updateUserOneSignalPlayerId(userItsId, userMohallahId, playerId);
+                    }
+                  }
                 } else {
                   console.log("User dismissed or blocked push notifications.");
                 }
               });
-            }, 5000); // Prompt after 5 seconds
+            }, 5000);
         }
 
-        // Handle foreground push notifications
         OneSignal.on('notificationDisplay', (event: any) => {
           console.log('OneSignal notification displayed:', event);
           toast({
@@ -102,7 +111,7 @@ export default function DashboardLayout({
         });
       });
     }
-  }, [isAuthenticated, toast]); // Re-run if isAuthenticated changes
+  }, [isAuthenticated, toast]); 
 
   if (isAuthenticated === null) {
     return (
@@ -113,7 +122,9 @@ export default function DashboardLayout({
   }
 
   if (!isAuthenticated) {
-    return null; // Or a redirect component, though useEffect handles this
+    // This effectively prevents rendering anything until the redirect happens.
+    // router.push should be handled by the first useEffect.
+    return null; 
   }
 
   return (
@@ -143,9 +154,9 @@ export default function DashboardLayout({
           {children}
         </main>
         <footer className="border-t bg-card py-3 px-6 text-muted-foreground">
-          <div>
-            <p className="text-xs text-left">&copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
-            <p className="text-xs text-left text-muted-foreground/80 mt-0.5">Designed and Managed by Shabbir Shakir</p>
+          <div className="text-left">
+            <p className="text-xs">&copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
+            <p className="text-xs text-muted-foreground/80 mt-0.5">Designed and Managed by Shabbir Shakir</p>
           </div>
         </footer>
       </div>
