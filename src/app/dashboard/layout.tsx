@@ -9,7 +9,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-// Removed Firebase messaging imports as OneSignal will handle push notifications
+
+// Declare OneSignal on window type for TypeScript
+declare global {
+  interface Window {
+    OneSignalDeferred?: any[];
+    OneSignal?: any;
+  }
+}
 
 export default function DashboardLayout({
   children,
@@ -33,26 +40,19 @@ export default function DashboardLayout({
   }, [router]);
 
   useEffect(() => {
-    // Initialize OneSignal
-    // Ensure this runs only after the component is mounted and window is available
+    if (isAuthenticated === false) return; // Don't initialize if not authenticated
+    if (isAuthenticated === null) return; // Don't initialize if auth state is still loading
+
+    // Initialize OneSignal using the deferred pattern
     if (typeof window !== 'undefined') {
-      const OneSignal = window.OneSignal || [];
-      const ONE_SIGNAL_APP_ID = "YOUR_ONESIGNAL_APP_ID_HERE"; // IMPORTANT: Replace with your actual OneSignal App ID
-
-      if (!ONE_SIGNAL_APP_ID || ONE_SIGNAL_APP_ID === "YOUR_ONESIGNAL_APP_ID_HERE") {
-        console.warn("OneSignal App ID is not configured. Push notifications will not work.");
-        toast({
-          title: "Notification Setup Incomplete",
-          description: "Push notification service is not fully configured (App ID missing).",
-          variant: "destructive",
-          duration: 10000,
-        });
-        return;
-      }
-
-      OneSignal.push(() => {
-        OneSignal.init({
-          appId: ONE_SIGNAL_APP_ID,
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      window.OneSignalDeferred.push(async function(OneSignal: any) { // OneSignal will be passed here
+        if (!OneSignal) {
+            console.error("OneSignal SDK not loaded.");
+            return;
+        }
+        await OneSignal.init({
+          appId: "c5b623d9-48b0-460a-b525-8ddfc7553058", // Your specific App ID
           safari_web_id: "YOUR_SAFARI_WEB_ID_IF_APPLICABLE", // Optional, for Safari
           allowLocalhostAsSecureOrigin: true, // Useful for development
           autoRegister: false, // We will prompt manually
@@ -62,59 +62,39 @@ export default function DashboardLayout({
         });
 
         // Check if user is already subscribed
-        OneSignal.isPushNotificationsEnabled((isEnabled) => {
-          if (isEnabled) {
+        const isEnabled = await OneSignal.isPushNotificationsEnabled();
+        if (isEnabled) {
             console.log("Push notifications are already enabled!");
             // Optionally, you could get the OneSignal Player ID here and store it
-            // OneSignal.getUserId().then((userId) => {
-            //   console.log("OneSignal User ID:", userId);
-            //   // Call your service to store userId if needed
-            // });
-          } else {
-            // If not enabled, you might want to show a custom UI element to prompt them
-            // For now, we'll use the slidedown prompt after a short delay
-            // to ensure the page context is clear to the user.
+            // const playerId = await OneSignal.getUserId();
+            // console.log("OneSignal User ID:", playerId);
+        } else {
             console.log("Push notifications are not enabled. Will attempt to prompt.");
-            // Example of prompting after a delay or user interaction
-            // For simplicity, prompting after a short delay here.
-            // In a real app, tie this to a user action or a more contextual moment.
+            // Prompt after a short delay to ensure page context is clear
             setTimeout(() => {
               OneSignal.Slidedown.promptPush({
-                force: false, // Set to true to always show, even if previously dismissed by user (use with caution)
+                force: false,
                 slidedownPromptOptions: {
                   actionMessage: "We'd like to show you notifications for new announcements.",
                   acceptButtonText: "Allow",
                   cancelButtonText: "No Thanks",
                 }
-              }).then((accepted) => {
+              }).then(async (accepted: boolean) => {
                 if (accepted) {
                   console.log("User accepted push notifications.");
-                  OneSignal.getUserId().then((userId) => {
-                     console.log("OneSignal User ID:", userId);
-                     // Here you would typically send this userId to your backend
-                     // to associate it with the current logged-in user.
-                     // For this iteration, we are not storing Player IDs back to Firestore.
-                     // const userItsId = localStorage.getItem('userItsId');
-                     // const userMohallahId = localStorage.getItem('userMohallahId');
-                     // if (userId && userItsId && userMohallahId) {
-                     //   updateUserOneSignalPlayerId(userItsId, userMohallahId, userId)
-                     //     .then(() => console.log('OneSignal Player ID stored for user.'))
-                     //     .catch(err => console.error('Failed to store OneSignal Player ID:', err));
-                     // }
-                  });
+                  // const playerId = await OneSignal.getUserId();
+                  // console.log("OneSignal User ID:", playerId);
+                  // Here you would typically send this userId to your backend
                 } else {
                   console.log("User dismissed or blocked push notifications.");
                 }
               });
             }, 5000); // Prompt after 5 seconds
-          }
-        });
+        }
 
-        // Handle foreground push notifications (optional, if you want custom in-app display)
-        // OneSignal handles displaying system notifications when app is backgrounded/closed by default via service worker
-        OneSignal.on('notificationDisplay', (event) => {
+        // Handle foreground push notifications
+        OneSignal.on('notificationDisplay', (event: any) => {
           console.log('OneSignal notification displayed:', event);
-          // You could show a custom in-app notification/toast here as well
           toast({
             title: event.heading || "New Notification",
             description: event.content,
@@ -122,8 +102,7 @@ export default function DashboardLayout({
         });
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]); // Re-run if isAuthenticated changes, to ensure prompt happens post-login context
+  }, [isAuthenticated, toast]); // Re-run if isAuthenticated changes
 
   if (isAuthenticated === null) {
     return (
@@ -134,7 +113,7 @@ export default function DashboardLayout({
   }
 
   if (!isAuthenticated) {
-    return null;
+    return null; // Or a redirect component, though useEffect handles this
   }
 
   return (
