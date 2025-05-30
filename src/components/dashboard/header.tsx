@@ -20,15 +20,16 @@ import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import type { NotificationItem, UserRole } from "@/types";
 import Image from "next/image";
-import { getNotificationsForUser } from "@/lib/firebase/notificationService";
-
+// Removed getNotificationsForUser import as we'll implement listener logic directly
+import { db } from "@/lib/firebase/firebase";
+import { collection, query, where, orderBy, onSnapshot, Timestamp, limit, Unsubscribe } from "firebase/firestore";
 
 const pageTitles: { [key: string]: string } = {
   "/dashboard": "Dashboard",
   "/dashboard/profile": "Profile",
   "/dashboard/miqaat-management": "Miqaats",
   "/dashboard/manage-mohallahs": "Manage Mohallahs",
-  "/dashboard/manage-members": "Members",
+  "/dashboard/manage-members": "Manage Members",
   "/dashboard/reports": "Reports",
   "/dashboard/scan-attendance": "Scan QR",
   "/dashboard/mark-attendance": "Mark Attendance",
@@ -41,37 +42,11 @@ export function Header() {
   const router = useRouter();
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
+  
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
 
-  const checkUnreadNotifications = useCallback(async () => {
-    if (!currentUserItsId || !currentUserRole) {
-      setHasUnreadNotifications(false);
-      if (typeof window !== "undefined") {
-        localStorage.setItem('unreadNotificationCount', '0'); // Ensure count is zeroed if no user
-        window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Notify sidebar
-      }
-      return;
-    }
-    try {
-      const notifications = await getNotificationsForUser(currentUserItsId, currentUserRole);
-      const unreadCount = notifications.filter(n => !n.readBy?.includes(currentUserItsId)).length;
-      setHasUnreadNotifications(unreadCount > 0);
-      if (typeof window !== "undefined") {
-        localStorage.setItem('unreadNotificationCount', unreadCount.toString());
-        window.dispatchEvent(new CustomEvent('notificationsUpdated'));
-      }
-    } catch (error) {
-      console.error("Failed to check unread notifications:", error);
-      setHasUnreadNotifications(false);
-      if (typeof window !== "undefined") {
-        localStorage.setItem('unreadNotificationCount', '0');
-        window.dispatchEvent(new CustomEvent('notificationsUpdated'));
-      }
-    }
-  }, [currentUserItsId, currentUserRole]);
-
-
+  // Effect to load user auth data from localStorage
   useEffect(() => {
     const loadAuthData = () => {
       if (typeof window !== "undefined") {
@@ -79,36 +54,128 @@ export function Header() {
         const role = localStorage.getItem('userRole') as UserRole | null;
         setCurrentUserItsId(itsId);
         setCurrentUserRole(role);
+        console.log("[Header useEffect loadAuthData] Loaded from localStorage - ITS ID:", itsId, "Role:", role);
       }
     };
-    loadAuthData(); 
+    loadAuthData();
 
     const handleStorageChange = (event: StorageEvent) => {
       if (typeof window !== "undefined") {
-        if (event.key === 'userItsId' || event.key === 'userRole' || event.key === 'userMohallahId' || event.key === 'userName' || event.key === 'userPageRights') {
-          loadAuthData();
-        }
-        if (event.key === 'unreadNotificationCount') {
-          checkUnreadNotifications();
+        if (event.key === 'userItsId' || event.key === 'userRole') {
+          loadAuthData(); // Reload auth data if user context changes
         }
       }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [checkUnreadNotifications]);
+  }, []);
 
+
+  // Effect to listen for realtime notification updates
   useEffect(() => {
-    checkUnreadNotifications(); 
+    if (!currentUserItsId || !currentUserRole) {
+      console.log("[Header Notification Listener] Skipping: No ITS ID or Role.", { currentUserItsId, currentUserRole });
+      setHasUnreadNotifications(false);
+      if (typeof window !== "undefined") localStorage.setItem('unreadNotificationCount', '0');
+      return;
+    }
 
-    const handleNotificationsUpdateEvent = () => {
-      checkUnreadNotifications();
+    console.log(`[Header Notification Listener] Setting up for ITS: ${currentUserItsId}, Role: ${currentUserRole}`);
+
+    const notificationsCollectionRef = collection(db, 'notifications');
+    let unsubAll: Unsubscribe | null = null;
+    let unsubRole: Unsubscribe | null = null;
+    
+    let allNotificationsMap = new Map<string, NotificationItem>();
+    let roleNotificationsMap = new Map<string, NotificationItem>();
+
+    const processAndSetNotifications = () => {
+      const combinedNotificationsMap = new Map([...allNotificationsMap, ...roleNotificationsMap]);
+      const fetchedNotifications = Array.from(combinedNotificationsMap.values());
+      
+      const unreadCount = fetchedNotifications.filter(n => !n.readBy?.includes(currentUserItsId)).length;
+      setHasUnreadNotifications(unreadCount > 0);
+      if (typeof window !== "undefined") {
+        localStorage.setItem('unreadNotificationCount', unreadCount.toString());
+        window.dispatchEvent(new CustomEvent('notificationsUpdated')); // For sidebar
+      }
+      console.log(`[Header Notification Listener] Processed ${fetchedNotifications.length} total notifications. Unread count: ${unreadCount} for ITS: ${currentUserItsId}`);
     };
-    window.addEventListener('notificationsUpdated', handleNotificationsUpdateEvent);
+
+    // Listener for 'all' targetAudience
+    const qAll = query(
+      notificationsCollectionRef,
+      where('targetAudience', '==', 'all'),
+      orderBy('createdAt', 'desc'),
+      limit(50) // Limit to keep it manageable
+    );
+    unsubAll = onSnapshot(qAll, (querySnapshot) => {
+      console.log(`[Header Notification Listener] 'all' audience snapshot received: ${querySnapshot.docs.length} docs.`);
+      allNotificationsMap.clear();
+      querySnapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString());
+        allNotificationsMap.set(docSnapshot.id, {
+          id: docSnapshot.id,
+          title: data.title,
+          content: data.content,
+          createdAt: createdAt,
+          targetAudience: data.targetAudience,
+          createdBy: data.createdBy,
+          readBy: Array.isArray(data.readBy) ? data.readBy : [],
+        });
+      });
+      processAndSetNotifications();
+    }, (error) => {
+      console.error("[Header Notification Listener] Error fetching 'all' notifications:", error);
+      if (error.message.includes("index")) {
+        console.error("Firestore Index missing for query: targetAudience ASC, createdAt DESC on 'notifications' collection.");
+      }
+    });
+
+    // Listener for role-specific targetAudience
+    if (currentUserRole !== 'all') { // Avoid duplicate listener if role is somehow 'all'
+      const qRole = query(
+        notificationsCollectionRef,
+        where('targetAudience', '==', currentUserRole),
+        orderBy('createdAt', 'desc'),
+        limit(50) // Limit to keep it manageable
+      );
+      unsubRole = onSnapshot(qRole, (querySnapshot) => {
+        console.log(`[Header Notification Listener] '${currentUserRole}' audience snapshot received: ${querySnapshot.docs.length} docs.`);
+        roleNotificationsMap.clear();
+        querySnapshot.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString());
+          roleNotificationsMap.set(docSnapshot.id, {
+            id: docSnapshot.id,
+            title: data.title,
+            content: data.content,
+            createdAt: createdAt,
+            targetAudience: data.targetAudience,
+            createdBy: data.createdBy,
+            readBy: Array.isArray(data.readBy) ? data.readBy : [],
+          });
+        });
+        processAndSetNotifications();
+      }, (error) => {
+        console.error(`[Header Notification Listener] Error fetching '${currentUserRole}' notifications:`, error);
+        if (error.message.includes("index")) {
+          console.error("Firestore Index missing for query: targetAudience ASC, createdAt DESC on 'notifications' collection.");
+        }
+      });
+    } else {
+      // If currentUserRole is 'all', no need for a separate role listener, clear roleNotificationsMap
+      roleNotificationsMap.clear();
+      processAndSetNotifications();
+    }
 
     return () => {
-      window.removeEventListener('notificationsUpdated', handleNotificationsUpdateEvent);
+      console.log("[Header Notification Listener] Unsubscribing from notification listeners.");
+      if (unsubAll) unsubAll();
+      if (unsubRole) unsubRole();
     };
-  }, [checkUnreadNotifications]); 
+  }, [currentUserItsId, currentUserRole]);
 
 
   const handleLogout = () => {
@@ -118,16 +185,15 @@ export function Header() {
       localStorage.removeItem('userItsId');
       localStorage.removeItem('userMohallahId');
       localStorage.removeItem('userPageRights');
-      localStorage.removeItem('unreadNotificationCount');
+      localStorage.removeItem('unreadNotificationCount'); // Clear this on logout
     }
     setCurrentUserItsId(null);
     setCurrentUserRole(null);
     setHasUnreadNotifications(false); 
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent('notificationsUpdated'));
-    }
     
+    if (typeof window !== "undefined") {
+       window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Notify sidebar
+    }
     router.push("/");
   };
 
@@ -237,3 +303,5 @@ export function Header() {
     </header>
   );
 }
+
+    
