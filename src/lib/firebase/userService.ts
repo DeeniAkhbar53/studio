@@ -5,10 +5,7 @@ import { db } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue } from 'firebase/firestore';
 import type { User, UserRole, UserDesignation } from '@/types';
 
-// Ensure FieldValue is imported if you plan to use it for arrayRemove or other specific operations
-// For arrayUnion, it's typically passed directly as a function.
-
-export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'oneSignalPlayerIds' | 'fcmTokens'> & { avatarUrl?: string };
+export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'fcmTokens' > & { avatarUrl?: string };
 
 
 export const addUser = async (userData: UserDataForAdd, mohallahId: string): Promise<User> => {
@@ -22,12 +19,11 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
       name: userData.name,
       itsId: userData.itsId,
       role: userData.role,
-      mohallahId: mohallahId,
+      mohallahId: mohallahId, // Storing mohallahId in the member document for collectionGroup queries
       avatarUrl: userData.avatarUrl || `https://placehold.co/40x40.png?text=${userData.name.substring(0,2).toUpperCase()}`,
       designation: userData.designation || "Member",
       pageRights: userData.pageRights || [],
       fcmTokens: [], // Initialize FCM tokens array
-      // oneSignalPlayerIds field removed
     };
 
     if (userData.bgkId && userData.bgkId.trim() !== "") {
@@ -48,7 +44,7 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
   }
 };
 
-type UserDataForUpdate = Partial<Omit<User, 'id' | 'oneSignalPlayerIds'>>; // fcmTokens can be updated
+type UserDataForUpdate = Partial<Omit<User, 'id'>>; 
 
 export const updateUser = async (userId: string, mohallahId: string, updatedData: UserDataForUpdate): Promise<void> => {
   if (!mohallahId) {
@@ -58,7 +54,9 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
     const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
     
     const updatePayload: any = { ...updatedData };
+    // MohallahId cannot be changed via this function; it's part of the document path
     delete updatePayload.mohallahId; 
+    delete updatePayload.id; // id also cannot be changed
 
      Object.keys(updatePayload).forEach(key => {
       const K = key as keyof UserDataForUpdate;
@@ -69,14 +67,14 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
         updatePayload[K] = [];
       }
       if (K === 'fcmTokens' && !Array.isArray(updatePayload[K])) {
-        updatePayload[K] = [];
+        updatePayload[K] = []; // Ensure fcmTokens is always an array or omitted
       }
     });
 
     if (updatedData.hasOwnProperty('pageRights') && updatedData.pageRights === undefined) {
         updatePayload.pageRights = [];
     }
-    if (updatedData.hasOwnProperty('fcmTokens') && updatedData.fcmTokens === undefined) {
+    if (updatedData.hasOwnProperty('fcmTokens') && updatedData.fcmTokens === undefined) { // Handle fcmTokens
         updatePayload.fcmTokens = [];
     }
 
@@ -105,8 +103,10 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
   try {
     let usersQuery;
     if (mohallahId && mohallahId !== 'all') {
+      console.log(`Fetching users for specific Mohallah ID: ${mohallahId}`);
       usersQuery = query(collection(db, 'mohallahs', mohallahId, 'members'));
     } else {
+      console.log("Fetching all users using collectionGroup query for 'members'.");
       usersQuery = query(collectionGroup(db, 'members'));
     }
     const data = await getDocs(usersQuery);
@@ -114,8 +114,7 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
       ...doc.data(), 
       id: doc.id, 
       pageRights: doc.data().pageRights || [],
-      fcmTokens: doc.data().fcmTokens || [],
-      // oneSignalPlayerIds: doc.data().oneSignalPlayerIds || [], // Removed
+      fcmTokens: doc.data().fcmTokens || [], // Ensure fcmTokens is included
     } as User));
   } catch (error) {
     console.error("Error fetching users: ", error);
@@ -139,9 +138,8 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
         ...userDoc.data(), 
         id: userDoc.id, 
         pageRights: userDoc.data().pageRights || [], 
-        mohallahId: userDoc.data().mohallahId,
-        fcmTokens: userDoc.data().fcmTokens || [],
-        // oneSignalPlayerIds: userDoc.data().oneSignalPlayerIds || [], // Removed
+        mohallahId: userDoc.data().mohallahId, // This is the ID of the Mohallah the user belongs to
+        fcmTokens: userDoc.data().fcmTokens || [], // Ensure fcmTokens is included
       } as User;
     }
 
@@ -154,8 +152,7 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
         id: userDoc.id, 
         pageRights: userDoc.data().pageRights || [], 
         mohallahId: userDoc.data().mohallahId,
-        fcmTokens: userDoc.data().fcmTokens || [],
-        // oneSignalPlayerIds: userDoc.data().oneSignalPlayerIds || [], // Removed
+        fcmTokens: userDoc.data().fcmTokens || [], // Ensure fcmTokens is included
       } as User;
     }
     
@@ -217,10 +214,11 @@ export const updateUserFcmToken = async (userId: string, mohallahId: string, tok
   try {
     const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
     await updateDoc(userDocRef, {
-      fcmTokens: arrayUnion(token)
+      fcmTokens: arrayUnion(token) // Add the new token to the array, ensuring uniqueness
     });
     console.log(`FCM token ${token} added for user ${userId} in Mohallah ${mohallahId}`);
   } catch (error) {
     console.error(`Error updating FCM token for user ${userId} in Mohallah ${mohallahId}: `, error);
+    // Optionally re-throw or handle more gracefully
   }
 };

@@ -15,7 +15,6 @@ export type User = {
   designation?: UserDesignation;
   pageRights?: string[];
   fcmTokens?: string[]; // For storing FCM registration tokens
-  // oneSignalPlayerIds field removed
 };
 
 export type MiqaatAttendanceEntryItem = {

@@ -23,7 +23,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const { toast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [fcmTokenStatus, setFcmTokenStatus] = useState<string>("idle");
+  const [fcmTokenStatus, setFcmTokenStatus] = useState<string>("idle"); // For tracking FCM setup
 
   useEffect(() => {
     const userRole = localStorage.getItem('userRole');
@@ -56,12 +56,14 @@ export default function DashboardLayout({
         return;
       }
 
+      console.log("FCM: Current Notification permission state:", Notification.permission);
+
       try {
         if (Notification.permission === "granted") {
           setFcmTokenStatus("retrieving");
           console.log("FCM: Notification permission already granted. Getting token...");
           const currentToken = await getToken(messagingInstance, {
-            vapidKey: "BBk_BA4472SBY7GqHVabGCDT-lg1m535sZNvmxH0TVhqcndkTDXJulJ1GNB2fAbxE4kLvgcQSdx6vIOuBAhVFSI", // YOUR_PUBLIC_VAPID_KEY_HERE - replace this
+            vapidKey: "BBk_BA4472SBY7GqHVabGCDT-lg1m535sZNvmxH0TVhqcndkTDXJulJ1GNB2fAbxE4kLvgcQSdx6vIOuBAhVFSI",
           });
 
           if (currentToken) {
@@ -77,19 +79,19 @@ export default function DashboardLayout({
               setFcmTokenStatus("error_storing");
             }
           } else {
-            console.log("FCM: No registration token available. Request permission to generate one.");
-            setFcmTokenStatus("no_token_request_permission");
-            // Subsequent permission request will handle token generation
+            console.warn("FCM: No registration token available despite permission being granted. This can happen if the service worker isn't registered correctly or there's an issue with the VAPID key.");
+            setFcmTokenStatus("no_token_permission_granted");
           }
         } else if (Notification.permission === "default") {
           console.log("FCM: Requesting notification permission...");
           setFcmTokenStatus("requesting_permission");
           const permission = await Notification.requestPermission();
+          console.log("FCM: Permission request result:", permission);
           if (permission === "granted") {
             console.log("FCM: Notification permission granted by user.");
             setFcmTokenStatus("retrieving_after_grant");
             const currentToken = await getToken(messagingInstance, {
-              vapidKey: "BBk_BA4472SBY7GqHVabGCDT-lg1m535sZNvmxH0TVhqcndkTDXJulJ1GNB2fAbxE4kLvgcQSdx6vIOuBAhVFSI", // YOUR_PUBLIC_VAPID_KEY_HERE - replace this
+              vapidKey: "BBk_BA4472SBY7GqHVabGCDT-lg1m535sZNvmxH0TVhqcndkTDXJulJ1GNB2fAbxE4kLvgcQSdx6vIOuBAhVFSI",
             });
             if (currentToken) {
               console.log("FCM: Token retrieved after grant:", currentToken);
@@ -111,14 +113,15 @@ export default function DashboardLayout({
             console.log("FCM: Notification permission denied by user.");
             setFcmTokenStatus("permission_denied");
             toast({
-              variant: "destructive",
-              title: "Push Notifications Denied",
+              variant: "default", // Changed to default as it's user choice
+              title: "Push Notifications Disabled",
               description: "You will not receive push notifications.",
             });
           }
-        } else {
-           console.log("FCM: Notification permission is:", Notification.permission);
+        } else { // Notification.permission === "denied"
+           console.log("FCM: Notification permission was previously denied.");
            setFcmTokenStatus("permission_denied_previously");
+           // Optionally, inform the user how to re-enable if they want to
         }
       } catch (error) {
         console.error("FCM: Error during setup or token retrieval:", error);
@@ -126,7 +129,7 @@ export default function DashboardLayout({
         toast({
           variant: "destructive",
           title: "Push Notification Error",
-          description: "Could not set up push notifications.",
+          description: "Could not set up push notifications. See console for details.",
         });
       }
 
@@ -144,11 +147,11 @@ export default function DashboardLayout({
       };
     };
     
-    if (isAuthenticated) {
+    if (isAuthenticated) { // Only run setup if user is authenticated
         setupFCM();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, toast]); // Do not add setupFCM to deps array
+  }, [isAuthenticated]); // toast is stable, no need to add setupFCM to deps array
 
   if (isAuthenticated === null) {
     return (
@@ -159,6 +162,7 @@ export default function DashboardLayout({
   }
 
   if (!isAuthenticated) {
+    // router.push('/') is handled in the first useEffect, so this return null is fine
     return null; 
   }
 

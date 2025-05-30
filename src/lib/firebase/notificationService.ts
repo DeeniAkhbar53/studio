@@ -15,7 +15,7 @@ import {
   Timestamp,
   arrayUnion,
   where,
-  or, // Keep 'or' if you plan to revert to the single OR query after indexing
+  or, 
   limit
 } from 'firebase/firestore';
 import type { NotificationItem, UserRole } from '@/types';
@@ -41,15 +41,9 @@ export const addNotification = async (notificationData: NotificationDataForAdd):
     // 1. **Trigger**: Listen for new documents created in the `notifications` Firestore collection.
     //    (e.g., using `functions.firestore.document('notifications/{notificationId}').onCreate()`)
     // 2. **Read Data**: Get the `title`, `content`, and `targetAudience` from the new notification document.
-    //    (e.g., `const notification = snap.data();`)
     // 3. **Query Users**:
     //    - Based on `targetAudience` (e.g., 'admin', 'user', 'all'), query your user data
-    //      (e.g., in `mohallahs/{mohallahId}/members`).
-    //      You might need a collectionGroup query on 'members' if `targetAudience` is 'all' or a general role.
-    //      Example query for a specific role:
-    //      `admin.firestore().collectionGroup('members').where('role', '==', notification.targetAudience).get();`
-    //      Example query for 'all':
-    //      `admin.firestore().collectionGroup('members').get();`
+    //      (e.g., in `mohallahs/{mohallahId}/members`). You might need a collectionGroup query on 'members'.
     //    - For each targeted user, retrieve their stored FCM registration tokens from the `fcmTokens`
     //      array in their user document.
     // 4. **Collect Tokens**: Aggregate all unique FCM tokens from the targeted users.
@@ -62,9 +56,8 @@ export const addNotification = async (notificationData: NotificationDataForAdd):
     //      },
     //      tokens: uniqueFcmTokensArray, // Array of FCM tokens
     //    };
-    // 6. **Send via Admin SDK**: Use the Firebase Admin SDK's `messaging().sendMulticast(message)`
+    // 6. **Send via Admin SDK**: Use the Firebase Admin SDK's `admin.messaging().sendMulticast(message)`
     //    method to send the push notification to the collected FCM tokens.
-    //    (e.g., `const response = await admin.messaging().sendMulticast(message);`)
     // 7. **Handle Responses/Errors**: Check `response.failureCount` for errors and log them.
     //
     // Ensure your Cloud Function has the necessary permissions and the Firebase Admin SDK is initialized.
@@ -78,10 +71,9 @@ export const addNotification = async (notificationData: NotificationDataForAdd):
 };
 
 
-// Modified to fetch 'all' and specific role notifications separately and merge,
-// as Firestore 'OR' queries with 'orderBy' can be complex with indexing.
-// The most robust solution for 'OR' queries often involves creating composite indexes
-// for each branch of the OR condition if possible, or handling the merge client-side.
+// Fetches notifications targeted to 'all' OR the specific user's role.
+// This approach uses two separate queries and merges them client-side to potentially
+// simplify Firestore indexing requirements compared to a direct 'OR' query with 'orderBy'.
 export const getNotificationsForUser = async (currentUserItsId: string, currentUserRole: UserRole): Promise<NotificationItem[]> => {
   console.log(`[notificationService] getNotificationsForUser called with ITS: ${currentUserItsId}, Role: ${currentUserRole}`);
   try {
@@ -89,27 +81,27 @@ export const getNotificationsForUser = async (currentUserItsId: string, currentU
         notificationsCollectionRef,
         where('targetAudience', '==', 'all'),
         orderBy('createdAt', 'desc'),
-        limit(50) // Limit to prevent fetching too many historical 'all' notifications
+        limit(50) 
     );
 
     const notificationsForRoleQuery = query(
         notificationsCollectionRef,
         where('targetAudience', '==', currentUserRole),
         orderBy('createdAt', 'desc'),
-        limit(50) // Limit for role-specific notifications
+        limit(50) 
     );
 
     // Execute queries
     const [allSnapshot, roleSnapshot] = await Promise.all([
       getDocs(notificationsForAllQuery),
-      (currentUserRole !== 'all' ? getDocs(notificationsForRoleQuery) : Promise.resolve({ docs: [] as any[] })) // Avoid querying for role 'all' again if it's the current role
+      (currentUserRole !== 'all' ? getDocs(notificationsForRoleQuery) : Promise.resolve({ docs: [] as any[] })) 
     ]);
 
     const notificationsMap = new Map<string, NotificationItem>();
 
     const processSnapshot = (snapshot: any) => {
       snapshot.docs.forEach((docSnapshot: any) => {
-        if (notificationsMap.has(docSnapshot.id)) return; // Avoid duplicates if a notification matches both queries
+        if (notificationsMap.has(docSnapshot.id)) return; 
 
         const data = docSnapshot.data();
         const createdAt = data.createdAt instanceof Timestamp
@@ -139,7 +131,7 @@ export const getNotificationsForUser = async (currentUserItsId: string, currentU
     // Sort combined results by createdAt descending
     combinedNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
-    console.log(`[notificationService] Fetched ${combinedNotifications.length} notifications after combining and sorting.`);
+    console.log(`[notificationService] Fetched ${combinedNotifications.length} notifications after combining and sorting for ITS: ${currentUserItsId}.`);
     return combinedNotifications;
 
   } catch (error) {
@@ -156,15 +148,11 @@ export const getNotificationsForUser = async (currentUserItsId: string, currentU
 export const markNotificationAsRead = async (notificationId: string, userItsId: string): Promise<void> => {
   try {
     const notificationDocRef = doc(db, 'notifications', notificationId);
-    // Add the user's ITS ID to the readBy array.
-    // arrayUnion ensures the ID is only added if it's not already present.
     await updateDoc(notificationDocRef, {
       readBy: arrayUnion(userItsId),
     });
   } catch (error) {
     console.error(`Error marking notification ${notificationId} as read for user ${userItsId}: `, error);
-    // Decide if you want to throw or handle silently. Throwing might be better for debugging.
-    // throw error; 
   }
 };
 
@@ -172,9 +160,8 @@ export const deleteNotification = async (notificationId: string): Promise<void> 
   try {
     const notificationDocRef = doc(db, 'notifications', notificationId);
     await deleteDoc(notificationDocRef);
-  } catch (error) { // Added missing opening brace here
+  } catch (error) {
     console.error(`Error deleting notification ${notificationId}: `, error);
     throw error;
   }
 };
-

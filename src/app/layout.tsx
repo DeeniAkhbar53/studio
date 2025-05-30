@@ -1,7 +1,6 @@
 
 import type {Metadata} from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-// Removed OneSignal Script import
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
@@ -29,7 +28,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="icon" href="https://app.burhaniguards.org/images/logo.png" type="image/png" sizes="any" />
-        {/* OneSignal SDK script removed */}
+        {/* Removed OneSignal SDK script */}
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
