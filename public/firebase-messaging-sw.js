@@ -7,12 +7,12 @@ importScripts('https://www.gstatic.com/firebasejs/9.22.1/firebase-messaging-comp
 // It's recommended to manage these via a build process or environment variables for service workers,
 // but for simplicity in this setup, ensure they are hardcoded correctly.
 const firebaseConfig = {
-  apiKey: "YOUR_NEXT_PUBLIC_FIREBASE_API_KEY",
-  authDomain: "YOUR_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN",
-  projectId: "YOUR_NEXT_PUBLIC_FIREBASE_PROJECT_ID",
-  storageBucket: "YOUR_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-  appId: "YOUR_NEXT_PUBLIC_FIREBASE_APP_ID"
+  apiKey: "AIzaSyB6sOs0IdR8ov6R3szYmrCbdP2APnRBl5M",
+  authDomain: "bgk-attendance-new.firebaseapp.com",
+  projectId: "bgk-attendance-new",
+  storageBucket: "bgk-attendance-new.firebasestorage.app",
+  messagingSenderId: "451468104438",
+  appId: "1:451468104438:web:961a8b4488a8fa548152d7"
 };
 
 if (!firebase.apps.length) {
