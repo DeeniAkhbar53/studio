@@ -40,102 +40,130 @@ export default function DashboardLayout({
   // FCM Setup Effect
   useEffect(() => {
     if (isAuthenticated === false || typeof window === 'undefined' || !("Notification" in window)) {
-      console.log("FCM: User not authenticated or Notifications not supported.");
+      console.log("FCM Setup: User not authenticated, window undefined, or Notifications not supported. Skipping FCM setup.");
+      setFcmTokenStatus("skipped_pre_auth_or_unsupported");
       return;
     }
     if (isAuthenticated === null) {
-        console.log("FCM: Auth state still loading, skipping FCM setup for now.");
+        console.log("FCM Setup: Auth state still loading, skipping FCM setup for now.");
+        setFcmTokenStatus("auth_loading");
         return;
     }
 
     const setupFCM = async () => {
+      setFcmTokenStatus("starting_setup");
+      console.log("FCM Setup: Attempting to initialize messaging...");
       const messagingInstance = await messaging();
       if (!messagingInstance) {
-        console.log("FCM: Firebase Messaging is not supported in this browser.");
-        setFcmTokenStatus("unsupported");
+        console.warn("FCM Setup: Firebase Messaging is not supported in this browser.");
+        setFcmTokenStatus("unsupported_browser");
+        toast({
+          variant: "destructive",
+          title: "Push Notifications Not Supported",
+          description: "Your browser does not support push notifications.",
+        });
         return;
       }
-
-      console.log("FCM: Current Notification permission state:", Notification.permission);
+      console.log("FCM Setup: Messaging instance acquired.");
+      console.log("FCM Setup: Current Notification permission state:", Notification.permission);
 
       try {
         if (Notification.permission === "granted") {
-          setFcmTokenStatus("retrieving");
-          console.log("FCM: Notification permission already granted. Getting token...");
+          setFcmTokenStatus("permission_granted_retrieving_token");
+          console.log("FCM Setup: Notification permission already granted. Getting token...");
           const currentToken = await getToken(messagingInstance, {
             vapidKey: "BBk_BA4472SBY7GqHVabGCDT-lg1m535sZNvmxH0TVhqcndkTDXJulJ1GNB2fAbxE4kLvgcQSdx6vIOuBAhVFSI",
           });
 
           if (currentToken) {
-            console.log("FCM: Token retrieved:", currentToken);
+            console.log("FCM Setup: Token retrieved:", currentToken);
             const userItsId = localStorage.getItem("userItsId");
             const userMohallahId = localStorage.getItem("userMohallahId");
             if (userItsId && userMohallahId) {
               await updateUserFcmToken(userItsId, userMohallahId, currentToken);
-              console.log("FCM: Token stored for user.");
-              setFcmTokenStatus("stored");
+              console.log("FCM Setup: Token stored successfully for user.");
+              setFcmTokenStatus("token_stored");
+              toast({
+                title: "Push Notifications Enabled",
+                description: "You will receive updates via push notifications.",
+              });
             } else {
-              console.warn("FCM: User ITS ID or Mohallah ID not found for token storage.");
-              setFcmTokenStatus("error_storing");
+              console.warn("FCM Setup: User ITS ID or Mohallah ID not found in localStorage for token storage.");
+              setFcmTokenStatus("error_storing_missing_user_details");
             }
           } else {
-            console.warn("FCM: No registration token available despite permission being granted. This can happen if the service worker isn't registered correctly or there's an issue with the VAPID key.");
-            setFcmTokenStatus("no_token_permission_granted");
+            console.warn("FCM Setup: No registration token available despite permission being granted. This can happen if the service worker isn't registered correctly or there's an issue with the VAPID key.");
+            setFcmTokenStatus("no_token_despite_granted_permission");
           }
         } else if (Notification.permission === "default") {
-          console.log("FCM: Requesting notification permission...");
+          console.log("FCM Setup: Notification permission is 'default'. Requesting permission...");
           setFcmTokenStatus("requesting_permission");
           const permission = await Notification.requestPermission();
-          console.log("FCM: Permission request result:", permission);
+          console.log("FCM Setup: Permission request result:", permission);
           if (permission === "granted") {
-            console.log("FCM: Notification permission granted by user.");
-            setFcmTokenStatus("retrieving_after_grant");
+            console.log("FCM Setup: Notification permission granted by user.");
+            setFcmTokenStatus("permission_granted_after_request_retrieving_token");
             const currentToken = await getToken(messagingInstance, {
               vapidKey: "BBk_BA4472SBY7GqHVabGCDT-lg1m535sZNvmxH0TVhqcndkTDXJulJ1GNB2fAbxE4kLvgcQSdx6vIOuBAhVFSI",
             });
             if (currentToken) {
-              console.log("FCM: Token retrieved after grant:", currentToken);
+              console.log("FCM Setup: Token retrieved after grant:", currentToken);
               const userItsId = localStorage.getItem("userItsId");
               const userMohallahId = localStorage.getItem("userMohallahId");
               if (userItsId && userMohallahId) {
                 await updateUserFcmToken(userItsId, userMohallahId, currentToken);
-                console.log("FCM: Token stored after grant.");
-                setFcmTokenStatus("stored");
+                console.log("FCM Setup: Token stored after grant.");
+                setFcmTokenStatus("token_stored_after_grant");
+                toast({
+                  title: "Push Notifications Enabled",
+                  description: "You will receive updates via push notifications.",
+                });
               } else {
-                console.warn("FCM: User ITS ID or Mohallah ID not found for token storage after grant.");
-                setFcmTokenStatus("error_storing");
+                console.warn("FCM Setup: User ITS ID or Mohallah ID not found for token storage after grant.");
+                setFcmTokenStatus("error_storing_missing_user_details_after_grant");
               }
             } else {
-               console.warn("FCM: Failed to get token even after permission grant.");
-               setFcmTokenStatus("error_retrieving_token");
+               console.warn("FCM Setup: Failed to get token even after permission grant.");
+               setFcmTokenStatus("error_retrieving_token_after_grant");
             }
           } else {
-            console.log("FCM: Notification permission denied by user.");
-            setFcmTokenStatus("permission_denied");
+            console.log("FCM Setup: Notification permission denied by user after request.");
+            setFcmTokenStatus("permission_denied_after_request");
             toast({
-              variant: "default", // Changed to default as it's user choice
+              variant: "default",
               title: "Push Notifications Disabled",
-              description: "You will not receive push notifications.",
+              description: "You chose not to receive push notifications.",
             });
           }
         } else { // Notification.permission === "denied"
-           console.log("FCM: Notification permission was previously denied.");
+           console.warn("FCM Setup: Notification permission was previously denied by the user.");
            setFcmTokenStatus("permission_denied_previously");
-           // Optionally, inform the user how to re-enable if they want to
+           toast({
+             variant: "destructive", // More prominent as it requires user action
+             title: "Push Notifications Blocked",
+             description: "Notifications are blocked for this site. To enable them, please check your browser's site settings.",
+             duration: 10000,
+           });
         }
       } catch (error) {
-        console.error("FCM: Error during setup or token retrieval:", error);
-        setFcmTokenStatus("error_setup");
+        console.error("FCM Setup: Error during setup or token retrieval:", error);
+        setFcmTokenStatus("error_during_setup_or_token_retrieval");
+        let errorMessage = "Could not set up push notifications. See console for details.";
+        if (error instanceof Error && error.message.includes("permission")) {
+            errorMessage = "An error occurred related to notification permissions.";
+        }
         toast({
           variant: "destructive",
           title: "Push Notification Error",
-          description: "Could not set up push notifications. See console for details.",
+          description: errorMessage,
         });
       }
 
       // Handle incoming messages when the app is in the foreground
+      console.log("FCM Setup: Setting up foreground message listener.");
       const unsubscribeOnMessage = onMessage(messagingInstance, (payload: MessagePayload) => {
         console.log("FCM: Message received in foreground.", payload);
+        setFcmTokenStatus("foreground_message_received");
         toast({
           title: payload.notification?.title || "New Notification",
           description: payload.notification?.body,
@@ -143,15 +171,24 @@ export default function DashboardLayout({
       });
       
       return () => {
+        console.log("FCM Setup: Cleaning up foreground message listener.");
         unsubscribeOnMessage();
       };
     };
     
-    if (isAuthenticated) { // Only run setup if user is authenticated
+    if (isAuthenticated) {
+        console.log("FCM Setup: User is authenticated, proceeding with FCM setup.");
         setupFCM();
+    } else {
+        console.log("FCM Setup: User is not authenticated, skipping FCM setup.");
+        setFcmTokenStatus("skipped_not_authenticated");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]); // toast is stable, no need to add setupFCM to deps array
+  }, [isAuthenticated]); // Only re-run if isAuthenticated changes. toast is stable.
+
+  useEffect(() => {
+    console.log("FCM Token Status Changed:", fcmTokenStatus);
+  }, [fcmTokenStatus]);
 
   if (isAuthenticated === null) {
     return (
@@ -202,3 +239,5 @@ export default function DashboardLayout({
     </div>
   );
 }
+
+    
