@@ -23,7 +23,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent a
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
 import Papa from 'papaparse';
-import type { Unsubscribe } from "firebase/firestore";
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -112,8 +111,8 @@ export default function ManageMembersPage() {
   const fetchAndSetMembers = useCallback(async (targetMohallahIdForFetch?: string) => {
     setIsLoadingMembers(true);
     setFetchError(null);
-    setCurrentPage(1);
-    setSelectedMemberIds([]);
+    setCurrentPage(1); // Reset pagination
+    setSelectedMemberIds([]); // Reset selection
     try {
         const fetchedMembers = await getUsers(targetMohallahIdForFetch);
         setMembers(fetchedMembers);
@@ -135,6 +134,7 @@ export default function ManageMembersPage() {
   }, [toast, currentUserRole]);
 
   useEffect(() => {
+    // Don't fetch if crucial data like userRole is not yet available
     if (!currentUserRole) {
       setIsLoadingMembers(false);
       return;
@@ -143,20 +143,23 @@ export default function ManageMembersPage() {
     let mohallahIdToFetch: string | undefined = undefined;
 
     if (currentUserRole === 'admin') {
+      // Admin should only fetch members for their assigned Mohallah
       if (currentUserMohallahId) {
         mohallahIdToFetch = currentUserMohallahId;
         fetchAndSetMembers(mohallahIdToFetch);
       } else {
-        setMembers([]);
+        // Admin's Mohallah ID is not found, cannot fetch members
+        setMembers([]); // Clear members
         setIsLoadingMembers(false);
         setFetchError("Admin's Mohallah ID not found. Cannot display members.");
       }
     } else if (currentUserRole === 'superadmin') {
+      // Superadmin can fetch all or by selected filter
       mohallahIdToFetch = selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId;
       fetchAndSetMembers(mohallahIdToFetch);
     } else {
-      // For other roles like 'user' or 'attendance-marker', they don't manage members here
-      setMembers([]);
+      // Other roles (user, attendance-marker) do not manage members on this page
+      setMembers([]); // Clear members
       setIsLoadingMembers(false);
     }
   }, [currentUserRole, currentUserMohallahId, selectedFilterMohallahId, fetchAndSetMembers]);
@@ -208,20 +211,24 @@ export default function ManageMembersPage() {
       team: values.team,
       phoneNumber: values.phoneNumber,
       role: values.role as UserRole,
-      mohallahId: targetMohallahId,
+      mohallahId: targetMohallahId, // This will be stored in the member document
       designation: values.designation as UserDesignation || "Member",
-      pageRights: values.role === 'user' ? [] : (values.pageRights || []),
+      pageRights: values.role === 'user' ? [] : (values.pageRights || []), // Ensure pageRights are empty for 'user' role
     };
 
     try {
       if (editingMember && editingMember.mohallahId) {
+        // For updates, we need the original mohallahId to find the user
         const updatePayload = { ...memberPayload };
+        // Mohallah ID change is not allowed via this edit form, so no need to handle it in updatePayload
         await updateUser(editingMember.id, editingMember.mohallahId, updatePayload);
         toast({ title: "Member Updated", description: `"${values.name}" has been updated.` });
       } else {
+        // For adding, targetMohallahId from form is used to place in the subcollection
         await addUser(memberPayload, targetMohallahId);
         toast({ title: "Member Added", description: `"${values.name}" has been added to ${getMohallahNameById(targetMohallahId)}.` });
       }
+      // Re-fetch members based on current filter/role
       if (currentUserRole === 'admin' && currentUserMohallahId) {
         fetchAndSetMembers(currentUserMohallahId);
       } else if (currentUserRole === 'superadmin') {
@@ -281,18 +288,21 @@ export default function ManageMembersPage() {
           failedCount++;
         }
       } else {
+        // This case should ideally not happen if data is consistent
+        console.warn(`Could not find member with ID ${memberId} or missing mohallahId for bulk delete.`);
         failedCount++; 
       }
     }
 
     toast({
       title: "Bulk Delete Complete",
-      description: `${deletedCount} member(s) deleted. ${failedCount} failed.`,
+      description: `Successfully deleted ${deletedCount} member(s). Failed to delete ${failedCount} member(s).`,
       variant: failedCount > 0 ? "destructive" : "default",
     });
 
     setSelectedMemberIds([]);
     setIsBulkDeleteAlertOpen(false);
+    // Re-fetch members
     if (currentUserRole === 'admin' && currentUserMohallahId) {
       fetchAndSetMembers(currentUserMohallahId);
     } else if (currentUserRole === 'superadmin') {
@@ -322,28 +332,34 @@ export default function ManageMembersPage() {
           const dataRows = results.data as any[];
 
           for (const row of dataRows) {
+            // Skip completely empty rows that PapaParse might still include
             if (Object.keys(row).length === 0 || Object.values(row).every(val => val === "" || val === null)) {
-                continue;
+                continue; // Skip empty or effectively empty rows
             }
+            // Basic validation for essential CSV columns
             if (!row.name || !row.itsId || !row.mohallahName || !row.role) {
               failedRecords.push({ data: row, reason: "Missing required fields (name, itsId, mohallahName, role)." });
               skippedCount++;
               continue;
             }
 
+            // Mohallah ID lookup
             const mohallah = mohallahs.find(m => m.name.toLowerCase() === row.mohallahName.toLowerCase());
             if (!mohallah) {
               failedRecords.push({ data: row, reason: `Mohallah "${row.mohallahName}" not found.` });
               skippedCount++;
               continue;
             }
-            const mohallahId = mohallah.id;
+            const mohallahId = mohallah.id; // This is the ID to use for Firestore path
+
+            // Admin role check: Admins can only import to their own Mohallah
             if (currentUserRole === 'admin' && mohallahId !== currentUserMohallahId) {
                 failedRecords.push({ data: row, reason: `Admins can only import to their assigned Mohallah. Row skipped for Mohallah "${row.mohallahName}".` });
                 skippedCount++;
                 continue;
             }
 
+            // Duplicate check
             try {
               const existingUser = await getUserByItsOrBgkId(row.itsId);
               if (existingUser) {
@@ -352,26 +368,29 @@ export default function ManageMembersPage() {
                 continue;
               }
             } catch (err) {
+               // Log error and skip this record if duplicate check fails
+               console.error(`Error checking for duplicate user with ITS ID ${row.itsId}:`, err);
                failedRecords.push({ data: row, reason: `Error checking duplicate for ITS ID ${row.itsId}.` });
-               errorCount++;
+               errorCount++; // Count this as a processing error
                continue;
             }
 
             const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string } = {
               name: row.name,
               itsId: row.itsId,
-              bgkId: row.bgkId || undefined,
+              bgkId: row.bgkId || undefined, // Handle potentially empty optional fields
               team: row.team || undefined,
               phoneNumber: row.phoneNumber || undefined,
               role: row.role as UserRole,
-              mohallahId: mohallahId,
-              designation: (row.designation as UserDesignation) || "Member",
+              mohallahId: mohallahId, // Use the looked-up Mohallah ID for the member doc
+              designation: (row.designation as UserDesignation) || "Member", // Default designation
               pageRights: row.pageRights ? row.pageRights.split(';').map((s: string) => s.trim()).filter(Boolean) : [],
             };
 
+            // Validate against Zod schema
             const validation = memberSchema.safeParse({
                 ...memberPayload,
-                bgkId: memberPayload.bgkId || "",
+                bgkId: memberPayload.bgkId || "", // Zod expects empty strings for optional literals
                 team: memberPayload.team || "",
                 phoneNumber: memberPayload.phoneNumber || "",
             });
@@ -384,7 +403,7 @@ export default function ManageMembersPage() {
             }
 
             try {
-              await addUser(validation.data, mohallahId);
+              await addUser(validation.data, mohallahId); // Pass mohallahId for subcollection path
               successfullyAddedCount++;
             } catch (dbError: any) {
               failedRecords.push({ data: row, reason: `DB Error: ${dbError.message}` });
@@ -395,13 +414,15 @@ export default function ManageMembersPage() {
           setIsCsvProcessing(false);
           setIsCsvImportDialogOpen(false);
           setSelectedFile(null);
+          // Refresh member list based on current filter
           if (currentUserRole === 'admin' && currentUserMohallahId) {
             fetchAndSetMembers(currentUserMohallahId);
           } else if (currentUserRole === 'superadmin') {
             fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
           }
 
-          if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0)) {
+          // Simplified toast based on previous request
+           if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0 && (dataRows.some(row => Object.keys(row).length > 0)))) {
             toast({
                 title: "CSV Import Error",
                 description: "Some records could not be imported. Check console for details.",
@@ -502,16 +523,17 @@ export default function ManageMembersPage() {
   const getMohallahNameById = (id?: string) => mohallahs.find(m => m.id === id)?.name || "N/A";
 
   const canAddOrImport = () => {
-    if (isLoadingMohallahs) return false;
-    if (currentUserRole === 'admin') return !!currentUserMohallahId;
-    if (currentUserRole === 'superadmin') return true;
+    if (isLoadingMohallahs) return false; // Don't allow if mohallahs are still loading
+    if (currentUserRole === 'admin') return !!currentUserMohallahId; // Admin needs their mohallahId
+    if (currentUserRole === 'superadmin') return true; // Superadmin can always
     return false;
   };
 
+  // Determine if the current user has rights to manage members at all (for showing action column)
   const canManageMembers = currentUserRole === 'admin' || currentUserRole === 'superadmin';
 
   return (
-    <div className="flex flex-col h-full gap-6">
+    <div className="flex flex-col h-full gap-6"> {/* Ensure this div takes full height and uses flex column */}
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
@@ -815,15 +837,15 @@ export default function ManageMembersPage() {
         </CardHeader>
       </Card>
 
-      <Card className="shadow-lg flex flex-col flex-1 min-h-0">
-        <CardContent className="pt-6 flex-1 overflow-y-auto"> 
+      <Card className="shadow-lg flex flex-col flex-1 min-h-0"> {/* flex-1 and min-h-0 for scrollable content */}
+        <CardContent className="pt-6 flex-1 overflow-y-auto"> {/* flex-1 and overflow-y-auto for vertical scroll */}
           {isLoadingMembers ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-2 text-muted-foreground">Loading members...</p>
             </div>
           ) : (
-            <Table>
+            <Table> {/* Table component itself handles horizontal scrolling */}
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[40px] px-2">
@@ -871,7 +893,7 @@ export default function ManageMembersPage() {
                         <Button variant="ghost" size="icon" onClick={() => handleEditMember(member)} className="mr-1 sm:mr-2" aria-label="Edit Member">
                             <Edit className="h-4 w-4" />
                         </Button>
-                        { (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( // Ensure superadmin can't be deleted by others
+                        { (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( // Ensure superadmin can't be deleted by others, but can delete self if needed (though unlikely)
                             <AlertDialog>
                                 <AlertTrigger asChild>
                                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
@@ -942,6 +964,7 @@ export default function ManageMembersPage() {
         </CardFooter>
       </Card>
 
+      {/* Re-declaring CSV import dialog here in case it's triggered from somewhere else later or for modularity, though it's currently only triggered from header */}
       <Dialog open={isCsvImportDialogOpen} onOpenChange={(open) => { setIsCsvImportDialogOpen(open); if(!open) setSelectedFile(null); }}>
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
@@ -983,6 +1006,8 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    
 
     
 
