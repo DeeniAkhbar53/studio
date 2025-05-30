@@ -2,10 +2,14 @@
 'use server';
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue } from 'firebase/firestore';
 import type { User, UserRole, UserDesignation } from '@/types';
 
-export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'fcmTokens' | 'oneSignalPlayerIds'> & { avatarUrl?: string };
+// Ensure FieldValue is imported if you plan to use it for arrayRemove or other specific operations
+// For arrayUnion, it's typically passed directly as a function.
+
+export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'oneSignalPlayerIds' | 'fcmTokens'> & { avatarUrl?: string };
+
 
 export const addUser = async (userData: UserDataForAdd, mohallahId: string): Promise<User> => {
   if (!mohallahId) {
@@ -18,12 +22,12 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
       name: userData.name,
       itsId: userData.itsId,
       role: userData.role,
-      mohallahId: mohallahId, // Storing mohallahId within the member document for easier querying
+      mohallahId: mohallahId,
       avatarUrl: userData.avatarUrl || `https://placehold.co/40x40.png?text=${userData.name.substring(0,2).toUpperCase()}`,
       designation: userData.designation || "Member",
       pageRights: userData.pageRights || [],
-      oneSignalPlayerIds: [], // Initialize OneSignal Player IDs array
-      fcmTokens: [], // Initialize FCM tokens array, can be removed if fcm is fully replaced
+      fcmTokens: [], // Initialize FCM tokens array
+      // oneSignalPlayerIds field removed
     };
 
     if (userData.bgkId && userData.bgkId.trim() !== "") {
@@ -44,7 +48,7 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
   }
 };
 
-type UserDataForUpdate = Partial<Omit<User, 'id' | 'fcmTokens' | 'oneSignalPlayerIds'>>;
+type UserDataForUpdate = Partial<Omit<User, 'id' | 'oneSignalPlayerIds'>>; // fcmTokens can be updated
 
 export const updateUser = async (userId: string, mohallahId: string, updatedData: UserDataForUpdate): Promise<void> => {
   if (!mohallahId) {
@@ -54,7 +58,7 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
     const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
     
     const updatePayload: any = { ...updatedData };
-    delete updatePayload.mohallahId; // MohallahId should not be changed via this function
+    delete updatePayload.mohallahId; 
 
      Object.keys(updatePayload).forEach(key => {
       const K = key as keyof UserDataForUpdate;
@@ -64,11 +68,18 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
       if (K === 'pageRights' && !Array.isArray(updatePayload[K])) {
         updatePayload[K] = [];
       }
+      if (K === 'fcmTokens' && !Array.isArray(updatePayload[K])) {
+        updatePayload[K] = [];
+      }
     });
 
     if (updatedData.hasOwnProperty('pageRights') && updatedData.pageRights === undefined) {
         updatePayload.pageRights = [];
     }
+    if (updatedData.hasOwnProperty('fcmTokens') && updatedData.fcmTokens === undefined) {
+        updatePayload.fcmTokens = [];
+    }
+
 
     await updateDoc(userDocRef, updatePayload);
   } catch (error) {
@@ -96,9 +107,6 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
     if (mohallahId && mohallahId !== 'all') {
       usersQuery = query(collection(db, 'mohallahs', mohallahId, 'members'));
     } else {
-      // This query requires a composite index on the 'members' collection group
-      // if you add sorting or more complex filters.
-      // For just fetching all, it might work but can be slow with many users.
       usersQuery = query(collectionGroup(db, 'members'));
     }
     const data = await getDocs(usersQuery);
@@ -106,13 +114,13 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
       ...doc.data(), 
       id: doc.id, 
       pageRights: doc.data().pageRights || [],
-      oneSignalPlayerIds: doc.data().oneSignalPlayerIds || [],
       fcmTokens: doc.data().fcmTokens || [],
+      // oneSignalPlayerIds: doc.data().oneSignalPlayerIds || [], // Removed
     } as User));
   } catch (error) {
     console.error("Error fetching users: ", error);
     if (error instanceof Error && error.message.includes("index")) {
-        console.error("This operation likely requires a Firestore index for the 'members' collection group. Please check your Firebase console.", error);
+        console.error("Query failed, possibly due to a missing system index. Super Admins: please ensure indexes are configured for 'members' collection group queries, or select a specific Mohallah.", error);
         throw new Error("Query failed, possibly due to a missing system index. Super Admins: please ensure indexes are configured for 'members' collection group queries, or select a specific Mohallah.");
     }
     throw error;
@@ -123,7 +131,6 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
   try {
     const membersCollectionGroup = collectionGroup(db, 'members');
     
-    // Query for ITS ID
     const itsQuery = query(membersCollectionGroup, where("itsId", "==", id));
     const itsSnapshot = await getDocs(itsQuery);
     if (!itsSnapshot.empty) {
@@ -132,13 +139,12 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
         ...userDoc.data(), 
         id: userDoc.id, 
         pageRights: userDoc.data().pageRights || [], 
-        mohallahId: userDoc.data().mohallahId, // Ensure mohallahId is part of the User object from DB
-        oneSignalPlayerIds: userDoc.data().oneSignalPlayerIds || [],
+        mohallahId: userDoc.data().mohallahId,
         fcmTokens: userDoc.data().fcmTokens || [],
+        // oneSignalPlayerIds: userDoc.data().oneSignalPlayerIds || [], // Removed
       } as User;
     }
 
-    // Query for BGK ID if not found by ITS ID
     const bgkQuery = query(membersCollectionGroup, where("bgkId", "==", id));
     const bgkSnapshot = await getDocs(bgkQuery);
     if (!bgkSnapshot.empty) {
@@ -148,15 +154,14 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
         id: userDoc.id, 
         pageRights: userDoc.data().pageRights || [], 
         mohallahId: userDoc.data().mohallahId,
-        oneSignalPlayerIds: userDoc.data().oneSignalPlayerIds || [],
         fcmTokens: userDoc.data().fcmTokens || [],
+        // oneSignalPlayerIds: userDoc.data().oneSignalPlayerIds || [], // Removed
       } as User;
     }
     
-    // If no user found by either ID
     return null;
   } catch (error) {
-    console.error('Error fetching user by ITS/BGK ID using collection group query: ', error);
+    console.error('CRITICAL: Error fetching user by ITS/BGK ID using collection group query: ', error);
     if (error instanceof Error && error.message.includes("index")) {
         console.error("This operation requires Firestore indexes on 'itsId' and 'bgkId' for the 'members' collection group. Please check your Firebase console.");
     }
@@ -195,7 +200,7 @@ export const getUsersCount = async (mohallahId?: string): Promise<number> => {
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count;
   } catch (error) {
-    console.error('Error fetching users count:', error);
+    console.error('CRITICAL: Error fetching users count:', error);
     if (error instanceof Error && error.message.includes("index") && !mohallahId) {
          console.error("Counting all members requires collection group query support or indexes.");
     }
@@ -203,21 +208,19 @@ export const getUsersCount = async (mohallahId?: string): Promise<number> => {
   }
 };
 
-// Function to update user with OneSignal Player ID
-export const updateUserOneSignalPlayerId = async (userId: string, mohallahId: string, playerId: string): Promise<void> => {
+// Function to update user with FCM Token
+export const updateUserFcmToken = async (userId: string, mohallahId: string, token: string): Promise<void> => {
   if (!mohallahId || !userId) {
-    console.error("Mohallah ID and User ID are required to update OneSignal Player ID.");
+    console.error("Mohallah ID and User ID are required to update FCM token.");
     return;
   }
   try {
     const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
     await updateDoc(userDocRef, {
-      oneSignalPlayerIds: arrayUnion(playerId)
+      fcmTokens: arrayUnion(token)
     });
-    console.log(`OneSignal Player ID ${playerId} added for user ${userId} in Mohallah ${mohallahId}`);
+    console.log(`FCM token ${token} added for user ${userId} in Mohallah ${mohallahId}`);
   } catch (error) {
-    console.error(`Error updating OneSignal Player ID for user ${userId} in Mohallah ${mohallahId}: `, error);
-    // Potentially throw the error if the caller needs to know it failed
-    // throw error;
+    console.error(`Error updating FCM token for user ${userId} in Mohallah ${mohallahId}: `, error);
   }
 };

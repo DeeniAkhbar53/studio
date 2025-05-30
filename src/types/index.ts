@@ -14,8 +14,8 @@ export type User = {
   avatarUrl?: string;
   designation?: UserDesignation;
   pageRights?: string[];
-  oneSignalPlayerIds?: string[]; // For storing OneSignal Player IDs
-  fcmTokens?: string[]; // This can be removed if fully switching to OneSignal for push
+  fcmTokens?: string[]; // For storing FCM registration tokens
+  // oneSignalPlayerIds field removed
 };
 
 export type MiqaatAttendanceEntryItem = {
@@ -76,7 +76,7 @@ export type NotificationItem = {
   title: string;
   content: string;
   createdAt: string; // ISO string
-  targetAudience: 'all' | UserRole; // Use UserRole for specific roles
+  targetAudience: 'all' | UserRole;
   createdBy: string; // ITS ID of creator
   readBy?: string[]; // Array of ITS IDs of users who have read it
 };
