@@ -1,3 +1,4 @@
+// functions/src/index.ts
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 
@@ -26,7 +27,7 @@ interface NotificationData {
 
 export const onNewNotificationCreated = functions.firestore
   .document("notifications/{notificationId}")
-  .onCreate(async (snapshot, context) => {
+  .onCreate(async (snapshot: functions.firestore.QueryDocumentSnapshot, context: functions.EventContext) => {
     const notification = snapshot.data() as NotificationData;
     const notificationId = context.params.notificationId;
 
@@ -58,7 +59,7 @@ export const onNewNotificationCreated = functions.firestore
       }
 
       const tokens: string[] = [];
-      usersSnapshot.forEach((doc) => {
+      usersSnapshot.forEach((doc: admin.firestore.QueryDocumentSnapshot) => {
         const user = doc.data() as User;
         if (user.fcmTokens && user.fcmTokens.length > 0) {
           tokens.push(...user.fcmTokens);
@@ -80,7 +81,7 @@ export const onNewNotificationCreated = functions.firestore
         notification: {
           title: notification.title,
           body: notification.content,
-          icon: "/logo.png", // Ensure this image is in the /public folder of your deployed Next.js app
+          icon: "/logo.png", // Optional: ensure this image is in your /public folder of your Next.js app
         },
         data: {
           // Optional: You can send additional data for in-app handling
@@ -90,14 +91,13 @@ export const onNewNotificationCreated = functions.firestore
       };
 
       // Send messages to the tokens.
-      // Consider using sendEachForMulticast for better error handling per token
       const response = await admin.messaging().sendToDevice(uniqueTokens, messagePayload);
 
       functions.logger.log("Successfully sent message(s):", response);
 
       // Clean up invalid tokens (optional but good practice)
-      // const tokensToRemove: Promise<any>[] = [];
-      response.results.forEach((result, index) => {
+      // const tokensToRemove: Promise<any>[] = []; // Commented out as it's not currently used
+      response.results.forEach((result: admin.messaging.MessagingDeviceResult, index: number) => {
         const error = result.error;
         if (error) {
           functions.logger.error(
@@ -114,7 +114,6 @@ export const onNewNotificationCreated = functions.firestore
             // and remove it from their fcmTokens array. This might involve another
             // query or careful data management. For simplicity, this example doesn't
             // implement token cleanup, but it's an important consideration.
-             functions.logger.warn("Consider implementing FCM token cleanup for token:", uniqueTokens[index]);
           }
         }
       });
