@@ -22,35 +22,44 @@ export default function NotificationsPage() {
     const role = localStorage.getItem('userRole') as UserRole | null;
     setCurrentUserItsId(itsId);
     setCurrentUserRole(role);
+    console.log("[NotificationsPage useEffect] Loaded from localStorage - ITS ID:", itsId, "Role:", role);
   }, []);
 
   const fetchAndMarkNotifications = useCallback(async () => {
     if (!currentUserItsId || !currentUserRole) {
       setIsLoading(false);
+      console.log("[NotificationsPage fetchAndMark] Skipping fetch: No ITS ID or Role.", { currentUserItsId, currentUserRole });
       return;
     }
     setIsLoading(true);
+    console.log("[NotificationsPage fetchAndMark] Fetching for ITS:", currentUserItsId, "Role:", currentUserRole);
     try {
       const fetchedNotifications = await getNotificationsForUser(currentUserItsId, currentUserRole);
+      console.log("[NotificationsPage fetchAndMark] Fetched raw notifications:", fetchedNotifications);
+      
       const sortedNotifications = fetchedNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setNotifications(sortedNotifications);
+      console.log("[NotificationsPage fetchAndMark] Sorted notifications to display:", sortedNotifications);
 
       // Mark fetched notifications as read for the current user
       const markReadPromises: Promise<void>[] = [];
       sortedNotifications.forEach(notif => {
         if (!notif.readBy?.includes(currentUserItsId)) {
+          console.log(`[NotificationsPage fetchAndMark] Marking notification ${notif.id} as read for ${currentUserItsId}`);
           markReadPromises.push(markNotificationAsRead(notif.id, currentUserItsId));
         }
       });
       if (markReadPromises.length > 0) {
         await Promise.all(markReadPromises);
-        // Optionally re-fetch or update local state if precise 'readBy' counts are needed immediately
-        // For now, dispatching an event to update header is enough.
-        window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+        console.log(`[NotificationsPage fetchAndMark] Marked ${markReadPromises.length} notifications as read.`);
+        // Dispatch event so header can update badge
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+        }
       }
 
     } catch (error) {
-      console.error("Failed to fetch or mark notifications:", error);
+      console.error("[NotificationsPage fetchAndMark] Failed to fetch or mark notifications:", error);
       toast({ title: "Error", description: "Could not load notifications.", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -59,8 +68,10 @@ export default function NotificationsPage() {
   }, [currentUserItsId, currentUserRole, toast]); // toast is stable
 
   useEffect(() => {
-    fetchAndMarkNotifications();
-  }, [fetchAndMarkNotifications]);
+    if (currentUserItsId && currentUserRole) {
+      fetchAndMarkNotifications();
+    }
+  }, [fetchAndMarkNotifications, currentUserItsId, currentUserRole]);
 
 
   if (isLoading) {
@@ -93,7 +104,7 @@ export default function NotificationsPage() {
           ) : (
             <ul className="space-y-6">
               {notifications.map((notification) => (
-                <li key={notification.id} className={`p-6 border rounded-xl bg-card`}> {/* Removed conditional styling for read, as all are marked read upon view */}
+                <li key={notification.id} className={`p-6 border rounded-xl bg-card`}>
                   <h3 className="text-xl font-semibold text-foreground">{notification.title}</h3>
                   <p className="text-sm text-muted-foreground mt-1 mb-3">
                     Posted on: {format(new Date(notification.createdAt), "MMMM d, yyyy 'at' h:mm a")}

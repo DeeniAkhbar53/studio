@@ -13,7 +13,9 @@ import type { NotificationItem, UserRole } from "@/types";
 import { PlusCircle, Trash2, BellRing, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
-import { addNotification, getNotificationsForUser, deleteNotification } from "@/lib/firebase/notificationService";
+import { addNotification, deleteNotification } from "@/lib/firebase/notificationService";
+import { db } from "@/lib/firebase/firebase"; // Import db
+import { collection, query, orderBy, getDocs, Timestamp } from "firebase/firestore"; // Import firestore functions
 
 export default function ManageNotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -25,7 +27,6 @@ export default function ManageNotificationsPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-
   const { toast } = useToast();
 
   useEffect(() => {
@@ -35,27 +36,43 @@ export default function ManageNotificationsPage() {
     setCurrentUserRole(role);
   }, []);
 
-  const fetchNotifications = useCallback(async () => {
-    if (!currentUserItsId || !currentUserRole) return;
+  const fetchAllNotifications = useCallback(async () => {
     setIsLoading(true);
     try {
-      // For manage notifications, fetch all, then filter for deletion rights if needed
-      // Or have a getNotificationsForManagement service function if logic is different
-      const fetchedNotifications = await getNotificationsForUser(currentUserItsId, currentUserRole);
-      setNotifications(fetchedNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      const notificationsCollectionRef = collection(db, 'notifications');
+      const q = query(notificationsCollectionRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      const fetchedNotifications: NotificationItem[] = [];
+      querySnapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        const createdAt = data.createdAt instanceof Timestamp
+                          ? data.createdAt.toDate().toISOString()
+                          : typeof data.createdAt === 'string'
+                            ? data.createdAt
+                            : new Date().toISOString();
+        fetchedNotifications.push({
+          id: docSnapshot.id,
+          title: data.title,
+          content: data.content,
+          createdAt: createdAt,
+          targetAudience: data.targetAudience as 'all' | UserRole,
+          createdBy: data.createdBy,
+          readBy: Array.isArray(data.readBy) ? data.readBy : [],
+        });
+      });
+      setNotifications(fetchedNotifications);
     } catch (error) {
-      console.error("Failed to fetch notifications for management:", error);
-      toast({ title: "Error", description: "Could not load notifications.", variant: "destructive" });
+      console.error("Failed to fetch all notifications for management:", error);
+      toast({ title: "Error", description: "Could not load notifications for management.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  }, [currentUserItsId, currentUserRole, toast]);
+  }, [toast]);
 
   useEffect(() => {
-    if (currentUserItsId && currentUserRole) {
-      fetchNotifications();
-    }
-  }, [fetchNotifications, currentUserItsId, currentUserRole]);
+    // Fetch all notifications when the component mounts or currentUserRole/ItsId changes (though it's not used in query)
+    fetchAllNotifications();
+  }, [fetchAllNotifications]);
 
 
   const handlePostNotification = async () => {
@@ -86,8 +103,8 @@ export default function ManageNotificationsPage() {
       setNewNotificationTitle("");
       setNewNotificationContent("");
       setNewNotificationAudience('all');
-      fetchNotifications(); 
-      window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+      fetchAllNotifications(); // Refresh the list to show the new notification
+      // No need to dispatch 'notificationsUpdated' if header uses Firestore listener
     } catch (error) {
       console.error("Failed to post notification:", error);
       toast({ title: "Error", description: "Could not post notification.", variant: "destructive" });
@@ -103,8 +120,8 @@ export default function ManageNotificationsPage() {
         title: "Notification Deleted",
         description: "The notification has been removed.",
       });
-      fetchNotifications(); 
-      window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+      fetchAllNotifications(); // Refresh the list
+      // No need to dispatch 'notificationsUpdated'
     } catch (error) {
       console.error("Failed to delete notification:", error);
       toast({ title: "Error", description: "Could not delete notification.", variant: "destructive" });
@@ -174,7 +191,7 @@ export default function ManageNotificationsPage() {
         <CardHeader>
           <CardTitle>Posted Notifications Log</CardTitle>
           <Separator className="my-2" />
-          <CardDescription>List of all active notifications visible to you for management. Newest first.</CardDescription>
+          <CardDescription>List of all active notifications. Newest first.</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -183,7 +200,7 @@ export default function ManageNotificationsPage() {
               <p className="ml-2">Loading notifications...</p>
             </div>
           ) : notifications.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">No notifications posted yet or visible to your role for management.</p>
+            <p className="text-muted-foreground text-center py-4">No notifications posted yet.</p>
           ) : (
             <ul className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
               {notifications.map((notification) => (
