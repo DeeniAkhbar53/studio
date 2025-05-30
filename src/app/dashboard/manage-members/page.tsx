@@ -195,7 +195,7 @@ export default function ManageMembersPage() {
 
   const handleMemberFormSubmit = async (values: MemberFormValues) => {
     const targetMohallahId = values.mohallahId;
-     console.log("Attempting to save member. Payload:", values, "Target Mohallah ID for path:", targetMohallahId);
+    console.log("Attempting to save member. Payload:", values, "Target Mohallah ID for path:", targetMohallahId);
     if (!targetMohallahId) {
         toast({ title: "Error", description: "Mohallah ID is missing.", variant: "destructive" });
         return;
@@ -404,7 +404,7 @@ export default function ManageMembersPage() {
           if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0)) {
             toast({
                 title: "CSV Import Error",
-                description: "Could not import users from CSV. Check console for details.",
+                description: "Some records could not be imported. Check console for details.",
                 variant: "destructive",
             });
           } else {
@@ -816,7 +816,7 @@ export default function ManageMembersPage() {
       </Card>
 
       <Card className="shadow-lg flex flex-col flex-1 min-h-0">
-        <CardContent className="pt-6 flex-1 overflow-y-auto"> {/* Changed to overflow-y-auto */}
+        <CardContent className="pt-6 flex-1 overflow-y-auto"> 
           {isLoadingMembers ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
