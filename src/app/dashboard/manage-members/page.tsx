@@ -125,7 +125,7 @@ export default function ManageMembersPage() {
             toast({ title: "Data Fetch Warning", description: specificErrorMsg, variant: "destructive", duration: 10000 });
             setMembers([]);
         } else {
-            toast({ title: "Error", description: "Failed to fetch members.", variant: "destructive" });
+            toast({ title: "Error", description: "Failed to fetch members from the system.", variant: "destructive" });
             setFetchError("Failed to fetch members. Please try again.");
             setMembers([]);
         }
@@ -195,7 +195,7 @@ export default function ManageMembersPage() {
 
   const handleMemberFormSubmit = async (values: MemberFormValues) => {
     const targetMohallahId = values.mohallahId;
-    console.log("Attempting to save member. Payload before service call:", values, "Target Mohallah ID for path:", targetMohallahId);
+     console.log("Attempting to save member. Payload:", values, "Target Mohallah ID for path:", targetMohallahId);
     if (!targetMohallahId) {
         toast({ title: "Error", description: "Mohallah ID is missing.", variant: "destructive" });
         return;
@@ -212,8 +212,6 @@ export default function ManageMembersPage() {
       designation: values.designation as UserDesignation || "Member",
       pageRights: values.role === 'user' ? [] : (values.pageRights || []),
     };
-
-    console.log("Attempting to save member to database. Payload for service:", memberPayload, "Target Mohallah ID for path:", targetMohallahId);
 
     try {
       if (editingMember && editingMember.mohallahId) {
@@ -250,7 +248,7 @@ export default function ManageMembersPage() {
     try {
       await deleteUser(member.id, member.mohallahId);
       toast({ title: "Member Deleted", description: `"${member.name}" has been deleted.`});
-      setSelectedMemberIds(prev => prev.filter(id => id !== member.id)); // Remove from selection
+      setSelectedMemberIds(prev => prev.filter(id => id !== member.id)); 
       if (currentUserRole === 'admin' && currentUserMohallahId) {
         fetchAndSetMembers(currentUserMohallahId);
       } else if (currentUserRole === 'superadmin') {
@@ -283,7 +281,7 @@ export default function ManageMembersPage() {
           failedCount++;
         }
       } else {
-        failedCount++; // Member not found or mohallahId missing
+        failedCount++; 
       }
     }
 
@@ -403,16 +401,16 @@ export default function ManageMembersPage() {
             fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
           }
 
-           if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0)) {
+          if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0)) {
             toast({
                 title: "CSV Import Error",
-                description: "Could not import some or all users from CSV. See console for details.",
+                description: "Could not import users from CSV. Check console for details.",
                 variant: "destructive",
             });
           } else {
             toast({
-                title: "CSV Import Processed",
-                description: `Successfully processed CSV file. ${successfullyAddedCount} users added. ${skippedCount} skipped.`,
+                title: "CSV Import Success",
+                description: `Successfully processed CSV file. ${successfullyAddedCount} users added.`,
             });
           }
 
@@ -817,8 +815,8 @@ export default function ManageMembersPage() {
         </CardHeader>
       </Card>
 
-      <Card className="shadow-lg flex flex-col flex-1 min-h-0"> {/* min-h-0 allows flex-1 to shrink if needed */}
-        <CardContent className="pt-6 flex-1 overflow-auto">
+      <Card className="shadow-lg flex flex-col flex-1 min-h-0">
+        <CardContent className="pt-6 flex-1 overflow-y-auto"> {/* Changed to overflow-y-auto */}
           {isLoadingMembers ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -873,7 +871,7 @@ export default function ManageMembersPage() {
                         <Button variant="ghost" size="icon" onClick={() => handleEditMember(member)} className="mr-1 sm:mr-2" aria-label="Edit Member">
                             <Edit className="h-4 w-4" />
                         </Button>
-                        { (member.role !== 'superadmin' || currentUserRole === 'superadmin') && (
+                        { (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( // Ensure superadmin can't be deleted by others
                             <AlertDialog>
                                 <AlertTrigger asChild>
                                 <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
@@ -985,3 +983,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    
