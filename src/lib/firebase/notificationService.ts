@@ -15,7 +15,6 @@ import {
   Timestamp,
   arrayUnion,
   where,
-  or,
   limit
 } from 'firebase/firestore';
 import type { NotificationItem, UserRole } from '@/types';
@@ -29,42 +28,57 @@ export const addNotification = async (notificationData: NotificationDataForAdd):
     const docRef = await addDoc(notificationsCollectionRef, {
       ...notificationData,
       createdAt: serverTimestamp(),
-      readBy: [],
+      readBy: [], // Initialize readBy as an empty array
     });
 
-    // --- BACKEND ACTION REQUIRED for OS-Level Push Notifications via FCM ---
-    // This Next.js app only saves the notification to Firestore.
-    // A separate backend process (e.g., a Firebase Cloud Function) is needed to
-    // actually send push notifications to user devices via Firebase Cloud Messaging (FCM).
+    // --- CRITICAL: BACKEND ACTION REQUIRED for OS-Level Push Notifications via FCM ---
+    // This Next.js frontend function only saves the notification to Firestore.
+    // To actually send push notifications to user devices via Firebase Cloud Messaging (FCM),
+    // a separate backend process (typically a Firebase Cloud Function) is ESSENTIAL.
     //
-    // That backend Cloud Function would typically:
-    // 1. **Trigger**: Listen for new documents created in the `notifications` Firestore collection
+    // That backend Cloud Function would:
+    // 1. **Trigger**: Be configured to trigger whenever a new document is created in this
+    //    `notifications` Firestore collection.
     //    (e.g., using `functions.firestore.document('notifications/{notificationId}').onCreate()`).
-    // 2. **Read Data**: Get the `title`, `content`, and `targetAudience` from the new notification document.
-    // 3. **Query Users**:
+    //
+    // 2. **Read Notification Data**: Get the `title`, `content`, and `targetAudience`
+    //    from the newly created notification document in Firestore.
+    //
+    // 3. **Query Target Users & Fetch FCM Tokens**:
     //    - Based on `targetAudience` (e.g., 'admin', 'user', 'all'), query your user data
-    //      (e.g., in `mohallahs/{mohallahId}/members`). You might need a collectionGroup query on 'members'.
-    //    - For each targeted user, retrieve their stored FCM registration tokens from the `fcmTokens`
-    //      array in their user document.
-    // 4. **Collect Tokens**: Aggregate all unique FCM tokens from the targeted users.
-    // 5. **Construct FCM Message**: Create an FCM message payload using the Firebase Admin SDK.
-    //    Crucially, to trigger a display notification via the service worker when the app is
-    //    in the background/closed, this payload should include a `notification` object.
+    //      (e.g., in `mohallahs/{mohallahId}/members` using collection group queries if needed).
+    //    - For each targeted user, retrieve their stored FCM registration tokens from the
+    //      `fcmTokens` array in their user document.
+    //
+    // 4. **Collect Unique FCM Tokens**: Aggregate all unique FCM tokens from the targeted users.
+    //
+    // 5. **Construct FCM Message (using Firebase Admin SDK)**:
+    //    Create an FCM message payload. To trigger a display notification via the
+    //    service worker (`public/firebase-messaging-sw.js`) when the app is
+    //    in the background/closed, this payload MUST include a `notification` object.
     //    Example payload for the Admin SDK's `sendToDevice` or `sendMulticast` methods:
+    //    ```javascript
+    //    // const admin = require('firebase-admin'); // In your Cloud Function
     //    const message = {
     //      tokens: uniqueFcmTokensArray, // Array of FCM tokens
     //      notification: {
-    //        title: notificationData.title,
-    //        body: notificationData.content,
-    //        // Optional: icon: '/images/logo.png' // Path relative to your deployed site's root
+    //        title: notificationData.title, // From the Firestore document
+    //        body: notificationData.content,  // From the Firestore document
+    //        icon: '/logo.png', // Optional: Path to an icon in your /public folder
     //      },
-    //      data: { // Optional: any custom data you want to send
-    //        // e.g., url: '/dashboard/notifications'
+    //      data: { // Optional: any custom data you want to send for in-app handling
+    //        url: '/dashboard/notifications', // e.g., to open a specific page on click
+    //        notificationId: docRef.id,
     //      }
     //    };
-    // 6. **Send via Admin SDK**: Use the Firebase Admin SDK's messaging methods
-    //    (e.g., `admin.messaging().sendMulticast(message)`) to send the push notification.
-    // 7. **Handle Responses/Errors**: Check `response.failureCount` for errors and log them.
+    //    ```
+    //
+    // 6. **Send via Firebase Admin SDK**: Use the Firebase Admin SDK's messaging methods
+    //    (e.g., `admin.messaging().sendEachForMulticast(message)` or `admin.messaging().sendToDevice(...)`)
+    //    to send the push notification.
+    //
+    // 7. **Handle Responses/Errors**: Check the response from the Admin SDK for errors
+    //    (e.g., invalid tokens) and handle them appropriately (e.g., logging, cleaning up invalid tokens).
     //
     // Ensure your Cloud Function has the necessary permissions and the Firebase Admin SDK is initialized.
     // The `public/firebase-messaging-sw.js` file in your Next.js app will handle displaying
@@ -74,7 +88,7 @@ export const addNotification = async (notificationData: NotificationDataForAdd):
 
     return docRef.id;
   } catch (error) {
-    console.error("Error adding notification: ", error);
+    console.error("Error adding notification to Firestore: ", error);
     throw error;
   }
 };
@@ -84,29 +98,35 @@ export const addNotification = async (notificationData: NotificationDataForAdd):
 export const getNotificationsForUser = async (currentUserItsId: string, currentUserRole: UserRole): Promise<NotificationItem[]> => {
   console.log(`[notificationService] getNotificationsForUser called with ITS: ${currentUserItsId}, Role: ${currentUserRole}`);
   try {
+    // Query for 'all'
     const notificationsForAllQuery = query(
         notificationsCollectionRef,
         where('targetAudience', '==', 'all'),
         orderBy('createdAt', 'desc'),
-        limit(50)
+        limit(50) // Limit results for performance
     );
 
-    const notificationsForRoleQuery = query(
-        notificationsCollectionRef,
-        where('targetAudience', '==', currentUserRole),
-        orderBy('createdAt', 'desc'),
-        limit(50)
-    );
+    // Query for specific role (if not 'all' to avoid duplicate data if role is somehow 'all')
+    let notificationsForRoleQuery = null;
+    if (currentUserRole !== 'all') {
+        notificationsForRoleQuery = query(
+            notificationsCollectionRef,
+            where('targetAudience', '==', currentUserRole),
+            orderBy('createdAt', 'desc'),
+            limit(50) // Limit results for performance
+        );
+    }
 
     const [allSnapshot, roleSnapshot] = await Promise.all([
       getDocs(notificationsForAllQuery),
-      (currentUserRole !== 'all' ? getDocs(notificationsForRoleQuery) : Promise.resolve({ docs: [] as any[] }))
+      notificationsForRoleQuery ? getDocs(notificationsForRoleQuery) : Promise.resolve({ docs: [] as any[] })
     ]);
 
     const notificationsMap = new Map<string, NotificationItem>();
 
     const processSnapshot = (snapshot: any) => {
       snapshot.docs.forEach((docSnapshot: any) => {
+        // Avoid adding duplicates if a notification somehow matched both queries
         if (notificationsMap.has(docSnapshot.id)) return;
 
         const data = docSnapshot.data();
@@ -114,14 +134,14 @@ export const getNotificationsForUser = async (currentUserItsId: string, currentU
                           ? data.createdAt.toDate().toISOString()
                           : typeof data.createdAt === 'string'
                             ? data.createdAt
-                            : new Date().toISOString();
+                            : new Date().toISOString(); // Fallback, should not happen
 
         const notification: NotificationItem = {
           id: docSnapshot.id,
           title: data.title,
           content: data.content,
           createdAt: createdAt,
-          targetAudience: data.targetAudience as 'all' | UserRole,
+          targetAudience: data.targetAudience as UserRole | 'all',
           createdBy: data.createdBy,
           readBy: Array.isArray(data.readBy) ? data.readBy : [],
         };
@@ -130,9 +150,13 @@ export const getNotificationsForUser = async (currentUserItsId: string, currentU
     };
 
     processSnapshot(allSnapshot);
-    processSnapshot(roleSnapshot);
+    if (roleSnapshot) { // Check if roleSnapshot exists (it would be null if currentUserRole was 'all')
+        processSnapshot(roleSnapshot);
+    }
 
     const combinedNotifications = Array.from(notificationsMap.values());
+
+    // Sort by createdAt date, most recent first, as merging might disturb order
     combinedNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
     console.log(`[notificationService] Fetched ${combinedNotifications.length} notifications after combining and sorting for ITS: ${currentUserItsId}.`);
@@ -141,9 +165,9 @@ export const getNotificationsForUser = async (currentUserItsId: string, currentU
   } catch (error) {
     console.error("[notificationService] Error fetching notifications for user: ", error);
     if (error instanceof Error && error.message.includes("index")) {
-        console.error("[notificationService] This operation likely requires Firestore indexes. Please check your Firebase console. You might need separate indexes for ('targetAudience' ASC, 'createdAt' DESC) on the 'notifications' collection.");
+        console.error("[notificationService] This operation likely requires Firestore indexes. Please check your Firebase console. You might need an index for ('targetAudience' ASC, 'createdAt' DESC) on the 'notifications' collection.");
     }
-    return [];
+    return []; // Return empty array on error to prevent app crash
   }
 };
 
@@ -151,12 +175,14 @@ export const getNotificationsForUser = async (currentUserItsId: string, currentU
 export const markNotificationAsRead = async (notificationId: string, userItsId: string): Promise<void> => {
   try {
     const notificationDocRef = doc(db, 'notifications', notificationId);
+    // Atomically add the user's ITS ID to the 'readBy' array.
+    // arrayUnion ensures the ID is only added if it's not already present.
     await updateDoc(notificationDocRef, {
       readBy: arrayUnion(userItsId),
     });
   } catch (error) {
     console.error(`Error marking notification ${notificationId} as read for user ${userItsId}: `, error);
-    // Not re-throwing, as this is a non-critical operation for the user experience
+    // Not re-throwing, as this is a non-critical operation for the user experience if it fails once
   }
 };
 
