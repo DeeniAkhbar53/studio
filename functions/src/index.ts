@@ -1,6 +1,8 @@
 // functions/src/index.ts
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import type { DocumentSnapshot } from "firebase-admin/firestore"; // For explicit type
+import type { EventContext } from "firebase-functions"; // For explicit type
 
 // Initialize Firebase Admin SDK
 // This will use the default service account credentials for your project
@@ -11,7 +13,7 @@ const db = admin.firestore();
 interface User {
   id: string;
   itsId: string;
-  mohallahId?: string; // Path to the Mohallah document if needed
+  mohallahId?: string;
   role: "user" | "admin" | "superadmin" | "attendance-marker";
   fcmTokens?: string[];
   // other user fields...
@@ -27,7 +29,7 @@ interface NotificationData {
 
 export const onNewNotificationCreated = functions.firestore
   .document("notifications/{notificationId}")
-  .onCreate(async (snapshot: functions.firestore.QueryDocumentSnapshot, context: functions.EventContext) => {
+  .onCreate(async (snapshot: DocumentSnapshot, context: EventContext) => {
     const notification = snapshot.data() as NotificationData;
     const notificationId = context.params.notificationId;
 
@@ -59,7 +61,7 @@ export const onNewNotificationCreated = functions.firestore
       }
 
       const tokens: string[] = [];
-      usersSnapshot.forEach((doc: admin.firestore.QueryDocumentSnapshot) => {
+      usersSnapshot.forEach((doc: DocumentSnapshot) => { // Explicit type for doc
         const user = doc.data() as User;
         if (user.fcmTokens && user.fcmTokens.length > 0) {
           tokens.push(...user.fcmTokens);
@@ -93,11 +95,11 @@ export const onNewNotificationCreated = functions.firestore
       // Send messages to the tokens.
       const response = await admin.messaging().sendToDevice(uniqueTokens, messagePayload);
 
-      functions.logger.log("Successfully sent message(s):", response);
+      functions.logger.log("Successfully sent message(s):", response.successCount, "failures:", response.failureCount);
 
       // Clean up invalid tokens (optional but good practice)
-      // const tokensToRemove: Promise<any>[] = []; // Commented out as it's not currently used
-      response.results.forEach((result: admin.messaging.MessagingDeviceResult, index: number) => {
+      // const tokensToRemove: Promise<any>[] = []; // Commented out as its usage is commented out
+      response.results.forEach((result: admin.messaging.MessagingDeviceResult, index: number) => { // Explicit types
         const error = result.error;
         if (error) {
           functions.logger.error(
@@ -114,6 +116,7 @@ export const onNewNotificationCreated = functions.firestore
             // and remove it from their fcmTokens array. This might involve another
             // query or careful data management. For simplicity, this example doesn't
             // implement token cleanup, but it's an important consideration.
+            // Example: tokensToRemove.push(db.collection('users').doc(userIdWithInvalidToken).update({ fcmTokens: admin.firestore.FieldValue.arrayRemove(uniqueTokens[index]) }));
           }
         }
       });
