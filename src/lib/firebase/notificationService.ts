@@ -31,60 +31,41 @@ export const addNotification = async (notificationData: NotificationDataForAdd):
       readBy: [], // Initialize readBy as an empty array
     });
 
-    // --- CRITICAL: BACKEND ACTION REQUIRED for OS-Level Push Notifications via FCM ---
-    // This Next.js frontend function only saves the notification to Firestore.
-    // To actually send push notifications to user devices via Firebase Cloud Messaging (FCM),
-    // a separate backend process (typically a Firebase Cloud Function) is ESSENTIAL.
+    // --- Sending Push Notifications via Firebase Console ---
+    // This Next.js frontend function saves the notification to Firestore.
+    // To send push notifications to user devices via Firebase Cloud Messaging (FCM),
+    // you will now manually compose and send messages using the Firebase Console's
+    // "Engagement" -> "Messaging" (or "Cloud Messaging") section.
     //
-    // That backend Cloud Function would:
-    // 1. **Trigger**: Be configured to trigger whenever a new document is created in this
-    //    `notifications` Firestore collection.
-    //    (e.g., using `functions.firestore.document('notifications/{notificationId}').onCreate()`).
+    // When composing a message in the Firebase Console:
+    // 1. **Targeting**: You can target user segments, specific topics (if you implement topic subscriptions),
+    //    or individual FCM tokens (though this is less common for broad announcements).
+    //    Since user FCM tokens are stored in `mohallahs/{mohallahId}/members/{userId}/fcmTokens`,
+    //    you might need to export these tokens for targeted campaigns if the console's segmentation
+    //    doesn't directly meet your needs for audience selection based on the `targetAudience`
+    //    field of this Firestore notification document.
     //
-    // 2. **Read Notification Data**: Get the `title`, `content`, and `targetAudience`
-    //    from the newly created notification document in Firestore.
+    // 2. **Notification Content**:
+    //    - **Title**: Use the `title` from this Firestore document (e.g., notificationData.title).
+    //    - **Body (Text)**: Use the `content` from this Firestore document (e.g., notificationData.content).
+    //    - **Image URL (Optional)**: You can add an image URL.
+    //    - **Notification Name (Optional)**: For your reference in the console.
     //
-    // 3. **Query Target Users & Fetch FCM Tokens**:
-    //    - Based on `targetAudience` (e.g., 'admin', 'user', 'all'), query your user data
-    //      (e.g., in `mohallahs/{mohallahId}/members` using collection group queries if needed).
-    //    - For each targeted user, retrieve their stored FCM registration tokens from the
-    //      `fcmTokens` array in their user document.
+    // 3. **Custom Data (Optional but Recommended)**:
+    //    In the "Additional options" -> "Custom data" section of the FCM console composer,
+    //    you can add key-value pairs. This is useful for in-app navigation when a
+    //    notification is clicked. For example:
+    //    - Key: `url`, Value: `/dashboard/notifications`
+    //    - Key: `notificationId`, Value: `docRef.id` (the ID of this Firestore document)
+    //    This data will be available in your `public/firebase-messaging-sw.js` and
+    //    your foreground message handler in `src/app/dashboard/layout.tsx`.
     //
-    // 4. **Collect Unique FCM Tokens**: Aggregate all unique FCM tokens from the targeted users.
+    // 4. **Scheduling**: Send immediately or schedule for later.
     //
-    // 5. **Construct FCM Message (using Firebase Admin SDK)**:
-    //    Create an FCM message payload. To trigger a display notification via the
-    //    service worker (`public/firebase-messaging-sw.js`) when the app is
-    //    in the background/closed, this payload MUST include a `notification` object.
-    //    Example payload for the Admin SDK's `sendToDevice` or `sendMulticast` methods:
-    //    ```javascript
-    //    // const admin = require('firebase-admin'); // In your Cloud Function
-    //    const message = {
-    //      tokens: uniqueFcmTokensArray, // Array of FCM tokens
-    //      notification: {
-    //        title: notificationData.title, // From the Firestore document
-    //        body: notificationData.content,  // From the Firestore document
-    //        icon: '/logo.png', // Optional: Path to an icon in your /public folder
-    //      },
-    //      data: { // Optional: any custom data you want to send for in-app handling
-    //        url: '/dashboard/notifications', // e.g., to open a specific page on click
-    //        notificationId: docRef.id,
-    //      }
-    //    };
-    //    ```
-    //
-    // 6. **Send via Firebase Admin SDK**: Use the Firebase Admin SDK's messaging methods
-    //    (e.g., `admin.messaging().sendEachForMulticast(message)` or `admin.messaging().sendToDevice(...)`)
-    //    to send the push notification.
-    //
-    // 7. **Handle Responses/Errors**: Check the response from the Admin SDK for errors
-    //    (e.g., invalid tokens) and handle them appropriately (e.g., logging, cleaning up invalid tokens).
-    //
-    // Ensure your Cloud Function has the necessary permissions and the Firebase Admin SDK is initialized.
-    // The `public/firebase-messaging-sw.js` file in your Next.js app will handle displaying
-    // this system notification if the app is in the background or closed.
-    // The `src/app/dashboard/layout.tsx` handles foreground messages.
-    // --- END BACKEND ACTION REQUIRED ---
+    // The `public/firebase-messaging-sw.js` file in your Next.js app handles displaying
+    // system notifications if the app is in the background or closed. The foreground
+    // message handler in `src/app/dashboard/layout.tsx` handles messages when the app is open.
+    // --- End Manual Sending Guide ---
 
     return docRef.id;
   } catch (error) {
@@ -195,3 +176,4 @@ export const deleteNotification = async (notificationId: string): Promise<void> 
     throw error;
   }
 };
+
