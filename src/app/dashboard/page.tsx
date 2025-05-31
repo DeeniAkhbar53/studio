@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode"; // Import html5-qrcode
+import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
 
 interface AdminStat {
   title: string;
@@ -59,74 +59,98 @@ export default function DashboardOverviewPage() {
   const [scanDisplayMessage, setScanDisplayMessage] = useState<ScanDisplayMessage | null>(null);
   const [scannerError, setScannerError] = useState<string | null>(null);
 
-
+  // Effect to load user auth data from localStorage
   useEffect(() => {
-    let unsubscribeMiqaats: Unsubscribe | null = null;
     const storedRole = localStorage.getItem('userRole') as UserRole | null;
     const storedName = localStorage.getItem('userName');
     const storedItsId = localStorage.getItem('userItsId');
     const storedMohallahId = localStorage.getItem('userMohallahId');
 
     if (storedItsId && storedRole) {
-      setCurrentUserRole(storedRole);
-      setCurrentUserItsId(storedItsId);
-      setCurrentUserMohallahId(storedMohallahId);
-      if (storedName) {
-        setCurrentUserName(storedName);
-      }
+        setCurrentUserRole(storedRole);
+        setCurrentUserItsId(storedItsId);
+        setCurrentUserMohallahId(storedMohallahId);
+        if (storedName) {
+            setCurrentUserName(storedName);
+        }
+        setIsLoadingUser(false);
+    } else {
+        router.push('/'); // Redirect if no auth data
+        // setIsLoadingUser will effectively be true until redirect happens, or page unmounts
+    }
+  }, [router]);
 
-      setIsLoadingStats(true);
-      unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
+  // Effect to fetch data once auth info is available
+  useEffect(() => {
+    if (!currentUserItsId || !currentUserRole) {
+        setIsLoadingStats(false);
+        setAllMiqaatsList([]); 
+        setActiveMiqaatsCount(0);
+        setTotalMembersCount(0);
+        setTotalMohallahsCount(0);
+        return; 
+    }
+
+    setIsLoadingStats(true);
+    let miqaatsLoaded = false;
+    // Initialize adminCountsLoaded to true if the user is not an admin/superadmin,
+    // meaning these counts are not expected to load.
+    let adminCountsLoaded = !(currentUserRole === 'admin' || currentUserRole === 'superadmin');
+
+    const checkAndSetLoadingDone = () => {
+        if (miqaatsLoaded && adminCountsLoaded) {
+            setIsLoadingStats(false);
+        }
+    };
+
+    const unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
         setActiveMiqaatsCount(fetchedMiqaats.filter(m => new Date(m.endTime) > new Date()).length);
         setAllMiqaatsList(fetchedMiqaats);
-        if (currentUserRole !== 'user') setIsLoadingStats(false);
-      });
+        miqaatsLoaded = true;
+        checkAndSetLoadingDone();
+    });
 
-      if (storedRole === 'admin' || storedRole === 'superadmin') {
-        const fetchCounts = async () => {
-          try {
-            const membersCount = await getUsersCount(storedRole === 'admin' ? storedMohallahId || undefined : undefined);
-            setTotalMembersCount(membersCount);
-            
-            if (storedRole === 'superadmin') {
-              const mohallahsCount = await getMohallahsCount();
-              setTotalMohallahsCount(mohallahsCount);
+    if (currentUserRole === 'admin' || currentUserRole === 'superadmin') {
+        const fetchAdminCounts = async () => {
+            try {
+                const membersCountPromise = getUsersCount(currentUserRole === 'admin' ? currentUserMohallahId || undefined : undefined);
+                const mohallahsCountPromise = currentUserRole === 'superadmin' ? getMohallahsCount() : Promise.resolve(0);
+
+                const [membersCount, mohallahsCountValue] = await Promise.all([membersCountPromise, mohallahsCountPromise]);
+                
+                setTotalMembersCount(membersCount);
+                if (currentUserRole === 'superadmin') {
+                    setTotalMohallahsCount(mohallahsCountValue);
+                }
+            } catch (err) {
+                console.error("Failed to fetch admin dashboard counts", err);
+            } finally {
+                adminCountsLoaded = true;
+                checkAndSetLoadingDone();
             }
-          } catch (err) {
-            console.error("Failed to fetch dashboard counts", err);
-          }
         };
-        fetchCounts();
-      } else {
-        setIsLoadingStats(false);
-      }
-
-    } else {
-      router.push('/');
+        fetchAdminCounts();
     }
-    setIsLoadingUser(false);
-    
+
     return () => {
-      if (unsubscribeMiqaats) {
         unsubscribeMiqaats();
-      }
-      if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
-        html5QrCodeRef.current.stop().catch(err => console.error("Error stopping scanner on unmount:", err));
-      }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]); // currentUserRole removed
+  }, [currentUserItsId, currentUserRole, currentUserMohallahId]);
+
 
   const handleQrCodeScanned = useCallback(async (decodedText: string) => {
     if (!currentUserItsId || !currentUserName) {
-        toast({ title: "User Error", description: "User details not found. Please log in again.", variant: "destructive"});
+        // This toast was commented out, ensure useToast is imported if re-enabled
+        // toast({ title: "User Error", description: "User details not found. Please log in again.", variant: "destructive"});
+        console.error("User details not found for QR scan processing.");
+        setScanDisplayMessage({ type: 'error', text: "User details not found. Please log in again."});
         setIsProcessingScan(false);
         setIsScannerDialogOpen(false);
         return;
     }
     
     setIsProcessingScan(true);
-    setScanDisplayMessage(null); // Clear previous message
+    setScanDisplayMessage(null);
 
     const targetMiqaat = allMiqaatsList.find(m => m.id === decodedText || m.barcodeData === decodedText);
 
@@ -138,11 +162,14 @@ export default function DashboardOverviewPage() {
     }
 
     let isEligible = false;
+    // Superadmin and admin/attendance-marker can mark for any miqaat they can see / is listed
     if (currentUserRole === 'superadmin' || currentUserRole === 'admin' || currentUserRole === 'attendance-marker') {
-        isEligible = true;
+        isEligible = true; 
     } else if (currentUserRole === 'user') {
-        isEligible = !targetMiqaat.mohallahIds || targetMiqaat.mohallahIds.length === 0 || (currentUserMohallahId && targetMiqaat.mohallahIds.includes(currentUserMohallahId));
+        // User eligibility: Miqaat is global (no specific mohallahIds) OR user's mohallahId is included
+        isEligible = !targetMiqaat.mohallahIds || targetMiqaat.mohallahIds.length === 0 || (!!currentUserMohallahId && targetMiqaat.mohallahIds.includes(currentUserMohallahId));
     }
+
 
     if (!isEligible) {
       setScanDisplayMessage({ type: 'error', text: `Not eligible for Miqaat: ${targetMiqaat.name}.` });
@@ -178,18 +205,18 @@ export default function DashboardOverviewPage() {
       });
     } catch (error) {
       console.error("Error marking attendance from scanner:", error);
-      setScanDisplayMessage({ type: 'error', text: `Failed to mark attendance for ${targetMiqaat.name}.` });
+      setScanDisplayMessage({ type: 'error', text: `Failed to mark attendance for ${targetMiqaat.name}. Error: ${error instanceof Error ? error.message : String(error)}` });
     } finally {
       setIsProcessingScan(false);
       setIsScannerDialogOpen(false);
     }
-  }, [currentUserItsId, currentUserName, currentUserRole, currentUserMohallahId, allMiqaatsList, toast]);
+  }, [currentUserItsId, currentUserName, currentUserRole, currentUserMohallahId, allMiqaatsList]);
 
   useEffect(() => {
     if (isScannerDialogOpen) {
       setScannerError(null);
       if (!html5QrCodeRef.current) {
-        html5QrCodeRef.current = new Html5Qrcode(qrReaderElementId, { verbose: false });
+        html5QrCodeRef.current = new Html5Qrcode(qrReaderElementId);
       }
       const qrCode = html5QrCodeRef.current;
 
@@ -200,29 +227,27 @@ export default function DashboardOverviewPage() {
           { facingMode: "environment" },
           config,
           (decodedText, decodedResult) => {
-            // console.log(`Scan successful: ${decodedText}`, decodedResult);
-            setIsScannerActive(false); // Visual cue that scanning stopped
+            setIsScannerActive(false); 
             if (qrCode.getState() === Html5QrcodeScannerState.SCANNING) {
                 qrCode.stop().catch(err => console.warn("Error stopping scanner after success:", err));
             }
             handleQrCodeScanned(decodedText);
           },
           (errorMessage) => {
-            // console.warn(`QR Code no longer reporting error: ${errorMessage}`);
-            // This callback can be noisy, handle non-critical "errors" like "QR code not found" gracefully
+            // This callback is for errors during scanning (e.g., QR not found).
+            // console.warn(`QR Code scanning error: ${errorMessage}`);
           }
         )
         .then(() => {
           setIsScannerActive(true);
-          // console.log("QR Scanner started successfully.");
         })
-        .catch((err) => {
+        .catch((err) => { 
           console.error("Error starting QR scanner:", err);
-          setScannerError("Could not start camera. Please check permissions and ensure a camera is available.");
+          setScannerError(`Could not start camera. ${err instanceof Error ? err.message : String(err)} Please check permissions.`);
           setIsScannerActive(false);
         });
       }
-    } else { // Dialog is closed
+    } else { 
       if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
         html5QrCodeRef.current.stop()
           .then(() => setIsScannerActive(false))
@@ -230,9 +255,8 @@ export default function DashboardOverviewPage() {
       }
     }
 
-    // Cleanup function for when the component unmounts or dialog state changes
     return () => {
-      if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING && !isScannerDialogOpen) {
+      if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
          html5QrCodeRef.current.stop().catch(err => console.error("Error stopping scanner on cleanup:", err));
       }
     };
@@ -240,8 +264,8 @@ export default function DashboardOverviewPage() {
 
 
   const adminOverviewStats: AdminStat[] = [
-    { title: "Active Miqaats", value: activeMiqaatsCount, icon: CalendarCheck, isLoading: isLoadingStats && (currentUserRole === 'admin' || currentUserRole === 'superadmin') },
-    { title: "Total Members", value: totalMembersCount, icon: Users, isLoading: isLoadingStats && (currentUserRole === 'admin' || currentUserRole === 'superadmin'), trend: currentUserRole === 'admin' ? "In your Mohallah" : "System-wide" },
+    { title: "Active Miqaats", value: activeMiqaatsCount, icon: CalendarCheck, isLoading: isLoadingStats },
+    { title: "Total Members", value: totalMembersCount, icon: Users, isLoading: isLoadingStats, trend: currentUserRole === 'admin' ? "In your Mohallah" : "System-wide" },
   ];
 
   if (currentUserRole === 'superadmin') {
@@ -249,18 +273,25 @@ export default function DashboardOverviewPage() {
       { title: "Total Mohallahs", value: totalMohallahsCount, icon: Building, isLoading: isLoadingStats }
     );
   }
-   adminOverviewStats.push(
-     { title: "Overall Attendance", value: "85%", icon: Activity, trend: "Avg. last 7 days (Mock)" }
-   );
+  // Mock stat, can be removed or replaced with real data later
+  //  adminOverviewStats.push(
+  //    { title: "Overall Attendance", value: "85%", icon: Activity, trend: "Avg. last 7 days (Mock)" }
+  //  );
 
 
-  if (isLoadingUser) {
+  if (isLoadingUser && !currentUserItsId) { // Show loader only if user data is truly not yet loaded for a decision
     return (
       <div className="flex flex-col flex-1 items-center justify-center h-full">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Loading user data...</p>
       </div>
     );
+  }
+  
+  // If user is not authenticated (itsId is null after loading attempt), router.push will handle redirect.
+  // This prevents rendering the dashboard content prematurely.
+  if (!currentUserItsId) {
+      return null; 
   }
 
   return (
@@ -275,7 +306,7 @@ export default function DashboardOverviewPage() {
             <Separator className="my-2"/>
             <CardDescription className="text-muted-foreground">
               {currentUserRole === 'user' ? "Ready to mark your attendance. Use the scanner icon below for quick check-in." :
-               `Welcome, ${currentUserName}! Role: ${currentUserRole}. ${currentUserRole === 'attendance-marker' ? " Use sidebar for actions." : " Overview of system activity."}`
+               `Welcome, ${currentUserName}! Role: ${currentUserRole ? currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ') : ''}. ${currentUserRole === 'attendance-marker' ? " Use sidebar for actions." : " Overview of system activity."}`
               }
             </CardDescription>
           </CardHeader>
@@ -316,7 +347,7 @@ export default function DashboardOverviewPage() {
             ))}
           </div>
         )}
-         {(isLoadingStats && (currentUserRole === 'admin' || currentUserRole === 'superadmin') && !adminOverviewStats.some(s => !s.isLoading)) && (
+         {(isLoadingStats && (currentUserRole === 'admin' || currentUserRole === 'superadmin')) && (
           <div className="flex justify-center items-center py-6">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <p className="ml-2 text-muted-foreground">Loading system data...</p>
@@ -325,7 +356,7 @@ export default function DashboardOverviewPage() {
       </div>
       <Button
         onClick={() => { setScanDisplayMessage(null); setScannerError(null); setIsScannerDialogOpen(true); }}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
+        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50 bg-primary hover:bg-primary/90 text-primary-foreground"
         size="icon"
         aria-label="Scan Attendance"
       >
@@ -334,7 +365,7 @@ export default function DashboardOverviewPage() {
 
       <Dialog open={isScannerDialogOpen} onOpenChange={(open) => {
           setIsScannerDialogOpen(open);
-          if (!open) { // When dialog closes
+          if (!open) { 
             if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
               html5QrCodeRef.current.stop().catch(err => console.error("Error stopping scanner on dialog manual close:", err));
             }
@@ -352,7 +383,7 @@ export default function DashboardOverviewPage() {
           </DialogHeader>
           <div className="p-4 space-y-3">
             <div id={qrReaderElementId} className="w-full aspect-square bg-muted rounded-md overflow-hidden flex items-center justify-center text-sm text-muted-foreground">
-              {/* html5-qrcode will inject camera view here or show an error if it fails */}
+              {/* html5-qrcode will inject camera view here */}
             </div>
             {scannerError && (
                 <Alert variant="destructive">
@@ -361,7 +392,12 @@ export default function DashboardOverviewPage() {
                   <AlertDescription>{scannerError}</AlertDescription>
                 </Alert>
             )}
-            {!isScannerActive && !scannerError && !isProcessingScan && (
+            {!isScannerActive && !scannerError && !isProcessingScan && !isScannerDialogOpen && (
+                 <div className="text-center text-muted-foreground py-2">
+                    <p>Scanner Ready.</p> {/* Default state when dialog is closed or just opened */}
+                 </div>
+            )}
+            {!isScannerActive && !scannerError && !isProcessingScan && isScannerDialogOpen && (
                  <div className="text-center text-muted-foreground py-2">
                     <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-2" />
                     <p>Initializing Camera...</p>
@@ -391,3 +427,5 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
+
+    
