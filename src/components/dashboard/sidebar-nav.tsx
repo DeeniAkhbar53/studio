@@ -25,7 +25,7 @@ const allNavItems: NavItem[] = [
     label: "Notifications",
     icon: Bell,
   },
-  { href: "/dashboard/scan-attendance", label: "Scan My QR", icon: ScanBarcode, allowedRoles: ['user'] },
+  // { href: "/dashboard/scan-attendance", label: "Scan My QR", icon: ScanBarcode, allowedRoles: ['user'] }, // Removed this line
   {
     href: "/dashboard/mark-attendance",
     label: "Mark Attendance",
@@ -36,7 +36,7 @@ const allNavItems: NavItem[] = [
     href: "/dashboard/miqaat-management",
     label: "Miqaats",
     icon: CalendarDays,
-    allowedRoles: ['admin', 'superadmin', 'attendance-marker'] // Added 'attendance-marker'
+    allowedRoles: ['admin', 'superadmin', 'attendance-marker']
   },
   {
     href: "/dashboard/manage-mohallahs",
