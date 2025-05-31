@@ -53,12 +53,11 @@ export default function DashboardOverviewPage() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [isScanningActive, setIsScanningActive] = useState(false); // Indicates if the simulated scan is in progress
-  const [isProcessingScan, setIsProcessingScan] = useState(false); // For loader after scan, before db operation
+  const [isScanningActive, setIsScanningActive] = useState(false); 
+  const [isProcessingScan, setIsProcessingScan] = useState(false); 
   const [scanDisplayMessage, setScanDisplayMessage] = useState<ScanDisplayMessage | null>(null);
 
 
-  // Load user data and stats
   useEffect(() => {
     let unsubscribeMiqaats: Unsubscribe | null = null;
     const storedRole = localStorage.getItem('userRole') as UserRole | null;
@@ -77,8 +76,8 @@ export default function DashboardOverviewPage() {
       setIsLoadingStats(true);
       unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
         setActiveMiqaatsCount(fetchedMiqaats.filter(m => new Date(m.endTime) > new Date()).length);
-        setAllMiqaatsList(fetchedMiqaats); // Store all miqaats for lookups
-        if (currentUserRole !== 'user') setIsLoadingStats(false); // Stats loaded for admin/superadmin
+        setAllMiqaatsList(fetchedMiqaats); 
+        if (currentUserRole !== 'user') setIsLoadingStats(false); 
       });
 
       if (storedRole === 'admin' || storedRole === 'superadmin') {
@@ -93,13 +92,11 @@ export default function DashboardOverviewPage() {
             }
           } catch (err) {
             console.error("Failed to fetch dashboard counts", err);
-          } finally {
-            // setIsLoadingStats(false) is handled by getMiqaats for admin/superadmin
           }
         };
         fetchCounts();
       } else {
-        setIsLoadingStats(false); // No extra stats for 'user' role beyond miqaats
+        setIsLoadingStats(false); 
       }
 
     } else {
@@ -111,7 +108,7 @@ export default function DashboardOverviewPage() {
       if (unsubscribeMiqaats) {
         unsubscribeMiqaats();
       }
-      stopCamera(); // Clean up camera on unmount
+      stopCamera(); 
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]); // currentUserRole removed to avoid re-triggering initial miqaat load excessively
@@ -152,30 +149,32 @@ export default function DashboardOverviewPage() {
       startCamera();
     } else if (!isScannerDialogOpen) {
       stopCamera();
-      setHasCameraPermission(null); // Reset permission status when dialog closes
+      setHasCameraPermission(null); 
     }
   }, [isScannerDialogOpen, startCamera, stopCamera]);
 
-  // Simulate scan and process
-  const handleSimulatedScan = async () => {
+  const handleSimulatedScan = useCallback(async () => {
     if (!currentUserItsId || !currentUserName) {
         toast({ title: "User Error", description: "User details not found. Please log in again.", variant: "destructive"});
+        setIsProcessingScan(false);
+        setIsScannerDialogOpen(false);
+        stopCamera();
         return;
     }
     
-    // For simulation, we'll try to use the barcodeData of the first available Miqaat.
-    // In a real scenario, this would come from a QR scanner library.
     const firstMiqaatWithBarcode = allMiqaatsList.find(m => m.barcodeData || m.id);
     if (!firstMiqaatWithBarcode) {
         toast({ title: "No Miqaat Available", description: "No Miqaats found to simulate scan against.", variant: "default" });
         setScanDisplayMessage({type: 'info', text: "No Miqaats available for scanning."});
+        setIsProcessingScan(false);
         setIsScannerDialogOpen(false);
+        stopCamera();
         return;
     }
     const scannedData = firstMiqaatWithBarcode.barcodeData || firstMiqaatWithBarcode.id;
 
-    setIsScanningActive(false); // Turn off "scanning..." text
-    setIsProcessingScan(true);  // Show processing loader
+    // setIsScanningActive(false); // This is handled by the effect that calls this
+    // setIsProcessingScan(true); // This is also handled by the effect that calls this
 
     const targetMiqaat = allMiqaatsList.find(m => m.id === scannedData || m.barcodeData === scannedData);
 
@@ -183,22 +182,22 @@ export default function DashboardOverviewPage() {
       setScanDisplayMessage({ type: 'error', text: "Miqaat not found for scanned data." });
       setIsProcessingScan(false);
       setIsScannerDialogOpen(false);
+      stopCamera();
       return;
     }
 
-    // Eligibility Check (Simplified: user role or specific mohallah)
     let isEligible = false;
     if (currentUserRole === 'superadmin' || currentUserRole === 'admin' || currentUserRole === 'attendance-marker') {
-        isEligible = true; // Admin/Superadmin/Marker can mark for any miqaat they see
+        isEligible = true; 
     } else if (currentUserRole === 'user') {
         isEligible = !targetMiqaat.mohallahIds || targetMiqaat.mohallahIds.length === 0 || (currentUserMohallahId && targetMiqaat.mohallahIds.includes(currentUserMohallahId));
     }
-
 
     if (!isEligible) {
       setScanDisplayMessage({ type: 'error', text: `Not eligible for Miqaat: ${targetMiqaat.name}.` });
       setIsProcessingScan(false);
       setIsScannerDialogOpen(false);
+      stopCamera();
       return;
     }
 
@@ -207,6 +206,7 @@ export default function DashboardOverviewPage() {
       setScanDisplayMessage({ type: 'info', text: `Already marked for ${targetMiqaat.name}.`, miqaatName: targetMiqaat.name, time: format(new Date(), "PPp") });
       setIsProcessingScan(false);
       setIsScannerDialogOpen(false);
+      stopCamera();
       return;
     }
 
@@ -215,11 +215,10 @@ export default function DashboardOverviewPage() {
         userItsId: currentUserItsId,
         userName: currentUserName,
         markedAt: new Date().toISOString(),
-        markedByItsId: currentUserItsId, // Self-scan
+        markedByItsId: currentUserItsId, 
       };
       await markAttendanceInMiqaat(targetMiqaat.id, attendanceEntry);
       
-      // Optimistically update local miqaat list for immediate feedback if stats rely on it
       setAllMiqaatsList(prev => prev.map(m => m.id === targetMiqaat.id ? {...m, attendance: [...(m.attendance || []), attendanceEntry]} : m));
 
       setScanDisplayMessage({ 
@@ -234,23 +233,37 @@ export default function DashboardOverviewPage() {
     } finally {
       setIsProcessingScan(false);
       setIsScannerDialogOpen(false);
+      stopCamera();
     }
-  };
+  }, [
+    currentUserItsId, currentUserName, currentUserRole, currentUserMohallahId,
+    allMiqaatsList, toast, stopCamera, markAttendanceInMiqaat, setAllMiqaatsList
+  ]);
+
 
   useEffect(() => {
     let scanTimeoutId: NodeJS.Timeout;
     if (isScannerDialogOpen && hasCameraPermission && !isScanningActive && !isProcessingScan) {
-      setIsScanningActive(true); // Show "Scanning..."
-      // Simulate a scan after 2.5 seconds
+      setIsScanningActive(true); 
+      setIsProcessingScan(true); // Indicate we are starting the processing sequence
       scanTimeoutId = setTimeout(() => {
-        if (isScannerDialogOpen) { // Check if dialog is still open before proceeding
+        if (isScannerDialogOpen) { 
             handleSimulatedScan();
+            // Note: setIsScanningActive(false) and setIsProcessingScan(false)
+            // are handled within handleSimulatedScan or its finally block for some paths,
+            // but it's better to ensure they are reset.
+            // Let handleSimulatedScan manage these specific flags based on its outcome.
+        } else {
+            setIsScanningActive(false);
+            setIsProcessingScan(false);
         }
       }, 2500);
+    } else if (!isScannerDialogOpen) {
+        setIsScanningActive(false);
+        setIsProcessingScan(false);
     }
     return () => clearTimeout(scanTimeoutId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isScannerDialogOpen, hasCameraPermission, isScanningActive, isProcessingScan]);
+  }, [isScannerDialogOpen, hasCameraPermission, isScanningActive, isProcessingScan, handleSimulatedScan]);
 
 
   const adminOverviewStats: AdminStat[] = [
@@ -306,8 +319,6 @@ export default function DashboardOverviewPage() {
               <AlertDescription>{scanDisplayMessage.text}</AlertDescription>
             </Alert>
           )}
-
-          {/* Replaced dedicated card with FAB */}
         </div>
         <Button
           onClick={() => { setScanDisplayMessage(null); setIsScannerDialogOpen(true); }}
@@ -321,7 +332,6 @@ export default function DashboardOverviewPage() {
     );
   }
 
-  // Admin or Superadmin or Attendance Marker View
   return (
     <div className="flex flex-col h-full">
       <div className="flex-grow space-y-6">
@@ -384,11 +394,11 @@ export default function DashboardOverviewPage() {
         <ScanLine className="h-6 w-6" />
       </Button>
 
-      {/* Scanner Dialog */}
       <Dialog open={isScannerDialogOpen} onOpenChange={(open) => {
           setIsScannerDialogOpen(open);
           if (!open) {
               stopCamera();
+              // Reset scanning flags if dialog is closed manually
               setIsScanningActive(false);
               setIsProcessingScan(false);
               // Do not clear scanDisplayMessage here, it should persist on the main page
@@ -405,7 +415,7 @@ export default function DashboardOverviewPage() {
             <div className="aspect-video bg-muted rounded-md overflow-hidden flex items-center justify-center relative">
                 <video
                     ref={videoRef}
-                    className={`w-full h-full object-cover ${hasCameraPermission && (isScanningActive || isProcessingScan || !streamRef.current) ? '' : 'hidden'}`}
+                    className={`w-full h-full object-cover ${hasCameraPermission ? '' : 'hidden'}`}
                     autoPlay
                     playsInline
                     muted
@@ -417,22 +427,16 @@ export default function DashboardOverviewPage() {
                         <p className="text-xs text-muted-foreground">Please ensure camera permissions are enabled in your browser settings for this site.</p>
                     </div>
                 )}
-                {hasCameraPermission === null && (
-                    <div className="text-center p-4">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                {hasCameraPermission === null && ( // Camera is initializing
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white z-10">
+                        <Loader2 className="h-10 w-10 animate-spin text-primary mb-2" />
                         <p>Initializing Camera...</p>
                     </div>
                 )}
-                {isScanningActive && hasCameraPermission && (
+                {isScannerDialogOpen && hasCameraPermission && (isScanningActive || isProcessingScan) && ( // Show loader if dialog is open, permission granted, and actively scanning/processing
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white z-10">
                         <Loader2 className="h-10 w-10 animate-spin text-primary mb-2" />
-                        <p className="text-lg font-semibold">Scanning...</p>
-                    </div>
-                )}
-                 {isProcessingScan && hasCameraPermission && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white z-10">
-                        <Loader2 className="h-10 w-10 animate-spin text-green-500 mb-2" />
-                        <p className="text-lg font-semibold">Processing Scan...</p>
+                        <p className="text-lg font-semibold">{isProcessingScan && !isScanningActive ? "Processing Scan..." : "Scanning..."}</p>
                     </div>
                 )}
             </div>
@@ -449,4 +453,3 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
-
