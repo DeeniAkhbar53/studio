@@ -15,7 +15,7 @@ import { getUsersCount } from "@/lib/firebase/userService";
 import { getMohallahsCount } from "@/lib/firebase/mohallahService";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
-import { useToast } from "@/hooks/use-toast";
+// import { useToast } from "@/hooks/use-toast"; // Not currently used
 import { format } from "date-fns";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
 
@@ -43,7 +43,7 @@ export default function DashboardOverviewPage() {
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const router = useRouter();
-  const { toast } = useToast();
+  // const { toast } = useToast(); // Not currently used
 
   const [activeMiqaatsCount, setActiveMiqaatsCount] = useState<number>(0);
   const [allMiqaatsList, setAllMiqaatsList] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>([]);
@@ -75,26 +75,26 @@ export default function DashboardOverviewPage() {
         }
         setIsLoadingUser(false);
     } else {
-        router.push('/'); // Redirect if no auth data
-        // setIsLoadingUser will effectively be true until redirect happens, or page unmounts
+        // Only redirect if not already loading and no ITS ID, to prevent loops
+        if (!isLoadingUser && !storedItsId) {
+          router.push('/');
+        }
     }
-  }, [router]);
+  }, [router, isLoadingUser]); // Added isLoadingUser to dependencies
 
   // Effect to fetch data once auth info is available
   useEffect(() => {
-    if (!currentUserItsId || !currentUserRole) {
+    if (isLoadingUser || !currentUserItsId || !currentUserRole) {
         setIsLoadingStats(false);
-        setAllMiqaatsList([]); 
+        setAllMiqaatsList([]);
         setActiveMiqaatsCount(0);
         setTotalMembersCount(0);
         setTotalMohallahsCount(0);
-        return; 
+        return;
     }
 
     setIsLoadingStats(true);
     let miqaatsLoaded = false;
-    // Initialize adminCountsLoaded to true if the user is not an admin/superadmin,
-    // meaning these counts are not expected to load.
     let adminCountsLoaded = !(currentUserRole === 'admin' || currentUserRole === 'superadmin');
 
     const checkAndSetLoadingDone = () => {
@@ -135,17 +135,15 @@ export default function DashboardOverviewPage() {
     return () => {
         unsubscribeMiqaats();
     };
-  }, [currentUserItsId, currentUserRole, currentUserMohallahId]);
+  }, [isLoadingUser, currentUserItsId, currentUserRole, currentUserMohallahId]);
 
 
   const handleQrCodeScanned = useCallback(async (decodedText: string) => {
     if (!currentUserItsId || !currentUserName) {
-        // This toast was commented out, ensure useToast is imported if re-enabled
-        // toast({ title: "User Error", description: "User details not found. Please log in again.", variant: "destructive"});
         console.error("User details not found for QR scan processing.");
         setScanDisplayMessage({ type: 'error', text: "User details not found. Please log in again."});
         setIsProcessingScan(false);
-        setIsScannerDialogOpen(false);
+        setIsScannerDialogOpen(false); // Close dialog on error
         return;
     }
     
@@ -155,26 +153,23 @@ export default function DashboardOverviewPage() {
     const targetMiqaat = allMiqaatsList.find(m => m.id === decodedText || m.barcodeData === decodedText);
 
     if (!targetMiqaat) {
-      setScanDisplayMessage({ type: 'error', text: `Miqaat not found for scanned data: ${decodedText.substring(0,30)}...` });
+      setScanDisplayMessage({ type: 'error', text: `Miqaat not found for scanned data.` });
       setIsProcessingScan(false);
-      setIsScannerDialogOpen(false);
+      setIsScannerDialogOpen(false); // Close dialog
       return;
     }
 
     let isEligible = false;
-    // Superadmin and admin/attendance-marker can mark for any miqaat they can see / is listed
     if (currentUserRole === 'superadmin' || currentUserRole === 'admin' || currentUserRole === 'attendance-marker') {
         isEligible = true; 
     } else if (currentUserRole === 'user') {
-        // User eligibility: Miqaat is global (no specific mohallahIds) OR user's mohallahId is included
         isEligible = !targetMiqaat.mohallahIds || targetMiqaat.mohallahIds.length === 0 || (!!currentUserMohallahId && targetMiqaat.mohallahIds.includes(currentUserMohallahId));
     }
-
 
     if (!isEligible) {
       setScanDisplayMessage({ type: 'error', text: `Not eligible for Miqaat: ${targetMiqaat.name}.` });
       setIsProcessingScan(false);
-      setIsScannerDialogOpen(false);
+      setIsScannerDialogOpen(false); // Close dialog
       return;
     }
 
@@ -182,7 +177,7 @@ export default function DashboardOverviewPage() {
     if (alreadyMarked) {
       setScanDisplayMessage({ type: 'info', text: `Already marked for ${targetMiqaat.name}.`, miqaatName: targetMiqaat.name, time: format(new Date(), "PPp") });
       setIsProcessingScan(false);
-      setIsScannerDialogOpen(false);
+      setIsScannerDialogOpen(false); // Close dialog
       return;
     }
 
@@ -205,18 +200,32 @@ export default function DashboardOverviewPage() {
       });
     } catch (error) {
       console.error("Error marking attendance from scanner:", error);
-      setScanDisplayMessage({ type: 'error', text: `Failed to mark attendance for ${targetMiqaat.name}. Error: ${error instanceof Error ? error.message : String(error)}` });
+      setScanDisplayMessage({ type: 'error', text: `Failed to mark attendance for ${targetMiqaat.name}. ${error instanceof Error ? error.message : String(error)}` });
     } finally {
       setIsProcessingScan(false);
-      setIsScannerDialogOpen(false);
+      setIsScannerDialogOpen(false); // Close dialog on completion or error
     }
   }, [currentUserItsId, currentUserName, currentUserRole, currentUserMohallahId, allMiqaatsList]);
 
   useEffect(() => {
     if (isScannerDialogOpen) {
-      setScannerError(null);
+      setScannerError(null); // Clear previous errors
+      const qrReaderDiv = document.getElementById(qrReaderElementId);
+
+      if (!qrReaderDiv) {
+          console.error("QR Reader DOM element not found.");
+          setScannerError("Scanner UI element not found. Please refresh.");
+          return;
+      }
+      
       if (!html5QrCodeRef.current) {
-        html5QrCodeRef.current = new Html5Qrcode(qrReaderElementId);
+        try {
+          html5QrCodeRef.current = new Html5Qrcode(qrReaderElementId, { verbose: false });
+        } catch (e) {
+          console.error("Failed to initialize Html5Qrcode:", e);
+          setScannerError(`Failed to initialize scanner: ${e instanceof Error ? e.message : String(e)}`);
+          return;
+        }
       }
       const qrCode = html5QrCodeRef.current;
 
@@ -227,15 +236,16 @@ export default function DashboardOverviewPage() {
           { facingMode: "environment" },
           config,
           (decodedText, decodedResult) => {
-            setIsScannerActive(false); 
+            // Success callback
             if (qrCode.getState() === Html5QrcodeScannerState.SCANNING) {
-                qrCode.stop().catch(err => console.warn("Error stopping scanner after success:", err));
+                qrCode.stop().catch(err => console.warn("Scanner stop error on success:", err));
             }
+            setIsScannerActive(false); 
             handleQrCodeScanned(decodedText);
           },
           (errorMessage) => {
-            // This callback is for errors during scanning (e.g., QR not found).
-            // console.warn(`QR Code scanning error: ${errorMessage}`);
+            // This is the error callback for each frame if QR not found, not for critical errors.
+            // console.debug(`QR Scan frame error: ${errorMessage}`); // Usually too noisy
           }
         )
         .then(() => {
@@ -243,21 +253,26 @@ export default function DashboardOverviewPage() {
         })
         .catch((err) => { 
           console.error("Error starting QR scanner:", err);
-          setScannerError(`Could not start camera. ${err instanceof Error ? err.message : String(err)} Please check permissions.`);
+          setScannerError(`Could not start camera. ${err instanceof Error ? err.message : String(err)}. Please check permissions.`);
           setIsScannerActive(false);
         });
       }
     } else { 
       if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
         html5QrCodeRef.current.stop()
-          .then(() => setIsScannerActive(false))
+          .then(() => {
+            setIsScannerActive(false);
+            console.log("Scanner stopped successfully on dialog close.");
+          })
           .catch(err => console.error("Error stopping scanner on dialog close:", err));
       }
     }
-
+    // Cleanup function
     return () => {
       if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
-         html5QrCodeRef.current.stop().catch(err => console.error("Error stopping scanner on cleanup:", err));
+         html5QrCodeRef.current.stop()
+            .then(() => console.log("Scanner stopped successfully on component unmount/effect cleanup."))
+            .catch(err => console.error("Error stopping scanner on cleanup:", err));
       }
     };
   }, [isScannerDialogOpen, handleQrCodeScanned]);
@@ -273,13 +288,8 @@ export default function DashboardOverviewPage() {
       { title: "Total Mohallahs", value: totalMohallahsCount, icon: Building, isLoading: isLoadingStats }
     );
   }
-  // Mock stat, can be removed or replaced with real data later
-  //  adminOverviewStats.push(
-  //    { title: "Overall Attendance", value: "85%", icon: Activity, trend: "Avg. last 7 days (Mock)" }
-  //  );
 
-
-  if (isLoadingUser && !currentUserItsId) { // Show loader only if user data is truly not yet loaded for a decision
+  if (isLoadingUser && !currentUserItsId) { 
     return (
       <div className="flex flex-col flex-1 items-center justify-center h-full">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -288,9 +298,7 @@ export default function DashboardOverviewPage() {
     );
   }
   
-  // If user is not authenticated (itsId is null after loading attempt), router.push will handle redirect.
-  // This prevents rendering the dashboard content prematurely.
-  if (!currentUserItsId) {
+  if (!currentUserItsId && !isLoadingUser) { // Ensure not loading and no ITS ID
       return null; 
   }
 
@@ -366,12 +374,15 @@ export default function DashboardOverviewPage() {
       <Dialog open={isScannerDialogOpen} onOpenChange={(open) => {
           setIsScannerDialogOpen(open);
           if (!open) { 
+            // When dialog is closed, ensure scanner is stopped.
             if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
-              html5QrCodeRef.current.stop().catch(err => console.error("Error stopping scanner on dialog manual close:", err));
+              html5QrCodeRef.current.stop()
+                .then(() => console.log("Scanner stopped on dialog close (manual)."))
+                .catch(err => console.error("Error stopping scanner on dialog manual close:", err));
             }
             setIsScannerActive(false);
-            setIsProcessingScan(false);
-            setScannerError(null);
+            setIsProcessingScan(false); // Reset processing state
+            setScannerError(null); // Clear any scanner error
           }
       }}>
         <DialogContent className="sm:max-w-md p-0">
@@ -383,7 +394,7 @@ export default function DashboardOverviewPage() {
           </DialogHeader>
           <div className="p-4 space-y-3">
             <div id={qrReaderElementId} className="w-full aspect-square bg-muted rounded-md overflow-hidden flex items-center justify-center text-sm text-muted-foreground">
-              {/* html5-qrcode will inject camera view here */}
+              {/* html5-qrcode will inject camera view here if successful */}
             </div>
             {scannerError && (
                 <Alert variant="destructive">
@@ -392,12 +403,7 @@ export default function DashboardOverviewPage() {
                   <AlertDescription>{scannerError}</AlertDescription>
                 </Alert>
             )}
-            {!isScannerActive && !scannerError && !isProcessingScan && !isScannerDialogOpen && (
-                 <div className="text-center text-muted-foreground py-2">
-                    <p>Scanner Ready.</p> {/* Default state when dialog is closed or just opened */}
-                 </div>
-            )}
-            {!isScannerActive && !scannerError && !isProcessingScan && isScannerDialogOpen && (
+             {!isScannerActive && !scannerError && !isProcessingScan && isScannerDialogOpen && ( // Only show if dialog is open
                  <div className="text-center text-muted-foreground py-2">
                     <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-2" />
                     <p>Initializing Camera...</p>
