@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react"; // Added useMemo
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,12 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, UserRole } from "@/types"; // Added UserRole
+import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, UserRole } from "@/types";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
+import { format } from "date-fns";
 
 
 export default function MarkAttendancePage() {
@@ -61,11 +62,10 @@ export default function MarkAttendancePage() {
 
   const availableMiqaatsForUser = useMemo(() => {
     if (isLoadingMiqaats) return [];
-    if (currentUserRole === 'superadmin') return allMiqaats; // Superadmin sees all
-    if (!currentUserMohallahId) return []; // If no mohallah ID, show none (unless superadmin)
+    if (currentUserRole === 'superadmin') return allMiqaats;
+    if (!currentUserMohallahId) return [];
 
     return allMiqaats.filter(miqaat => {
-      // If Miqaat has no specific mohallahIds, assume it's global/available to all (or adjust this rule)
       if (!miqaat.mohallahIds || miqaat.mohallahIds.length === 0) {
         return true; 
       }
@@ -105,7 +105,7 @@ export default function MarkAttendancePage() {
       return;
     }
 
-    const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId); // Check against allMiqaats to get full details
+    const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
     if (!selectedMiqaatDetails) {
         toast({ title: "Error", description: "Selected Miqaat details not found.", variant: "destructive" });
         setIsProcessing(false);
@@ -117,21 +117,30 @@ export default function MarkAttendancePage() {
     );
 
     if (alreadyMarkedInDb) {
+      const existingEntry = selectedMiqaatDetails.attendance?.find(entry => entry.userItsId === member!.itsId);
       toast({
         title: "Already Marked",
-        description: `${member.name} (${member.itsId}) has already been marked for ${selectedMiqaatDetails.name} in the database.`,
+        description: `${member.name} (${member.itsId}) has already been marked for ${selectedMiqaatDetails.name} (${existingEntry?.status || 'present'}).`,
         variant: "default",
       });
       setMemberIdInput("");
       setIsProcessing(false);
       return;
     }
+    
+    const now = new Date();
+    const miqaatEndTime = new Date(selectedMiqaatDetails.endTime);
+    const miqaatReportingTime = selectedMiqaatDetails.reportingTime ? new Date(selectedMiqaatDetails.reportingTime) : null;
+    
+    const onTimeThreshold = miqaatReportingTime || miqaatEndTime;
+    const attendanceStatus = now > onTimeThreshold ? 'late' : 'present';
 
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
         userItsId: member.itsId,
         userName: member.name,
-        markedAt: new Date().toISOString(),
+        markedAt: now.toISOString(),
         markedByItsId: markerItsId,
+        status: attendanceStatus,
     };
 
     try {
@@ -140,13 +149,13 @@ export default function MarkAttendancePage() {
         const newSessionEntry: MarkedAttendanceEntry = {
           memberItsId: member.itsId,
           memberName: member.name,
-          timestamp: new Date(),
+          timestamp: now,
           miqaatId: selectedMiqaatDetails.id,
           miqaatName: selectedMiqaatDetails.name,
+          status: attendanceStatus,
         };
         setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
         
-        // Optimistically update the local allMiqaats state to reflect the new attendance for immediate feedback
         setAllMiqaats(prevMiqaats => 
             prevMiqaats.map(m => 
                 m.id === selectedMiqaatId 
@@ -155,10 +164,9 @@ export default function MarkAttendancePage() {
             )
         );
 
-
         toast({
-          title: "Attendance Marked",
-          description: `${member.name} (${member.itsId}) marked present for ${selectedMiqaatDetails.name}. Record saved to database.`,
+          title: `Attendance Marked ${attendanceStatus === 'late' ? '(Late)' : ''}`,
+          description: `${member.name} (${member.itsId}) marked ${attendanceStatus} for ${selectedMiqaatDetails.name}.`,
         });
         setMemberIdInput("");
     } catch (dbError) {
@@ -177,8 +185,12 @@ export default function MarkAttendancePage() {
   const currentMiqaatAttendanceCount = currentMiqaatDetails?.attendance?.length || 0;
   const currentSelectedMiqaatName = currentMiqaatDetails?.name || 'Selected Miqaat';
   const currentMiqaatReportingTime = currentMiqaatDetails?.reportingTime 
-    ? new Date(currentMiqaatDetails.reportingTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+    ? format(new Date(currentMiqaatDetails.reportingTime), "PPp")
     : null;
+  const currentMiqaatEndTime = currentMiqaatDetails?.endTime
+    ? format(new Date(currentMiqaatDetails.endTime), "PPp")
+    : null;
+
 
   return (
     <div className="space-y-6">
@@ -186,7 +198,7 @@ export default function MarkAttendancePage() {
         <CardHeader>
           <CardTitle className="flex items-center"><ListChecks className="mr-2 h-6 w-6 text-primary" />Mark Member Attendance</CardTitle>
           <Separator className="my-2" />
-          <CardDescription>Select a Miqaat and enter member ITS/BGK ID to mark them present. Records are saved to the database.</CardDescription>
+          <CardDescription>Select Miqaat, enter member ITS/BGK ID. Attendance marked after Reporting Time (or End Time if no Reporting Time) will be 'Late'.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
@@ -208,7 +220,7 @@ export default function MarkAttendancePage() {
                   {!isLoadingMiqaats && availableMiqaatsForUser.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available for your Mohallah</SelectItem>}
                   {availableMiqaatsForUser.map(miqaat => (
                     <SelectItem key={miqaat.id} value={miqaat.id}>
-                      {miqaat.name} ({new Date(miqaat.startTime).toLocaleDateString()})
+                      {miqaat.name} ({format(new Date(miqaat.startTime), "P")})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -235,7 +247,7 @@ export default function MarkAttendancePage() {
               ) : (
                 <CheckCircle className="mr-2 h-4 w-4" />
               )}
-               Mark Present
+               Mark Attendance
             </Button>
           </div>
 
@@ -245,11 +257,18 @@ export default function MarkAttendancePage() {
                     <Users className="mr-2 h-5 w-5 text-primary" />
                     Attendance for: {currentSelectedMiqaatName}
                 </h3>
-                {currentMiqaatReportingTime && (
+                {currentMiqaatReportingTime ? (
                     <p className="text-sm text-muted-foreground mb-1 flex items-center">
                         <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                        Reporting Time: {currentMiqaatReportingTime}
+                        Reporting Time (On-time by): {currentMiqaatReportingTime}
                     </p>
+                ) : (
+                  currentMiqaatEndTime && (
+                    <p className="text-sm text-muted-foreground mb-1 flex items-center">
+                        <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
+                        End Time (Marked late after this): {currentMiqaatEndTime}
+                    </p>
+                  )
                 )}
                 <p className="text-sm text-muted-foreground mb-1">
                     Total marked in database for this Miqaat: <span className="font-bold text-foreground">{currentMiqaatAttendanceCount}</span>
@@ -264,7 +283,8 @@ export default function MarkAttendancePage() {
                             <TableRow>
                                 <TableHead>Name</TableHead>
                                 <TableHead>ITS ID</TableHead>
-                                <TableHead>Time Marked (Session)</TableHead>
+                                <TableHead>Time Marked</TableHead>
+                                <TableHead>Status</TableHead>
                             </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -272,7 +292,14 @@ export default function MarkAttendancePage() {
                                 <TableRow key={`${entry.memberItsId}-${entry.timestamp.toISOString()}`}>
                                 <TableCell className="font-medium">{entry.memberName}</TableCell>
                                 <TableCell>{entry.memberItsId}</TableCell>
-                                <TableCell>{entry.timestamp.toLocaleTimeString()}</TableCell>
+                                <TableCell>{format(entry.timestamp, "p")}</TableCell>
+                                <TableCell>
+                                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                                      entry.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                    }`}>
+                                    {entry.status === 'late' ? 'Late' : 'Present'}
+                                  </span>
+                                </TableCell>
                                 </TableRow>
                             ))}
                             </TableBody>

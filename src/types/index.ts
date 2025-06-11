@@ -20,21 +20,22 @@ export type User = {
 export type MiqaatAttendanceEntryItem = {
   userItsId: string;
   userName: string;
-  markedAt: string;
+  markedAt: string; // ISO string
   markedByItsId: string;
+  status?: 'present' | 'late'; // New status field
 };
 
 export type Miqaat = {
   id: string;
   name: string;
-  startTime: string;
-  endTime: string;
-  reportingTime?: string;
+  startTime: string; // ISO string
+  endTime: string; // ISO string
+  reportingTime?: string; // ISO string, for "on-time" threshold
   mohallahIds?: string[];
   teams?: string[];
   barcodeData?: string;
   location?: string;
-  createdAt?: string;
+  createdAt?: string; // ISO string
   attendance?: MiqaatAttendanceEntryItem[];
   attendedUserItsIds?: string[];
 };
@@ -45,8 +46,9 @@ export type AttendanceRecord = {
   miqaatName: string;
   userItsId: string;
   userName: string;
-  markedAt: string;
+  markedAt: string; // ISO string
   markedByItsId?: string;
+  status?: 'present' | 'late'; // New status field
 };
 
 export type Team = {
@@ -59,7 +61,7 @@ export type Team = {
 export type Mohallah = {
   id: string;
   name: string;
-  createdAt?: string;
+  createdAt?: string; // ISO string
 };
 
 export type MarkedAttendanceEntry = {
@@ -68,6 +70,7 @@ export type MarkedAttendanceEntry = {
   timestamp: Date;
   miqaatId: string;
   miqaatName: string;
+  status?: 'present' | 'late'; // New status field
 };
 
 export type NotificationItem = {
@@ -85,8 +88,8 @@ export interface ReportResultItem {
   userName: string;
   userItsId: string;
   miqaatName: string;
-  date?: string;
-  status: "Present" | "Absent" | "Late" | "N/A";
+  date?: string; // ISO string
+  status: "Present" | "Absent" | "Late" | "N/A"; // Updated status type
   markedByItsId?: string;
 }
 

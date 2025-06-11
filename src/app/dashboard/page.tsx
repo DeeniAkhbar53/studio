@@ -29,6 +29,7 @@ interface ScanDisplayMessage {
   type: 'success' | 'error' | 'info';
   miqaatName?: string;
   time?: string;
+  status?: 'present' | 'late';
 }
 
 const qrReaderElementId = "qr-reader-dashboard";
@@ -55,7 +56,6 @@ export default function DashboardOverviewPage() {
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
 
-  // Effect for localStorage and initial auth state
   useEffect(() => {
     const storedRole = localStorage.getItem('userRole') as UserRole | null;
     const storedName = localStorage.getItem('userName');
@@ -71,13 +71,12 @@ export default function DashboardOverviewPage() {
       }
       setIsLoadingUser(false);
     } else {
-      if (!isLoadingUser) { // Prevent redirect if still loading initially
+      if (!isLoadingUser) {
         router.push('/');
       }
     }
   }, [isLoadingUser, router]);
 
-  // Effect for fetching dashboard stats and Miqaat list
   useEffect(() => {
     if (isLoadingUser || !currentUserItsId || !currentUserRole) {
       setIsLoadingStats(false);
@@ -124,7 +123,7 @@ export default function DashboardOverviewPage() {
       };
       fetchAdminCounts();
     } else {
-      adminCountsLoaded = true;
+      adminCountsLoaded = true; // For non-admin roles, counts are considered loaded
       checkAndSetLoadingDone();
     }
 
@@ -139,19 +138,19 @@ export default function DashboardOverviewPage() {
       console.error("User details not found for QR scan processing.");
       setScanDisplayMessage({ type: 'error', text: "User details not found. Please log in again." });
       setIsProcessingScan(false);
-      setIsScannerDialogOpen(false); // Close dialog on error
+      setIsScannerDialogOpen(false);
       return;
     }
 
     setIsProcessingScan(true);
-    setScanDisplayMessage(null); // Clear previous message
+    setScanDisplayMessage(null);
 
     const targetMiqaat = allMiqaatsList.find(m => m.id === decodedText || m.barcodeData === decodedText);
 
     if (!targetMiqaat) {
       setScanDisplayMessage({ type: 'error', text: `Miqaat not found for scanned data.` });
       setIsProcessingScan(false);
-      setIsScannerDialogOpen(false); // Close dialog
+      setIsScannerDialogOpen(false);
       return;
     }
 
@@ -165,51 +164,60 @@ export default function DashboardOverviewPage() {
     if (!isEligible) {
       setScanDisplayMessage({ type: 'error', text: `Not eligible for Miqaat: ${targetMiqaat.name}.` });
       setIsProcessingScan(false);
-      setIsScannerDialogOpen(false); // Close dialog
+      setIsScannerDialogOpen(false);
       return;
     }
 
     const alreadyMarked = targetMiqaat.attendance?.some(entry => entry.userItsId === currentUserItsId);
     if (alreadyMarked) {
-      setScanDisplayMessage({ type: 'info', text: `Already marked for ${targetMiqaat.name}.`, miqaatName: targetMiqaat.name, time: format(new Date(), "PPp") });
+      const existingEntry = targetMiqaat.attendance?.find(entry => entry.userItsId === currentUserItsId);
+      setScanDisplayMessage({ type: 'info', text: `Already marked for ${targetMiqaat.name} (${existingEntry?.status || 'present'}).`, miqaatName: targetMiqaat.name, time: format(new Date(existingEntry?.markedAt || Date.now()), "PPp"), status: existingEntry?.status });
       setIsProcessingScan(false);
-      setIsScannerDialogOpen(false); // Close dialog
+      setIsScannerDialogOpen(false);
       return;
     }
+
+    const now = new Date();
+    const miqaatEndTime = new Date(targetMiqaat.endTime);
+    const miqaatReportingTime = targetMiqaat.reportingTime ? new Date(targetMiqaat.reportingTime) : null;
+    
+    const onTimeThreshold = miqaatReportingTime || miqaatEndTime;
+    const attendanceStatus = now > onTimeThreshold ? 'late' : 'present';
 
     try {
       const attendanceEntry: MiqaatAttendanceEntryItem = {
         userItsId: currentUserItsId,
         userName: currentUserName,
-        markedAt: new Date().toISOString(),
+        markedAt: now.toISOString(),
         markedByItsId: currentUserItsId,
+        status: attendanceStatus,
       };
       await markAttendanceInMiqaat(targetMiqaat.id, attendanceEntry);
       setAllMiqaatsList(prev => prev.map(m => m.id === targetMiqaat.id ? { ...m, attendance: [...(m.attendance || []), attendanceEntry] } : m));
       setScanDisplayMessage({
         type: 'success',
-        text: `Attendance marked successfully for ${targetMiqaat.name} at ${format(new Date(), "p")}.`,
+        text: `Attendance marked ${attendanceStatus === 'late' ? '(Late)' : ''} successfully for ${targetMiqaat.name} at ${format(now, "p")}.`,
         miqaatName: targetMiqaat.name,
-        time: format(new Date(), "PPp")
+        time: format(now, "PPp"),
+        status: attendanceStatus,
       });
     } catch (error) {
       console.error("Error marking attendance from scanner:", error);
       setScanDisplayMessage({ type: 'error', text: `Failed to mark attendance for ${targetMiqaat.name}. ${error instanceof Error ? error.message : String(error)}` });
     } finally {
       setIsProcessingScan(false);
-      setIsScannerDialogOpen(false); // Close dialog after processing
+      setIsScannerDialogOpen(false);
     }
   }, [currentUserItsId, currentUserName, currentUserRole, currentUserMohallahId, allMiqaatsList]);
 
 
-  // Effect for QR Scanner Lifecycle
   useEffect(() => {
     let initDelay: NodeJS.Timeout;
     let scannerInstance: Html5Qrcode | null = null;
 
     if (isScannerDialogOpen) {
       setScannerError(null);
-      setIsScannerActive(false);
+      setIsScannerActive(false); // Initially set to false, will be true once camera starts
 
       initDelay = setTimeout(() => {
         const qrReaderDiv = document.getElementById(qrReaderElementId);
@@ -226,23 +234,25 @@ export default function DashboardOverviewPage() {
           html5QrCodeRef.current = scannerInstance;
 
           const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
-
+          
           console.log(`Starting scanner with facingMode: ${facingMode}`);
           scannerInstance.start(
             { facingMode: facingMode },
             config,
-            (decodedText, decodedResult) => {
+            (decodedText, decodedResult) => { // Success callback
               console.log("QR Code Scanned:", decodedText);
               if (html5QrCodeRef.current?.getState() === Html5QrcodeScannerState.SCANNING) {
+                // Stop scanner before processing to prevent multiple scans
                  html5QrCodeRef.current.stop().catch(err => {
-                  console.warn("Scanner stop error on successful scan:", err);
+                  console.warn("Scanner stop error on successful scan:", err); // Log but proceed
                 });
               }
-              setIsScannerActive(false);
+              setIsScannerActive(false); // Indicate scanning has stopped
               handleQrCodeScanned(decodedText);
             },
-            (errorMessageFromLib) => {
-               console.debug("QR Scan frame error:", errorMessageFromLib);
+            (errorMessageFromLib) => { // Per-frame error/info callback
+               console.debug("QR Scan frame error/info:", errorMessageFromLib);
+               // Typically "QR code not found", can be ignored or handled if specific errors arise
             }
           )
             .then(() => {
@@ -262,6 +272,7 @@ export default function DashboardOverviewPage() {
               console.error("Error starting QR scanner:", err, errorMsg);
               setScannerError(errorMsg);
               setIsScannerActive(false);
+              // Ensure scanner is stopped if start failed but it thinks it's scanning
               if (html5QrCodeRef.current?.getState() === Html5QrcodeScannerState.SCANNING) {
                 html5QrCodeRef.current.stop().catch(stopErr => console.warn("Defensive stop failed after start error:", stopErr));
               }
@@ -277,21 +288,21 @@ export default function DashboardOverviewPage() {
           setScannerError(errorMsg);
           setIsScannerActive(false);
         }
-      }, 100); // Delay to ensure DOM element is available
+      }, 100); // Small delay to ensure DOM element is available
     } else {
-      // Dialog is not open
+      // Dialog is not open, ensure scanner is stopped
       if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
         console.log("Scanner dialog closed by onOpenChange or external state, stopping scanner.");
         html5QrCodeRef.current.stop()
           .then(() => console.log("Scanner stopped: dialog closed."))
           .catch(err => console.error("Error stopping scanner (dialog closed):", err));
       }
-      setIsScannerActive(false);
+      setIsScannerActive(false); // Ensure state reflects scanner is off
     }
 
     return () => {
       clearTimeout(initDelay);
-      const currentScanner = html5QrCodeRef.current;
+      const currentScanner = html5QrCodeRef.current; // Capture ref for cleanup
       if (currentScanner && currentScanner.getState() === Html5QrcodeScannerState.SCANNING) {
         console.log("Scanner effect cleanup: stopping scanner.");
         currentScanner.stop()
@@ -299,11 +310,11 @@ export default function DashboardOverviewPage() {
           .catch(err => console.error("Error stopping scanner in effect cleanup:", err));
       }
     };
-  }, [isScannerDialogOpen, facingMode]); // Removed handleQrCodeScanned from dependencies
+  }, [isScannerDialogOpen, facingMode]); // Only re-run if dialog state or facingMode changes
 
   // Component unmount cleanup
   useEffect(() => {
-    const scannerOnUnmount = html5QrCodeRef.current;
+    const scannerOnUnmount = html5QrCodeRef.current; // Capture ref for unmount cleanup
     return () => {
       if (scannerOnUnmount && scannerOnUnmount.getState() === Html5QrcodeScannerState.SCANNING) {
         console.log("Component unmounting: stopping scanner.");
@@ -315,9 +326,11 @@ export default function DashboardOverviewPage() {
   }, []);
 
   const handleSwitchCamera = () => {
-    if (isProcessingScan || !isScannerDialogOpen) return;
+    if (isProcessingScan || !isScannerDialogOpen) return; // Don't switch if processing or dialog is closed
+    // Changing facingMode will trigger the useEffect to stop and restart the scanner
     setFacingMode(prevMode => (prevMode === 'user' ? 'environment' : 'user'));
   };
+
 
   const adminOverviewStats: AdminStat[] = [
     { title: "Active Miqaats", value: activeMiqaatsCount, icon: CalendarCheck, isLoading: isLoadingStats },
@@ -326,7 +339,7 @@ export default function DashboardOverviewPage() {
 
   if (currentUserRole === 'superadmin') {
     adminOverviewStats.push(
-      { title: "Total Mohallahs", value: totalMohallahsCount, icon: Users, isLoading: isLoadingStats } // Assuming Users icon is okay for Mohallahs count
+      { title: "Total Mohallahs", value: totalMohallahsCount, icon: Users, isLoading: isLoadingStats }
     );
   }
 
@@ -340,7 +353,7 @@ export default function DashboardOverviewPage() {
   }
 
   if (!currentUserItsId && !isLoadingUser) {
-    return null; // Handled by the first useEffect redirect
+    return null; 
   }
 
   return (
@@ -372,7 +385,7 @@ export default function DashboardOverviewPage() {
             {scanDisplayMessage.type === 'error' && <XCircle className="h-4 w-4" />}
             {scanDisplayMessage.type === 'info' && <AlertCircleIcon className="h-4 w-4" />}
             <AlertTitle>
-              {scanDisplayMessage.type === 'success' ? "Scan Successful" : scanDisplayMessage.type === 'error' ? "Scan Error" : "Scan Info"}
+              {scanDisplayMessage.type === 'success' ? `Scan Successful ${scanDisplayMessage.status === 'late' ? '(Late)' : ''}` : scanDisplayMessage.type === 'error' ? "Scan Error" : "Scan Info"}
             </AlertTitle>
             <AlertDescription>{scanDisplayMessage.text}</AlertDescription>
           </Alert>
@@ -414,15 +427,15 @@ export default function DashboardOverviewPage() {
 
       <Dialog open={isScannerDialogOpen} onOpenChange={(open) => {
         setIsScannerDialogOpen(open);
-        if (!open) {
+        if (!open) { // Dialog is closing
           if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
             html5QrCodeRef.current.stop()
               .then(() => console.log("Scanner stopped: dialog closed via onOpenChange."))
               .catch(err => console.error("Error stopping scanner on dialog onOpenChange close:", err));
           }
-          setIsScannerActive(false);
-          setIsProcessingScan(false);
-          setScannerError(null);
+          setIsScannerActive(false); // Ensure UI reflects scanner is off
+          setIsProcessingScan(false); // Reset processing state
+          setScannerError(null); // Clear any old errors
         }
       }}>
         <DialogContent className="sm:max-w-md p-0">

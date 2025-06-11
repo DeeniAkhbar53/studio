@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, ReportResultItem, AttendanceRecord, MiqaatAttendanceEntryItem } from "@/types"; 
+import type { Miqaat, User, ReportResultItem, AttendanceRecord } from "@/types"; 
 import { getMiqaats } from "@/lib/firebase/miqaatService";
 import { getUsers } from "@/lib/firebase/userService";
 import { getAttendanceRecordsByMiqaat, getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService"; 
@@ -74,7 +74,7 @@ const reportSchema = z.object({
 });
 
 type ReportFormValues = z.infer<typeof reportSchema>;
-type ChartDataItem = { name: string; attendance: number };
+type ChartDataItem = { name: string; present: number; late: number; totalAttendance: number };
 
 export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportResultItem[] | null>(null);
@@ -111,52 +111,50 @@ export default function ReportsPage() {
     setReportData(null); 
     setChartData(null);
     
-    let generatedReportData: AttendanceRecord[] = []; 
+    let fetchedAttendanceRecords: AttendanceRecord[] = []; 
     let reportResultItems: ReportResultItem[] = [];
 
 
     try {
       if (values.reportType === "miqaat_summary" && values.miqaatId) {
-        generatedReportData = await getAttendanceRecordsByMiqaat(values.miqaatId);
-        reportResultItems = generatedReportData.map(att => ({
+        fetchedAttendanceRecords = await getAttendanceRecordsByMiqaat(values.miqaatId);
+        reportResultItems = fetchedAttendanceRecords.map(att => ({
           id: att.id,
           userName: att.userName,
           userItsId: att.userItsId,
           miqaatName: att.miqaatName,
           date: att.markedAt,
-          status: "Present",
+          status: att.status === 'late' ? 'Late' : 'Present',
           markedByItsId: att.markedByItsId,
         }));
       } else if (values.reportType === "member_attendance" && values.itsId) {
-        generatedReportData = await getAttendanceRecordsByUser(values.itsId);
-         reportResultItems = generatedReportData.map(att => ({
+        fetchedAttendanceRecords = await getAttendanceRecordsByUser(values.itsId);
+         reportResultItems = fetchedAttendanceRecords.map(att => ({
             id: att.id,
             userName: att.userName,
             userItsId: att.userItsId,
             miqaatName: att.miqaatName,
             date: att.markedAt,
-            status: "Present",
+            status: att.status === 'late' ? 'Late' : 'Present',
             markedByItsId: att.markedByItsId,
           }));
       } else if (values.reportType === "overall_activity") {
-        
         const allMiqaatDocs = await new Promise<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>((resolve) => {
             const unsubscribe = getMiqaats((data) => {
                 resolve(data);
                 unsubscribe(); 
             });
         });
-
         const allAttendancePromises = allMiqaatDocs.map(m => getAttendanceRecordsByMiqaat(m.id));
         const allAttendanceArrays = await Promise.all(allAttendancePromises);
-        generatedReportData = allAttendanceArrays.flat();
-        reportResultItems = generatedReportData.map(att => ({
+        fetchedAttendanceRecords = allAttendanceArrays.flat();
+        reportResultItems = fetchedAttendanceRecords.map(att => ({
             id: att.id,
             userName: att.userName,
             userItsId: att.userItsId,
             miqaatName: att.miqaatName,
             date: att.markedAt,
-            status: "Present",
+            status: att.status === 'late' ? 'Late' : 'Present',
             markedByItsId: att.markedByItsId,
         }));
       } else if (values.reportType === "non_attendance_miqaat" && values.miqaatId) {
@@ -167,18 +165,14 @@ export default function ReportsPage() {
           return;
         }
         const allUsers = await getUsers(); 
-        
         const attendanceForMiqaat = await getAttendanceRecordsByMiqaat(values.miqaatId); 
         const attendedItsIds = new Set(attendanceForMiqaat.map(att => att.userItsId));
-
         let eligibleUsers = allUsers;
-        
         if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
           eligibleUsers = allUsers.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
         } else if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
           eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
         }
-        
         const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
         reportResultItems = nonAttendantUsers.map(user => ({
           id: user.id, 
@@ -200,15 +194,22 @@ export default function ReportsPage() {
       setReportData(reportResultItems);
 
       if (values.reportType === "miqaat_summary" || values.reportType === "overall_activity") {
-        const attendanceByMiqaat: { [key: string]: number } = {};
+        const attendanceByMiqaat: { [key: string]: { present: number; late: number; totalAttendance: number } } = {};
         reportResultItems.forEach(record => {
+          if (!attendanceByMiqaat[record.miqaatName]) {
+            attendanceByMiqaat[record.miqaatName] = { present: 0, late: 0, totalAttendance: 0 };
+          }
           if (record.status === "Present") {
-            attendanceByMiqaat[record.miqaatName] = (attendanceByMiqaat[record.miqaatName] || 0) + 1;
+            attendanceByMiqaat[record.miqaatName].present++;
+            attendanceByMiqaat[record.miqaatName].totalAttendance++;
+          } else if (record.status === "Late") {
+            attendanceByMiqaat[record.miqaatName].late++;
+            attendanceByMiqaat[record.miqaatName].totalAttendance++;
           }
         });
-        const newChartData = Object.entries(attendanceByMiqaat).map(([name, attendance]) => ({
+        const newChartData = Object.entries(attendanceByMiqaat).map(([name, counts]) => ({
           name,
-          attendance,
+          ...counts,
         }));
         setChartData(newChartData);
       } else {
@@ -265,6 +266,13 @@ export default function ReportsPage() {
   
   const selectedMiqaatDetails = availableMiqaats.find(m => m.id === form.getValues("miqaatId"));
 
+  const chartConfig = {
+      totalAttendance: { label: "Total Attendance", color: "hsl(var(--chart-1))" },
+      present: { label: "Present", color: "hsl(var(--chart-2))" },
+      late: { label: "Late", color: "hsl(var(--chart-3))" },
+  };
+
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -317,7 +325,7 @@ export default function ReportsPage() {
                           <SelectContent>
                             {isLoadingMiqaats && <SelectItem value="loading" disabled>Loading...</SelectItem>}
                             {!isLoadingMiqaats && availableMiqaats.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available</SelectItem>}
-                            {availableMiqaats.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({new Date(m.startTime).toLocaleDateString()})</SelectItem>)}
+                            {availableMiqaats.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({format(new Date(m.startTime), "P")})</SelectItem>)}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -479,35 +487,29 @@ export default function ReportsPage() {
             <CardTitle className="flex items-center"><BarChartHorizontal className="mr-2 h-5 w-5 text-primary"/>Attendance per Miqaat</CardTitle>
             <Separator className="my-2" />
             <CardDescription>
-              Visual representation of members marked present for each Miqaat in the current report.
+              Visual representation of members marked present or late for each Miqaat in the current report.
             </CardDescription>
           </CardHeader>
           <CardContent className="h-[350px] p-2 sm:p-4">
-            <ChartContainer config={{
-              attendance: { label: "Present", color: "hsl(var(--primary))" },
-            }} className="w-full h-full">
-              <BarChart accessibilityLayer data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="name"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  interval={0} // Show all labels if possible
-                  // tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value} // Optional: Truncate long labels
-                />
-                <YAxis
-                  dataKey="attendance"
-                  allowDecimals={false}
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
+            <ChartContainer config={chartConfig} className="w-full h-full">
+              <BarChart accessibilityLayer data={chartData} layout="vertical" stackOffset="none"
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <CartesianGrid horizontal={true} vertical={false} strokeDasharray="3 3" />
+                <XAxis type="number" dataKey="totalAttendance" allowDecimals={false} />
+                <YAxis 
+                    type="category" 
+                    dataKey="name" 
+                    width={100} 
+                    tick={{ fontSize: 10 }} 
+                    interval={0}
                 />
                 <ChartTooltip
                   cursor={false}
                   content={<ChartTooltipContent indicator="dot" />}
                 />
-                <Bar dataKey="attendance" fill="var(--color-attendance)" radius={4} />
+                <Bar dataKey="present" fill="var(--color-present)" radius={0} stackId="a" />
+                <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
               </BarChart>
             </ChartContainer>
           </CardContent>
@@ -537,5 +539,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    

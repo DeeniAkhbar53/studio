@@ -1,7 +1,7 @@
 
 import { db } from './firebase';
 import { doc, getDoc, Timestamp, getDocs, collection, query as firestoreQuery, orderBy as firestoreOrderBy, where } from 'firebase/firestore';
-import type { AttendanceRecord, Miqaat } from '@/types';
+import type { AttendanceRecord, Miqaat, MiqaatAttendanceEntryItem } from '@/types';
 
 // This function now gets attendance from *within* a Miqaat document
 export const getAttendanceRecordsByMiqaat = async (miqaatId: string): Promise<AttendanceRecord[]> => {
@@ -24,10 +24,11 @@ export const getAttendanceRecordsByMiqaat = async (miqaatId: string): Promise<At
         if (typeof timestampField === 'string') {
            return timestampField;
         }
-        return new Date().toISOString();
+        // Fallback for unexpected types, though markedAt should be string or Timestamp
+        return new Date().toISOString(); 
       };
 
-    return attendanceEntries.map(entry => ({
+    return attendanceEntries.map((entry: MiqaatAttendanceEntryItem) => ({
       id: `${miqaatId}-${entry.userItsId}-${entry.markedAt}`, // Synthetic ID for UI key
       miqaatId: miqaatId,
       miqaatName: miqaatData.name,
@@ -35,6 +36,7 @@ export const getAttendanceRecordsByMiqaat = async (miqaatId: string): Promise<At
       userName: entry.userName,
       markedAt: convertTimestampToString(entry.markedAt),
       markedByItsId: entry.markedByItsId,
+      status: entry.status || 'present', // Include status, default to 'present'
     }));
   } catch (error) {
     console.error(`Error fetching attendance records for Miqaat ${miqaatId}: `, error);
@@ -46,11 +48,10 @@ export const getAttendanceRecordsByMiqaat = async (miqaatId: string): Promise<At
 export const getAttendanceRecordsByUser = async (userItsId: string): Promise<AttendanceRecord[]> => {
   try {
     const miqaatsCollectionRef = collection(db, 'miqaats');
-    // Query for miqaats where the attendedUserItsIds array contains the userItsId
     const q = firestoreQuery(
       miqaatsCollectionRef,
       where('attendedUserItsIds', 'array-contains', userItsId),
-      firestoreOrderBy('startTime', 'desc') // Optional: order miqaats by start time
+      firestoreOrderBy('startTime', 'desc')
     );
     const miqaatsSnapshot = await getDocs(q);
 
@@ -58,7 +59,7 @@ export const getAttendanceRecordsByUser = async (userItsId: string): Promise<Att
       if (timestampField instanceof Timestamp) {
         return timestampField.toDate().toISOString();
       }
-      return timestampField;
+      return typeof timestampField === 'string' ? timestampField : undefined;
     };
 
     const allMiqaatsData: Miqaat[] = miqaatsSnapshot.docs.map((docSnapshot) => {
@@ -76,7 +77,8 @@ export const getAttendanceRecordsByUser = async (userItsId: string): Promise<Att
           createdAt: convertTimestampToString(miqaatData.createdAt),
           attendance: Array.isArray(miqaatData.attendance) ? miqaatData.attendance.map((att: any) => ({
               ...att,
-              markedAt: convertTimestampToString(att.markedAt) || new Date().toISOString()
+              markedAt: convertTimestampToString(att.markedAt) || new Date().toISOString(),
+              status: att.status || 'present', // Include status
           })) : [],
           attendedUserItsIds: Array.isArray(miqaatData.attendedUserItsIds) ? miqaatData.attendedUserItsIds : [],
         } as Miqaat;
@@ -85,30 +87,27 @@ export const getAttendanceRecordsByUser = async (userItsId: string): Promise<Att
     const userAttendanceRecords: AttendanceRecord[] = [];
 
     allMiqaatsData.forEach(miqaat => {
-      // The miqaat document is already one where the user attended,
-      // so we iterate its attendance array to find the specific entries for this user
       if (miqaat.attendance && miqaat.attendance.length > 0) {
         miqaat.attendance.forEach(entry => {
           if (entry.userItsId === userItsId) {
             userAttendanceRecords.push({
-              id: `${miqaat.id}-${entry.userItsId}-${entry.markedAt}`, // Synthetic ID
+              id: `${miqaat.id}-${entry.userItsId}-${entry.markedAt}`, 
               miqaatId: miqaat.id,
               miqaatName: miqaat.name,
               userItsId: entry.userItsId,
               userName: entry.userName,
               markedAt: entry.markedAt,
               markedByItsId: entry.markedByItsId,
+              status: entry.status || 'present', // Include status
             });
           }
         });
       }
     });
 
-    // Sort by markedAt date, most recent first
     return userAttendanceRecords.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());
   } catch (error) {
     console.error(`Error fetching attendance records for User ITS ID ${userItsId}: `, error);
-    // This might fail if the index for 'attendedUserItsIds' is not set up.
     if (error instanceof Error && error.message.includes("index")) {
         console.error("This operation likely requires a Firestore index on 'attendedUserItsIds' for the 'miqaats' collection. Please check your Firebase console.");
     }
