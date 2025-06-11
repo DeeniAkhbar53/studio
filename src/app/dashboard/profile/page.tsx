@@ -133,7 +133,7 @@ export default function ProfilePage() {
       <Card className="overflow-hidden shadow-xl">
         <div className="bg-muted/30 p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
           <Avatar className="h-24 w-24 md:h-32 md:w-32 border-4 border-background shadow-md">
-            <AvatarImage src={user.avatarUrl || `https://placehold.co/100x100.png?text=${user.name.substring(0,2).toUpperCase()}`} alt={user.name} data-ai-hint="profile avatar"/>
+            <AvatarImage src={user.avatarUrl || `https://placehold.co/100x100.png?text=${user.name.substring(0,2).toUpperCase()}`} alt={user.name} data-ai-hint="avatar profile"/>
             <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-grow text-center md:text-left w-full">
