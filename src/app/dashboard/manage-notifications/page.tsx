@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { NotificationItem, UserRole } from "@/types";
-import { PlusCircle, Trash2, BellRing, Loader2 } from "lucide-react";
+import { PlusCircle, Trash2, BellRing, Loader2, ShieldAlert } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { addNotification, deleteNotification } from "@/lib/firebase/notificationService";
@@ -34,17 +34,25 @@ export default function ManageNotificationsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const role = localStorage.getItem('userRole') as UserRole | null;
-    const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
-    
+    const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
+    const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
+    const pageRights = JSON.parse(pageRightsRaw || '[]');
     const navItem = allNavItems.find(item => item.href === '/dashboard/manage-notifications');
-    const hasRoleAccess = navItem?.allowedRoles ? navItem.allowedRoles.includes(role || 'user') : false;
-    const hasPageRight = pageRights.includes('/dashboard/manage-notifications');
-
-    if (!role || (!hasRoleAccess && !hasPageRight)) {
-      router.replace('/dashboard');
+    
+    if (navItem) {
+      const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
+      const hasPageRight = pageRights.includes(navItem.href);
+      
+      if (hasRoleAccess || hasPageRight) {
+        setIsAuthorized(true);
+      } else {
+        setIsAuthorized(false);
+        // Redirect after a short delay to show the message
+        setTimeout(() => router.replace('/dashboard'), 2000);
+      }
     } else {
-      setIsAuthorized(true);
+       setIsAuthorized(false);
+       setTimeout(() => router.replace('/dashboard'), 2000);
     }
   }, [router]);
 
@@ -148,12 +156,24 @@ export default function ManageNotificationsPage() {
   };
   
   const canManage = currentUserRole === 'admin' || currentUserRole === 'superadmin';
-
-  if (!isAuthorized) {
+  
+  if (isAuthorized === null) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Verifying access...</p>
+      </div>
+    );
+  }
+
+  if (isAuthorized === false) {
+    return (
+       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+        <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+        <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
+        <p className="text-muted-foreground mt-2">
+          You do not have the required permissions to view this page.
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">Redirecting to dashboard...</p>
       </div>
     );
   }

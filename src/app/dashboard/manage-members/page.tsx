@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Mohallah, User, UserRole, UserDesignation, PageRightConfig } from "@/types";
-import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Users as UsersIcon, Download, AlertTriangle, ChevronLeft, ChevronRight, BellDot } from "lucide-react";
+import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Users as UsersIcon, Download, AlertTriangle, ChevronLeft, ChevronRight, BellDot, ShieldAlert } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -26,6 +27,7 @@ import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescr
 import Papa from 'papaparse';
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { allNavItems } from "@/components/dashboard/sidebar-nav";
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -60,6 +62,8 @@ const AVAILABLE_PAGE_RIGHTS: PageRightConfig[] = [
 const ITEMS_PER_PAGE = 10;
 
 export default function ManageMembersPage() {
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
   const [members, setMembers] = useState<User[]>([]);
@@ -89,8 +93,33 @@ export default function ManageMembersPage() {
   });
 
   const watchedRole = memberForm.watch("role");
+  
+  useEffect(() => {
+    const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
+    const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
+    const pageRights = JSON.parse(pageRightsRaw || '[]');
+    const navItem = allNavItems.find(item => item.href === '/dashboard/manage-members');
+    
+    if (navItem) {
+      const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
+      const hasPageRight = pageRights.includes(navItem.href);
+      
+      if (hasRoleAccess || hasPageRight) {
+        setIsAuthorized(true);
+      } else {
+        setIsAuthorized(false);
+        // Redirect after a short delay to show the message
+        setTimeout(() => router.replace('/dashboard'), 2000);
+      }
+    } else {
+       setIsAuthorized(false);
+       setTimeout(() => router.replace('/dashboard'), 2000);
+    }
+  }, [router]);
+
 
   useEffect(() => {
+    if (!isAuthorized) return;
     if (typeof window !== "undefined") {
       const role = localStorage.getItem('userRole') as UserRole | null;
       const mohallahId = localStorage.getItem('userMohallahId');
@@ -100,16 +129,17 @@ export default function ManageMembersPage() {
         setSelectedFilterMohallahId(mohallahId);
       }
     }
-  }, []);
+  }, [isAuthorized]);
 
   useEffect(() => {
+    if (!isAuthorized) return;
     setIsLoadingMohallahs(true);
     const unsubscribeMohallahs = getMohallahs((fetchedMohallahs) => {
       setMohallahs(fetchedMohallahs);
       setIsLoadingMohallahs(false);
     });
     return () => unsubscribeMohallahs();
-  }, []);
+  }, [isAuthorized]);
 
   const fetchAndSetMembers = useCallback(async (targetMohallahIdForFetch?: string) => {
     setIsLoadingMembers(true);
@@ -137,6 +167,7 @@ export default function ManageMembersPage() {
   }, [toast, currentUserRole]);
 
   useEffect(() => {
+    if (!isAuthorized) return;
     if (!currentUserRole) {
       setIsLoadingMembers(false);
       return;
@@ -160,10 +191,11 @@ export default function ManageMembersPage() {
       setMembers([]); 
       setIsLoadingMembers(false);
     }
-  }, [currentUserRole, currentUserMohallahId, selectedFilterMohallahId, fetchAndSetMembers]);
+  }, [currentUserRole, currentUserMohallahId, selectedFilterMohallahId, fetchAndSetMembers, isAuthorized]);
 
 
   useEffect(() => {
+    if (!isAuthorized) return;
     if (editingMember) {
       memberForm.reset({
         name: editingMember.name,
@@ -192,7 +224,7 @@ export default function ManageMembersPage() {
         pageRights: [],
       });
     }
-  }, [editingMember, memberForm, isMemberDialogOpen, mohallahs, selectedFilterMohallahId, currentUserRole, currentUserMohallahId]);
+  }, [editingMember, memberForm, isMemberDialogOpen, mohallahs, selectedFilterMohallahId, currentUserRole, currentUserMohallahId, isAuthorized]);
 
   const handleMemberFormSubmit = async (values: MemberFormValues) => {
     const targetMohallahId = values.mohallahId;
@@ -515,6 +547,27 @@ export default function ManageMembersPage() {
   };
 
   const canManageMembers = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+
+  if (isAuthorized === null) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isAuthorized === false) {
+    return (
+       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+        <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+        <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
+        <p className="text-muted-foreground mt-2">
+          You do not have the required permissions to view this page.
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">Redirecting to dashboard...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full gap-6">
@@ -1086,5 +1139,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
-    

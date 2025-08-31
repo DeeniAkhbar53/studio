@@ -14,9 +14,8 @@ import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, Us
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat, batchMarkAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { savePendingAttendance, getPendingAttendance, clearPendingAttendance, cacheAllUsers, getCachedUserByItsOrBgkId } from "@/lib/offlineService";
-import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info } from "lucide-react";
+import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import type { Unsubscribe } from "firebase/firestore";
 import { format } from "date-fns";
 import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
@@ -44,18 +43,25 @@ export default function MarkAttendancePage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const role = localStorage.getItem('userRole') as UserRole | null;
-    const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
-    setCurrentUserRole(role);
-
+    const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
+    const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
+    const pageRights = JSON.parse(pageRightsRaw || '[]');
     const navItem = allNavItems.find(item => item.href === '/dashboard/mark-attendance');
-    const hasRoleAccess = navItem?.allowedRoles ? navItem.allowedRoles.includes(role || 'user') : false;
-    const hasPageRight = pageRights.includes('/dashboard/mark-attendance');
-
-    if (!role || (!hasRoleAccess && !hasPageRight)) {
-      router.replace('/dashboard');
+    
+    if (navItem) {
+      const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
+      const hasPageRight = pageRights.includes(navItem.href);
+      
+      if (hasRoleAccess || hasPageRight) {
+        setIsAuthorized(true);
+      } else {
+        setIsAuthorized(false);
+        // Redirect after a short delay to show the message
+        setTimeout(() => router.replace('/dashboard'), 2000);
+      }
     } else {
-      setIsAuthorized(true);
+       setIsAuthorized(false);
+       setTimeout(() => router.replace('/dashboard'), 2000);
     }
   }, [router]);
 
@@ -359,11 +365,23 @@ export default function MarkAttendancePage() {
     : null;
 
 
-  if (!isAuthorized) {
+  if (isAuthorized === null) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Verifying access...</p>
+      </div>
+    );
+  }
+
+  if (isAuthorized === false) {
+    return (
+       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+        <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+        <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
+        <p className="text-muted-foreground mt-2">
+          You do not have the required permissions to view this page.
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">Redirecting to dashboard...</p>
       </div>
     );
   }
