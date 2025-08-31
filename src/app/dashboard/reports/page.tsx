@@ -527,38 +527,37 @@ export default function ReportsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="w-full">
-              <div className="h-[400px] w-full overflow-x-auto">
-                <ResponsiveContainer width={Math.max(chartData.length * 80, 500)} height={400}>
-                    <RechartsBarChart
-                        accessibilityLayer
-                        data={chartData}
-                        layout="vertical"
-                        margin={{
-                            top: 5,
-                            right: 30,
-                            left: 20,
-                            bottom: 50, // Increased bottom margin for rotated labels
-                        }}
-                    >
-                        <CartesianGrid horizontal={true} vertical={false} strokeDasharray="3 3" />
-                        <XAxis type="number" dataKey="totalAttendance" allowDecimals={false} />
-                        <YAxis 
-                            type="category" 
-                            dataKey="name" 
-                            width={100} 
-                            tick={{ fontSize: 10, fill: 'hsl(var(--foreground))' }}
-                            interval={0}
-                        />
-                        <ChartTooltip
-                            cursor={{fill: 'hsl(var(--muted))'}}
-                            content={<ChartTooltipContent indicator="dot" />}
-                        />
-                        <ChartLegend content={<ChartLegendContent />} />
-                        <Bar dataKey="present" fill="var(--color-present)" radius={0} stackId="a" />
-                        <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
-                    </RechartsBarChart>
-                </ResponsiveContainer>
-             </div>
+            <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+                <RechartsBarChart
+                    accessibilityLayer
+                    data={chartData}
+                    margin={{
+                        top: 20,
+                        right: 30,
+                        left: 20,
+                        bottom: 50, // Increased bottom margin for rotated labels
+                    }}
+                >
+                    <CartesianGrid vertical={false} />
+                    <XAxis 
+                        dataKey="name" 
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        tickFormatter={(value) => value.slice(0, 15) + (value.length > 15 ? '...' : '')}
+                        angle={-45}
+                        textAnchor="end"
+                    />
+                    <YAxis />
+                    <ChartTooltip
+                        cursor={false}
+                        content={<ChartTooltipContent indicator="dot" />}
+                    />
+                    <Bar dataKey="present" fill="var(--color-present)" radius={4} stackId="a" />
+                    <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
+                    <ChartLegend content={<ChartLegendContent />} />
+                </RechartsBarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
       )}
@@ -586,5 +585,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
