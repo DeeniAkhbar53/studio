@@ -20,10 +20,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole } from "@/types"; 
+import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohallah, UserDesignation } from "@/types";
 import { getMiqaats } from "@/lib/firebase/miqaatService";
-import { getUsers } from "@/lib/firebase/userService";
-import { getAttendanceRecordsByMiqaat, getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService"; 
+import { getUsers, getUniqueTeamNames } from "@/lib/firebase/userService";
+import { getMohallahs } from "@/lib/firebase/mohallahService";
+import { getAttendanceRecordsByMiqaat, getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -60,6 +61,9 @@ const reportSchema = z.object({
     from: z.date().optional(),
     to: z.date().optional(),
   }).optional(),
+  mohallahId: z.string().optional(),
+  team: z.string().optional(),
+  designation: z.string().optional(),
 }).superRefine((data, ctx) => {
     if ((data.reportType === "miqaat_summary" || data.reportType === "non_attendance_miqaat") && !data.miqaatId) {
         ctx.addIssue({
@@ -88,14 +92,22 @@ type ReportFormValues = z.infer<typeof reportSchema>;
 type ChartDataItem = { name: string; present: number; late: number; totalAttendance: number };
 type ChartType = "vertical_bar" | "horizontal_bar" | "pie";
 
+const ALL_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Member"];
+
 export default function ReportsPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [reportData, setReportData] = useState<ReportResultItem[] | null>(null);
   const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
   const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>([]);
-  const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
+  const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
+  const [availableTeams, setAvailableTeams] = useState<string[]>([]);
+  
+  const [isLoadingOptions, setIsLoadingOptions] = useState(true);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+
   const [isGraphDialogOpen, setIsGraphDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [chartType, setChartType] = useState<ChartType>("vertical_bar");
@@ -111,6 +123,9 @@ export default function ReportsPage() {
       miqaatId: "",
       itsId: "",
       dateRange: { from: undefined, to: undefined },
+      mohallahId: "all",
+      team: "all",
+      designation: "all",
     },
   });
 
@@ -126,9 +141,9 @@ export default function ReportsPage() {
       
       if (hasRoleAccess || hasPageRight) {
         setIsAuthorized(true);
+        setCurrentUserRole(role);
       } else {
         setIsAuthorized(false);
-        // Redirect after a short delay to show the message
         setTimeout(() => router.replace('/dashboard'), 2000);
       }
     } else {
@@ -139,12 +154,23 @@ export default function ReportsPage() {
   
   useEffect(() => {
     if (!isAuthorized) return;
-    setIsLoadingMiqaats(true);
-    const unsubscribe = getMiqaats((fetchedMiqaats) => {
-      setAvailableMiqaats(fetchedMiqaats);
-      setIsLoadingMiqaats(false);
+    setIsLoadingOptions(true);
+    const unsubMiqaats = getMiqaats(setAvailableMiqaats);
+    const unsubMohallahs = getMohallahs(setAvailableMohallahs);
+    getUniqueTeamNames().then(setAvailableTeams);
+    
+    Promise.all([
+        new Promise(resolve => getMiqaats(data => { setAvailableMiqaats(data); resolve(true); })),
+        new Promise(resolve => getMohallahs(data => { setAvailableMohallahs(data); resolve(true); })),
+        getUniqueTeamNames().then(setAvailableTeams)
+    ]).finally(() => {
+        setIsLoadingOptions(false);
     });
-    return () => unsubscribe();
+
+    return () => {
+        unsubMiqaats();
+        unsubMohallahs();
+    };
   }, [isAuthorized]);
 
 
@@ -157,7 +183,6 @@ export default function ReportsPage() {
     
     let fetchedAttendanceRecords: AttendanceRecord[] = []; 
     let reportResultItems: ReportResultItem[] = [];
-
 
     try {
       if (values.reportType === "miqaat_summary" && values.miqaatId) {
@@ -228,18 +253,41 @@ export default function ReportsPage() {
         }));
       }
 
+      // --- APPLY FILTERS ---
+      let filteredData = [...reportResultItems];
+
+      // Date Range Filter
       if (values.dateRange?.from) {
-        reportResultItems = reportResultItems.filter(r => r.date && new Date(r.date) >= values.dateRange!.from!);
+        filteredData = filteredData.filter(r => r.date && new Date(r.date) >= values.dateRange!.from!);
       }
       if (values.dateRange?.to) {
-        reportResultItems = reportResultItems.filter(r => r.date && new Date(r.date) <= values.dateRange!.to!);
+        filteredData = filteredData.filter(r => r.date && new Date(r.date) <= values.dateRange!.to!);
+      }
+
+      // Advanced Filters (Mohallah, Team, Designation)
+      const shouldApplyAdvancedFilters = values.mohallahId !== 'all' || values.team !== 'all' || values.designation !== 'all';
+
+      if (shouldApplyAdvancedFilters) {
+        const allUsers = await getUsers();
+        const userMap = new Map(allUsers.map(u => [u.itsId, u]));
+        
+        filteredData = filteredData.filter(record => {
+          const userDetails = userMap.get(record.userItsId);
+          if (!userDetails) return false; 
+
+          const mohallahMatch = values.mohallahId === 'all' || userDetails.mohallahId === values.mohallahId;
+          const teamMatch = values.team === 'all' || userDetails.team === values.team;
+          const designationMatch = values.designation === 'all' || userDetails.designation === values.designation;
+
+          return mohallahMatch && teamMatch && designationMatch;
+        });
       }
       
-      setReportData(reportResultItems);
+      setReportData(filteredData);
 
       if (values.reportType === "miqaat_summary" || values.reportType === "overall_activity") {
         const attendanceByMiqaat: { [key: string]: { present: number; late: number; totalAttendance: number } } = {};
-        reportResultItems.forEach(record => {
+        filteredData.forEach(record => {
           if (!attendanceByMiqaat[record.miqaatName]) {
             attendanceByMiqaat[record.miqaatName] = { present: 0, late: 0, totalAttendance: 0 };
           }
@@ -260,8 +308,8 @@ export default function ReportsPage() {
         setChartData(null);
       }
 
-      if (reportResultItems.length > 0) {
-          toast({ title: "Report Generated", description: `Your report is ready below. Found ${reportResultItems.length} record(s).` });
+      if (filteredData.length > 0) {
+          toast({ title: "Report Generated", description: `Your report is ready below. Found ${filteredData.length} record(s).` });
       } else {
           toast({ title: "No Data", description: "No data found for the selected criteria.", variant: "default" });
       }
@@ -415,15 +463,15 @@ export default function ReportsPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Select Miqaat</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingMiqaats}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingOptions}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder={isLoadingMiqaats ? "Loading Miqaats..." : "Select a Miqaat"} />
+                              <SelectValue placeholder={isLoadingOptions ? "Loading Miqaats..." : "Select a Miqaat"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {isLoadingMiqaats && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                            {!isLoadingMiqaats && availableMiqaats.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available</SelectItem>}
+                            {isLoadingOptions && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                            {!isLoadingOptions && availableMiqaats.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available</SelectItem>}
                             {availableMiqaats.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({format(new Date(m.startTime), "P")})</SelectItem>)}
                           </SelectContent>
                         </Select>
@@ -501,13 +549,88 @@ export default function ReportsPage() {
                   )}
                 />
               </div>
-              <Button type="submit" disabled={isLoading || isLoadingMiqaats} className="min-w-[180px]" size="sm">
-                {isLoading || isLoadingMiqaats ? (
+
+               {/* Advanced Filters */}
+              <Separator />
+              <div className="space-y-4">
+                 <h3 className="text-md font-medium text-muted-foreground">Advanced Filters</h3>
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                    {currentUserRole === 'superadmin' && (
+                        <FormField
+                            control={form.control}
+                            name="mohallahId"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Filter by Mohallah</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingOptions}>
+                                    <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder={isLoadingOptions ? "Loading..." : "All Mohallahs"} />
+                                    </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Mohallahs</SelectItem>
+                                        {availableMohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
+                     <FormField
+                        control={form.control}
+                        name="team"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Filter by Team</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingOptions}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder={isLoadingOptions ? "Loading..." : "All Teams"} />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="all">All Teams</SelectItem>
+                                    {availableTeams.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="designation"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Filter by Designation</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="All Designations" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="all">All Designations</SelectItem>
+                                    {ALL_DESIGNATIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                 </div>
+              </div>
+
+
+              <Button type="submit" disabled={isLoading || isLoadingOptions} className="min-w-[180px]" size="sm">
+                {isLoading || isLoadingOptions ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Search className="mr-2 h-4 w-4" />
                 )}
-                {isLoading ? "Generating..." : (isLoadingMiqaats ? "Loading Options..." : "Generate Report") }
+                {isLoading ? "Generating..." : (isLoadingOptions ? "Loading Options..." : "Generate Report") }
               </Button>
             </form>
           </Form>
@@ -717,7 +840,7 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {!isLoading && reportData === null && !isLoadingMiqaats && (
+      {!isLoading && reportData === null && !isLoadingOptions && (
          <Card className="shadow-lg mt-6">
             <CardContent className="py-10 flex flex-col items-center justify-center">
                 <AlertTriangle className="h-10 w-10 text-muted-foreground mb-3" />
@@ -727,12 +850,12 @@ export default function ReportsPage() {
             </CardContent>
          </Card>
       )}
-      {(isLoadingMiqaats && reportData === null) && (
+      {(isLoadingOptions && reportData === null) && (
         <Card className="shadow-lg mt-6">
             <CardContent className="py-10 flex justify-center items-center">
                 <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                 <p className="text-center text-muted-foreground">
-                    Loading Miqaat options...
+                    Loading report options...
                 </p>
             </CardContent>
          </Card>
@@ -740,3 +863,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
