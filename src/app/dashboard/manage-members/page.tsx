@@ -4,7 +4,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -26,6 +26,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
 import Papa from 'papaparse';
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 
@@ -70,7 +71,7 @@ export default function ManageMembersPage() {
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
+  const [isMemberSheetOpen, setIsMemberSheetOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<User | null>(null);
 
   const [isCsvImportDialogOpen, setIsCsvImportDialogOpen] = useState(false);
@@ -224,7 +225,7 @@ export default function ManageMembersPage() {
         pageRights: [],
       });
     }
-  }, [editingMember, memberForm, isMemberDialogOpen, mohallahs, selectedFilterMohallahId, currentUserRole, currentUserMohallahId, isAuthorized]);
+  }, [editingMember, memberForm, isMemberSheetOpen, mohallahs, selectedFilterMohallahId, currentUserRole, currentUserMohallahId, isAuthorized]);
 
   const handleMemberFormSubmit = async (values: MemberFormValues) => {
     const targetMohallahId = values.mohallahId;
@@ -261,7 +262,7 @@ export default function ManageMembersPage() {
       } else if (currentUserRole === 'superadmin') {
         fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
       }
-      setIsMemberDialogOpen(false);
+      setIsMemberSheetOpen(false);
       setEditingMember(null);
     } catch (error) {
       console.error("Error saving member to system:", error);
@@ -271,7 +272,7 @@ export default function ManageMembersPage() {
 
   const handleEditMember = (member: User) => {
     setEditingMember(member);
-    setIsMemberDialogOpen(true);
+    setIsMemberSheetOpen(true);
   };
 
   const handleDeleteMember = async (member: User) => {
@@ -682,80 +683,80 @@ export default function ManageMembersPage() {
                     </DialogFooter>
                     </DialogContent>
                   </Dialog>
-                  <Dialog open={isMemberDialogOpen} onOpenChange={(open) => { setIsMemberDialogOpen(open); if (!open) setEditingMember(null); }}>
-                    <DialogTrigger asChild>
+                  <Sheet open={isMemberSheetOpen} onOpenChange={(open) => { setIsMemberSheetOpen(open); if (!open) setEditingMember(null); }}>
+                    <SheetTrigger asChild>
                        <Button 
-                        onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} 
+                        onClick={() => { setEditingMember(null); setIsMemberSheetOpen(true); }} 
                         size="sm"
                         aria-label="Add New Member"
                         disabled={!canAddOrImport() || (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && mohallahs.length === 0 && !isLoadingMohallahs)}
                       >
                         <PlusCircle className="mr-2 h-4 w-4" /> Add
                       </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-lg">
-                      <DialogHeader>
-                        <DialogTitle>{editingMember ? "Edit Member" : "Add New Member"}</DialogTitle>
-                        <DialogDescription>
+                    </SheetTrigger>
+                    <SheetContent className="sm:max-w-lg overflow-y-auto">
+                      <SheetHeader>
+                        <SheetTitle>{editingMember ? "Edit Member" : "Add New Member"}</SheetTitle>
+                        <SheetDescription>
                           {editingMember ? "Update details." : `Add to Mohallah: ${getMohallahNameById(memberForm.getValues("mohallahId")) || "selected"}.`}
-                        </DialogDescription>
-                      </DialogHeader>
+                        </SheetDescription>
+                      </SheetHeader>
                       <Form {...memberForm}>
-                        <form onSubmit={memberForm.handleSubmit(handleMemberFormSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+                        <form onSubmit={memberForm.handleSubmit(handleMemberFormSubmit)} className="space-y-4 py-4">
                           <FormField control={memberForm.control} name="name" render={({ field }) => (
-                            <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                              <FormLabel htmlFor="name" className="text-right">Name</FormLabel>
-                              <FormControl><Input id="name" {...field} className="col-span-3" /></FormControl>
-                              <FormMessage className="col-start-2 col-span-3 text-xs" />
+                            <FormItem>
+                              <FormLabel>Name</FormLabel>
+                              <FormControl><Input {...field} /></FormControl>
+                              <FormMessage />
                             </FormItem>
                           )} />
-                          <FormField control={memberForm.control} name="itsId" render={({ field }) => (
-                            <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                              <FormLabel htmlFor="itsId" className="text-right">ITS ID</FormLabel>
-                              <FormControl><Input id="itsId" {...field} className="col-span-3" /></FormControl>
-                              <FormMessage className="col-start-2 col-span-3 text-xs" />
+                           <FormField control={memberForm.control} name="itsId" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>ITS ID</FormLabel>
+                              <FormControl><Input {...field} /></FormControl>
+                              <FormMessage />
                             </FormItem>
                           )} />
-                          <FormField control={memberForm.control} name="bgkId" render={({ field }) => (
-                            <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                              <FormLabel htmlFor="bgkId" className="text-right">BGK ID</FormLabel>
-                              <FormControl><Input id="bgkId" {...field} className="col-span-3" placeholder="Optional" /></FormControl>
-                              <FormMessage className="col-start-2 col-span-3 text-xs" />
+                           <FormField control={memberForm.control} name="bgkId" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>BGK ID</FormLabel>
+                              <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                              <FormMessage />
                             </FormItem>
                           )} />
                           <FormField control={memberForm.control} name="team" render={({ field }) => (
-                            <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                              <FormLabel htmlFor="team" className="text-right">Team</FormLabel>
-                              <FormControl><Input id="team" {...field} className="col-span-3" placeholder="Optional" /></FormControl>
-                              <FormMessage className="col-start-2 col-span-3 text-xs" />
+                            <FormItem>
+                              <FormLabel>Team</FormLabel>
+                              <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                              <FormMessage />
                             </FormItem>
                           )} />
                           <FormField control={memberForm.control} name="phoneNumber" render={({ field }) => (
-                            <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                              <FormLabel htmlFor="phoneNumber" className="text-right">Phone</FormLabel>
-                              <FormControl><Input id="phoneNumber" {...field} className="col-span-3" placeholder="Optional" /></FormControl>
-                              <FormMessage className="col-start-2 col-span-3 text-xs" />
+                            <FormItem>
+                              <FormLabel>Phone Number</FormLabel>
+                              <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                              <FormMessage />
                             </FormItem>
                           )} />
                           <FormField control={memberForm.control} name="designation" render={({ field }) => (
-                              <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                                <FormLabel htmlFor="designation" className="text-right">Designation</FormLabel>
+                              <FormItem>
+                                <FormLabel>Designation</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value || "Member"}>
-                                  <FormControl><SelectTrigger id="designation" className="col-span-3"><SelectValue placeholder="Select designation" /></SelectTrigger></FormControl>
+                                  <FormControl><SelectTrigger><SelectValue placeholder="Select designation" /></SelectTrigger></FormControl>
                                   <SelectContent>
                                     <SelectItem value="Member">Member</SelectItem>
                                     <SelectItem value="Vice Captain">Vice Captain</SelectItem>
                                     <SelectItem value="Captain">Captain</SelectItem>
                                   </SelectContent>
                                 </Select>
-                                <FormMessage className="col-start-2 col-span-3 text-xs" />
+                                <FormMessage />
                               </FormItem>
                             )} />
                           <FormField control={memberForm.control} name="role" render={({ field }) => (
-                            <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                              <FormLabel htmlFor="role" className="text-right">Role</FormLabel>
+                            <FormItem>
+                              <FormLabel>Role</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl><SelectTrigger id="role" className="col-span-3"><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
                                 <SelectContent>
                                   <SelectItem value="user">User</SelectItem>
                                   <SelectItem value="attendance-marker">Attendance Marker</SelectItem>
@@ -763,31 +764,31 @@ export default function ManageMembersPage() {
                                   <SelectItem value="superadmin">Super Admin</SelectItem>
                                 </SelectContent>
                               </Select>
-                              <FormMessage className="col-start-2 col-span-3 text-xs" />
-                              {watchedRole && (
-                                  <FormDescription className="col-start-2 col-span-3 text-xs mt-1">
+                               {watchedRole && (
+                                  <FormDescription className="text-xs">
                                       {roleDescriptions[watchedRole]}
                                   </FormDescription>
                               )}
+                              <FormMessage />
                             </FormItem>
                           )} />
                           <FormField control={memberForm.control} name="mohallahId" render={({ field }) => (
-                            <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                              <FormLabel htmlFor="mohallahId" className="text-right">Mohallah</FormLabel>
+                            <FormItem>
+                              <FormLabel>Mohallah</FormLabel>
                               <Select
                                 onValueChange={field.onChange}
                                 value={field.value}
                                 disabled={isLoadingMohallahs || mohallahs.length === 0 || !!editingMember || currentUserRole === 'admin'}
                               >
-                                <FormControl><SelectTrigger id="mohallahId" className="col-span-3"><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
                                 <SelectContent>
                                   {isLoadingMohallahs ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
                                   mohallahs.length === 0 ? <SelectItem value="no-mohallah" disabled>No Mohallahs available</SelectItem> :
                                   mohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                                 </SelectContent>
                               </Select>
-                              {(!!editingMember || currentUserRole === 'admin') && <FormDescription className="col-start-2 col-span-3 text-xs">Mohallah cannot be changed for existing members or by admins.</FormDescription>}
-                              <FormMessage className="col-start-2 col-span-3 text-xs" />
+                              {(!!editingMember || currentUserRole === 'admin') && <FormDescription className="text-xs">Mohallah cannot be changed for existing members or by admins.</FormDescription>}
+                              <FormMessage />
                             </FormItem>
                           )} />
 
@@ -796,12 +797,12 @@ export default function ManageMembersPage() {
                               control={memberForm.control}
                               name="pageRights"
                               render={({ field }) => (
-                                <FormItem className="grid grid-cols-1 items-start gap-x-4 pt-2">
-                                  <FormLabel className="text-left col-span-4 font-semibold mb-1">Page Access Rights</FormLabel>
-                                  <FormDescription className="col-span-4 text-xs mb-2">
-                                    Select specific pages this member can access. If none are selected, access is based on the default permissions for their role.
+                                <FormItem className="pt-2">
+                                  <FormLabel className="font-semibold">Page Access Rights</FormLabel>
+                                  <FormDescription className="text-xs mb-2">
+                                    Select specific pages this member can access.
                                   </FormDescription>
-                                  <div className="col-span-4 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 p-2 border rounded-md max-h-48 overflow-y-auto">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 p-2 border rounded-md max-h-48 overflow-y-auto">
                                     {AVAILABLE_PAGE_RIGHTS.map((pageRight) => (
                                       <FormField
                                         key={pageRight.id}
@@ -838,23 +839,23 @@ export default function ManageMembersPage() {
                                       />
                                     ))}
                                   </div>
-                                  <FormMessage className="col-span-4 text-xs" />
+                                  <FormMessage />
                                 </FormItem>
                               )}
                             />
                           )}
 
-                          <DialogFooter className="pt-4">
-                            <Button type="button" variant="outline" onClick={() => setIsMemberDialogOpen(false)}>Cancel</Button>
+                          <SheetFooter className="pt-4">
+                            <Button type="button" variant="outline" onClick={() => setIsMemberSheetOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={memberForm.formState.isSubmitting || !canAddOrImport() || (mohallahs.length === 0 && !isLoadingMohallahs && !memberForm.getValues("mohallahId"))}>
                               {memberForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                               {editingMember ? "Save Changes" : "Add Member"}
                             </Button>
-                          </DialogFooter>
+                          </SheetFooter>
                         </form>
                       </Form>
-                    </DialogContent>
-                  </Dialog>
+                    </SheetContent>
+                  </Sheet>
                 </div>
              )}
           </div>
