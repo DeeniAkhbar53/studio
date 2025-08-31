@@ -486,11 +486,12 @@ export default function ManageMembersPage() {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   };
 
-  const handleSelectAll = (checked: boolean | string) => {
+  const handleSelectAllOnPage = (checked: boolean | string) => {
     if (checked) {
-      setSelectedMemberIds(currentMembersToDisplay.map(member => member.id));
+      setSelectedMemberIds(prev => [...new Set([...prev, ...currentMembersToDisplay.map(member => member.id)])]);
     } else {
-      setSelectedMemberIds([]);
+      const pageIds = currentMembersToDisplay.map(member => member.id);
+      setSelectedMemberIds(prev => prev.filter(id => !pageIds.includes(id)));
     }
   };
 
@@ -531,8 +532,9 @@ export default function ManageMembersPage() {
                    {selectedMemberIds.length > 0 && (
                      <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}>
                         <AlertTrigger asChild>
-                          <Button variant="destructive" size="icon" aria-label={`Delete ${selectedMemberIds.length} selected members`}>
-                            <Trash2 className="h-4 w-4" />
+                          <Button variant="destructive" size="sm" aria-label={`Delete ${selectedMemberIds.length} selected members`}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete ({selectedMemberIds.length})
                           </Button>
                         </AlertTrigger>
                         <AlertContent>
@@ -551,13 +553,13 @@ export default function ManageMembersPage() {
                         </AlertContent>
                       </AlertDialog>
                   )}
-                  <Button variant="outline" onClick={downloadSampleCsv} size="icon" aria-label="Download Sample CSV">
-                      <Download className="h-4 w-4" />
+                  <Button variant="outline" onClick={downloadSampleCsv} size="sm">
+                      <Download className="mr-2 h-4 w-4" /> CSV
                   </Button>
                   <Dialog open={isCsvImportDialogOpen} onOpenChange={(open) => { setIsCsvImportDialogOpen(open); if(!open) setSelectedFile(null); }}>
                     <DialogTrigger asChild>
-                        <Button variant="outline" size="icon" aria-label="Import Members via CSV" disabled={!canAddOrImport()}>
-                            <FileUp className="h-4 w-4" />
+                        <Button variant="outline" size="sm" aria-label="Import Members via CSV" disabled={!canAddOrImport()}>
+                            <FileUp className="mr-2 h-4 w-4" /> Import
                         </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[525px]">
@@ -601,11 +603,11 @@ export default function ManageMembersPage() {
                     <DialogTrigger asChild>
                        <Button 
                         onClick={() => { setEditingMember(null); setIsMemberDialogOpen(true); }} 
-                        size="icon" 
+                        size="sm"
                         aria-label="Add New Member"
                         disabled={!canAddOrImport() || (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && mohallahs.length === 0 && !isLoadingMohallahs)}
                       >
-                        <PlusCircle className="h-4 w-4" />
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-lg">
@@ -826,88 +828,159 @@ export default function ManageMembersPage() {
               <p className="ml-2 text-muted-foreground">Loading members...</p>
             </div>
           ) : (
-            <Table><TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40px] px-2">
-                    <Checkbox
-                      checked={selectedMemberIds.length === currentMembersToDisplay.length && currentMembersToDisplay.length > 0}
-                      onCheckedChange={handleSelectAll}
-                      aria-label="Select all members on current page"
-                      disabled={currentMembersToDisplay.length === 0}
-                    />
-                  </TableHead>
-                  <TableHead className="w-[60px] sm:w-[80px]">Avatar</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>ITS ID</TableHead>
-                  <TableHead>Mohallah</TableHead>
-                  <TableHead>Team</TableHead>
-                  <TableHead>Designation</TableHead>
-                  <TableHead>Role</TableHead>
-                  {canManageMembers && <TableHead className="text-right">Actions</TableHead>}
-                </TableRow>
-              </TableHeader><TableBody>
+            <>
+              {/* Mobile View: List of Cards */}
+              <div className="md:hidden space-y-4">
                 {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member) => (
-                  <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? "selected" : undefined}>
-                    <TableCell className="px-2">
-                       <Checkbox
-                        checked={selectedMemberIds.includes(member.id)}
-                        onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
-                        aria-label={`Select member ${member.name}`}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
-                        <AvatarImage src={member.avatarUrl || `https://placehold.co/40x40.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
-                        <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                    </TableCell>
-                    <TableCell className="font-medium">{member.name}</TableCell>
-                    <TableCell>{member.itsId}</TableCell>
-                    <TableCell>{getMohallahNameById(member.mohallahId)}</TableCell>
-                    <TableCell>{member.team || "N/A"}</TableCell>
-                    <TableCell>{member.designation || "N/A"}</TableCell>
-                    <TableCell>{member.role.charAt(0).toUpperCase() + member.role.slice(1).replace(/-/g, ' ')}</TableCell>
-                    {canManageMembers && (
-                        <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => handleEditMember(member)} className="mr-1 sm:mr-2" aria-label="Edit Member" disabled={currentUserRole === 'attendance-marker'}>
-                            <Edit className="h-4 w-4" />
-                        </Button>
-                        { (currentUserRole === 'admin' || currentUserRole === 'superadmin') && (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( 
-                            <AlertDialog>
-                                <AlertTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                                </AlertTrigger>
-                                <AlertContent>
-                                <AlertHeader>
-                                    <AlertTitle>Are you sure?</AlertTitle>
-                                    <AlertDesc>
-                                    This action cannot be undone. This will permanently delete "{member.name}".
-                                    </AlertDesc>
-                                </AlertHeader>
-                                <AlertFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">
-                                    Delete
-                                    </AlertDialogAction>
-                                </AlertFooter>
-                                </AlertContent>
-                            </AlertDialog>
-                        )}
-                        </TableCell>
-                    )}
-                  </TableRow>
+                  <Card key={member.id} className="w-full" data-state={selectedMemberIds.includes(member.id) ? "selected" : undefined}>
+                    <CardContent className="p-4 flex flex-col gap-4">
+                      <div className="flex items-center gap-4">
+                         <Checkbox
+                           id={`mobile-select-${member.id}`}
+                           checked={selectedMemberIds.includes(member.id)}
+                           onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
+                           aria-label={`Select member ${member.name}`}
+                           className="shrink-0"
+                         />
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={member.avatarUrl || `https://placehold.co/48x48.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
+                          <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-grow">
+                          <p className="font-semibold">{member.name}</p>
+                          <p className="text-sm text-muted-foreground">ITS: {member.itsId}</p>
+                          <p className="text-sm text-muted-foreground">{member.designation || "N/A"}</p>
+                        </div>
+                      </div>
+                      <div className="text-sm text-muted-foreground space-y-1 pl-16">
+                          <p><strong>Mohallah:</strong> {getMohallahNameById(member.mohallahId)}</p>
+                          <p><strong>Team:</strong> {member.team || "N/A"}</p>
+                          <p><strong>Role:</strong> {member.role.charAt(0).toUpperCase() + member.role.slice(1).replace(/-/g, ' ')}</p>
+                      </div>
+                      {canManageMembers && (
+                        <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+                           <Button variant="ghost" size="sm" onClick={() => handleEditMember(member)} className="flex-1" aria-label="Edit Member" disabled={currentUserRole === 'attendance-marker'}>
+                              <Edit className="mr-2 h-4 w-4" /> Edit
+                          </Button>
+                          { (currentUserRole === 'admin' || currentUserRole === 'superadmin') && (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( 
+                              <AlertDialog>
+                                  <AlertTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="flex-1 text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
+                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                    </Button>
+                                  </AlertTrigger>
+                                  <AlertContent>
+                                    <AlertHeader>
+                                        <AlertTitle>Are you sure?</AlertTitle>
+                                        <AlertDesc>This action cannot be undone. This will permanently delete "{member.name}".</AlertDesc>
+                                    </AlertHeader>
+                                    <AlertFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                    </AlertFooter>
+                                  </AlertContent>
+                              </AlertDialog>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 )) : (
-                  <TableRow>
-                    <TableCell colSpan={canManageMembers ? 9 : 8} className="text-center h-24">
-                      No members found { (searchTerm || (currentUserRole === 'superadmin' && selectedFilterMohallahId !=='all') || (currentUserRole === 'admin' && currentUserMohallahId) && !fetchError ) && "matching criteria"}.
-                      {(fetchError && currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' ) && "Select a specific Mohallah."}
-                      {(currentUserRole === 'admin' && !currentUserMohallahId && !isLoadingMembers) && "Admin Mohallah not set."}
-                    </TableCell>
-                  </TableRow>
+                  <div className="text-center py-10">
+                    <p className="text-muted-foreground">No members found.</p>
+                  </div>
                 )}
-              </TableBody></Table>
+              </div>
+
+              {/* Desktop View: Table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40px] px-2">
+                        <Checkbox
+                          checked={selectedMemberIds.length > 0 && currentMembersToDisplay.every(m => selectedMemberIds.includes(m.id))}
+                          onCheckedChange={handleSelectAllOnPage}
+                          aria-label="Select all members on current page"
+                          disabled={currentMembersToDisplay.length === 0}
+                        />
+                      </TableHead>
+                      <TableHead className="w-[60px] sm:w-[80px]">Avatar</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>ITS ID</TableHead>
+                      <TableHead>Mohallah</TableHead>
+                      <TableHead>Team</TableHead>
+                      <TableHead>Designation</TableHead>
+                      <TableHead>Role</TableHead>
+                      {canManageMembers && <TableHead className="text-right">Actions</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member) => (
+                      <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? "selected" : undefined}>
+                        <TableCell className="px-2">
+                           <Checkbox
+                            checked={selectedMemberIds.includes(member.id)}
+                            onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
+                            aria-label={`Select member ${member.name}`}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
+                            <AvatarImage src={member.avatarUrl || `https://placehold.co/40x40.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
+                            <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
+                          </Avatar>
+                        </TableCell>
+                        <TableCell className="font-medium">{member.name}</TableCell>
+                        <TableCell>{member.itsId}</TableCell>
+                        <TableCell>{getMohallahNameById(member.mohallahId)}</TableCell>
+                        <TableCell>{member.team || "N/A"}</TableCell>
+                        <TableCell>{member.designation || "N/A"}</TableCell>
+                        <TableCell>{member.role.charAt(0).toUpperCase() + member.role.slice(1).replace(/-/g, ' ')}</TableCell>
+                        {canManageMembers && (
+                            <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={() => handleEditMember(member)} className="mr-1 sm:mr-2" aria-label="Edit Member" disabled={currentUserRole === 'attendance-marker'}>
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                            { (currentUserRole === 'admin' || currentUserRole === 'superadmin') && (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( 
+                                <AlertDialog>
+                                    <AlertTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                    </AlertTrigger>
+                                    <AlertContent>
+                                    <AlertHeader>
+                                        <AlertTitle>Are you sure?</AlertTitle>
+                                        <AlertDesc>
+                                        This action cannot be undone. This will permanently delete "{member.name}".
+                                        </AlertDesc>
+                                    </AlertHeader>
+                                    <AlertFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">
+                                        Delete
+                                        </AlertDialogAction>
+                                    </AlertFooter>
+                                    </AlertContent>
+                                </AlertDialog>
+                            )}
+                            </TableCell>
+                        )}
+                      </TableRow>
+                    )) : (
+                      <TableRow>
+                        <TableCell colSpan={canManageMembers ? 9 : 8} className="text-center h-24">
+                          No members found { (searchTerm || (currentUserRole === 'superadmin' && selectedFilterMohallahId !=='all') || (currentUserRole === 'admin' && currentUserMohallahId) && !fetchError ) && "matching criteria"}.
+                          {(fetchError && currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' ) && "Select a specific Mohallah."}
+                          {(currentUserRole === 'admin' && !currentUserMohallahId && !isLoadingMembers) && "Admin Mohallah not set."}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
          <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
