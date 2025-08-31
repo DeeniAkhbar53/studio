@@ -1,13 +1,14 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChartHorizontal, BarChart } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChartHorizontal, BarChart, PieChart as PieChartIcon, CheckSquare } from "lucide-react";
 import type { DateRange } from "react-day-picker";
+import { toPng } from "html-to-image";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -24,10 +25,12 @@ import { getUsers } from "@/lib/firebase/userService";
 import { getAttendanceRecordsByMiqaat, getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService"; 
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
-import type { Unsubscribe } from "firebase/firestore";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ChartContainer,
-  BarChart as RechartsBarChart, // Renamed to avoid conflict with Lucide icon
+  BarChart as RechartsBarChart,
   Bar,
   XAxis,
   YAxis,
@@ -37,6 +40,9 @@ import {
   ChartLegend,
   ChartLegendContent,
   ResponsiveContainer,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
 } from "@/components/ui/chart";
 
 
@@ -78,6 +84,7 @@ const reportSchema = z.object({
 
 type ReportFormValues = z.infer<typeof reportSchema>;
 type ChartDataItem = { name: string; present: number; late: number; totalAttendance: number };
+type ChartType = "vertical_bar" | "horizontal_bar" | "pie";
 
 export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportResultItem[] | null>(null);
@@ -85,6 +92,12 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
+  const [isGraphDialogOpen, setIsGraphDialogOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [chartType, setChartType] = useState<ChartType>("vertical_bar");
+  const [downloadOptions, setDownloadOptions] = useState({ includeTitle: true, includeLegend: true });
+
+  const chartRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const form = useForm<ReportFormValues>({
@@ -267,12 +280,42 @@ export default function ReportsPage() {
     }
   };
   
+  const handleDownloadChart = () => {
+    if (!chartRef.current) {
+        toast({ title: "Error", description: "Chart element not found.", variant: "destructive" });
+        return;
+    }
+    setIsDownloading(true);
+    toPng(chartRef.current, { cacheBust: true, backgroundColor: '#ffffff', pixelRatio: 2 })
+        .then((dataUrl) => {
+            const link = document.createElement('a');
+            const reportName = form.getValues("reportType").replace(/_/g, '-');
+            link.download = `${reportName}_chart_${format(new Date(), 'yyyy-MM-dd')}.png`;
+            link.href = dataUrl;
+            link.click();
+            toast({ title: "Chart Downloaded", description: "Image has been saved." });
+        })
+        .catch((err) => {
+            console.error(err);
+            toast({ title: "Download Failed", description: "Could not generate chart image.", variant: "destructive" });
+        })
+        .finally(() => setIsDownloading(false));
+  };
+  
   const selectedMiqaatDetails = availableMiqaats.find(m => m.id === form.getValues("miqaatId"));
 
   const chartConfig = {
       present: { label: "Present", color: "hsl(var(--chart-2))" },
       late: { label: "Late", color: "hsl(var(--chart-3))" },
   };
+
+  const pieChartColors = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+  const pieChartData = useMemo(() => {
+    if (!chartData || chartType !== 'pie') return [];
+    return chartData.map(item => ({ name: item.name, value: item.totalAttendance }));
+  }, [chartData, chartType]);
+
+  const canShowGraphButton = (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity") && chartData && chartData.length > 0;
   
   return (
     <div className="space-y-6">
@@ -430,9 +473,109 @@ export default function ReportsPage() {
                     {form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.
                 </CardDescription>
             </div>
-            <Button variant="outline" onClick={handleExport} disabled={reportData.length === 0 || isLoading} size="sm" className="w-full md:w-auto shrink-0">
-              <Download className="mr-2 h-4 w-4" /> Export CSV
-            </Button>
+            <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+                {canShowGraphButton && (
+                  <Dialog open={isGraphDialogOpen} onOpenChange={setIsGraphDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full md:w-auto">
+                          <BarChart className="mr-2 h-4 w-4" /> Generate Graph
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-4xl">
+                        <DialogHeader>
+                            <DialogTitle>Report Graph</DialogTitle>
+                            <DialogDescription>
+                                Visualize the attendance data from your report.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4">
+                            <div className="mb-4 p-4 border rounded-lg flex flex-col md:flex-row gap-4 items-center justify-between">
+                                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="chart-type">Chart Type</Label>
+                                        <Select value={chartType} onValueChange={(v) => setChartType(v as ChartType)}>
+                                            <SelectTrigger id="chart-type" className="w-full sm:w-[180px]">
+                                                <SelectValue placeholder="Select type" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="vertical_bar">Vertical Bar</SelectItem>
+                                                <SelectItem value="horizontal_bar">Horizontal Bar</SelectItem>
+                                                <SelectItem value="pie">Pie Chart (by Miqaat)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2 self-start pt-2 sm:pt-0">
+                                        <Label>Download Options</Label>
+                                        <div className="flex gap-4 pt-2">
+                                            <div className="flex items-center space-x-2">
+                                                <Checkbox id="include-title" checked={downloadOptions.includeTitle} onCheckedChange={(c) => setDownloadOptions(prev => ({...prev, includeTitle: !!c}))} />
+                                                <Label htmlFor="include-title" className="text-sm font-normal">Include Title</Label>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <Checkbox id="include-legend" checked={downloadOptions.includeLegend} onCheckedChange={(c) => setDownloadOptions(prev => ({...prev, includeLegend: !!c}))} />
+                                                <Label htmlFor="include-legend" className="text-sm font-normal">Include Legend</Label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <Button onClick={handleDownloadChart} disabled={isDownloading} className="w-full md:w-auto">
+                                    {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                                    Download as PNG
+                                </Button>
+                            </div>
+
+                            <div ref={chartRef} className="bg-background p-4 rounded-lg">
+                                {downloadOptions.includeTitle && <h3 className="text-lg font-semibold text-center mb-4">{form.getValues("reportType").replace(/_/g, ' ')} Report</h3>}
+                                {chartData && chartData.length > 0 ? (
+                                    <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
+                                        {chartType === 'vertical_bar' && (
+                                            <RechartsBarChart accessibilityLayer data={chartData}>
+                                                <CartesianGrid vertical={false} />
+                                                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} angle={-45} textAnchor="end" interval={0} />
+                                                <YAxis />
+                                                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                                                {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
+                                                <Bar dataKey="present" fill="var(--color-present)" radius={4} stackId="a" />
+                                                <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
+                                            </RechartsBarChart>
+                                        )}
+                                        {chartType === 'horizontal_bar' && (
+                                             <RechartsBarChart accessibilityLayer data={chartData} layout="vertical">
+                                                <CartesianGrid horizontal={false} />
+                                                <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={8} width={120} interval={0} />
+                                                <XAxis type="number" />
+                                                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                                                {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
+                                                <Bar dataKey="present" fill="var(--color-present)" radius={4} stackId="a" />
+                                                <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
+                                            </RechartsBarChart>
+                                        )}
+                                        {chartType === 'pie' && (
+                                            <RechartsPieChart>
+                                                 <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" hideLabel />} />
+                                                 <Pie data={pieChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={150} label>
+                                                    {pieChartData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={pieChartColors[index % pieChartColors.length]} />
+                                                    ))}
+                                                 </Pie>
+                                                  {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
+                                            </RechartsPieChart>
+                                        )}
+                                    </ChartContainer>
+                                ) : (
+                                    <div className="flex items-center justify-center min-h-[400px] text-muted-foreground">
+                                        <p>No data to display in chart.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </DialogContent>
+                  </Dialog>
+                )}
+                <Button variant="outline" onClick={handleExport} disabled={!reportData || reportData.length === 0 || isLoading} size="sm" className="w-full md:w-auto shrink-0">
+                  <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {reportData.length > 0 ? (
@@ -513,51 +656,6 @@ export default function ReportsPage() {
             ) : (
               <p className="text-center text-muted-foreground py-6">No data found for the selected criteria.</p>
             )}
-          </CardContent>
-        </Card>
-      )}
-
-      {chartData && chartData.length > 0 && (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity") && (
-        <Card className="shadow-lg mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center"><BarChart className="mr-2 h-5 w-5 text-primary"/>Attendance per Miqaat</CardTitle>
-            <Separator className="my-2" />
-            <CardDescription>
-              Visual representation of members marked present or late for each Miqaat in the current report.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="w-full">
-            <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
-                <RechartsBarChart
-                    accessibilityLayer
-                    data={chartData}
-                    margin={{
-                        top: 20,
-                        right: 30,
-                        left: 20,
-                        bottom: 50, // Increased bottom margin for rotated labels
-                    }}
-                >
-                    <CartesianGrid vertical={false} />
-                    <XAxis 
-                        dataKey="name" 
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        tickFormatter={(value) => value.slice(0, 15) + (value.length > 15 ? '...' : '')}
-                        angle={-45}
-                        textAnchor="end"
-                    />
-                    <YAxis />
-                    <ChartTooltip
-                        cursor={false}
-                        content={<ChartTooltipContent indicator="dot" />}
-                    />
-                    <Bar dataKey="present" fill="var(--color-present)" radius={4} stackId="a" />
-                    <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
-                    <ChartLegend content={<ChartLegendContent />} />
-                </RechartsBarChart>
-            </ChartContainer>
           </CardContent>
         </Card>
       )}
