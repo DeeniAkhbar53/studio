@@ -11,9 +11,9 @@ import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // FCM specific imports
-import { messaging } from "@/lib/firebase/firebase"; // Get messaging instance
-import { getToken, onMessage, MessagePayload } from "firebase/messaging";
-import { updateUserFcmToken } from "@/lib/firebase/userService"; // To store token
+import { getMessaging, getToken, onMessage, MessagePayload } from "firebase/messaging";
+import { updateUserFcmToken } from "@/lib/firebase/userService"; 
+import { app } from "@/lib/firebase/firebase"; // Import the initialized app
 
 export default function DashboardLayout({
   children,
@@ -23,7 +23,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const { toast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [fcmTokenStatus, setFcmTokenStatus] = useState<string>("idle"); // For tracking FCM setup
+  const [fcmTokenStatus, setFcmTokenStatus] = useState<string>("idle");
 
   useEffect(() => {
     const userRole = localStorage.getItem('userRole');
@@ -60,38 +60,23 @@ export default function DashboardLayout({
       setFcmTokenStatus("starting_setup");
       
       try {
-        // Register the service worker
-        const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        console.log('FCM Setup: Service Worker registered successfully.', swRegistration);
-        
         console.log("FCM Setup: Attempting to initialize messaging...");
-        const messagingInstance = await messaging();
-        if (!messagingInstance) {
-          console.warn("FCM Setup: Firebase Messaging is not available in this environment.");
-          setFcmTokenStatus("unsupported_environment");
-          toast({
-            variant: "destructive",
-            title: "Push Notifications Not Supported",
-            description: "Could not initialize the messaging service.",
-          });
-          return;
-        }
-
+        const messaging = getMessaging(app);
         console.log("FCM Setup: Messaging instance acquired.");
-        console.log("FCM Setup: Current Notification permission state:", Notification.permission);
         
+        // This is a public key for web push notifications. It's safe to be here.
         const VAPID_KEY = "BBk_BA4472SBY7GqHVabGCDT-lg1m535sZNvmxH0TVhqcndkTDXJulJ1GNB2fAbxE4kLvgcQSdx6vIOuBAhVFSI";
-        if (!VAPID_KEY) {
-            console.error("FCM Setup: VAPID key is not configured in environment variables (NEXT_PUBLIC_FIREBASE_VAPID_KEY).");
-            setFcmTokenStatus("error_missing_vapid_key");
-            return;
-        }
-
+        
         const handleTokenLogic = async () => {
             console.log("FCM Setup: Retrieving token...");
             setFcmTokenStatus("retrieving_token");
             try {
-                const currentToken = await getToken(messagingInstance, { serviceWorkerRegistration: swRegistration, vapidKey: VAPID_KEY });
+                // Register the service worker and get the token
+                const currentToken = await getToken(messaging, { 
+                  vapidKey: VAPID_KEY,
+                  serviceWorkerRegistration: await navigator.serviceWorker.register('/firebase-messaging-sw.js'),
+                });
+
                 if (currentToken) {
                     console.log("FCM Setup: Token retrieved:", currentToken);
                     const userItsId = localStorage.getItem("userItsId");
@@ -111,11 +96,20 @@ export default function DashboardLayout({
                 } else {
                     console.warn("FCM Setup: No registration token available. This can happen if the service worker isn't registered correctly or there's an issue with the VAPID key.");
                     setFcmTokenStatus("no_token_available");
+                    toast({
+                      variant: "destructive",
+                      title: "Notification Permission Needed",
+                      description: "Please allow notifications to enable this feature.",
+                    });
                 }
             } catch(err) {
                  console.error('FCM Setup: An error occurred while retrieving token. ', err);
                  setFcmTokenStatus("error_retrieving_token");
-                 toast({ variant: "destructive", title: "Token Error", description: "Could not retrieve notification token."});
+                 if (err instanceof Error && err.message.includes("permission")) {
+                    toast({ variant: "destructive", title: "Permission Denied", description: "You have blocked notifications. Please enable them in your browser settings."});
+                 } else {
+                    toast({ variant: "destructive", title: "Token Error", description: "Could not retrieve notification token. See console for details."});
+                 }
             }
         };
 
@@ -153,7 +147,7 @@ export default function DashboardLayout({
 
         // Handle incoming messages when the app is in the foreground
         console.log("FCM Setup: Setting up foreground message listener.");
-        const unsubscribeOnMessage = onMessage(messagingInstance, (payload: MessagePayload) => {
+        const unsubscribeOnMessage = onMessage(messaging, (payload: MessagePayload) => {
           console.log("FCM: Message received in foreground.", payload);
           setFcmTokenStatus("foreground_message_received");
           toast({
@@ -185,7 +179,8 @@ export default function DashboardLayout({
         console.log("FCM Setup: User is not authenticated, skipping FCM setup.");
         setFcmTokenStatus("skipped_not_authenticated");
     }
-  }, [isAuthenticated, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   useEffect(() => {
     console.log("FCM Token Status Changed:", fcmTokenStatus);

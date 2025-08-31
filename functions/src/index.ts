@@ -30,10 +30,15 @@ export const onNewNotificationCreated = functions.firestore
 
     let usersQuery: admin.firestore.Query;
 
+    // Use a collection group query to get all members across all mohallahs
+    const membersCollectionGroup = db.collectionGroup("members");
+
     if (notification.targetAudience === "all") {
-      usersQuery = db.collectionGroup("members");
+      // Query for all documents in the 'members' collection group
+      usersQuery = membersCollectionGroup;
     } else {
-      usersQuery = db.collectionGroup("members").where("role", "==", notification.targetAudience);
+      // Query for members with a specific role
+      usersQuery = membersCollectionGroup.where("role", "==", notification.targetAudience);
     }
 
     try {
@@ -46,11 +51,13 @@ export const onNewNotificationCreated = functions.firestore
       const tokens: string[] = [];
       usersSnapshot.forEach((doc) => {
         const user = doc.data() as User;
+        // Check for fcmTokens and ensure it's a non-empty array
         if (user.fcmTokens && Array.isArray(user.fcmTokens) && user.fcmTokens.length > 0) {
           tokens.push(...user.fcmTokens);
         }
       });
 
+      // Remove duplicate tokens to avoid sending the same notification multiple times to one device
       const uniqueTokens = [...new Set(tokens)];
 
       if (uniqueTokens.length === 0) {
@@ -64,9 +71,10 @@ export const onNewNotificationCreated = functions.firestore
         notification: {
           title: notification.title,
           body: notification.content,
-          icon: "/logo.png",
+          icon: "/logo.png", // Using a default icon
         },
         data: {
+          // This data is sent to the client. The URL helps navigate the user on notification click.
           url: "/dashboard/notifications",
           notificationId: notificationId,
         },
@@ -77,24 +85,20 @@ export const onNewNotificationCreated = functions.firestore
       functions.logger.log("Successfully sent message(s):", response.successCount, "failures:", response.failureCount);
 
       // --- Token Cleanup ---
-      // This section finds invalid tokens and you would then need another
-      // step to trace them back to the user and remove them. This part is complex
-      // as you need to find which user has the invalid token.
       const tokensToRemove: Promise<any>[] = [];
       response.results.forEach((result, index) => {
         const error = result.error;
         if (error) {
           functions.logger.error("Failure sending notification to", uniqueTokens[index], error);
-          // Here, you would typically handle tokens that are no longer valid.
           if (
             error.code === "messaging/invalid-registration-token" ||
             error.code === "messaging/registration-token-not-registered"
           ) {
-            // This is where you would implement logic to find the user with this
-            // invalid token and remove it from their `fcmTokens` array.
-            // For simplicity in this example, this complex cleanup is logged but not executed.
-            const invalidToken = uniqueTokens[index];
-            functions.logger.warn(`Invalid token found: ${invalidToken}. Manual cleanup recommended.`);
+             const invalidToken = uniqueTokens[index];
+             functions.logger.warn(`Invalid token found: ${invalidToken}. Implement cleanup logic here.`);
+             // In a real application, you would now need a reverse lookup to find the user
+             // associated with this token and remove it from their `fcmTokens` array.
+             // This is a complex operation and is omitted for simplicity, but logging it is the first step.
           }
         }
       });

@@ -1,75 +1,83 @@
+// DO NOT USE import STATEMENTS. This file is a service worker and runs in a different context.
+// Use importScripts to load the Firebase SDKs.
 
-// This file must be in the public directory.
+// Firebase SDK scripts for service worker
+importScripts('https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.22.1/firebase-messaging-compat.js');
 
-// Give the service worker access to Firebase Messaging.
-// Note that you can only use Firebase SDKs here that are available in the service worker
-// context.
-importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
-
-// Initialize the Firebase app in the service worker with your project config.
-// These values are public and are safe to be exposed in the service worker.
+// Your web app's Firebase configuration
+// NOTE: These values must be hardcoded as service workers cannot access process.env
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "bgk-attendance-82245",
+  projectId: "YOUR_PROJECT_ID",
   storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "931210839845",
-  appId: "1:931210839845:web:2f0e336829a28892787834"
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
-const app = firebase.initializeApp(firebaseConfig);
-const messaging = firebase.messaging();
 
-// If you would like to customize notifications that are received in the
-// background (Web app is closed or not in browser focus) then you should
-// implement this optional method.
-messaging.onBackgroundMessage((payload) => {
-  console.log(
-    '[firebase-messaging-sw.js] Received background message ',
-    payload
-  );
-  
-  // Customize the notification here
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: payload.notification.icon || '/logo.png', // Use payload icon or default
-    data: {
-        url: payload.data.url || '/',
-        notificationId: payload.data.notificationId
-    }
-  };
+// Initialize Firebase
+try {
+    firebase.initializeApp(firebaseConfig);
+    console.log("SW: Firebase initialized successfully.");
+} catch (e) {
+    console.error("SW: Firebase initialization error.", e);
+}
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
-});
 
-// Optional: Handle notification clicks
-self.addEventListener('notificationclick', function(event) {
-  const clickedNotification = event.notification;
-  clickedNotification.close();
+// Retrieve an instance of Firebase Messaging so that it can handle background messages.
+let messaging;
+try {
+    messaging = firebase.messaging();
+    console.log("SW: Firebase Messaging instance retrieved.");
 
-  const urlToOpen = clickedNotification.data.url || '/';
+    messaging.onBackgroundMessage((payload) => {
+        console.log('[firebase-messaging-sw.js] Received background message ', payload);
 
-  const promiseChain = clients.matchAll({
-    type: 'window',
-    includeUncontrolled: true
-  }).then(function(windowClients) {
-    let matchingClient = null;
-    for (let i = 0; i < windowClients.length; i++) {
-      const windowClient = windowClients[i];
-      if (windowClient.url.includes(urlToOpen)) {
-        matchingClient = windowClient;
-        break;
+        const notificationTitle = payload.notification.title;
+        const notificationOptions = {
+            body: payload.notification.body,
+            icon: payload.notification.icon || '/logo.png', // Use icon from payload or default
+            data: {
+                url: payload.data.url || '/',
+                notificationId: payload.data.notificationId
+            }
+        };
+
+        self.registration.showNotification(notificationTitle, notificationOptions);
+    });
+
+} catch (e) {
+    console.error("SW: Error getting messaging instance or setting up background handler.", e);
+}
+
+
+// Event listener for when a user clicks on the notification
+self.addEventListener('notificationclick', (event) => {
+  console.log('[firebase-messaging-sw.js] Notification click Received.', event.notification.data);
+
+  event.notification.close(); // Close the notification
+
+  const urlToOpen = event.notification.data.url || '/';
+
+  // This looks for an existing window and focuses it if it exists.
+  // If no window is open, it opens a new one.
+  event.waitUntil(
+    clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    }).then((clientList) => {
+      for (const client of clientList) {
+        // Check if the client is already at the target URL
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
+        }
       }
-    }
-
-    if (matchingClient) {
-      return matchingClient.focus();
-    } else {
-      return clients.openWindow(urlToOpen);
-    }
-  });
-
-  event.waitUntil(promiseChain);
+      // If no matching client was found, open a new window
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
 });
