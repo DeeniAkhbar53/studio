@@ -22,7 +22,7 @@ export type MiqaatAttendanceEntryItem = {
   userName: string;
   markedAt: string; // ISO string
   markedByItsId: string;
-  status?: 'present' | 'late'; // New status field
+  status?: 'present' | 'late' | 'early'; // New status field
 };
 
 export type Miqaat = {
@@ -48,7 +48,7 @@ export type AttendanceRecord = {
   userName: string;
   markedAt: string; // ISO string
   markedByItsId?: string;
-  status?: 'present' | 'late'; // New status field
+  status?: 'present' | 'late' | 'early'; // New status field
 };
 
 export type Team = {
@@ -70,7 +70,7 @@ export type MarkedAttendanceEntry = {
   timestamp: Date;
   miqaatId: string;
   miqaatName: string;
-  status?: 'present' | 'late'; // New status field
+  status?: 'present' | 'late' | 'early'; // New status field
 };
 
 export type NotificationItem = {
@@ -89,7 +89,7 @@ export interface ReportResultItem {
   userItsId: string;
   miqaatName: string;
   date?: string; // ISO string
-  status: "Present" | "Absent" | "Late" | "N/A"; // Updated status type
+  status: "Present" | "Absent" | "Late" | "Early" | "N/A"; // Updated status type
   markedByItsId?: string;
 }
 
@@ -100,3 +100,5 @@ export interface PageRightConfig {
   description?: string;
   defaultRoles?: UserRole[];
 }
+
+    

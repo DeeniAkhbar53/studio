@@ -220,8 +220,15 @@ export default function MarkAttendancePage() {
     const miqaatEndTime = new Date(selectedMiqaatDetails.endTime);
     const miqaatReportingTime = selectedMiqaatDetails.reportingTime ? new Date(selectedMiqaatDetails.reportingTime) : null;
     
-    const onTimeThreshold = miqaatReportingTime || miqaatEndTime;
-    const attendanceStatus = now > onTimeThreshold ? 'late' : 'present';
+    let attendanceStatus: 'early' | 'present' | 'late';
+    if (miqaatReportingTime && now < miqaatReportingTime) {
+      attendanceStatus = 'early';
+    } else if (now > miqaatEndTime) {
+      attendanceStatus = 'late';
+    } else {
+      attendanceStatus = 'present';
+    }
+
 
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
         userItsId: member.itsId,
@@ -260,8 +267,8 @@ export default function MarkAttendancePage() {
             );
 
             toast({
-              title: `Attendance Marked ${attendanceStatus === 'late' ? '(Late)' : ''}`,
-              description: `${attendanceEntryPayload.userName} (${attendanceEntryPayload.userItsId}) marked ${attendanceStatus} for ${selectedMiqaatDetails.name}.`,
+              title: `Attendance Marked (${attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)})`,
+              description: `${attendanceEntryPayload.userName} (${attendanceEntryPayload.userItsId}) marked for ${selectedMiqaatDetails.name}.`,
             });
         }
         setMemberIdInput("");
@@ -363,7 +370,7 @@ export default function MarkAttendancePage() {
             <div className="flex-grow">
               <CardTitle className="flex items-center"><ListChecks className="mr-2 h-6 w-6 text-primary" />Mark Member Attendance</CardTitle>
               <Separator className="my-2" />
-              <CardDescription>Select Miqaat, enter member ITS/BGK ID. Attendance marked after Reporting Time (or End Time if no Reporting Time) will be 'Late'.</CardDescription>
+              <CardDescription>Select Miqaat, enter member ITS/BGK ID. Status will be Early, Present, or Late based on Miqaat times.</CardDescription>
             </div>
             <Button
               variant="outline"
@@ -444,13 +451,13 @@ export default function MarkAttendancePage() {
                 {currentMiqaatReportingTime ? (
                     <p className="text-sm text-muted-foreground mb-1 flex items-center">
                         <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                        Reporting Time (On-time by): {currentMiqaatReportingTime}
+                        Reporting Time (Early before): {currentMiqaatReportingTime}
                     </p>
                 ) : (
                   currentMiqaatEndTime && (
                     <p className="text-sm text-muted-foreground mb-1 flex items-center">
                         <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                        End Time (Marked late after this): {currentMiqaatEndTime}
+                        End Time (Late after): {currentMiqaatEndTime}
                     </p>
                   )
                 )}
@@ -479,9 +486,11 @@ export default function MarkAttendancePage() {
                                 <TableCell>{format(entry.timestamp, "p")}</TableCell>
                                 <TableCell>
                                   <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                                      entry.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                      entry.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 
+                                      entry.status === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                      'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                                     }`}>
-                                    {entry.status === 'late' ? 'Late' : 'Present'}
+                                    {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
                                   </span>
                                 </TableCell>
                                 </TableRow>
@@ -513,3 +522,5 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
+
+    
