@@ -101,4 +101,22 @@ export interface PageRightConfig {
   defaultRoles?: UserRole[];
 }
 
-    
+// Types for the new Forms feature
+export type FormFieldType = 'text' | 'textarea' | 'checkbox' | 'radio' | 'select';
+
+export interface FormField {
+  id: string;
+  label: string;
+  type: FormFieldType;
+  required: boolean;
+  options?: string[]; // For radio, checkbox, select
+}
+
+export interface Form {
+  id: string;
+  title: string;
+  description?: string;
+  questions: FormField[];
+  createdBy: string; // ITS ID of creator
+  createdAt: string; // ISO string
+}

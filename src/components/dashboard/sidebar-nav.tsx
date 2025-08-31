@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
-import { Home, User, CalendarDays, Building, BarChart3, UserCheck, ScanBarcode, Bell, Settings, Users as UsersIcon } from "lucide-react";
+import { Home, User, CalendarDays, Building, BarChart3, UserCheck, ScanBarcode, Bell, Settings, Users as UsersIcon, FileText } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 
 interface NavItem {
@@ -61,6 +61,11 @@ export const allNavItems: NavItem[] = [
     label: "Reports",
     icon: BarChart3,
     allowedRoles: ['admin', 'superadmin', 'attendance-marker']
+  },
+  {
+    href: "/dashboard/forms",
+    label: "Forms / Surveys",
+    icon: FileText,
   },
 ];
 
@@ -154,6 +159,11 @@ export function SidebarNav() {
     }
 
     return allNavItems.filter(item => {
+      // New logic for forms page: show to everyone
+      if (item.href === '/dashboard/forms') {
+        return true;
+      }
+      
       const roleAllowsItem = !item.allowedRoles || item.allowedRoles.includes(resolvedCurrentUserRole);
       
       if (ESSENTIAL_PATHS.includes(item.href)) {
