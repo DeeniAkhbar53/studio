@@ -271,7 +271,8 @@ export default function ReportsPage() {
       present: { label: "Present", color: "hsl(var(--chart-2))" },
       late: { label: "Late", color: "hsl(var(--chart-3))" },
   };
-
+  
+  const dynamicChartHeight = chartData ? Math.max(350, chartData.length * 40) : 350;
 
   return (
     <div className="space-y-6">
@@ -417,8 +418,8 @@ export default function ReportsPage() {
 
       {reportData && (
         <Card className="shadow-lg mt-6">
-          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
-            <div>
+          <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex-grow">
                 <CardTitle>Report Results</CardTitle>
                 <Separator className="my-2" />
                 <CardDescription>
@@ -429,7 +430,7 @@ export default function ReportsPage() {
                     {form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.
                 </CardDescription>
             </div>
-            <Button variant="outline" onClick={handleExport} disabled={reportData.length === 0 || isLoading} size="sm">
+            <Button variant="outline" onClick={handleExport} disabled={reportData.length === 0 || isLoading} size="sm" className="w-full md:w-auto shrink-0">
               <Download className="mr-2 h-4 w-4" /> Export CSV
             </Button>
           </CardHeader>
@@ -525,7 +526,7 @@ export default function ReportsPage() {
               Visual representation of members marked present or late for each Miqaat in the current report.
             </CardDescription>
           </CardHeader>
-          <CardContent className="h-[350px] w-full p-2 sm:p-4">
+          <CardContent className="w-full p-2 sm:p-4" style={{ height: `${dynamicChartHeight}px` }}>
             <ChartContainer config={chartConfig} className="w-full h-full">
               <BarChart accessibilityLayer data={chartData} layout="vertical" stackOffset="none"
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
