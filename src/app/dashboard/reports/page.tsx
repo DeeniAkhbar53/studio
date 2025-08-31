@@ -107,6 +107,7 @@ export default function ReportsPage() {
   
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
 
   const [isGraphDialogOpen, setIsGraphDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -131,6 +132,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
+    const mohallahId = typeof window !== "undefined" ? localStorage.getItem('userMohallahId') : null;
     const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
     const pageRights = JSON.parse(pageRightsRaw || '[]');
     const navItem = allNavItems.find(item => item.href === '/dashboard/reports');
@@ -142,6 +144,10 @@ export default function ReportsPage() {
       if (hasRoleAccess || hasPageRight) {
         setIsAuthorized(true);
         setCurrentUserRole(role);
+        setCurrentUserMohallahId(mohallahId);
+        if (role === 'admin' && mohallahId) {
+            form.setValue('mohallahId', mohallahId);
+        }
       } else {
         setIsAuthorized(false);
         setTimeout(() => router.replace('/dashboard'), 2000);
@@ -150,6 +156,7 @@ export default function ReportsPage() {
        setIsAuthorized(false);
        setTimeout(() => router.replace('/dashboard'), 2000);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
   
   useEffect(() => {
@@ -255,6 +262,16 @@ export default function ReportsPage() {
 
       // --- APPLY FILTERS ---
       let filteredData = [...reportResultItems];
+      const allUsers = await getUsers();
+      const userMap = new Map(allUsers.map(u => [u.itsId, u]));
+
+      // Role-based data segregation
+      if (currentUserRole === 'admin' && currentUserMohallahId) {
+          filteredData = filteredData.filter(record => {
+              const userDetails = userMap.get(record.userItsId);
+              return userDetails?.mohallahId === currentUserMohallahId;
+          });
+      }
 
       // Date Range Filter
       if (values.dateRange?.from) {
@@ -264,24 +281,18 @@ export default function ReportsPage() {
         filteredData = filteredData.filter(r => r.date && new Date(r.date) <= values.dateRange!.to!);
       }
 
-      // Advanced Filters (Mohallah, Team, Designation)
-      const shouldApplyAdvancedFilters = values.mohallahId !== 'all' || values.team !== 'all' || values.designation !== 'all';
-
-      if (shouldApplyAdvancedFilters) {
-        const allUsers = await getUsers();
-        const userMap = new Map(allUsers.map(u => [u.itsId, u]));
+      // Advanced Form Filters (Mohallah, Team, Designation)
+      filteredData = filteredData.filter(record => {
+        const userDetails = userMap.get(record.userItsId);
+        if (!userDetails) return false; 
         
-        filteredData = filteredData.filter(record => {
-          const userDetails = userMap.get(record.userItsId);
-          if (!userDetails) return false; 
+        // The form.mohallahId is used here. For admin, it's pre-filled and disabled. For superadmin, it's their selection.
+        const mohallahMatch = values.mohallahId === 'all' || userDetails.mohallahId === values.mohallahId;
+        const teamMatch = values.team === 'all' || userDetails.team === values.team;
+        const designationMatch = values.designation === 'all' || userDetails.designation === values.designation;
 
-          const mohallahMatch = values.mohallahId === 'all' || userDetails.mohallahId === values.mohallahId;
-          const teamMatch = values.team === 'all' || userDetails.team === values.team;
-          const designationMatch = values.designation === 'all' || userDetails.designation === values.designation;
-
-          return mohallahMatch && teamMatch && designationMatch;
-        });
-      }
+        return mohallahMatch && teamMatch && designationMatch;
+      });
       
       setReportData(filteredData);
 
@@ -562,7 +573,7 @@ export default function ReportsPage() {
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Filter by Mohallah</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingOptions}>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingOptions || currentUserRole === 'admin'}>
                                     <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder={isLoadingOptions ? "Loading..." : "All Mohallahs"} />
@@ -573,6 +584,7 @@ export default function ReportsPage() {
                                         {availableMohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
+                                 {currentUserRole === 'admin' && <FormDescription>Admins can only see reports for their own Mohallah.</FormDescription>}
                                 <FormMessage />
                                 </FormItem>
                             )}
@@ -863,5 +875,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
