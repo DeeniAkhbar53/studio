@@ -1,68 +1,75 @@
 
-// Import the Firebase app and messaging services
-import { initializeApp } from "firebase/app";
-import { getMessaging, onBackgroundMessage } from "firebase/messaging/sw";
+// This file must be in the public directory.
 
-// IMPORTANT:
-// Your web app's Firebase configuration.
-// This is NOT a secret, it's a public configuration.
+// Give the service worker access to Firebase Messaging.
+// Note that you can only use Firebase SDKs here that are available in the service worker
+// context.
+importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
+
+// Initialize the Firebase app in the service worker with your project config.
+// These values are public and are safe to be exposed in the service worker.
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "bgk-attendance-82245",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "931210839845",
+  appId: "1:931210839845:web:2f0e336829a28892787834"
 };
 
-// Initialize the Firebase app in the service worker
-const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
+const app = firebase.initializeApp(firebaseConfig);
+const messaging = firebase.messaging();
 
-// Set up the background message handler
-// This is the function that will be called when the browser receives a push notification
-// and the app is not in the foreground.
-onBackgroundMessage(messaging, (payload) => {
-  console.log("[firebase-messaging-sw.js] Received background message ", payload);
-
-  // Customize the notification appearance
-  const notificationTitle = payload.notification?.title || "New Notification";
+// If you would like to customize notifications that are received in the
+// background (Web app is closed or not in browser focus) then you should
+// implement this optional method.
+messaging.onBackgroundMessage((payload) => {
+  console.log(
+    '[firebase-messaging-sw.js] Received background message ',
+    payload
+  );
+  
+  // Customize the notification here
+  const notificationTitle = payload.notification.title;
   const notificationOptions = {
-    body: payload.notification?.body || "You have a new message.",
-    icon: payload.notification?.icon || "/logo.png", // Use icon from payload or default
+    body: payload.notification.body,
+    icon: payload.notification.icon || '/logo.png', // Use payload icon or default
     data: {
-      url: payload.data?.url || '/dashboard/notifications' // Use URL from payload data or default
+        url: payload.data.url || '/',
+        notificationId: payload.data.notificationId
     }
   };
 
-  // The 'self.registration.showNotification' is the standard Web API
-  // to display a notification on the user's device.
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Optional: Handle notification click
-self.addEventListener('notificationclick', (event) => {
-  console.log('[firebase-messaging-sw.js] Notification click Received.', event);
+// Optional: Handle notification clicks
+self.addEventListener('notificationclick', function(event) {
+  const clickedNotification = event.notification;
+  clickedNotification.close();
 
-  event.notification.close();
+  const urlToOpen = clickedNotification.data.url || '/';
 
-  const urlToOpen = event.notification.data?.url || '/';
-
-  // This looks at all open tabs and focuses one if it's already open
-  event.waitUntil(
-    clients.matchAll({
-      type: "window",
-      includeUncontrolled: true,
-    }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
-        }
+  const promiseChain = clients.matchAll({
+    type: 'window',
+    includeUncontrolled: true
+  }).then(function(windowClients) {
+    let matchingClient = null;
+    for (let i = 0; i < windowClients.length; i++) {
+      const windowClient = windowClients[i];
+      if (windowClient.url.includes(urlToOpen)) {
+        matchingClient = windowClient;
+        break;
       }
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
-    })
-  );
+    }
+
+    if (matchingClient) {
+      return matchingClient.focus();
+    } else {
+      return clients.openWindow(urlToOpen);
+    }
+  });
+
+  event.waitUntil(promiseChain);
 });
-

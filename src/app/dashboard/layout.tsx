@@ -80,7 +80,7 @@ export default function DashboardLayout({
         console.log("FCM Setup: Messaging instance acquired.");
         console.log("FCM Setup: Current Notification permission state:", Notification.permission);
         
-        const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+        const VAPID_KEY = "BBk_BA4472SBY7GqHVabGCDT-lg1m535sZNvmxH0TVhqcndkTDXJulJ1GNB2fAbxE4kLvgcQSdx6vIOuBAhVFSI";
         if (!VAPID_KEY) {
             console.error("FCM Setup: VAPID key is not configured in environment variables (NEXT_PUBLIC_FIREBASE_VAPID_KEY).");
             setFcmTokenStatus("error_missing_vapid_key");
