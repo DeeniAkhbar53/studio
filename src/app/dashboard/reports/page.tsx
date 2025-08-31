@@ -481,7 +481,7 @@ export default function ReportsPage() {
                           <BarChart className="mr-2 h-4 w-4" /> Generate Graph
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-md sm:max-w-4xl">
+                    <DialogContent className="max-w-4xl w-full">
                         <DialogHeader>
                             <DialogTitle>Report Graph</DialogTitle>
                             <DialogDescription>
@@ -683,3 +683,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
