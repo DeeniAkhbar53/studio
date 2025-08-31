@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -913,7 +914,7 @@ export default function ManageMembersPage() {
                     <TableRow>
                       <TableHead className="w-[40px] px-2">
                         <Checkbox
-                          checked={selectedMemberIds.length > 0 && currentMembersToDisplay.every(m => selectedMemberIds.includes(m.id))}
+                          checked={selectedMemberIds.length > 0 && currentMembersToDisplay.length > 0 && currentMembersToDisplay.every(m => selectedMemberIds.includes(m.id))}
                           onCheckedChange={handleSelectAllOnPage}
                           aria-label="Select all members on current page"
                           disabled={currentMembersToDisplay.length === 0}
@@ -1085,3 +1086,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    
