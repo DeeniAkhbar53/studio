@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Mohallah, User, UserRole, UserDesignation, PageRightConfig } from "@/types";
-import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Users as UsersIcon, Download, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Users as UsersIcon, Download, AlertTriangle, ChevronLeft, ChevronRight, BellDot } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,6 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
 import Papa from 'papaparse';
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -516,6 +517,7 @@ export default function ManageMembersPage() {
 
   return (
     <div className="flex flex-col h-full gap-6">
+    <TooltipProvider>
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
@@ -847,7 +849,19 @@ export default function ManageMembersPage() {
                           <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div className="flex-grow">
-                          <p className="font-semibold">{member.name}</p>
+                            <div className="flex items-center gap-2">
+                                <p className="font-semibold">{member.name}</p>
+                                {member.fcmTokens && member.fcmTokens.length > 0 && (
+                                    <Tooltip>
+                                        <TooltipTrigger>
+                                            <BellDot className="h-4 w-4 text-green-500" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Ready to receive Push Notifications</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                )}
+                            </div>
                           <p className="text-sm text-muted-foreground">ITS: {member.itsId}</p>
                           <p className="text-sm text-muted-foreground">{member.designation || "N/A"}</p>
                         </div>
@@ -931,7 +945,21 @@ export default function ManageMembersPage() {
                             <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
                           </Avatar>
                         </TableCell>
-                        <TableCell className="font-medium">{member.name}</TableCell>
+                        <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                                <span>{member.name}</span>
+                                {member.fcmTokens && member.fcmTokens.length > 0 && (
+                                    <Tooltip>
+                                        <TooltipTrigger>
+                                            <BellDot className="h-4 w-4 text-green-500" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Ready for Push Notifications</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                )}
+                            </div>
+                        </TableCell>
                         <TableCell>{member.itsId}</TableCell>
                         <TableCell>{getMohallahNameById(member.mohallahId)}</TableCell>
                         <TableCell>{member.team || "N/A"}</TableCell>
@@ -1014,6 +1042,7 @@ export default function ManageMembersPage() {
             )}
         </CardFooter>
       </Card>
+      </TooltipProvider>
 
       <Dialog open={isCsvImportDialogOpen} onOpenChange={(open) => { setIsCsvImportDialogOpen(open); if(!open) setSelectedFile(null); }}>
         <DialogContent className="sm:max-w-[525px]">
@@ -1056,5 +1085,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
-    
