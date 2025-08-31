@@ -1,0 +1,10 @@
+
+{
+    "name": "BGK Attendance App",
+    "short_name": "BGK App",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#FFC107",
+    "gcm_sender_id": "103953800507"
+}

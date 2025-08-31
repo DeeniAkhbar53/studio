@@ -206,19 +206,22 @@ export const getUsersCount = async (mohallahId?: string): Promise<number> => {
 };
 
 // Function to update user with FCM Token
-export const updateUserFcmToken = async (userId: string, mohallahId: string, token: string): Promise<void> => {
-  if (!mohallahId || !userId) {
-    console.error("Mohallah ID and User ID are required to update FCM token.");
-    return;
-  }
-  try {
-    const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
-    await updateDoc(userDocRef, {
-      fcmTokens: arrayUnion(token) // Add the new token to the array, ensuring uniqueness
-    });
-    console.log(`FCM token ${token} added for user ${userId} in Mohallah ${mohallahId}`);
-  } catch (error) {
-    console.error(`Error updating FCM token for user ${userId} in Mohallah ${mohallahId}: `, error);
-    // Optionally re-throw or handle more gracefully
-  }
+export const updateUserFcmToken = async (userItsId: string, userMohallahId: string, token: string): Promise<void> => {
+    try {
+        const user = await getUserByItsOrBgkId(userItsId);
+        if (!user || !user.mohallahId) {
+            console.error(`User with ITS ID ${userItsId} not found or has no Mohallah ID.`);
+            return;
+        }
+
+        const userDocRef = doc(db, 'mohallahs', user.mohallahId, 'members', user.id);
+        
+        await updateDoc(userDocRef, {
+            fcmTokens: arrayUnion(token)
+        });
+        console.log(`FCM token updated for user ${userItsId}`);
+
+    } catch (error) {
+        console.error(`Error updating FCM token for user ${userItsId}: `, error);
+    }
 };

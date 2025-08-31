@@ -25,48 +25,13 @@ export type NotificationDataForAdd = Omit<NotificationItem, 'id' | 'createdAt' |
 
 export const addNotification = async (notificationData: NotificationDataForAdd): Promise<string> => {
   try {
+    // The Cloud Function 'onNewNotificationCreated' will be triggered by this action.
+    // It will handle sending the push notifications.
     const docRef = await addDoc(notificationsCollectionRef, {
       ...notificationData,
       createdAt: serverTimestamp(),
       readBy: [], // Initialize readBy as an empty array
     });
-
-    // --- Sending Push Notifications via Firebase Console ---
-    // This Next.js frontend function saves the notification to Firestore.
-    // To send push notifications to user devices via Firebase Cloud Messaging (FCM),
-    // you will now manually compose and send messages using the Firebase Console's
-    // "Engagement" -> "Messaging" (or "Cloud Messaging") section.
-    //
-    // When composing a message in the Firebase Console:
-    // 1. **Targeting**: You can target user segments, specific topics (if you implement topic subscriptions),
-    //    or individual FCM tokens (though this is less common for broad announcements).
-    //    Since user FCM tokens are stored in `mohallahs/{mohallahId}/members/{userId}/fcmTokens`,
-    //    you might need to export these tokens for targeted campaigns if the console's segmentation
-    //    doesn't directly meet your needs for audience selection based on the `targetAudience`
-    //    field of this Firestore notification document.
-    //
-    // 2. **Notification Content**:
-    //    - **Title**: Use the `title` from this Firestore document (e.g., notificationData.title).
-    //    - **Body (Text)**: Use the `content` from this Firestore document (e.g., notificationData.content).
-    //    - **Image URL (Optional)**: You can add an image URL.
-    //    - **Notification Name (Optional)**: For your reference in the console.
-    //
-    // 3. **Custom Data (Optional but Recommended)**:
-    //    In the "Additional options" -> "Custom data" section of the FCM console composer,
-    //    you can add key-value pairs. This is useful for in-app navigation when a
-    //    notification is clicked. For example:
-    //    - Key: `url`, Value: `/dashboard/notifications`
-    //    - Key: `notificationId`, Value: `docRef.id` (the ID of this Firestore document)
-    //    This data will be available in your `public/firebase-messaging-sw.js` and
-    //    your foreground message handler in `src/app/dashboard/layout.tsx`.
-    //
-    // 4. **Scheduling**: Send immediately or schedule for later.
-    //
-    // The `public/firebase-messaging-sw.js` file in your Next.js app handles displaying
-    // system notifications if the app is in the background or closed. The foreground
-    // message handler in `src/app/dashboard/layout.tsx` handles messages when the app is open.
-    // --- End Manual Sending Guide ---
-
     return docRef.id;
   } catch (error) {
     console.error("Error adding notification to Firestore: ", error);
@@ -176,4 +141,3 @@ export const deleteNotification = async (notificationId: string): Promise<void> 
     throw error;
   }
 };
-
