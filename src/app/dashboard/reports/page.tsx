@@ -525,7 +525,7 @@ export default function ReportsPage() {
               Visual representation of members marked present or late for each Miqaat in the current report.
             </CardDescription>
           </CardHeader>
-          <CardContent className="h-[350px] p-2 sm:p-4">
+          <CardContent className="h-[350px] w-full p-2 sm:p-4">
             <ChartContainer config={chartConfig} className="w-full h-full">
               <BarChart accessibilityLayer data={chartData} layout="vertical" stackOffset="none"
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
@@ -536,7 +536,7 @@ export default function ReportsPage() {
                     type="category" 
                     dataKey="name" 
                     width={100} 
-                    tick={{ fontSize: 10 }} 
+                    tick={{ fontSize: 10, fill: 'hsl(var(--foreground))' }}
                     interval={0}
                 />
                 <ChartTooltip
