@@ -184,7 +184,7 @@ export default function DashboardLayout({
         setFcmTokenStatus("skipped_not_authenticated");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]); // Only re-run if isAuthenticated changes. toast is stable.
+  }, [isAuthenticated, toast]); // toast is a stable function from the hook, so this is safe
 
   useEffect(() => {
     console.log("FCM Token Status Changed:", fcmTokenStatus);

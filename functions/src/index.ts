@@ -76,7 +76,7 @@ export const onNewNotificationCreated = functions.firestore
 
       functions.logger.log("Successfully sent message(s):", response.successCount, "failures:", response.failureCount);
 
-      // --- Token Cleanup (Optional but Recommended) ---
+      // --- Token Cleanup ---
       // This section finds invalid tokens and you would then need another
       // step to trace them back to the user and remove them. This part is complex
       // as you need to find which user has the invalid token.
@@ -85,27 +85,27 @@ export const onNewNotificationCreated = functions.firestore
         const error = result.error;
         if (error) {
           functions.logger.error("Failure sending notification to", uniqueTokens[index], error);
+          // Here, you would typically handle tokens that are no longer valid.
           if (
             error.code === "messaging/invalid-registration-token" ||
             error.code === "messaging/registration-token-not-registered"
           ) {
-            // Logic to find user with this token and remove it would go here.
-            // For simplicity, this part is not implemented but it is an important step.
-            // Example:
-            // const invalidToken = uniqueTokens[index];
-            // Find user(s) with invalidToken and remove it from their fcmTokens array.
+            // This is where you would implement logic to find the user with this
+            // invalid token and remove it from their `fcmTokens` array.
+            // For simplicity in this example, this complex cleanup is logged but not executed.
+            const invalidToken = uniqueTokens[index];
+            functions.logger.warn(`Invalid token found: ${invalidToken}. Manual cleanup recommended.`);
           }
         }
       });
-
-      // if (tokensToRemove.length > 0) {
-      //   await Promise.all(tokensToRemove);
-      // }
       // --- End Token Cleanup ---
 
       return null;
     } catch (error) {
       functions.logger.error("Error sending notification:", error);
+      if (error instanceof Error && error.message.includes("index")) {
+          functions.logger.error("Firestore query failed. This is likely due to a missing Firestore index. Please check your Firebase console for index creation recommendations on the 'members' collection group for the 'role' field.");
+      }
       return null;
     }
   });
