@@ -3,12 +3,38 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { PlusCircle, FileText, Loader2, ShieldAlert } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PlusCircle, FileText, Loader2, ShieldAlert, Trash2, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, Form as FormType } from "@/types";
-import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import type { UserRole, Form as FormType, FormField as FormFieldType } from "@/types";
+
+// Schema for a single question
+const formQuestionSchema = z.object({
+  id: z.string().optional(), // for potential future use
+  label: z.string().min(1, "Question text cannot be empty."),
+  type: z.enum(['text', 'textarea', 'checkbox', 'radio', 'select']),
+  required: z.boolean(),
+  options: z.array(z.object({ value: z.string().min(1, "Option cannot be empty.") })).optional(),
+});
+
+// Schema for the entire form
+const formBuilderSchema = z.object({
+  title: z.string().min(1, "Form title cannot be empty."),
+  description: z.string().optional(),
+  questions: z.array(formQuestionSchema),
+});
+
+type FormBuilderValues = z.infer<typeof formBuilderSchema>;
 
 // Placeholder data - in the future this would come from Firestore
 const MOCK_FORMS: FormType[] = [
@@ -23,16 +49,29 @@ export default function FormsPage() {
     const [forms, setForms] = useState<FormType[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
+    const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
+
+    const formBuilder = useForm<FormBuilderValues>({
+        resolver: zodResolver(formBuilderSchema),
+        defaultValues: {
+            title: "",
+            description: "",
+            questions: [],
+        },
+    });
+
+    const { fields, append, remove, move } = useFieldArray({
+        control: formBuilder.control,
+        name: "questions",
+    });
 
     useEffect(() => {
         const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
         setCurrentUserRole(role);
-        // This page is accessible to all, so no complex authorization check needed for viewing
         setIsAuthorized(true);
     }, []);
 
     useEffect(() => {
-        // Simulate fetching forms from a database
         setIsLoading(true);
         setTimeout(() => {
             setForms(MOCK_FORMS);
@@ -42,6 +81,22 @@ export default function FormsPage() {
 
     const canCreateForms = currentUserRole === 'admin' || currentUserRole === 'superadmin';
 
+    const handleCreateFormSubmit = (values: FormBuilderValues) => {
+        console.log("Form Submitted:", values);
+        // In the future, this will save to Firestore
+        const newForm: FormType = {
+            id: String(Date.now()), // temporary ID
+            ...values,
+            questions: values.questions.map(q => ({...q, id: String(Math.random())})), // temp question IDs
+            createdBy: localStorage.getItem('userItsId') || 'unknown',
+            createdAt: new Date().toISOString(),
+        };
+        setForms(prev => [newForm, ...prev]);
+        toast({ title: "Form Created!", description: `"${values.title}" has been created.` });
+        setIsCreateFormOpen(false);
+        formBuilder.reset();
+    };
+    
     if (isAuthorized === null) {
         return (
             <div className="flex h-full w-full items-center justify-center">
@@ -50,7 +105,6 @@ export default function FormsPage() {
         );
     }
     
-    // Although we set it to true, this is good practice in case logic changes
     if (isAuthorized === false) {
         return (
            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
@@ -59,7 +113,6 @@ export default function FormsPage() {
             <p className="text-muted-foreground mt-2">
               You do not have the required permissions to view this page.
             </p>
-            <p className="text-sm text-muted-foreground mt-1">Redirecting to dashboard...</p>
           </div>
         );
     }
@@ -78,9 +131,112 @@ export default function FormsPage() {
                         </CardDescription>
                     </div>
                     {canCreateForms && (
-                        <Button onClick={() => toast({ title: "Coming Soon!", description: "The form builder will be implemented in a future update." })} size="sm">
-                            <PlusCircle className="mr-2 h-4 w-4" /> Create New Form
-                        </Button>
+                        <Dialog open={isCreateFormOpen} onOpenChange={setIsCreateFormOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="sm">
+                                    <PlusCircle className="mr-2 h-4 w-4" /> Create New Form
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+                                <DialogHeader>
+                                    <DialogTitle>Create a New Form</DialogTitle>
+                                    <DialogDescription>
+                                        Build your form by adding a title, description, and questions.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <form onSubmit={formBuilder.handleSubmit(handleCreateFormSubmit)} className="flex-1 overflow-y-auto space-y-6 pr-6">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="form-title">Form Title</Label>
+                                        <Input id="form-title" {...formBuilder.register("title")} placeholder="e.g., Annual Event Feedback" />
+                                        {formBuilder.formState.errors.title && <p className="text-sm text-destructive">{formBuilder.formState.errors.title.message}</p>}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="form-description">Description</Label>
+                                        <Textarea id="form-description" {...formBuilder.register("description")} placeholder="Provide a brief description for your form..." />
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <h3 className="text-lg font-semibold">Questions</h3>
+                                        {fields.map((field, index) => {
+                                            const questionType = formBuilder.watch(`questions.${index}.type`);
+                                            return (
+                                                <Card key={field.id} className="p-4 bg-muted/50 relative">
+                                                    <div className="flex gap-4">
+                                                         <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab shrink-0 mt-1" />
+                                                        <div className="flex-grow space-y-4">
+                                                            <div className="flex justify-between items-center">
+                                                                <Label className="font-semibold">Question {index + 1}</Label>
+                                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}>
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                <div className="space-y-2">
+                                                                    <Label>Question Type</Label>
+                                                                    <Controller
+                                                                        control={formBuilder.control}
+                                                                        name={`questions.${index}.type`}
+                                                                        render={({ field }) => (
+                                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                                                                                <SelectContent>
+                                                                                    <SelectItem value="text">Text (Single Line)</SelectItem>
+                                                                                    <SelectItem value="textarea">Text Area (Multi-line)</SelectItem>
+                                                                                    <SelectItem value="radio">Radio Buttons</SelectItem>
+                                                                                    <SelectItem value="checkbox">Checkboxes</SelectItem>
+                                                                                    <SelectItem value="select">Dropdown</SelectItem>
+                                                                                </SelectContent>
+                                                                            </Select>
+                                                                        )}
+                                                                    />
+                                                                </div>
+                                                                 <div className="space-y-2 flex flex-col justify-end">
+                                                                    <div className="flex items-center space-x-2">
+                                                                         <Controller
+                                                                            control={formBuilder.control}
+                                                                            name={`questions.${index}.required`}
+                                                                            render={({ field }) => (
+                                                                                 <Switch id={`required-${index}`} checked={field.value} onCheckedChange={field.onChange} />
+                                                                            )}
+                                                                        />
+                                                                        <Label htmlFor={`required-${index}`}>Required</Label>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="space-y-2">
+                                                                <Label>Question Label</Label>
+                                                                <Input {...formBuilder.register(`questions.${index}.label`)} placeholder="e.g., What is your name?" />
+                                                                {formBuilder.formState.errors.questions?.[index]?.label && <p className="text-sm text-destructive">{formBuilder.formState.errors.questions?.[index]?.label?.message}</p>}
+                                                            </div>
+
+                                                            {(questionType === "radio" || questionType === "checkbox" || questionType === "select") && (
+                                                                <OptionsArray control={formBuilder.control} nestIndex={index} />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </Card>
+                                            )
+                                        })}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => append({ label: "", type: 'text', required: false, options: [] })}>
+                                            <PlusCircle className="mr-2 h-4 w-4" /> Add Question
+                                        </Button>
+                                    </div>
+
+                                </form>
+                                 <DialogFooter>
+                                    <DialogClose asChild>
+                                        <Button type="button" variant="outline">Cancel</Button>
+                                    </DialogClose>
+                                    <Button type="submit" onClick={formBuilder.handleSubmit(handleCreateFormSubmit)}>
+                                        Save Form
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     )}
                 </CardHeader>
                 <CardContent>
@@ -113,3 +269,37 @@ export default function FormsPage() {
         </div>
     );
 }
+
+function OptionsArray({ control, nestIndex }: { control: any, nestIndex: number }) {
+    const { fields, append, remove } = useFieldArray({
+        control,
+        name: `questions.${nestIndex}.options`
+    });
+
+    return (
+        <div className="space-y-3 pt-2 pl-6 border-l-2 ml-2">
+            <Label className="font-semibold">Options</Label>
+            {fields.map((item, k) => (
+                <div key={item.id} className="flex items-center gap-2">
+                    <Input
+                        {...control.register(`questions.${nestIndex}.options.${k}.value`)}
+                        placeholder={`Option ${k + 1}`}
+                    />
+                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(k)}>
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </div>
+            ))}
+            <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => append({ value: "" })}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Option
+            </Button>
+        </div>
+    );
+}
+
+
+    
