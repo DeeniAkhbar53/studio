@@ -13,7 +13,7 @@ import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, Us
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat, batchMarkAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { savePendingAttendance, getPendingAttendance, clearPendingAttendance, cacheAllUsers, getCachedUserByItsOrBgkId } from "@/lib/offlineService";
-import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch } from "lucide-react";
+import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 import { format } from "date-fns";
@@ -392,8 +392,8 @@ export default function MarkAttendancePage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <div className="md:col-span-1 space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
               <Label htmlFor="miqaat-select">Select Miqaat</Label>
               <Select
                 onValueChange={(value) => {
@@ -417,7 +417,31 @@ export default function MarkAttendancePage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="md:col-span-1 space-y-2">
+
+            {currentMiqaatDetails && (
+              <Card className="bg-muted/50">
+                <CardHeader className="p-4">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CalendarClock className="h-5 w-5 text-primary" />
+                    Time Thresholds
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 text-sm space-y-1">
+                  <p className="flex items-center gap-2">
+                    <span className="font-semibold w-24">Early Before:</span>
+                    <span className="text-muted-foreground">{currentMiqaatReportingTime || "N/A"}</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <span className="font-semibold w-24">Late After:</span>
+                    <span className="text-muted-foreground">{currentMiqaatEndTime || "N/A"}</span>
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div className="md:col-span-2 space-y-2">
               <Label htmlFor="member-id">ITS / BGK ID</Label>
               <Input
                 id="member-id"
@@ -430,7 +454,7 @@ export default function MarkAttendancePage() {
             <Button
               onClick={handleMarkAttendance}
               disabled={!selectedMiqaatId || !memberIdInput || isProcessing || isLoadingMiqaats}
-              className="w-full md:w-auto"
+              className="w-full"
               size="sm"
             >
               {isProcessing ? (
@@ -444,29 +468,14 @@ export default function MarkAttendancePage() {
 
           {selectedMiqaatId && currentMiqaatDetails && (
             <div className="mt-6 pt-6 border-t">
-                <h3 className="text-lg font-semibold mb-1 flex items-center">
+                <h3 className="text-lg font-semibold mb-2 flex items-center">
                     <Users className="mr-2 h-5 w-5 text-primary" />
-                    Attendance for: {currentSelectedMiqaatName}
+                    Session Log for: {currentSelectedMiqaatName}
                 </h3>
-                {currentMiqaatReportingTime ? (
-                    <p className="text-sm text-muted-foreground mb-1 flex items-center">
-                        <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                        Reporting Time (Early before): {currentMiqaatReportingTime}
-                    </p>
-                ) : (
-                  currentMiqaatEndTime && (
-                    <p className="text-sm text-muted-foreground mb-1 flex items-center">
-                        <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                        End Time (Late after): {currentMiqaatEndTime}
-                    </p>
-                  )
-                )}
-                <p className="text-sm text-muted-foreground mb-1">
-                    Total marked in database for this Miqaat: <span className="font-bold text-foreground">{currentMiqaatAttendanceCount}</span>
-                </p>
-                <p className="text-sm text-muted-foreground mb-4">
-                    Marked in this session (local view): <span className="font-bold text-foreground">{markedAttendanceThisSession.filter(entry => entry.miqaatId === selectedMiqaatId).length}</span>
-                </p>
+                <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground mb-4">
+                  <p>Total in DB: <span className="font-bold text-foreground">{currentMiqaatAttendanceCount}</span></p>
+                  <p>Marked this session: <span className="font-bold text-foreground">{markedAttendanceThisSession.filter(entry => entry.miqaatId === selectedMiqaatId).length}</span></p>
+                </div>
                 {markedAttendanceThisSession.filter(entry => entry.miqaatId === selectedMiqaatId).length > 0 ? (
                     <div className="max-h-60 overflow-y-auto rounded-md border">
                         <Table>
@@ -499,7 +508,11 @@ export default function MarkAttendancePage() {
                         </Table>
                     </div>
                 ) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">No members marked yet for this Miqaat in this session.</p>
+                    <div className="text-sm text-muted-foreground text-center py-6 border rounded-lg bg-muted/20 flex flex-col items-center justify-center">
+                        <Info className="h-6 w-6 text-muted-foreground mb-2"/>
+                        <p>No members marked yet in this session.</p>
+                        <p>Entries will appear here as you mark them.</p>
+                    </div>
                 )}
             </div>
           )}
@@ -522,5 +535,3 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
-
-    
