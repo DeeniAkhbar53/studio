@@ -85,10 +85,10 @@ export default function DashboardLayout({
                         await updateUserFcmToken(userItsId, userMohallahId || '', currentToken);
                         console.log("FCM Setup: Token stored successfully for user.");
                         setFcmTokenStatus("token_stored");
-                        toast({
-                            title: "Push Notifications Enabled",
-                            description: "You will receive updates via push notifications.",
-                        });
+                        // toast({
+                        //     title: "Push Notifications Enabled",
+                        //     description: "You will receive updates via push notifications.",
+                        // });
                     } else {
                         console.warn("FCM Setup: User ITS ID not found in localStorage for token storage.");
                         setFcmTokenStatus("error_storing_missing_user_details");

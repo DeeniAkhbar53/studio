@@ -92,7 +92,7 @@ export default function NotificationsPage() {
             Notifications
           </CardTitle>
           <Separator className="my-2" />
-          <CardDescription>All recent updates and important information relevant to you. Newest first.</CardDescription>
+          <CardDescription>This feature is coming soon.</CardDescription>
         </CardHeader>
         <CardContent>
           {notifications.length === 0 ? (
