@@ -68,3 +68,5 @@ export const getMohallahsCount = async (): Promise<number> => {
     return 0; 
   }
 };
+
+    

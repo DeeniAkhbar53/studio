@@ -298,6 +298,8 @@ export default function DashboardOverviewPage() {
           .catch(err => console.error("Error stopping scanner (dialog closed):", err));
       }
       setIsScannerActive(false); // Ensure state reflects scanner is off
+      setIsProcessingScan(false); // Reset processing state
+      setScannerError(null); // Clear any old errors
     }
 
     return () => {
@@ -310,7 +312,7 @@ export default function DashboardOverviewPage() {
           .catch(err => console.error("Error stopping scanner in effect cleanup:", err));
       }
     };
-  }, [isScannerDialogOpen, facingMode]); // Only re-run if dialog state or facingMode changes
+  }, [isScannerDialogOpen, facingMode, handleQrCodeScanned]); // handleQrCodeScanned is now a dependency
 
   // Component unmount cleanup
   useEffect(() => {
@@ -489,3 +491,5 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
+
+    
