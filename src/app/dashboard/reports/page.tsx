@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChartHorizontal } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChartHorizontal, BarChart } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
 import { Button } from "@/components/ui/button";
@@ -27,13 +27,16 @@ import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 import {
   ChartContainer,
-  BarChart,
+  BarChart as RechartsBarChart, // Renamed to avoid conflict with Lucide icon
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   ChartTooltip,
   ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  ResponsiveContainer,
 } from "@/components/ui/chart";
 
 
@@ -267,18 +270,15 @@ export default function ReportsPage() {
   const selectedMiqaatDetails = availableMiqaats.find(m => m.id === form.getValues("miqaatId"));
 
   const chartConfig = {
-      totalAttendance: { label: "Total Attendance", color: "hsl(var(--chart-1))" },
       present: { label: "Present", color: "hsl(var(--chart-2))" },
       late: { label: "Late", color: "hsl(var(--chart-3))" },
   };
   
-  const dynamicChartHeight = chartData ? Math.max(350, chartData.length * 40) : 350;
-
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center"><BarChartHorizontal className="mr-2 h-5 w-5 text-primary"/>Generate Attendance Report</CardTitle>
+          <CardTitle className="flex items-center"><BarChart className="mr-2 h-5 w-5 text-primary"/>Generate Attendance Report</CardTitle>
           <Separator className="my-2" />
           <CardDescription>Select criteria to generate a detailed attendance report from the system data.</CardDescription>
         </CardHeader>
@@ -520,34 +520,45 @@ export default function ReportsPage() {
       {chartData && chartData.length > 0 && (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity") && (
         <Card className="shadow-lg mt-6">
           <CardHeader>
-            <CardTitle className="flex items-center"><BarChartHorizontal className="mr-2 h-5 w-5 text-primary"/>Attendance per Miqaat</CardTitle>
+            <CardTitle className="flex items-center"><BarChart className="mr-2 h-5 w-5 text-primary"/>Attendance per Miqaat</CardTitle>
             <Separator className="my-2" />
             <CardDescription>
               Visual representation of members marked present or late for each Miqaat in the current report.
             </CardDescription>
           </CardHeader>
-          <CardContent className="w-full p-2 sm:p-4" style={{ height: `${dynamicChartHeight}px` }}>
-            <ChartContainer config={chartConfig} className="w-full h-full">
-              <BarChart accessibilityLayer data={chartData} layout="vertical" stackOffset="none"
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid horizontal={true} vertical={false} strokeDasharray="3 3" />
-                <XAxis type="number" dataKey="totalAttendance" allowDecimals={false} />
-                <YAxis 
-                    type="category" 
-                    dataKey="name" 
-                    width={100} 
-                    tick={{ fontSize: 10, fill: 'hsl(var(--foreground))' }}
-                    interval={0}
-                />
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent indicator="dot" />}
-                />
-                <Bar dataKey="present" fill="var(--color-present)" radius={0} stackId="a" />
-                <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
-              </BarChart>
-            </ChartContainer>
+          <CardContent className="w-full">
+              <div className="h-[400px] w-full overflow-x-auto">
+                <ResponsiveContainer width={Math.max(chartData.length * 80, 500)} height={400}>
+                    <RechartsBarChart
+                        accessibilityLayer
+                        data={chartData}
+                        layout="vertical"
+                        margin={{
+                            top: 5,
+                            right: 30,
+                            left: 20,
+                            bottom: 50, // Increased bottom margin for rotated labels
+                        }}
+                    >
+                        <CartesianGrid horizontal={true} vertical={false} strokeDasharray="3 3" />
+                        <XAxis type="number" dataKey="totalAttendance" allowDecimals={false} />
+                        <YAxis 
+                            type="category" 
+                            dataKey="name" 
+                            width={100} 
+                            tick={{ fontSize: 10, fill: 'hsl(var(--foreground))' }}
+                            interval={0}
+                        />
+                        <ChartTooltip
+                            cursor={{fill: 'hsl(var(--muted))'}}
+                            content={<ChartTooltipContent indicator="dot" />}
+                        />
+                        <ChartLegend content={<ChartLegendContent />} />
+                        <Bar dataKey="present" fill="var(--color-present)" radius={0} stackId="a" />
+                        <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
+                    </RechartsBarChart>
+                </ResponsiveContainer>
+             </div>
           </CardContent>
         </Card>
       )}
