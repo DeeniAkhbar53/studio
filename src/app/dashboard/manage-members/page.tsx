@@ -527,6 +527,7 @@ export default function ManageMembersPage() {
   const filteredMembers = useMemo(() => members.filter(m => {
     const searchTermMatch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             m.itsId.includes(searchTerm) ||
+                            (m.bgkId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                             (mohallahs.find(moh => moh.id === m.mohallahId)?.name.toLowerCase() || "").includes(searchTerm.toLowerCase());
     return searchTermMatch;
   }), [members, searchTerm, mohallahs]);
@@ -863,7 +864,7 @@ export default function ManageMembersPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search members by name, ITS, Mohallah..."
+                placeholder="Search members by name, ITS, BGK ID, Mohallah..."
                 className="pl-8 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -943,6 +944,7 @@ export default function ManageMembersPage() {
                                 )}
                             </div>
                           <p className="text-sm text-muted-foreground">ITS: {member.itsId}</p>
+                          <p className="text-sm text-muted-foreground">BGK ID: {member.bgkId || "N/A"}</p>
                           <p className="text-sm text-muted-foreground">{member.designation || "N/A"}</p>
                         </div>
                       </div>
@@ -1002,6 +1004,7 @@ export default function ManageMembersPage() {
                       <TableHead className="w-[60px] sm:w-[80px]">Avatar</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>ITS ID</TableHead>
+                      <TableHead>BGK ID</TableHead>
                       <TableHead>Mohallah</TableHead>
                       <TableHead>Team</TableHead>
                       <TableHead>Designation</TableHead>
@@ -1041,6 +1044,7 @@ export default function ManageMembersPage() {
                             </div>
                         </TableCell>
                         <TableCell>{member.itsId}</TableCell>
+                        <TableCell>{member.bgkId || "N/A"}</TableCell>
                         <TableCell>{getMohallahNameById(member.mohallahId)}</TableCell>
                         <TableCell>{member.team || "N/A"}</TableCell>
                         <TableCell>{member.designation || "N/A"}</TableCell>
@@ -1078,7 +1082,7 @@ export default function ManageMembersPage() {
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={canManageMembers ? 9 : 8} className="text-center h-24">
+                        <TableCell colSpan={canManageMembers ? 10 : 9} className="text-center h-24">
                           No members found { (searchTerm || (currentUserRole === 'superadmin' && selectedFilterMohallahId !=='all') || (currentUserRole === 'admin' && currentUserMohallahId) && !fetchError ) && "matching criteria"}.
                           {(fetchError && currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' ) && "Select a specific Mohallah."}
                           {(currentUserRole === 'admin' && !currentUserMohallahId && !isLoadingMembers) && "Admin Mohallah not set."}
@@ -1166,4 +1170,3 @@ export default function ManageMembersPage() {
   );
 }
 
-    
