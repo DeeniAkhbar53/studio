@@ -11,11 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, UserRole } from "@/types";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
-import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
-import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock } from "lucide-react";
+import { getMiqaats, markAttendanceInMiqaat, batchMarkAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
+import { savePendingAttendance, getPendingAttendance, clearPendingAttendance } from "@/lib/offlineService";
+import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 import { format } from "date-fns";
+import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 
 
 export default function MarkAttendancePage() {
@@ -29,8 +31,49 @@ export default function MarkAttendancePage() {
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
 
+  // Offline state management
+  const [isOffline, setIsOffline] = useState(false);
+  const [pendingRecordsCount, setPendingRecordsCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const { toast } = useToast();
+
+  const checkPendingRecords = useCallback(async () => {
+    try {
+      const records = await getPendingAttendance();
+      setPendingRecordsCount(records.length);
+    } catch (error) {
+      console.error("Failed to check for pending records:", error);
+      toast({ title: "Offline Storage Error", description: "Could not access offline records.", variant: "destructive" });
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    // Initial check for online/offline status
+    if (typeof window !== 'undefined') {
+      setIsOffline(!navigator.onLine);
+      checkPendingRecords();
+    }
+    
+    const handleOnline = () => {
+      setIsOffline(false);
+      toast({ title: "You are back online!", description: "Ready to sync any pending records." });
+      checkPendingRecords(); // Check for pending records when coming back online
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      toast({ title: "You are offline", description: "Attendance will be saved locally and synced later.", variant: "destructive", duration: 5000 });
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [toast, checkPendingRecords]);
+
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -94,12 +137,16 @@ export default function MarkAttendancePage() {
     try {
       member = await getUserByItsOrBgkId(memberIdInput.trim());
     } catch (error) {
-      toast({ title: "Database Error", description: "Could not verify member ID.", variant: "destructive" });
-      setIsProcessing(false);
-      return;
+      // Allow proceeding if offline, member will be validated on sync
+      if (!isOffline) {
+        toast({ title: "Database Error", description: "Could not verify member ID.", variant: "destructive" });
+        setIsProcessing(false);
+        return;
+      }
+      console.warn("Offline: Proceeding without member validation for ID:", memberIdInput.trim());
     }
 
-    if (!member) {
+    if (!member && !isOffline) {
       toast({ title: "Member Not Found", description: `No member found with ID: ${memberIdInput} in the database.`, variant: "destructive" });
       setIsProcessing(false);
       return;
@@ -111,16 +158,21 @@ export default function MarkAttendancePage() {
         setIsProcessing(false);
         return;
     }
-
-    const alreadyMarkedInDb = selectedMiqaatDetails.attendance?.some(
-      (entry) => entry.userItsId === member!.itsId
+    
+    // Check if already marked in local session or database
+    const alreadyMarkedInSession = markedAttendanceThisSession.some(
+        (entry) => entry.memberItsId === (member?.itsId || memberIdInput.trim()) && entry.miqaatId === selectedMiqaatId
     );
 
-    if (alreadyMarkedInDb) {
+    const alreadyMarkedInDb = !isOffline && selectedMiqaatDetails.attendance?.some(
+      (entry) => entry.userItsId === member!.itsId
+    );
+    
+    if (alreadyMarkedInDb || alreadyMarkedInSession) {
       const existingEntry = selectedMiqaatDetails.attendance?.find(entry => entry.userItsId === member!.itsId);
       toast({
         title: "Already Marked",
-        description: `${member.name} (${member.itsId}) has already been marked for ${selectedMiqaatDetails.name} (${existingEntry?.status || 'present'}).`,
+        description: `${member?.name || `ID ${memberIdInput.trim()}`} has already been marked for ${selectedMiqaatDetails.name} ${alreadyMarkedInSession ? 'in this session' : ''} (${existingEntry?.status || 'present'}).`,
         variant: "default",
       });
       setMemberIdInput("");
@@ -136,48 +188,97 @@ export default function MarkAttendancePage() {
     const attendanceStatus = now > onTimeThreshold ? 'late' : 'present';
 
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
-        userItsId: member.itsId,
-        userName: member.name,
+        userItsId: member?.itsId || memberIdInput.trim(), // Use input ID if member not found offline
+        userName: member?.name || `(Offline) ${memberIdInput.trim()}`,
         markedAt: now.toISOString(),
         markedByItsId: markerItsId,
         status: attendanceStatus,
     };
+    
+    const newSessionEntry: MarkedAttendanceEntry = {
+        memberItsId: attendanceEntryPayload.userItsId,
+        memberName: attendanceEntryPayload.userName,
+        timestamp: now,
+        miqaatId: selectedMiqaatDetails.id,
+        miqaatName: selectedMiqaatDetails.name,
+        status: attendanceStatus,
+    };
+    setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
 
     try {
-        await markAttendanceInMiqaat(selectedMiqaatDetails.id, attendanceEntryPayload);
+        if (isOffline) {
+            await savePendingAttendance(selectedMiqaatDetails.id, attendanceEntryPayload);
+            await checkPendingRecords();
+            toast({
+                title: "Saved Offline",
+                description: `Attendance for ${attendanceEntryPayload.userName} for ${selectedMiqaatDetails.name} saved locally. Sync when online.`,
+            });
+        } else {
+            await markAttendanceInMiqaat(selectedMiqaatDetails.id, attendanceEntryPayload);
+            setAllMiqaats(prevMiqaats => 
+                prevMiqaats.map(m => 
+                    m.id === selectedMiqaatId 
+                    ? { ...m, attendance: [...(m.attendance || []), attendanceEntryPayload] } 
+                    : m
+                )
+            );
 
-        const newSessionEntry: MarkedAttendanceEntry = {
-          memberItsId: member.itsId,
-          memberName: member.name,
-          timestamp: now,
-          miqaatId: selectedMiqaatDetails.id,
-          miqaatName: selectedMiqaatDetails.name,
-          status: attendanceStatus,
-        };
-        setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
-        
-        setAllMiqaats(prevMiqaats => 
-            prevMiqaats.map(m => 
-                m.id === selectedMiqaatId 
-                ? { ...m, attendance: [...(m.attendance || []), attendanceEntryPayload] } 
-                : m
-            )
-        );
-
-        toast({
-          title: `Attendance Marked ${attendanceStatus === 'late' ? '(Late)' : ''}`,
-          description: `${member.name} (${member.itsId}) marked ${attendanceStatus} for ${selectedMiqaatDetails.name}.`,
-        });
+            toast({
+              title: `Attendance Marked ${attendanceStatus === 'late' ? '(Late)' : ''}`,
+              description: `${attendanceEntryPayload.userName} (${attendanceEntryPayload.userItsId}) marked ${attendanceStatus} for ${selectedMiqaatDetails.name}.`,
+            });
+        }
         setMemberIdInput("");
     } catch (dbError) {
-        console.error("Failed to save attendance to Miqaat document:", dbError);
+        console.error("Failed to save attendance:", dbError);
         toast({
             title: "Database Error",
             description: "Failed to save attendance record. Please try again.",
             variant: "destructive",
         });
+        // Remove from session log if db save failed
+        setMarkedAttendanceThisSession(prev => prev.filter(p => p.timestamp !== newSessionEntry.timestamp));
     } finally {
         setIsProcessing(false);
+    }
+  };
+
+  const handleSync = async () => {
+    if (isOffline || pendingRecordsCount === 0) {
+      toast({ title: "Sync Not Needed", description: isOffline ? "You are offline." : "No pending records to sync." });
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      const recordsToSync = await getPendingAttendance();
+      if (recordsToSync.length === 0) {
+        toast({ title: "Nothing to Sync", description: "No pending records were found." });
+        setPendingRecordsCount(0);
+        setIsSyncing(false);
+        return;
+      }
+      
+      const recordsByMiqaat = recordsToSync.reduce((acc, record) => {
+        if (!acc[record.miqaatId]) {
+          acc[record.miqaatId] = [];
+        }
+        acc[record.miqaatId].push(record.entry);
+        return acc;
+      }, {} as { [key: string]: MiqaatAttendanceEntryItem[] });
+
+      // Perform batch writes for each Miqaat
+      for (const miqaatId in recordsByMiqaat) {
+        await batchMarkAttendanceInMiqaat(miqaatId, recordsByMiqaat[miqaatId]);
+      }
+
+      await clearPendingAttendance();
+      await checkPendingRecords();
+      toast({ title: "Sync Complete", description: `${recordsToSync.length} offline record(s) have been synced successfully.` });
+    } catch (error) {
+      console.error("Sync failed:", error);
+      toast({ title: "Sync Failed", description: "Could not sync all records. Please try again. See console for details.", variant: "destructive" });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -194,6 +295,32 @@ export default function MarkAttendancePage() {
 
   return (
     <div className="space-y-6">
+      { (isOffline || pendingRecordsCount > 0) &&
+         <Alert variant={isOffline ? "destructive" : "default"} className="mb-4">
+          {isOffline ? <WifiOff className="h-4 w-4" /> : <Wifi className="h-4 w-4" />}
+            <ShadAlertTitle>
+              {isOffline ? "Offline Mode Active" : "Online with Pending Records"}
+            </ShadAlertTitle>
+            <ShadAlertDesc className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <span>
+                {isOffline
+                  ? `You are offline. ${pendingRecordsCount} record(s) waiting to be synced.`
+                  : `${pendingRecordsCount} record(s) were saved offline. Please sync them.`
+                }
+              </span>
+              <Button
+                  onClick={handleSync}
+                  disabled={isOffline || isSyncing || pendingRecordsCount === 0}
+                  size="sm"
+                  variant="secondary"
+                  className="mt-2 sm:mt-0"
+              >
+                  {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudUpload className="mr-2 h-4 w-4" />}
+                  {isSyncing ? "Syncing..." : `Sync ${pendingRecordsCount} Record(s)`}
+              </Button>
+            </ShadAlertDesc>
+          </Alert>
+      }
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center"><ListChecks className="mr-2 h-6 w-6 text-primary" />Mark Member Attendance</CardTitle>

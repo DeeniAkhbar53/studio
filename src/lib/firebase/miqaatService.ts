@@ -1,6 +1,6 @@
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion, onSnapshot, Unsubscribe, writeBatch } from 'firebase/firestore';
 import type { Miqaat, MiqaatAttendanceEntryItem } from '@/types';
 
 const miqaatsCollectionRef = collection(db, 'miqaats');
@@ -156,3 +156,32 @@ export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAtte
     throw error;
   }
 };
+
+export const batchMarkAttendanceInMiqaat = async (miqaatId: string, entries: MiqaatAttendanceEntryItem[]): Promise<void> => {
+    if (entries.length === 0) {
+        return;
+    }
+
+    try {
+        const miqaatDocRef = doc(db, 'miqaats', miqaatId);
+        
+        // Firestore batches have a limit of 500 operations. arrayUnion is one operation.
+        // If you expect more than 500 entries at once, you will need to split this into multiple batches.
+        // For now, we assume a reasonable number of offline entries per sync.
+        const batch = writeBatch(db);
+
+        const attendedUserItsIds = entries.map(e => e.userItsId);
+
+        batch.update(miqaatDocRef, {
+            attendance: arrayUnion(...entries),
+            attendedUserItsIds: arrayUnion(...attendedUserItsIds)
+        });
+
+        await batch.commit();
+        console.log(`Successfully batch-updated ${entries.length} attendance records for Miqaat ${miqaatId}.`);
+    } catch (error) {
+        console.error(`Error during batch attendance update for Miqaat ${miqaatId}:`, error);
+        throw error;
+    }
+};
+
