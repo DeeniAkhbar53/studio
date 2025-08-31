@@ -10,10 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, UserRole } from "@/types";
-import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
+import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat, batchMarkAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
-import { savePendingAttendance, getPendingAttendance, clearPendingAttendance } from "@/lib/offlineService";
-import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload } from "lucide-react";
+import { savePendingAttendance, getPendingAttendance, clearPendingAttendance, cacheAllUsers, getCachedUserByItsOrBgkId } from "@/lib/offlineService";
+import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 import { format } from "date-fns";
@@ -35,6 +35,7 @@ export default function MarkAttendancePage() {
   const [isOffline, setIsOffline] = useState(false);
   const [pendingRecordsCount, setPendingRecordsCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isCachingUsers, setIsCachingUsers] = useState(false);
 
   const { toast } = useToast();
 
@@ -47,32 +48,64 @@ export default function MarkAttendancePage() {
       toast({ title: "Offline Storage Error", description: "Could not access offline records.", variant: "destructive" });
     }
   }, [toast]);
-
+  
+  // Effect for online/offline detection and initial data caching
   useEffect(() => {
-    // Initial check for online/offline status
-    if (typeof window !== 'undefined') {
-      setIsOffline(!navigator.onLine);
-      checkPendingRecords();
-    }
-    
-    const handleOnline = () => {
-      setIsOffline(false);
-      toast({ title: "You are back online!", description: "Ready to sync any pending records." });
-      checkPendingRecords(); // Check for pending records when coming back online
-    };
-    const handleOffline = () => {
-      setIsOffline(true);
-      toast({ title: "You are offline", description: "Attendance will be saved locally and synced later.", variant: "destructive", duration: 5000 });
+    const updateOnlineStatus = () => {
+      const online = navigator.onLine;
+      setIsOffline(!online);
+      if (online) {
+        toast({ title: "You are back online!", description: "Ready to sync any pending records." });
+        checkPendingRecords();
+        // Trigger caching of user data when coming online
+        fetchAllUsersForCache();
+      } else {
+        toast({ title: "You are offline", description: "Attendance will be saved locally and validated against the last known member list.", variant: "destructive", duration: 5000 });
+      }
     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+
+    // Initial check
+    if (typeof window !== 'undefined') {
+      const online = navigator.onLine;
+      setIsOffline(!online);
+      checkPendingRecords();
+      if(online) {
+        fetchAllUsersForCache();
+      }
+    }
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
     };
-  }, [toast, checkPendingRecords]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchAllUsersForCache = useCallback(async () => {
+    if (isCachingUsers) return;
+    setIsCachingUsers(true);
+    console.log("Starting to cache all users for offline use...");
+    try {
+      const allUsers = await getUsers();
+      await cacheAllUsers(allUsers);
+      toast({
+        title: "Member List Updated",
+        description: `Successfully cached ${allUsers.length} members for offline use.`,
+      });
+    } catch (error) {
+      console.error("Failed to fetch and cache users:", error);
+      toast({
+        title: "Offline Cache Failed",
+        description: "Could not update the local member list.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCachingUsers(false);
+    }
+  }, [isCachingUsers, toast]);
 
 
   useEffect(() => {
@@ -134,24 +167,28 @@ export default function MarkAttendancePage() {
 
     setIsProcessing(true);
     let member: User | null = null;
-    try {
-      member = await getUserByItsOrBgkId(memberIdInput.trim());
-    } catch (error) {
-      // Allow proceeding if offline, member will be validated on sync
-      if (!isOffline) {
-        toast({ title: "Database Error", description: "Could not verify member ID.", variant: "destructive" });
-        setIsProcessing(false);
-        return;
-      }
-      console.warn("Offline: Proceeding without member validation for ID:", memberIdInput.trim());
-    }
 
-    if (!member && !isOffline) {
-      toast({ title: "Member Not Found", description: `No member found with ID: ${memberIdInput} in the database.`, variant: "destructive" });
+    try {
+      if (isOffline) {
+        // Offline: Validate against local cache
+        member = await getCachedUserByItsOrBgkId(memberIdInput.trim());
+      } else {
+        // Online: Validate against Firestore
+        member = await getUserByItsOrBgkId(memberIdInput.trim());
+      }
+    } catch (error) {
+      console.error("Error validating member ID:", error);
+      toast({ title: "Validation Error", description: `Could not verify member ID. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
       setIsProcessing(false);
       return;
     }
-
+    
+    if (!member) {
+      toast({ title: "Member Not Found", description: `No member found with ID: ${memberIdInput}.`, variant: "destructive" });
+      setIsProcessing(false);
+      return;
+    }
+    
     const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
     if (!selectedMiqaatDetails) {
         toast({ title: "Error", description: "Selected Miqaat details not found.", variant: "destructive" });
@@ -159,9 +196,8 @@ export default function MarkAttendancePage() {
         return;
     }
     
-    // Check if already marked in local session or database
     const alreadyMarkedInSession = markedAttendanceThisSession.some(
-        (entry) => entry.memberItsId === (member?.itsId || memberIdInput.trim()) && entry.miqaatId === selectedMiqaatId
+        (entry) => entry.memberItsId === member!.itsId && entry.miqaatId === selectedMiqaatId
     );
 
     const alreadyMarkedInDb = !isOffline && selectedMiqaatDetails.attendance?.some(
@@ -172,7 +208,7 @@ export default function MarkAttendancePage() {
       const existingEntry = selectedMiqaatDetails.attendance?.find(entry => entry.userItsId === member!.itsId);
       toast({
         title: "Already Marked",
-        description: `${member?.name || `ID ${memberIdInput.trim()}`} has already been marked for ${selectedMiqaatDetails.name} ${alreadyMarkedInSession ? 'in this session' : ''} (${existingEntry?.status || 'present'}).`,
+        description: `${member?.name} has already been marked for ${selectedMiqaatDetails.name} ${alreadyMarkedInSession ? 'in this session' : ''} (${existingEntry?.status || 'present'}).`,
         variant: "default",
       });
       setMemberIdInput("");
@@ -188,8 +224,8 @@ export default function MarkAttendancePage() {
     const attendanceStatus = now > onTimeThreshold ? 'late' : 'present';
 
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
-        userItsId: member?.itsId || memberIdInput.trim(), // Use input ID if member not found offline
-        userName: member?.name || `(Offline) ${memberIdInput.trim()}`,
+        userItsId: member.itsId,
+        userName: member.name,
         markedAt: now.toISOString(),
         markedByItsId: markerItsId,
         status: attendanceStatus,
@@ -304,7 +340,7 @@ export default function MarkAttendancePage() {
             <ShadAlertDesc className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <span>
                 {isOffline
-                  ? `You are offline. ${pendingRecordsCount} record(s) waiting to be synced.`
+                  ? `You are offline. ${pendingRecordsCount > 0 ? `${pendingRecordsCount} record(s) waiting to be synced.` : ''}`
                   : `${pendingRecordsCount} record(s) were saved offline. Please sync them.`
                 }
               </span>
@@ -323,9 +359,30 @@ export default function MarkAttendancePage() {
       }
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center"><ListChecks className="mr-2 h-6 w-6 text-primary" />Mark Member Attendance</CardTitle>
-          <Separator className="my-2" />
-          <CardDescription>Select Miqaat, enter member ITS/BGK ID. Attendance marked after Reporting Time (or End Time if no Reporting Time) will be 'Late'.</CardDescription>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex-grow">
+              <CardTitle className="flex items-center"><ListChecks className="mr-2 h-6 w-6 text-primary" />Mark Member Attendance</CardTitle>
+              <Separator className="my-2" />
+              <CardDescription>Select Miqaat, enter member ITS/BGK ID. Attendance marked after Reporting Time (or End Time if no Reporting Time) will be 'Late'.</CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchAllUsersForCache}
+              disabled={isCachingUsers || isOffline}
+              className="w-full md:w-auto self-start md:self-center"
+            >
+              {isCachingUsers ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Caching...
+                </>
+              ) : (
+                <>
+                  <UserSearch className="mr-2 h-4 w-4" /> Refresh Offline Cache
+                </>
+              )}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
