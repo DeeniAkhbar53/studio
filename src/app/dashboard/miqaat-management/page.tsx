@@ -11,6 +11,7 @@ import { MiqaatCard } from "@/components/dashboard/miqaat-card";
 import type { Miqaat, UserRole, Mohallah } from "@/types";
 import { PlusCircle, Search, Loader2, CalendarDays } from "lucide-react"; 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -21,6 +22,7 @@ import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getUniqueTeamNames } from "@/lib/firebase/userService"; 
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
+import { allNavItems } from "@/components/dashboard/sidebar-nav";
 
 const miqaatSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -37,6 +39,8 @@ const miqaatSchema = z.object({
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
 
 export default function MiqaatManagementPage() {
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
@@ -65,6 +69,22 @@ export default function MiqaatManagementPage() {
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') as UserRole | null;
+    const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
+    
+    const navItem = allNavItems.find(item => item.href === '/dashboard/miqaat-management');
+    const hasRoleAccess = navItem?.allowedRoles ? navItem.allowedRoles.includes(role || 'user') : false;
+    const hasPageRight = pageRights.includes('/dashboard/miqaat-management');
+
+    if (!role || (!hasRoleAccess && !hasPageRight)) {
+      router.replace('/dashboard');
+    } else {
+      setIsAuthorized(true);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+    const role = localStorage.getItem('userRole') as UserRole | null;
     setCurrentUserRole(role);
 
     setIsLoadingMiqaats(true);
@@ -92,7 +112,7 @@ export default function MiqaatManagementPage() {
       unsubscribeMiqaats();
       unsubscribeMohallahs();
     };
-  }, [toast]);
+  }, [isAuthorized, toast]);
 
   useEffect(() => {
     if (editingMiqaat) {
@@ -158,6 +178,15 @@ export default function MiqaatManagementPage() {
     m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (m.location || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  if (!isAuthorized) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2 text-muted-foreground">Verifying access...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

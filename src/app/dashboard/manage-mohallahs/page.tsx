@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { Mohallah, User, UserRole } from "@/types";
 import { PlusCircle, Edit, Trash2, Loader2, Home, Pencil } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from 'next/navigation';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -19,6 +20,7 @@ import { getUsers } from "@/lib/firebase/userService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
+import { allNavItems } from "@/components/dashboard/sidebar-nav";
 
 const mohallahFormSchema = z.object({
   name: z.string().min(3, "Mohallah name must be at least 3 characters"),
@@ -26,6 +28,8 @@ const mohallahFormSchema = z.object({
 type MohallahFormValues = z.infer<typeof mohallahFormSchema>;
 
 export default function ManageMohallahsPage() {
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
   const [members, setMembers] = useState<User[]>([]); 
@@ -43,6 +47,24 @@ export default function ManageMohallahsPage() {
 
   useEffect(() => {
     const role = localStorage.getItem('userRole') as UserRole | null;
+    const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
+    setCurrentUserRole(role);
+
+    const navItem = allNavItems.find(item => item.href === '/dashboard/manage-mohallahs');
+    const hasRoleAccess = navItem?.allowedRoles ? navItem.allowedRoles.includes(role || 'user') : false;
+    const hasPageRight = pageRights.includes('/dashboard/manage-mohallahs');
+
+    if (!role || (!hasRoleAccess && !hasPageRight)) {
+      router.replace('/dashboard');
+    } else {
+      setIsAuthorized(true);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+
+    const role = localStorage.getItem('userRole') as UserRole | null;
     setCurrentUserRole(role);
 
     setIsLoadingMohallahs(true);
@@ -54,7 +76,6 @@ export default function ManageMohallahsPage() {
     const fetchInitialMembers = async () => {
       setIsLoadingMembers(true);
       try {
-        // Fetch all members initially to check assignments before delete
         const fetchedMembers = await getUsers(); 
         setMembers(fetchedMembers);
       } catch (error) {
@@ -69,7 +90,7 @@ export default function ManageMohallahsPage() {
     return () => {
       unsubscribeMohallahs();
     };
-  }, [toast]);
+  }, [isAuthorized, toast]);
 
   useEffect(() => {
     if (editingMohallah) {
@@ -107,7 +128,6 @@ export default function ManageMohallahsPage() {
         return;
     }
     try {
-      // Re-fetch current members to get latest assignments before delete
       const currentMembers = await getUsers(); 
       setMembers(currentMembers);
       const membersInMohallah = currentMembers.filter(member => member.mohallahId === mohallah.id);
@@ -129,6 +149,15 @@ export default function ManageMohallahsPage() {
   };
 
   const canManage = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+
+  if (!isAuthorized) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2 text-muted-foreground">Verifying access...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

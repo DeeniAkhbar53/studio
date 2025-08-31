@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -18,9 +19,12 @@ import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 import { format } from "date-fns";
 import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
+import { allNavItems } from "@/components/dashboard/sidebar-nav";
 
 
 export default function MarkAttendancePage() {
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
   const [memberIdInput, setMemberIdInput] = useState("");
   const [markedAttendanceThisSession, setMarkedAttendanceThisSession] = useState<MarkedAttendanceEntry[]>([]);
@@ -39,6 +43,22 @@ export default function MarkAttendancePage() {
 
   const { toast } = useToast();
 
+  useEffect(() => {
+    const role = localStorage.getItem('userRole') as UserRole | null;
+    const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
+    setCurrentUserRole(role);
+
+    const navItem = allNavItems.find(item => item.href === '/dashboard/mark-attendance');
+    const hasRoleAccess = navItem?.allowedRoles ? navItem.allowedRoles.includes(role || 'user') : false;
+    const hasPageRight = pageRights.includes('/dashboard/mark-attendance');
+
+    if (!role || (!hasRoleAccess && !hasPageRight)) {
+      router.replace('/dashboard');
+    } else {
+      setIsAuthorized(true);
+    }
+  }, [router]);
+
   const checkPendingRecords = useCallback(async () => {
     try {
       const records = await getPendingAttendance();
@@ -51,6 +71,7 @@ export default function MarkAttendancePage() {
   
   // Effect for online/offline detection and initial data caching
   useEffect(() => {
+    if (!isAuthorized) return;
     const updateOnlineStatus = () => {
       const online = navigator.onLine;
       setIsOffline(!online);
@@ -82,7 +103,7 @@ export default function MarkAttendancePage() {
       window.removeEventListener('offline', updateOnlineStatus);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAuthorized]);
 
   const fetchAllUsersForCache = useCallback(async () => {
     if (isCachingUsers) return;
@@ -109,6 +130,7 @@ export default function MarkAttendancePage() {
 
 
   useEffect(() => {
+    if (!isAuthorized) return;
     if (typeof window !== "undefined") {
       const storedMarkerItsId = localStorage.getItem('userItsId');
       setMarkerItsId(storedMarkerItsId);
@@ -117,9 +139,10 @@ export default function MarkAttendancePage() {
       const storedUserRole = localStorage.getItem('userRole') as UserRole | null;
       setCurrentUserRole(storedUserRole);
     }
-  }, []);
+  }, [isAuthorized]);
 
   useEffect(() => {
+    if (!isAuthorized) return;
     setIsLoadingMiqaats(true);
     const unsubscribe = getMiqaats((fetchedMiqaats) => {
       setAllMiqaats(fetchedMiqaats.map(m => ({
@@ -134,7 +157,7 @@ export default function MarkAttendancePage() {
       setIsLoadingMiqaats(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [isAuthorized]);
 
   const availableMiqaatsForUser = useMemo(() => {
     if (isLoadingMiqaats) return [];
@@ -335,6 +358,15 @@ export default function MarkAttendancePage() {
     ? format(new Date(currentMiqaatDetails.endTime), "PPp")
     : null;
 
+
+  if (!isAuthorized) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2 text-muted-foreground">Verifying access...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

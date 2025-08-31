@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,10 +15,13 @@ import { PlusCircle, Trash2, BellRing, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { addNotification, deleteNotification } from "@/lib/firebase/notificationService";
-import { db } from "@/lib/firebase/firebase"; // Import db
-import { collection, query, orderBy, getDocs, Timestamp } from "firebase/firestore"; // Import firestore functions
+import { db } from "@/lib/firebase/firebase"; 
+import { collection, query, orderBy, getDocs, Timestamp } from "firebase/firestore";
+import { allNavItems } from "@/components/dashboard/sidebar-nav";
 
 export default function ManageNotificationsPage() {
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newNotificationTitle, setNewNotificationTitle] = useState("");
@@ -30,11 +34,27 @@ export default function ManageNotificationsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
+    const role = localStorage.getItem('userRole') as UserRole | null;
+    const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
+    
+    const navItem = allNavItems.find(item => item.href === '/dashboard/manage-notifications');
+    const hasRoleAccess = navItem?.allowedRoles ? navItem.allowedRoles.includes(role || 'user') : false;
+    const hasPageRight = pageRights.includes('/dashboard/manage-notifications');
+
+    if (!role || (!hasRoleAccess && !hasPageRight)) {
+      router.replace('/dashboard');
+    } else {
+      setIsAuthorized(true);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (!isAuthorized) return;
     const itsId = localStorage.getItem('userItsId');
     const role = localStorage.getItem('userRole') as UserRole | null;
     setCurrentUserItsId(itsId);
     setCurrentUserRole(role);
-  }, []);
+  }, [isAuthorized]);
 
   const fetchAllNotifications = useCallback(async () => {
     setIsLoading(true);
@@ -70,9 +90,10 @@ export default function ManageNotificationsPage() {
   }, [toast]);
 
   useEffect(() => {
-    // Fetch all notifications when the component mounts or currentUserRole/ItsId changes (though it's not used in query)
-    fetchAllNotifications();
-  }, [fetchAllNotifications]);
+    if (isAuthorized) {
+      fetchAllNotifications();
+    }
+  }, [isAuthorized, fetchAllNotifications]);
 
 
   const handlePostNotification = async () => {
@@ -103,8 +124,7 @@ export default function ManageNotificationsPage() {
       setNewNotificationTitle("");
       setNewNotificationContent("");
       setNewNotificationAudience('all');
-      fetchAllNotifications(); // Refresh the list to show the new notification
-      // No need to dispatch 'notificationsUpdated' if header uses Firestore listener
+      fetchAllNotifications(); 
     } catch (error) {
       console.error("Failed to post notification:", error);
       toast({ title: "Error", description: "Could not post notification.", variant: "destructive" });
@@ -121,7 +141,6 @@ export default function ManageNotificationsPage() {
         description: "The notification has been removed.",
       });
       fetchAllNotifications(); // Refresh the list
-      // No need to dispatch 'notificationsUpdated'
     } catch (error) {
       console.error("Failed to delete notification:", error);
       toast({ title: "Error", description: "Could not delete notification.", variant: "destructive" });
@@ -129,6 +148,15 @@ export default function ManageNotificationsPage() {
   };
   
   const canManage = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+
+  if (!isAuthorized) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2 text-muted-foreground">Verifying access...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

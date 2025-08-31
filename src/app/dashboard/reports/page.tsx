@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
@@ -19,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, ReportResultItem, AttendanceRecord } from "@/types"; 
+import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole } from "@/types"; 
 import { getMiqaats } from "@/lib/firebase/miqaatService";
 import { getUsers } from "@/lib/firebase/userService";
 import { getAttendanceRecordsByMiqaat, getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService"; 
@@ -44,6 +45,7 @@ import {
   Pie,
   Cell,
 } from "@/components/ui/chart";
+import { allNavItems } from "@/components/dashboard/sidebar-nav";
 
 
 const reportSchema = z.object({
@@ -87,6 +89,8 @@ type ChartDataItem = { name: string; present: number; late: number; totalAttenda
 type ChartType = "vertical_bar" | "horizontal_bar" | "pie";
 
 export default function ReportsPage() {
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [reportData, setReportData] = useState<ReportResultItem[] | null>(null);
   const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -109,15 +113,31 @@ export default function ReportsPage() {
       dateRange: { from: undefined, to: undefined },
     },
   });
+
+  useEffect(() => {
+    const role = localStorage.getItem('userRole') as UserRole | null;
+    const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
+    
+    const navItem = allNavItems.find(item => item.href === '/dashboard/reports');
+    const hasRoleAccess = navItem?.allowedRoles ? navItem.allowedRoles.includes(role || 'user') : false;
+    const hasPageRight = pageRights.includes('/dashboard/reports');
+
+    if (!role || (!hasRoleAccess && !hasPageRight)) {
+      router.replace('/dashboard');
+    } else {
+      setIsAuthorized(true);
+    }
+  }, [router]);
   
   useEffect(() => {
+    if (!isAuthorized) return;
     setIsLoadingMiqaats(true);
     const unsubscribe = getMiqaats((fetchedMiqaats) => {
       setAvailableMiqaats(fetchedMiqaats);
       setIsLoadingMiqaats(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [isAuthorized]);
 
 
   const watchedReportType = form.watch("reportType");
@@ -322,6 +342,15 @@ export default function ReportsPage() {
     if (chartType !== 'horizontal_bar' || !chartData) return 400; // Default height
     return Math.max(400, chartData.length * 40); // 40px per bar, with a minimum of 400px
   }, [chartData, chartType]);
+
+  if (!isAuthorized) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2 text-muted-foreground">Verifying access...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -691,5 +720,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
