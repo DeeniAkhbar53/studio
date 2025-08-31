@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -307,6 +308,7 @@ export default function ReportsPage() {
   const chartConfig = {
       present: { label: "Present", color: "hsl(var(--chart-2))" },
       late: { label: "Late", color: "hsl(var(--chart-3))" },
+      totalAttendance: { label: "Total", color: "hsl(var(--chart-1))" },
   };
 
   const pieChartColors = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
@@ -536,7 +538,7 @@ export default function ReportsPage() {
                                         {chartType === 'vertical_bar' && (
                                             <RechartsBarChart accessibilityLayer data={chartData}>
                                                 <CartesianGrid vertical={false} />
-                                                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} angle={-45} textAnchor="end" interval={0} height={100} />
+                                                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} angle={-45} textAnchor="end" interval={0} height={120} />
                                                 <YAxis />
                                                 <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
                                                 {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
@@ -547,7 +549,7 @@ export default function ReportsPage() {
                                         {chartType === 'horizontal_bar' && (
                                              <RechartsBarChart accessibilityLayer data={chartData} layout="vertical">
                                                 <CartesianGrid horizontal={false} />
-                                                <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={8} width={120} interval={0} />
+                                                <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={8} width={150} interval={0} />
                                                 <XAxis type="number" />
                                                 <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
                                                 {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
@@ -558,7 +560,7 @@ export default function ReportsPage() {
                                         {chartType === 'pie' && (
                                            <ResponsiveContainer width="100%" height="100%">
                                             <RechartsPieChart>
-                                                 <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" hideLabel />} />
+                                                 <ChartTooltip cursor={false} content={<ChartTooltipContent nameKey="name" indicator="dot" />} />
                                                  <Pie data={pieChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={'80%'} label>
                                                     {pieChartData.map((entry, index) => (
                                                         <Cell key={`cell-${index}`} fill={pieChartColors[index % pieChartColors.length]} />
@@ -691,4 +693,3 @@ export default function ReportsPage() {
   );
 }
 
-    
