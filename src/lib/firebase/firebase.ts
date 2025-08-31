@@ -27,7 +27,12 @@ const db = getFirestore(app);
 // Initialize Firebase Messaging and get a reference to the service
 const messaging = async () => {
   const supported = await isSupported();
-  return supported ? getMessaging(app) : null;
+  if (typeof window !== 'undefined' && supported) {
+    const messagingInstance = getMessaging(app);
+    // Request permission and get token here if needed, or in a component
+    return messagingInstance;
+  }
+  return null;
 };
 
 
