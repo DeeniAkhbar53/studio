@@ -23,6 +23,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent a
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
 import Papa from 'papaparse';
+import { Label } from "@/components/ui/label";
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -568,9 +569,9 @@ export default function ManageMembersPage() {
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid grid-cols-4 items-center gap-4">
-                        <FormLabel htmlFor="csvFile" className="text-right">
+                        <Label htmlFor="csvFile" className="text-right">
                             CSV File
-                        </FormLabel>
+                        </Label>
                         <Input
                             id="csvFile"
                             type="file"
@@ -951,9 +952,9 @@ export default function ManageMembersPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <FormLabel htmlFor="csvFile" className="text-right">
+              <Label htmlFor="csvFile" className="text-right">
                 CSV File
-              </FormLabel>
+              </Label>
               <Input
                 id="csvFile"
                 type="file"
@@ -982,3 +983,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    
