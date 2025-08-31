@@ -317,6 +317,11 @@ export default function ReportsPage() {
 
   const canShowGraphButton = (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity") && chartData && chartData.length > 0;
   
+  const dynamicChartHeight = useMemo(() => {
+    if (chartType !== 'horizontal_bar' || !chartData) return 400; // Default height
+    return Math.max(400, chartData.length * 40); // 40px per bar, with a minimum of 400px
+  }, [chartData, chartType]);
+
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
@@ -481,14 +486,14 @@ export default function ReportsPage() {
                           <BarChart className="mr-2 h-4 w-4" /> Generate Graph
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-4xl w-full">
+                    <DialogContent className="w-[95vw] max-w-4xl h-[90vh] flex flex-col">
                         <DialogHeader>
                             <DialogTitle>Report Graph</DialogTitle>
                             <DialogDescription>
                                 Visualize the attendance data from your report.
                             </DialogDescription>
                         </DialogHeader>
-                        <div className="py-4">
+                        <div className="py-4 flex-1 flex flex-col gap-4 min-h-0">
                             <div className="mb-4 p-4 border rounded-lg flex flex-col md:flex-row gap-4 items-center justify-between">
                                 <div className="flex flex-col sm:flex-row gap-4 items-center">
                                     <div className="space-y-2">
@@ -524,14 +529,14 @@ export default function ReportsPage() {
                                 </Button>
                             </div>
 
-                            <div ref={chartRef} className="bg-background p-4 rounded-lg">
+                            <div ref={chartRef} className="bg-background p-4 rounded-lg flex-1 overflow-auto">
                                 {downloadOptions.includeTitle && <h3 className="text-lg font-semibold text-center mb-4">{form.getValues("reportType").replace(/_/g, ' ')} Report</h3>}
                                 {chartData && chartData.length > 0 ? (
-                                    <ChartContainer config={chartConfig} className="min-h-[400px] w-full">
+                                    <ChartContainer config={chartConfig} className="w-full" style={{ height: `${dynamicChartHeight}px`, minHeight: '400px' }}>
                                         {chartType === 'vertical_bar' && (
                                             <RechartsBarChart accessibilityLayer data={chartData}>
                                                 <CartesianGrid vertical={false} />
-                                                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} angle={-45} textAnchor="end" interval={0} />
+                                                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} angle={-45} textAnchor="end" interval={0} height={100} />
                                                 <YAxis />
                                                 <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
                                                 {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
@@ -551,15 +556,17 @@ export default function ReportsPage() {
                                             </RechartsBarChart>
                                         )}
                                         {chartType === 'pie' && (
+                                           <ResponsiveContainer width="100%" height="100%">
                                             <RechartsPieChart>
                                                  <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" hideLabel />} />
-                                                 <Pie data={pieChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={150} label>
+                                                 <Pie data={pieChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={'80%'} label>
                                                     {pieChartData.map((entry, index) => (
                                                         <Cell key={`cell-${index}`} fill={pieChartColors[index % pieChartColors.length]} />
                                                     ))}
                                                  </Pie>
                                                   {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
                                             </RechartsPieChart>
+                                            </ResponsiveContainer>
                                         )}
                                     </ChartContainer>
                                 ) : (
