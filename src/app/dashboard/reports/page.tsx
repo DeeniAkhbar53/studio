@@ -435,45 +435,80 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             {reportData.length > 0 ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Member Name</TableHead>
-                      <TableHead>ITS ID</TableHead>
-                      <TableHead>Miqaat</TableHead>
-                      <TableHead>Date / Time</TableHead>
-                      <TableHead>Status</TableHead>
-                      { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
-                        <TableHead className="text-right">Marked By</TableHead>
-                      }
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {reportData.map((record) => (
-                      <TableRow key={record.id + (record.date || '')}>
-                        <TableCell className="font-medium">{record.userName}</TableCell>
-                        <TableCell>{record.userItsId}</TableCell>
-                        <TableCell>{record.miqaatName}</TableCell>
-                        <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
-                        <TableCell>
-                          <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
-                              record.status === 'Present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                              record.status === 'Absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                              record.status === 'Late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                              'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                            )}>
-                              {record.status}
-                            </span>
-                        </TableCell>
-                         { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
-                            <TableCell className="text-right">{record.markedByItsId || "N/A"}</TableCell>
-                         }
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+             <>
+                {/* Mobile View: Cards */}
+                <div className="md:hidden space-y-4">
+                  {reportData.map((record) => (
+                    <Card key={record.id + (record.date || '')} className="w-full">
+                        <CardContent className="p-4 flex flex-col gap-2">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-semibold text-card-foreground">{record.userName}</p>
+                                    <p className="text-sm text-muted-foreground">ITS: {record.userItsId}</p>
+                                </div>
+                                <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
+                                  record.status === 'Present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                  record.status === 'Absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                  record.status === 'Late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                  'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                )}>
+                                  {record.status}
+                                </span>
+                            </div>
+                            <Separator className="my-2" />
+                            <div className="text-sm text-muted-foreground space-y-1">
+                                <p><strong>Miqaat:</strong> {record.miqaatName}</p>
+                                <p><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</p>
+                                { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
+                                    <p><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</p>
+                                }
+                            </div>
+                        </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Desktop View: Table */}
+                <div className="hidden md:block overflow-x-auto">
+                    <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Member Name</TableHead>
+                        <TableHead>ITS ID</TableHead>
+                        <TableHead>Miqaat</TableHead>
+                        <TableHead>Date / Time</TableHead>
+                        <TableHead>Status</TableHead>
+                        { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
+                            <TableHead className="text-right">Marked By</TableHead>
+                        }
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {reportData.map((record) => (
+                        <TableRow key={record.id + (record.date || '')}>
+                            <TableCell className="font-medium">{record.userName}</TableCell>
+                            <TableCell>{record.userItsId}</TableCell>
+                            <TableCell>{record.miqaatName}</TableCell>
+                            <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
+                            <TableCell>
+                            <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
+                                record.status === 'Present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                record.status === 'Absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                record.status === 'Late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                )}>
+                                {record.status}
+                                </span>
+                            </TableCell>
+                            { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
+                                <TableCell className="text-right">{record.markedByItsId || "N/A"}</TableCell>
+                            }
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                    </Table>
+                </div>
+             </>
             ) : (
               <p className="text-center text-muted-foreground py-6">No data found for the selected criteria.</p>
             )}
