@@ -348,6 +348,7 @@ export default function ManageMembersPage() {
       Papa.parse(fileContent, {
         header: true,
         skipEmptyLines: true,
+        transformHeader: header => header.trim(),
         complete: async (results) => {
           let successfullyAddedCount = 0;
           let skippedCount = 0;
@@ -357,53 +358,68 @@ export default function ManageMembersPage() {
           const dataRows = results.data as any[];
 
           for (const row of dataRows) {
-            if (Object.keys(row).length === 0 || Object.values(row).every(val => val === "" || val === null)) {
+            // Trim all values in the row
+            const trimmedRow: {[key: string]: any} = {};
+            for (const key in row) {
+              const value = (row as any)[key];
+              trimmedRow[key] = typeof value === 'string' ? value.trim() : value;
+            }
+            
+            if (Object.keys(trimmedRow).length === 0 || Object.values(trimmedRow).every(val => val === "" || val === null)) {
                 continue; 
             }
-            if (!row.name || !row.itsId || !row.mohallahName || !row.role) {
-              failedRecords.push({ data: row, reason: "Missing required fields (name, itsId, mohallahName, role)." });
+
+            const { name, itsId, mohallahName, role } = trimmedRow;
+
+            if (!name || !itsId || !mohallahName || !role) {
+              failedRecords.push({ data: row, reason: `Missing required fields. Found: name='${name}', itsId='${itsId}', mohallahName='${mohallahName}', role='${role}'.` });
               skippedCount++;
               continue;
             }
 
-            const mohallah = mohallahs.find(m => m.name.toLowerCase() === row.mohallahName.toLowerCase());
+            const mohallah = mohallahs.find(m => m.name.toLowerCase() === mohallahName.toLowerCase());
             if (!mohallah) {
-              failedRecords.push({ data: row, reason: `Mohallah "${row.mohallahName}" not found.` });
+              failedRecords.push({ data: row, reason: `Mohallah "${mohallahName}" not found.` });
               skippedCount++;
               continue;
             }
             const mohallahId = mohallah.id;
 
             if (currentUserRole === 'admin' && mohallahId !== currentUserMohallahId) {
-                failedRecords.push({ data: row, reason: `Admins can only import to their assigned Mohallah. Row skipped for Mohallah "${row.mohallahName}".` });
+                failedRecords.push({ data: row, reason: `Admins can only import to their assigned Mohallah. Row skipped for Mohallah "${mohallahName}".` });
                 skippedCount++;
                 continue;
             }
 
             try {
-              const existingUser = await getUserByItsOrBgkId(row.itsId);
+              if (!itsId || typeof itsId !== 'string') {
+                  failedRecords.push({ data: row, reason: `Invalid or missing ITS ID.` });
+                  skippedCount++;
+                  continue;
+              }
+              const existingUser = await getUserByItsOrBgkId(itsId);
               if (existingUser) {
-                failedRecords.push({ data: row, reason: `User with ITS ID ${row.itsId} already exists.` });
+                failedRecords.push({ data: row, reason: `User with ITS ID ${itsId} already exists.` });
                 skippedCount++;
                 continue;
               }
             } catch (err) {
-               console.error(`Error checking for duplicate user with ITS ID ${row.itsId}:`, err);
-               failedRecords.push({ data: row, reason: `Error checking duplicate for ITS ID ${row.itsId}.` });
+               console.error(`Error checking for duplicate user with ITS ID ${itsId}:`, err);
+               failedRecords.push({ data: row, reason: `Error checking duplicate for ITS ID ${itsId}.` });
                errorCount++; 
                continue;
             }
 
             const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string } = {
-              name: row.name,
-              itsId: row.itsId,
-              bgkId: row.bgkId || undefined, 
-              team: row.team || undefined,
-              phoneNumber: row.phoneNumber || undefined,
-              role: row.role as UserRole,
+              name: trimmedRow.name,
+              itsId: trimmedRow.itsId,
+              bgkId: trimmedRow.bgkId || undefined, 
+              team: trimmedRow.team || undefined,
+              phoneNumber: trimmedRow.phoneNumber || undefined,
+              role: trimmedRow.role as UserRole,
               mohallahId: mohallahId, 
-              designation: (row.designation as UserDesignation) || "Member", 
-              pageRights: row.pageRights ? row.pageRights.split(';').map((s: string) => s.trim()).filter(Boolean) : [],
+              designation: (trimmedRow.designation as UserDesignation) || "Member", 
+              pageRights: trimmedRow.pageRights ? trimmedRow.pageRights.split(';').map((s: string) => s.trim()).filter(Boolean) : [],
             };
 
             const validation = memberSchema.safeParse({
@@ -438,11 +454,20 @@ export default function ManageMembersPage() {
             fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
           }
 
-           if (errorCount > 0 || (successfullyAddedCount === 0 && dataRows.length > 0 && (dataRows.some(row => Object.keys(row).length > 0)))) {
+          const totalProcessed = successfullyAddedCount + skippedCount + errorCount;
+           if (errorCount > 0 || skippedCount > 0) {
             toast({
-                title: "CSV Import Error",
-                description: "Some records could not be imported. Check console for details.",
+                title: "CSV Import Processed with Issues",
+                description: `${successfullyAddedCount} added. ${skippedCount} skipped. ${errorCount} failed. Check console for details.`,
                 variant: "destructive",
+                duration: 10000,
+            });
+          } else if (totalProcessed === 0 && dataRows.length > 0) {
+             toast({
+                title: "CSV Import Complete",
+                description: "All rows were skipped. This may be due to existing users or invalid data.",
+                variant: "default",
+                duration: 10000,
             });
           } else {
             toast({
@@ -475,6 +500,7 @@ export default function ManageMembersPage() {
       });
     }
   };
+
 
   const downloadSampleCsv = () => {
     const csvHeaders = "name,itsId,bgkId,team,phoneNumber,role,mohallahName,designation,pageRights\n";
@@ -1139,3 +1165,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    
