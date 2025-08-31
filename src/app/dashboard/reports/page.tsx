@@ -473,15 +473,15 @@ export default function ReportsPage() {
                     {form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.
                 </CardDescription>
             </div>
-            <div className="flex items-center gap-2 w-full md:w-auto shrink-0">
+            <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
                 {canShowGraphButton && (
                   <Dialog open={isGraphDialogOpen} onOpenChange={setIsGraphDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-full md:w-auto">
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto">
                           <BarChart className="mr-2 h-4 w-4" /> Generate Graph
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-4xl">
+                    <DialogContent className="max-w-md sm:max-w-4xl">
                         <DialogHeader>
                             <DialogTitle>Report Graph</DialogTitle>
                             <DialogDescription>
@@ -572,7 +572,7 @@ export default function ReportsPage() {
                     </DialogContent>
                   </Dialog>
                 )}
-                <Button variant="outline" onClick={handleExport} disabled={!reportData || reportData.length === 0 || isLoading} size="sm" className="w-full md:w-auto shrink-0">
+                <Button variant="outline" onClick={handleExport} disabled={!reportData || reportData.length === 0 || isLoading} size="sm" className="w-full sm:w-auto">
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
             </div>
