@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, FileText, Loader2, Users, MoreHorizontal, Edit, Trash2, Calendar, User as UserIcon } from "lucide-react";
+import { PlusCircle, FileText, Loader2, Users, MoreHorizontal, Edit, Trash2, Calendar, User as UserIcon, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Form as FormType } from "@/types";
 import { getForms, deleteForm } from "@/lib/firebase/formService";
@@ -115,9 +115,7 @@ export default function FormsListPage() {
                                     <CardContent className="space-y-3 text-sm text-muted-foreground">
                                         <div className="flex items-center gap-2">
                                             <Users className="h-4 w-4" />
-                                             <Link href={`/dashboard/forms/${form.id}/responses`} className="hover:underline font-medium">
-                                                {form.responseCount || 0} Responses
-                                            </Link>
+                                            <span>{form.responseCount || 0} Responses</span>
                                         </div>
                                          <div className="flex items-center gap-2">
                                             <Calendar className="h-4 w-4" />
@@ -130,6 +128,9 @@ export default function FormsListPage() {
                                     </CardContent>
                                     <Separator />
                                     <CardFooter className="flex justify-end gap-2 p-2">
+                                         <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
+                                            <Eye className="mr-2 h-4 w-4" /> View Responses
+                                         </Button>
                                          <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)}>
                                             Fill Out
                                         </Button>
@@ -181,17 +182,20 @@ export default function FormsListPage() {
                                                <p className="text-sm text-muted-foreground line-clamp-1">{form.description}</p>
                                            </TableCell>
                                            <TableCell>
-                                                <Link href={`/dashboard/forms/${form.id}/responses`} className="flex items-center gap-2 hover:underline">
+                                                <div className="flex items-center gap-2">
                                                     <Users className="h-4 w-4 text-muted-foreground" />
                                                     {form.responseCount || 0}
-                                                </Link>
+                                                </div>
                                            </TableCell>
                                            <TableCell>
                                                {format(new Date(form.createdAt), "MMM d, yyyy")}
                                                <p className="text-xs text-muted-foreground">by {form.createdBy}</p>
                                            </TableCell>
-                                           <TableCell className="text-right">
-                                               <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} className="mr-2">
+                                           <TableCell className="text-right space-x-2">
+                                                <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
+                                                   <Eye className="mr-2 h-4 w-4" /> Responses
+                                                </Button>
+                                               <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)}>
                                                     Fill Out
                                                </Button>
                                                {canCreateForms && (
