@@ -180,6 +180,16 @@ export default function DashboardOverviewPage() {
       return;
     }
 
+    const now = new Date();
+    const miqaatEndTime = new Date(targetMiqaat.endTime);
+
+    if (now > miqaatEndTime) {
+      setScanDisplayMessage({ type: 'error', text: `This Miqaat (${targetMiqaat.name}) has ended and is no longer accepting attendance.` });
+      setIsProcessingScan(false);
+      setIsScannerDialogOpen(false);
+      return;
+    }
+
     let isEligible = false;
     if (currentUserRole === 'superadmin' || currentUserRole === 'admin' || currentUserRole === 'attendance-marker') {
       isEligible = true;
@@ -203,8 +213,7 @@ export default function DashboardOverviewPage() {
       return;
     }
 
-    const now = new Date();
-    const miqaatEndTime = new Date(targetMiqaat.endTime);
+    
     const miqaatReportingTime = targetMiqaat.reportingTime ? new Date(targetMiqaat.reportingTime) : null;
     
     const onTimeThreshold = miqaatReportingTime || miqaatEndTime;
