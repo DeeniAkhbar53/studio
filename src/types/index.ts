@@ -23,6 +23,10 @@ export type MiqaatAttendanceEntryItem = {
   markedAt: string; // ISO string
   markedByItsId: string;
   status?: 'present' | 'late' | 'early';
+  uniformCompliance?: {
+      fetaPaghri: boolean;
+      koti: boolean;
+  }
 };
 
 export type Miqaat = {
@@ -38,6 +42,7 @@ export type Miqaat = {
   createdAt?: string; // ISO string
   attendance?: MiqaatAttendanceEntryItem[];
   attendedUserItsIds?: string[];
+  uniformType?: 'attendance_only' | 'feta_paghri' | 'koti' | 'safar';
 };
 
 export type AttendanceRecord = {
@@ -49,6 +54,10 @@ export type AttendanceRecord = {
   markedAt: string; // ISO string
   markedByItsId?: string;
   status?: 'present' | 'late' | 'early';
+  uniformCompliance?: {
+      fetaPaghri: boolean;
+      koti: boolean;
+  }
 };
 
 export type Team = {
@@ -91,6 +100,10 @@ export interface ReportResultItem {
   date?: string; // ISO string
   status: "Present" | "Absent" | "Late" | "Early";
   markedByItsId?: string;
+  uniformCompliance?: {
+    fetaPaghri: boolean;
+    koti: boolean;
+  };
 }
 
 export interface PageRightConfig {

@@ -14,12 +14,13 @@ import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, Us
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat, batchMarkAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { savePendingAttendance, getPendingAttendance, clearPendingAttendance, cacheAllUsers, getCachedUserByItsOrBgkId } from "@/lib/offlineService";
-import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert } from "lucide-react";
+import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
-
 
 export default function MarkAttendancePage() {
   const router = useRouter();
@@ -27,12 +28,17 @@ export default function MarkAttendancePage() {
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
   const [memberIdInput, setMemberIdInput] = useState("");
   const [markedAttendanceThisSession, setMarkedAttendanceThisSession] = useState<MarkedAttendanceEntry[]>([]);
-  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "attendance">[]>([]);
+  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "attendance" | "uniformType">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [markerItsId, setMarkerItsId] = useState<string | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+
+  // State for uniform check dialog
+  const [isUniformDialogOpen, setIsUniformDialogOpen] = useState(false);
+  const [memberForUniformCheck, setMemberForUniformCheck] = useState<User | null>(null);
+  const [uniformCompliance, setUniformCompliance] = useState<{ fetaPaghri: boolean; koti: boolean }>({ fetaPaghri: false, koti: false });
 
   // Offline state management
   const [isOffline, setIsOffline] = useState(false);
@@ -42,7 +48,7 @@ export default function MarkAttendancePage() {
 
   const { toast } = useToast();
 
-  useEffect(() => {
+   useEffect(() => {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
     const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
     const pageRights = JSON.parse(pageRightsRaw || '[]');
@@ -158,7 +164,8 @@ export default function MarkAttendancePage() {
         endTime: m.endTime,
         reportingTime: m.reportingTime,
         mohallahIds: m.mohallahIds || [],
-        attendance: m.attendance || [] 
+        attendance: m.attendance || [],
+        uniformType: m.uniformType || 'attendance_only',
       })));
       setIsLoadingMiqaats(false);
     });
@@ -179,7 +186,7 @@ export default function MarkAttendancePage() {
   }, [allMiqaats, currentUserMohallahId, currentUserRole, isLoadingMiqaats]);
 
 
-  const handleMarkAttendance = async () => {
+  const handleFindMember = async () => {
     if (!selectedMiqaatId) {
       toast({ title: "Miqaat Not Selected", description: "Please select a Miqaat before marking attendance.", variant: "destructive" });
       return;
@@ -188,21 +195,14 @@ export default function MarkAttendancePage() {
       toast({ title: "ITS/BGK ID Required", description: "Please enter the member's ITS or BGK ID.", variant: "destructive" });
       return;
     }
-    if (!markerItsId) {
-      toast({ title: "Marker ID Error", description: "Your ITS ID (marker) is not available. Please log in again.", variant: "destructive" });
-      setIsProcessing(false);
-      return;
-    }
 
     setIsProcessing(true);
     let member: User | null = null;
 
     try {
       if (isOffline) {
-        // Offline: Validate against local cache
         member = await getCachedUserByItsOrBgkId(memberIdInput.trim());
       } else {
-        // Online: Validate against Firestore
         member = await getUserByItsOrBgkId(memberIdInput.trim());
       }
     } catch (error) {
@@ -228,7 +228,6 @@ export default function MarkAttendancePage() {
     const alreadyMarkedInSession = markedAttendanceThisSession.some(
         (entry) => entry.memberItsId === member!.itsId && entry.miqaatId === selectedMiqaatId
     );
-
     const alreadyMarkedInDb = !isOffline && selectedMiqaatDetails.attendance?.some(
       (entry) => entry.userItsId === member!.itsId
     );
@@ -245,6 +244,28 @@ export default function MarkAttendancePage() {
       return;
     }
     
+    // Logic to open uniform check dialog or mark attendance directly
+    if (selectedMiqaatDetails.uniformType && selectedMiqaatDetails.uniformType !== 'attendance_only') {
+      let isSafar = selectedMiqaatDetails.uniformType === 'safar';
+      setUniformCompliance({ fetaPaghri: isSafar, koti: isSafar });
+      setMemberForUniformCheck(member);
+      setIsUniformDialogOpen(true);
+    } else {
+      await finalizeAttendance(member, { fetaPaghri: false, koti: false }); // No uniform compliance needed
+    }
+
+    setIsProcessing(false); // Processing is done after member is found
+  };
+  
+  const finalizeAttendance = async (member: User, compliance: { fetaPaghri: boolean; koti: boolean }) => {
+    if (!selectedMiqaatId || !markerItsId) {
+        toast({ title: "Error", description: "Miqaat or Marker ID missing.", variant: "destructive" });
+        return;
+    }
+    
+    const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
+    if (!selectedMiqaatDetails) return;
+
     const now = new Date();
     const miqaatEndTime = new Date(selectedMiqaatDetails.endTime);
     const miqaatReportingTime = selectedMiqaatDetails.reportingTime ? new Date(selectedMiqaatDetails.reportingTime) : null;
@@ -258,13 +279,13 @@ export default function MarkAttendancePage() {
       attendanceStatus = 'present';
     }
 
-
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
         userItsId: member.itsId,
         userName: member.name,
         markedAt: now.toISOString(),
         markedByItsId: markerItsId,
         status: attendanceStatus,
+        uniformCompliance: selectedMiqaatDetails.uniformType !== 'attendance_only' ? compliance : undefined,
     };
     
     const newSessionEntry: MarkedAttendanceEntry = {
@@ -311,9 +332,11 @@ export default function MarkAttendancePage() {
         // Remove from session log if db save failed
         setMarkedAttendanceThisSession(prev => prev.filter(p => p.timestamp !== newSessionEntry.timestamp));
     } finally {
-        setIsProcessing(false);
+        setIsUniformDialogOpen(false); // Close dialog
+        setMemberForUniformCheck(null);
     }
   };
+
 
   const handleSync = async () => {
     if (isOffline || pendingRecordsCount === 0) {
@@ -490,7 +513,7 @@ export default function MarkAttendancePage() {
             )}
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <form onSubmit={(e) => { e.preventDefault(); handleFindMember(); }} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             <div className="md:col-span-2 space-y-2">
               <Label htmlFor="member-id">ITS / BGK ID</Label>
               <Input
@@ -502,7 +525,7 @@ export default function MarkAttendancePage() {
               />
             </div>
             <Button
-              onClick={handleMarkAttendance}
+              type="submit"
               disabled={!selectedMiqaatId || !memberIdInput || isProcessing || isLoadingMiqaats}
               className="w-full"
               size="sm"
@@ -512,9 +535,9 @@ export default function MarkAttendancePage() {
               ) : (
                 <CheckCircle className="mr-2 h-4 w-4" />
               )}
-               Mark Attendance
+               Find Member
             </Button>
-          </div>
+          </form>
 
           {selectedMiqaatId && currentMiqaatDetails && (
             <div className="mt-6 pt-6 border-t">
@@ -582,6 +605,59 @@ export default function MarkAttendancePage() {
             </CardFooter>
         )}
       </Card>
+      
+      {/* Uniform Check Dialog */}
+      <Dialog open={isUniformDialogOpen} onOpenChange={setIsUniformDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Uniform Check for {memberForUniformCheck?.name}</DialogTitle>
+            <DialogDescription>
+              Confirm uniform compliance for Miqaat: {currentSelectedMiqaatName}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {(currentMiqaatDetails?.uniformType === 'feta_paghri' || currentMiqaatDetails?.uniformType === 'safar') && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="fetaPaghri"
+                  checked={uniformCompliance.fetaPaghri}
+                  onCheckedChange={(checked) => setUniformCompliance(prev => ({ ...prev, fetaPaghri: !!checked }))}
+                  disabled={currentMiqaatDetails?.uniformType === 'safar'}
+                />
+                <Label htmlFor="fetaPaghri" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Feta/Paghri Present
+                </Label>
+              </div>
+            )}
+            {(currentMiqaatDetails?.uniformType === 'koti' || currentMiqaatDetails?.uniformType === 'safar') && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="koti"
+                  checked={uniformCompliance.koti}
+                  onCheckedChange={(checked) => setUniformCompliance(prev => ({ ...prev, koti: !!checked }))}
+                  disabled={currentMiqaatDetails?.uniformType === 'safar'}
+                />
+                <Label htmlFor="koti" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Koti Present
+                </Label>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsUniformDialogOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                if (memberForUniformCheck) {
+                  finalizeAttendance(memberForUniformCheck, uniformCompliance);
+                }
+              }}
+            >
+              <CheckSquare className="mr-2 h-4 w-4" />
+              Confirm and Mark Attendance
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -37,6 +37,7 @@ export const getAttendanceRecordsByMiqaat = async (miqaatId: string): Promise<At
       markedAt: convertTimestampToString(entry.markedAt),
       markedByItsId: entry.markedByItsId,
       status: entry.status || 'present', // Include status, default to 'present'
+      uniformCompliance: entry.uniformCompliance,
     }));
   } catch (error) {
     console.error(`Error fetching attendance records for Miqaat ${miqaatId}: `, error);
@@ -99,6 +100,7 @@ export const getAttendanceRecordsByUser = async (userItsId: string): Promise<Att
               markedAt: entry.markedAt,
               markedByItsId: entry.markedByItsId,
               status: entry.status || 'present', // Include status
+              uniformCompliance: entry.uniformCompliance,
             });
           }
         });

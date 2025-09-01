@@ -4,7 +4,7 @@
 import type { Miqaat, UserRole, Mohallah } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Users, Barcode, Edit, Trash2, Clock, MapPin, Tag, Download } from "lucide-react";
+import { CalendarDays, Users, Barcode, Edit, Trash2, Clock, MapPin, Tag, Download, Shirt } from "lucide-react";
 import { QRCodeSVG } from 'qrcode.react';
 import {
   AlertDialog,
@@ -45,6 +45,18 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
     return `${year}-${month}-${day}`;
+  };
+
+  const formatUniformType = (type?: Miqaat['uniformType']) => {
+    if (!type) return "Attendance Only";
+    switch(type) {
+        case 'feta_paghri': return "Feta/Paghri";
+        case 'koti': return "Koti";
+        case 'safar': return "Safar (Full)";
+        case 'attendance_only':
+        default:
+            return "Attendance Only";
+    }
   };
 
   const formattedStartDate = formatDate(miqaat.startTime);
@@ -198,6 +210,10 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
               <span>Reporting: {formattedReportingTime}</span>
             </div>
           )}
+          <div className="flex items-center text-muted-foreground">
+            <Shirt className="mr-2 h-4 w-4 text-primary shrink-0" />
+            <span>Uniform: {formatUniformType(miqaat.uniformType)}</span>
+          </div>
           <div className="flex items-center text-muted-foreground">
             <MapPin className="mr-2 h-4 w-4 text-primary shrink-0" />
             <span>Mohallahs: {assignedMohallahNames}</span>

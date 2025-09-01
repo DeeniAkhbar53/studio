@@ -101,7 +101,7 @@ export default function ReportsPage() {
   const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>([]);
+  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "uniformType">[]>([]);
   const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
   const [availableTeams, setAvailableTeams] = useState<string[]>([]);
   
@@ -202,6 +202,7 @@ export default function ReportsPage() {
           date: att.markedAt,
           status: att.status === 'late' ? 'Late' : 'Present',
           markedByItsId: att.markedByItsId,
+          uniformCompliance: att.uniformCompliance,
         }));
       } else if (values.reportType === "member_attendance" && values.itsId) {
         fetchedAttendanceRecords = await getAttendanceRecordsByUser(values.itsId);
@@ -213,6 +214,7 @@ export default function ReportsPage() {
             date: att.markedAt,
             status: att.status === 'late' ? 'Late' : 'Present',
             markedByItsId: att.markedByItsId,
+            uniformCompliance: att.uniformCompliance,
           }));
       } else if (values.reportType === "overall_activity") {
         const allMiqaatDocs = await new Promise<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>((resolve) => {
@@ -232,6 +234,7 @@ export default function ReportsPage() {
             date: att.markedAt,
             status: att.status === 'late' ? 'Late' : 'Present',
             markedByItsId: att.markedByItsId,
+            uniformCompliance: att.uniformCompliance,
         }));
       } else if (values.reportType === "non_attendance_miqaat" && values.miqaatId) {
         const selectedMiqaat = availableMiqaats.find(m => m.id === values.miqaatId);
@@ -338,7 +341,7 @@ export default function ReportsPage() {
       toast({ title: "No data to export", description: "Please generate a report first.", variant: "destructive" });
       return;
     }
-    const headers = ["User Name", "ITS ID", "Miqaat", "Date", "Status", "Marked By ITS ID"];
+    const headers = ["User Name", "ITS ID", "Miqaat", "Date", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti"];
     const csvRows = [
       headers.join(','),
       ...reportData.map(row => [
@@ -347,7 +350,9 @@ export default function ReportsPage() {
         `"${row.miqaatName.replace(/"/g, '""')}"`,
         row.date ? format(new Date(row.date), "yyyy-MM-dd HH:mm:ss") : "N/A",
         row.status,
-        row.markedByItsId || "N/A"
+        row.markedByItsId || "N/A",
+        row.uniformCompliance ? (row.uniformCompliance.fetaPaghri ? "Yes" : "No") : "N/A",
+        row.uniformCompliance ? (row.uniformCompliance.koti ? "Yes" : "No") : "N/A"
       ].join(','))
     ];
     const csvString = csvRows.join('\n');
@@ -774,8 +779,8 @@ export default function ReportsPage() {
              <>
                 {/* Mobile View: Cards */}
                 <div className="md:hidden space-y-4">
-                  {reportData.map((record) => (
-                    <Card key={record.id + (record.date || '')} className="w-full">
+                  {reportData.map((record, index) => (
+                    <Card key={`${record.id}-${record.date || index}`} className="w-full">
                         <CardContent className="p-4 flex flex-col gap-2">
                             <div className="flex justify-between items-start">
                                 <div>
@@ -798,6 +803,12 @@ export default function ReportsPage() {
                                 { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
                                     <p><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</p>
                                 }
+                                {record.uniformCompliance && (
+                                    <>
+                                        <p><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri ? 'Yes' : 'No'}</p>
+                                        <p><strong>Koti:</strong> {record.uniformCompliance.koti ? 'Yes' : 'No'}</p>
+                                    </>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -814,14 +825,16 @@ export default function ReportsPage() {
                         <TableHead>Miqaat</TableHead>
                         <TableHead>Date / Time</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Feta/Paghri</TableHead>
+                        <TableHead>Koti</TableHead>
                         { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
                             <TableHead className="text-right">Marked By</TableHead>
                         }
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {reportData.map((record) => (
-                        <TableRow key={record.id + (record.date || '')}>
+                        {reportData.map((record, index) => (
+                        <TableRow key={`${record.id}-${record.date || index}`}>
                             <TableCell className="font-medium">{record.userName}</TableCell>
                             <TableCell>{record.userItsId}</TableCell>
                             <TableCell>{record.miqaatName}</TableCell>
@@ -836,6 +849,8 @@ export default function ReportsPage() {
                                 {record.status}
                                 </span>
                             </TableCell>
+                            <TableCell>{record.uniformCompliance ? (record.uniformCompliance.fetaPaghri ? 'Yes' : 'No') : 'N/A'}</TableCell>
+                            <TableCell>{record.uniformCompliance ? (record.uniformCompliance.koti ? 'Yes' : 'No') : 'N/A'}</TableCell>
                             { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
                                 <TableCell className="text-right">{record.markedByItsId || "N/A"}</TableCell>
                             }

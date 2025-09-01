@@ -21,6 +21,7 @@ import { getMiqaats, addMiqaat, updateMiqaat, deleteMiqaat as fbDeleteMiqaat, Mi
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getUniqueTeamNames } from "@/lib/firebase/userService"; 
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 
 const miqaatSchema = z.object({
@@ -33,6 +34,7 @@ const miqaatSchema = z.object({
   mohallahIds: z.array(z.string()).optional().default([]),
   teams: z.array(z.string()).optional().default([]), 
   barcodeData: z.string().optional(),
+  uniformType: z.enum(['attendance_only', 'feta_paghri', 'koti', 'safar']).default('attendance_only'),
 });
 
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
@@ -40,7 +42,7 @@ type MiqaatFormValues = z.infer<typeof miqaatSchema>;
 export default function MiqaatManagementPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt">[]>([]);
+  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformType">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
@@ -48,7 +50,7 @@ export default function MiqaatManagementPage() {
   const [isLoadingTeams, setIsLoadingTeams] = useState(true); 
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt"> | null>(null);
+  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformType"> | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const { toast } = useToast();
 
@@ -63,6 +65,7 @@ export default function MiqaatManagementPage() {
       mohallahIds: [],
       teams: [], 
       barcodeData: "",
+      uniformType: 'attendance_only',
     },
   });
 
@@ -132,9 +135,10 @@ export default function MiqaatManagementPage() {
         mohallahIds: editingMiqaat.mohallahIds || [],
         teams: editingMiqaat.teams || [], 
         barcodeData: editingMiqaat.barcodeData || "",
+        uniformType: editingMiqaat.uniformType || 'attendance_only',
       });
     } else {
-      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", mohallahIds: [], teams: [], barcodeData: "" });
+      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", mohallahIds: [], teams: [], barcodeData: "", uniformType: 'attendance_only' });
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
@@ -148,6 +152,7 @@ export default function MiqaatManagementPage() {
       location: values.location, 
       reportingTime: values.reportingTime, 
       barcodeData: values.barcodeData,
+      uniformType: values.uniformType,
     };
     
     try {
@@ -166,7 +171,7 @@ export default function MiqaatManagementPage() {
     }
   };
 
-  const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt">) => {
+  const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformType">) => {
     setEditingMiqaat(miqaat);
     setIsDialogOpen(true);
   };
@@ -277,6 +282,29 @@ export default function MiqaatManagementPage() {
                         <FormMessage className="col-start-2 col-span-3 text-xs" />
                       </FormItem>
                     )} />
+                    <FormField
+                        control={form.control}
+                        name="uniformType"
+                        render={({ field }) => (
+                          <FormItem className="grid grid-cols-4 items-center gap-x-4">
+                              <ShadFormLabel className="text-right">Uniform</ShadFormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl className="col-span-3">
+                                      <SelectTrigger>
+                                          <SelectValue placeholder="Select uniform requirement" />
+                                      </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                      <SelectItem value="attendance_only">Attendance Only</SelectItem>
+                                      <SelectItem value="feta_paghri">Feta/Paghri</SelectItem>
+                                      <SelectItem value="koti">Koti</SelectItem>
+                                      <SelectItem value="safar">Safar (Feta/Paghri & Koti)</SelectItem>
+                                  </SelectContent>
+                              </Select>
+                              <FormMessage className="col-start-2 col-span-3 text-xs" />
+                          </FormItem>
+                        )}
+                    />
                     
                     <FormField
                       control={form.control}
