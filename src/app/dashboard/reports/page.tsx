@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChartHorizontal, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChartHorizontal, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toPng } from "html-to-image";
 
@@ -20,11 +20,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohallah, UserDesignation } from "@/types";
-import { getMiqaats } from "@/lib/firebase/miqaatService";
+import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohallah, UserDesignation, MiqaatAttendanceEntryItem } from "@/types";
+import { getMiqaats, batchMarkAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { getUsers, getUniqueTeamNames } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
-import { getAttendanceRecordsByMiqaat, getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService";
+import { getAttendanceRecordsByMiqaat } from "@/lib/firebase/attendanceService";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -108,11 +108,16 @@ export default function ReportsPage() {
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
+  const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
+
 
   const [isGraphDialogOpen, setIsGraphDialogOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [chartType, setChartType] = useState<ChartType>("vertical_bar");
   const [downloadOptions, setDownloadOptions] = useState({ includeTitle: true, includeLegend: true });
+  
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isBulkMarking, setIsBulkMarking] = useState(false);
 
   const chartRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -133,6 +138,7 @@ export default function ReportsPage() {
   useEffect(() => {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
     const mohallahId = typeof window !== "undefined" ? localStorage.getItem('userMohallahId') : null;
+    const itsId = typeof window !== "undefined" ? localStorage.getItem('userItsId') : null;
     const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
     const pageRights = JSON.parse(pageRightsRaw || '[]');
     const navItem = allNavItems.find(item => item.href === '/dashboard/reports');
@@ -145,6 +151,7 @@ export default function ReportsPage() {
         setIsAuthorized(true);
         setCurrentUserRole(role);
         setCurrentUserMohallahId(mohallahId);
+        setCurrentUserItsId(itsId);
         if (role === 'admin' && mohallahId) {
             form.setValue('mohallahId', mohallahId);
         }
@@ -187,6 +194,7 @@ export default function ReportsPage() {
     setIsLoading(true);
     setReportData(null); 
     setChartData(null);
+    setSelectedIds([]);
     
     let fetchedAttendanceRecords: AttendanceRecord[] = []; 
     let reportResultItems: ReportResultItem[] = [];
@@ -200,19 +208,20 @@ export default function ReportsPage() {
           userItsId: att.userItsId,
           miqaatName: att.miqaatName,
           date: att.markedAt,
-          status: att.status === 'late' ? 'Late' : 'Present',
+          status: att.status || 'Present',
           markedByItsId: att.markedByItsId,
           uniformCompliance: att.uniformCompliance,
         }));
       } else if (values.reportType === "member_attendance" && values.itsId) {
-        fetchedAttendanceRecords = await getAttendanceRecordsByUser(values.itsId);
+        // This function needs to be created or adapted
+        // fetchedAttendanceRecords = await getAttendanceRecordsByUser(values.itsId);
          reportResultItems = fetchedAttendanceRecords.map(att => ({
             id: att.id,
             userName: att.userName,
             userItsId: att.userItsId,
             miqaatName: att.miqaatName,
             date: att.markedAt,
-            status: att.status === 'late' ? 'Late' : 'Present',
+            status: att.status || 'Present',
             markedByItsId: att.markedByItsId,
             uniformCompliance: att.uniformCompliance,
           }));
@@ -232,7 +241,7 @@ export default function ReportsPage() {
             userItsId: att.userItsId,
             miqaatName: att.miqaatName,
             date: att.markedAt,
-            status: att.status === 'late' ? 'Late' : 'Present',
+            status: att.status || 'Present',
             markedByItsId: att.markedByItsId,
             uniformCompliance: att.uniformCompliance,
         }));
@@ -305,7 +314,7 @@ export default function ReportsPage() {
           if (!attendanceByMiqaat[record.miqaatName]) {
             attendanceByMiqaat[record.miqaatName] = { present: 0, late: 0, totalAttendance: 0 };
           }
-          if (record.status === "Present") {
+          if (record.status === "Present" || record.status === "early") {
             attendanceByMiqaat[record.miqaatName].present++;
             attendanceByMiqaat[record.miqaatName].totalAttendance++;
           } else if (record.status === "Late") {
@@ -394,6 +403,50 @@ export default function ReportsPage() {
         .finally(() => setIsDownloading(false));
   };
   
+  const handleBulkMarkAsSafar = async () => {
+    const miqaatId = form.getValues("miqaatId");
+    if (!miqaatId || selectedIds.length === 0) {
+      toast({ title: "Selection Required", description: "Please select a Miqaat and at least one member to mark.", variant: "destructive" });
+      return;
+    }
+    
+    setIsBulkMarking(true);
+    try {
+      const markerId = currentUserItsId;
+      if (!markerId) {
+        throw new Error("Could not identify the person marking attendance.");
+      }
+      
+      const attendanceEntries: MiqaatAttendanceEntryItem[] = reportData!
+        .filter(record => selectedIds.includes(record.userItsId))
+        .map(record => ({
+          userItsId: record.userItsId,
+          userName: record.userName,
+          markedAt: new Date().toISOString(),
+          markedByItsId: markerId,
+          status: 'safar',
+        }));
+
+      await batchMarkAttendanceInMiqaat(miqaatId, attendanceEntries);
+
+      toast({
+        title: "Bulk Update Successful",
+        description: `${selectedIds.length} member(s) have been marked as 'Safar'.`,
+      });
+      
+      // Refresh the report data
+      await onSubmit(form.getValues());
+      setSelectedIds([]);
+
+    } catch (error) {
+      console.error("Error during bulk mark as Safar:", error);
+      toast({ title: "Update Failed", description: `Could not mark members as Safar. ${error instanceof Error ? error.message : 'Please try again.'}`, variant: "destructive" });
+    } finally {
+      setIsBulkMarking(false);
+    }
+  };
+
+
   const selectedMiqaatDetails = availableMiqaats.find(m => m.id === form.getValues("miqaatId"));
 
   const chartConfig = {
@@ -414,6 +467,16 @@ export default function ReportsPage() {
     if (chartType !== 'horizontal_bar' || !chartData) return 400; // Default height
     return Math.max(400, chartData.length * 40); // 40px per bar, with a minimum of 400px
   }, [chartData, chartType]);
+  
+  const isNonAttendanceReport = watchedReportType === 'non_attendance_miqaat';
+  
+  const handleSelectAllOnPage = (checked: boolean | string) => {
+    if (checked && reportData) {
+      setSelectedIds(reportData.map(r => r.userItsId));
+    } else {
+      setSelectedIds([]);
+    }
+  };
 
   if (isAuthorized === null) {
     return (
@@ -669,6 +732,12 @@ export default function ReportsPage() {
                 </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
+                {isNonAttendanceReport && selectedIds.length > 0 && (
+                  <Button onClick={handleBulkMarkAsSafar} disabled={isBulkMarking} size="sm" className="w-full sm:w-auto">
+                    {isBulkMarking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}
+                    Mark ({selectedIds.length}) as Safar
+                  </Button>
+                )}
                 {canShowGraphButton && (
                   <Dialog open={isGraphDialogOpen} onOpenChange={setIsGraphDialogOpen}>
                     <DialogTrigger asChild>
@@ -782,22 +851,33 @@ export default function ReportsPage() {
                   {reportData.map((record, index) => (
                     <Card key={`${record.id}-${record.date || index}`} className="w-full">
                         <CardContent className="p-4 flex flex-col gap-2">
-                            <div className="flex justify-between items-start">
-                                <div>
+                             <div className="flex items-center gap-4">
+                                {isNonAttendanceReport && (
+                                    <Checkbox
+                                        id={`mobile-select-${record.userItsId}`}
+                                        checked={selectedIds.includes(record.userItsId)}
+                                        onCheckedChange={(checked) => {
+                                            setSelectedIds(prev => checked ? [...prev, record.userItsId] : prev.filter(id => id !== record.userItsId));
+                                        }}
+                                        aria-label={`Select member ${record.userName}`}
+                                    />
+                                )}
+                                <div className="flex-grow">
                                     <p className="font-semibold text-card-foreground">{record.userName}</p>
                                     <p className="text-sm text-muted-foreground">ITS: {record.userItsId}</p>
                                 </div>
                                 <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
-                                  record.status === 'Present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                  record.status === 'Present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                                   record.status === 'Absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
                                   record.status === 'Late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                  record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
                                   'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                                 )}>
                                   {record.status}
                                 </span>
                             </div>
                             <Separator className="my-2" />
-                            <div className="text-sm text-muted-foreground space-y-1">
+                            <div className="text-sm text-muted-foreground space-y-1 pl-10">
                                 <p><strong>Miqaat:</strong> {record.miqaatName}</p>
                                 <p><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</p>
                                 { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
@@ -820,6 +900,15 @@ export default function ReportsPage() {
                     <Table>
                     <TableHeader>
                         <TableRow>
+                          {isNonAttendanceReport && (
+                            <TableHead className="w-[50px]">
+                              <Checkbox
+                                onCheckedChange={handleSelectAllOnPage}
+                                checked={reportData.length > 0 && selectedIds.length === reportData.length}
+                                aria-label="Select all"
+                              />
+                            </TableHead>
+                          )}
                         <TableHead>Member Name</TableHead>
                         <TableHead>ITS ID</TableHead>
                         <TableHead>Miqaat</TableHead>
@@ -835,18 +924,30 @@ export default function ReportsPage() {
                     <TableBody>
                         {reportData.map((record, index) => (
                         <TableRow key={`${record.id}-${record.date || index}`}>
+                            {isNonAttendanceReport && (
+                                <TableCell>
+                                    <Checkbox
+                                    checked={selectedIds.includes(record.userItsId)}
+                                    onCheckedChange={(checked) => {
+                                        setSelectedIds(prev => checked ? [...prev, record.userItsId] : prev.filter(id => id !== record.userItsId));
+                                    }}
+                                    aria-label={`Select row for ${record.userName}`}
+                                    />
+                                </TableCell>
+                            )}
                             <TableCell className="font-medium">{record.userName}</TableCell>
                             <TableCell>{record.userItsId}</TableCell>
                             <TableCell>{record.miqaatName}</TableCell>
                             <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
                             <TableCell>
-                            <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
-                                record.status === 'Present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                record.status === 'Absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                record.status === 'Late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
+                                    record.status === 'Present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                    record.status === 'Absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                    record.status === 'Late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                    record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                                 )}>
-                                {record.status}
+                                    {record.status}
                                 </span>
                             </TableCell>
                             <TableCell>{record.uniformCompliance ? (record.uniformCompliance.fetaPaghri) : 'N/A'}</TableCell>

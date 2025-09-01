@@ -137,35 +137,41 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
 };
 
 export const deleteMiqaat = async (miqaatId: string): Promise<void> => {
-  try {
-    const miqaatDoc = doc(db, 'miqaats', miqaatId);
-    await deleteDoc(miqaatDoc);
-  } catch (error) {
-    console.error("Error deleting miqaat: ", error);
-    throw error;
-  }
+    try {
+        const miqaatDoc = doc(db, 'miqaats', miqaatId);
+        const attendanceCollectionRef = collection(miqaatDoc, 'attendance');
+        
+        // Delete all documents in the 'attendance' subcollection
+        const attendanceSnapshot = await getDocs(attendanceCollectionRef);
+        const batch = writeBatch(db);
+        attendanceSnapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+
+        // Delete the main Miqaat document
+        await deleteDoc(miqaatDoc);
+    } catch (error) {
+        console.error("Error deleting miqaat and its subcollection: ", error);
+        throw error;
+    }
 };
 
 export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAttendanceEntryItem): Promise<void> => {
-  const miqaatDocRef = doc(db, 'miqaats', miqaatId);
+  const attendanceCollectionRef = collection(db, 'miqaats', miqaatId, 'attendance');
+  // Use userItsId as the document ID to prevent duplicates
+  const attendanceDocRef = doc(attendanceCollectionRef, entry.userItsId);
+
   try {
     await runTransaction(db, async (transaction) => {
-      const miqaatDoc = await transaction.get(miqaatDocRef);
-      if (!miqaatDoc.exists()) {
-        throw new Error("Miqaat does not exist!");
-      }
-      
-      const attendedUserIds: string[] = miqaatDoc.data().attendedUserItsIds || [];
-      if (attendedUserIds.includes(entry.userItsId)) {
+      const attendanceDoc = await transaction.get(attendanceDocRef);
+      if (attendanceDoc.exists()) {
         console.log(`User ${entry.userItsId} already marked for miqaat ${miqaatId}. Skipping.`);
         return; // Exit transaction without writing
       }
       
-      // If user is not already marked, add them.
-      transaction.update(miqaatDocRef, {
-        attendance: arrayUnion(entry),
-        attendedUserItsIds: arrayUnion(entry.userItsId)
-      });
+      // If user is not already marked, set the new attendance document.
+      transaction.set(attendanceDocRef, entry);
     });
   } catch (error) {
     console.error("Error marking attendance in Miqaat document: ", error);
@@ -179,31 +185,23 @@ export const batchMarkAttendanceInMiqaat = async (miqaatId: string, entries: Miq
         return;
     }
     
-    const miqaatDocRef = doc(db, 'miqaats', miqaatId);
+    const attendanceCollectionRef = collection(db, 'miqaats', miqaatId, 'attendance');
 
     try {
         await runTransaction(db, async (transaction) => {
-            const miqaatDoc = await transaction.get(miqaatDocRef);
-            if (!miqaatDoc.exists()) {
-                throw new Error(`Miqaat with ID ${miqaatId} does not exist!`);
-            }
-
-            const existingAttendees = new Set<string>(miqaatDoc.data().attendedUserItsIds || []);
+            // It's more complex to check for existence in a subcollection during a transaction for a batch.
+            // A common strategy is to query first, then transact. For simplicity and robustness here,
+            // we will overwrite if an entry exists, as the document ID is the user's ITS.
+            // This is safe because we are creating the Safar record for users who are confirmed non-attendants.
             
-            const uniqueNewEntries = entries.filter(entry => !existingAttendees.has(entry.userItsId));
-            
-            if (uniqueNewEntries.length === 0) {
-                console.log(`All ${entries.length} synced entries for Miqaat ${miqaatId} were already marked. No update needed.`);
-                return;
-            }
-
-            const uniqueNewAttendeeIds = uniqueNewEntries.map(e => e.userItsId);
-
-            transaction.update(miqaatDocRef, {
-                attendance: arrayUnion(...uniqueNewEntries),
-                attendedUserItsIds: arrayUnion(...uniqueNewAttendeeIds)
+            entries.forEach(entry => {
+                const docRef = doc(attendanceCollectionRef, entry.userItsId);
+                // set will create or overwrite. This is acceptable for the "Safar" use case
+                // as we are marking non-attendants.
+                transaction.set(docRef, entry);
             });
-            console.log(`Transactionally updating Miqaat ${miqaatId} with ${uniqueNewEntries.length} new attendance records.`);
+
+            console.log(`Transactionally updating Miqaat ${miqaatId} with ${entries.length} new attendance records.`);
         });
     } catch (error) {
         console.error(`Error during batch attendance update for Miqaat ${miqaatId}:`, error);

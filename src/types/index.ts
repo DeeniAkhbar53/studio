@@ -23,7 +23,7 @@ export type MiqaatAttendanceEntryItem = {
   userName: string;
   markedAt: string; // ISO string
   markedByItsId: string;
-  status?: 'present' | 'late' | 'early';
+  status: 'present' | 'late' | 'early' | 'safar';
   uniformCompliance?: {
       fetaPaghri: 'yes' | 'no' | 'safar';
       koti: 'yes' | 'no' | 'safar';
@@ -42,7 +42,6 @@ export type Miqaat = {
   location?: string;
   createdAt?: string; // ISO string
   attendance?: MiqaatAttendanceEntryItem[];
-  attendedUserItsIds?: string[];
   uniformRequirements?: {
       fetaPaghri: boolean;
       koti: boolean;
@@ -57,7 +56,7 @@ export type AttendanceRecord = {
   userName: string;
   markedAt: string; // ISO string
   markedByItsId?: string;
-  status?: 'present' | 'late' | 'early' | 'absent';
+  status: 'present' | 'late' | 'early' | 'absent' | 'safar';
   uniformCompliance?: {
       fetaPaghri: 'yes' | 'no' | 'safar';
       koti: 'yes' | 'no' | 'safar';
@@ -102,7 +101,7 @@ export interface ReportResultItem {
   userItsId: string;
   miqaatName: string;
   date?: string; // ISO string
-  status: "Present" | "Absent" | "Late" | "Early";
+  status: "Present" | "Absent" | "Late" | "Early" | "Safar";
   markedByItsId?: string;
   uniformCompliance?: {
     fetaPaghri: 'yes' | 'no' | 'safar';
