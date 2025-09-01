@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form as UIForm } from "@/components/ui/form";
-import { PlusCircle, FileText, Loader2, Users as UsersIcon, Trash2, GripVertical, CheckSquare } from "lucide-react";
+import { PlusCircle, FileText, Loader2, Users as UsersIcon, Trash2, GripVertical, CheckSquare, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Form as FormType, FormQuestion } from "@/types";
 import { addForm, getForms } from "@/lib/firebase/formService";
@@ -285,9 +285,15 @@ export default function FormsPage() {
                                         </div>
                                     </CardContent>
                                     <CardFooter className="flex-col items-start gap-2 border-t pt-4">
-                                        <Button className="w-full" onClick={() => router.push(`/dashboard/forms/${form.id}`)}>
-                                            Fill Out Form
-                                        </Button>
+                                        <div className="flex w-full gap-2">
+                                            <Button className="flex-grow" onClick={() => router.push(`/dashboard/forms/${form.id}`)}>
+                                                Fill Out Form
+                                            </Button>
+                                            <Button variant="outline" size="icon" disabled>
+                                                <Pencil className="h-4 w-4" />
+                                                <span className="sr-only">Edit Form</span>
+                                            </Button>
+                                        </div>
                                         <p className="text-xs text-muted-foreground self-center">Created on {format(new Date(form.createdAt), "MMM d, yyyy")}</p>
                                     </CardFooter>
                                 </Card>
@@ -330,3 +336,5 @@ function OptionsArray({ control, nestIndex }: { control: any, nestIndex: number 
         </div>
     );
 }
+
+    

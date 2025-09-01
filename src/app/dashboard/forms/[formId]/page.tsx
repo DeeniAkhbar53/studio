@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form as UIForm, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, FileWarning, ArrowLeft, Send } from "lucide-react";
+import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Form as FormType } from "@/types";
 import { getForm, addFormResponse } from "@/lib/firebase/formService";
@@ -29,6 +29,20 @@ export default function FillFormPage() {
     const [form, setForm] = useState<FormType | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [currentUser, setCurrentUser] = useState<{name: string, itsId: string} | null>(null);
+
+
+    // Effect to get current user from localStorage
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const userName = localStorage.getItem('userName');
+            const userItsId = localStorage.getItem('userItsId');
+            if (userName && userItsId) {
+                setCurrentUser({ name: userName, itsId: userItsId });
+            }
+        }
+    }, []);
+
 
     const { formSchema, defaultValues } = useMemo(() => {
         if (!form) {
@@ -98,12 +112,12 @@ export default function FillFormPage() {
                     setForm(fetchedForm);
                 } else {
                     setError("This form could not be found or may have been deleted.");
-                    setIsLoading(false); // Stop loading on error
                 }
             } catch (err) {
                 console.error(err);
                 setError("An error occurred while loading the form.");
-                setIsLoading(false); // Stop loading on error
+            } finally {
+                // We will set loading to false in the other useEffect after form is reset
             }
         };
 
@@ -114,15 +128,14 @@ export default function FillFormPage() {
     useEffect(() => {
         if (form) {
             responseForm.reset(defaultValues);
-            // Only stop loading after the form has been reset with the correct values
+            // Only stop loading after the form has been fetched and reset with the correct values
             setIsLoading(false); 
         }
     }, [form, defaultValues, responseForm]);
 
 
     const handleResponseSubmit = async (values: z.infer<typeof formSchema>) => {
-        const submitterId = localStorage.getItem('userItsId');
-        if (!submitterId || !form) {
+        if (!currentUser?.itsId || !form) {
             toast({ title: "Submission Failed", description: "Cannot identify the user. Please log in again.", variant: "destructive" });
             return;
         }
@@ -130,7 +143,7 @@ export default function FillFormPage() {
         try {
             await addFormResponse(form.id, {
                 formId: form.id,
-                submittedBy: submitterId,
+                submittedBy: currentUser.itsId,
                 responses: values,
             });
             toast({ title: "Response Submitted", description: "Thank you for filling out the form!" });
@@ -189,9 +202,34 @@ export default function FillFormPage() {
                     {form.description && <CardDescription className="text-md mt-2">{form.description}</CardDescription>}
                 </CardHeader>
                 <Separator />
+                
+                {currentUser && (
+                    <CardContent className="py-6 px-4 md:px-8">
+                        <Card className="bg-primary/5 border-primary/20">
+                            <CardHeader>
+                                <CardTitle className="text-xl flex items-center gap-3">
+                                    <UserIcon className="h-6 w-6 text-primary" />
+                                    Your Information
+                                </CardTitle>
+                                <CardDescription>This information is automatically recorded with your submission.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <FormLabel>Full Name</FormLabel>
+                                    <Input value={currentUser.name} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
+                                </div>
+                                <div>
+                                    <FormLabel>ITS ID</FormLabel>
+                                    <Input value={currentUser.itsId} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </CardContent>
+                )}
+
                 <UIForm {...responseForm}>
                     <form onSubmit={responseForm.handleSubmit(handleResponseSubmit)}>
-                        <CardContent className="py-6 px-4 md:px-8 space-y-8">
+                        <CardContent className="pt-0 pb-6 px-4 md:px-8 space-y-8">
                             {form.questions.map((question, index) => (
                                  <FormField
                                     key={question.id}
