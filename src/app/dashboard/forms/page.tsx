@@ -51,6 +51,7 @@ export default function FormsListPage() {
     }, [toast]);
 
     const canCreateForms = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker';
+    const canManageForms = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker';
     
     const handleDeleteForm = async (formId: string, formTitle: string) => {
         try {
@@ -150,13 +151,15 @@ export default function FormsListPage() {
                                     </CardContent>
                                     <Separator />
                                     <CardFooter className="flex flex-wrap justify-end gap-2 p-2">
-                                         <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
-                                            <Eye className="mr-2 h-4 w-4" /> Responses
-                                         </Button>
+                                         {canManageForms && (
+                                            <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
+                                                <Eye className="mr-2 h-4 w-4" /> Responses
+                                            </Button>
+                                         )}
                                          <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={form.status === 'closed'}>
                                             Fill Out
                                         </Button>
-                                        {canCreateForms && (
+                                        {canManageForms && (
                                             <div className="flex items-center">
                                                 <Switch 
                                                     checked={form.status === 'open'}
@@ -175,11 +178,13 @@ export default function FormsListPage() {
                                                              <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
                                                                 <Edit className="mr-2 h-4 w-4" /> Edit
                                                             </DropdownMenuItem>
-                                                             <AlertDialogTrigger asChild>
-                                                                <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                                                </DropdownMenuItem>
-                                                            </AlertDialogTrigger>
+                                                             {(currentUserRole === 'admin' || currentUserRole === 'superadmin') && (
+                                                                <AlertDialogTrigger asChild>
+                                                                    <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                                    </DropdownMenuItem>
+                                                                </AlertDialogTrigger>
+                                                             )}
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                     <AlertDialogContent>
@@ -218,25 +223,34 @@ export default function FormsListPage() {
                                                 </Badge>
                                            </TableCell>
                                            <TableCell>
-                                                <Button variant="link" className="p-0 h-auto" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
-                                                    <div className="flex items-center gap-2">
+                                                {canManageForms ? (
+                                                    <Button variant="link" className="p-0 h-auto" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
+                                                        <div className="flex items-center gap-2">
+                                                            <Users className="h-4 w-4 text-muted-foreground" />
+                                                            {form.responseCount || 0}
+                                                        </div>
+                                                    </Button>
+                                                ) : (
+                                                     <div className="flex items-center gap-2">
                                                         <Users className="h-4 w-4 text-muted-foreground" />
                                                         {form.responseCount || 0}
                                                     </div>
-                                                </Button>
+                                                )}
                                            </TableCell>
                                            <TableCell>
                                                {format(new Date(form.createdAt), "MMM d, yyyy")}
                                                <p className="text-xs text-muted-foreground">by {form.createdBy}</p>
                                            </TableCell>
                                            <TableCell className="text-right space-x-2">
-                                                <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
-                                                   <Eye className="mr-2 h-4 w-4" /> Responses
-                                                </Button>
+                                                {canManageForms && (
+                                                    <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
+                                                       <Eye className="mr-2 h-4 w-4" /> Responses
+                                                    </Button>
+                                                )}
                                                <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={form.status === 'closed'}>
                                                     Fill Out
                                                </Button>
-                                               {canCreateForms && (
+                                               {canManageForms && (
                                                 <div className="inline-flex items-center gap-1">
                                                     <Switch
                                                         checked={form.status === 'open'}
@@ -255,11 +269,13 @@ export default function FormsListPage() {
                                                                 <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
                                                                     <Edit className="mr-2 h-4 w-4" /> Edit
                                                                 </DropdownMenuItem>
-                                                                <AlertDialogTrigger asChild>
-                                                                    <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                                                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                                                    </DropdownMenuItem>
-                                                                </AlertDialogTrigger>
+                                                                {(currentUserRole === 'admin' || currentUserRole === 'superadmin') && (
+                                                                    <AlertDialogTrigger asChild>
+                                                                        <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                                                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                                        </DropdownMenuItem>
+                                                                    </AlertDialogTrigger>
+                                                                )}
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
                                                         <AlertDialogContent>
