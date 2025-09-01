@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form as UIForm, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Form as FormType } from "@/types";
+import type { Form as FormType, FormResponse } from "@/types";
 import { getForm, addFormResponse, checkIfUserHasResponded } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 
@@ -44,6 +44,10 @@ export default function FillFormPage() {
             const userBgkId = localStorage.getItem('userBgkId'); // Fetch BGK ID
             if (userName && userItsId) {
                 setCurrentUser({ name: userName, itsId: userItsId, bgkId: userBgkId || undefined });
+            } else {
+                // If user details are not found, we can't proceed.
+                setError("Cannot verify user identity. Please log in again.");
+                setIsLoading(false);
             }
         }
     }, []);
@@ -102,10 +106,14 @@ export default function FillFormPage() {
     
     // Effect to fetch the form definition and check for prior submissions
     useEffect(() => {
-        if (!formId || !currentUser?.itsId) {
-            if(!formId) setError("Form ID is missing.");
-            if(!currentUser?.itsId) setError("Cannot verify user identity.");
+        if (!formId) {
+            setError("Form ID is missing from the URL.");
             setIsLoading(false);
+            return;
+        }
+        
+        // Wait until currentUser is loaded
+        if (!currentUser) {
             return;
         }
 
@@ -126,13 +134,18 @@ export default function FillFormPage() {
             } catch (err) {
                 console.error(err);
                 setError("An error occurred while loading the form data.");
+                toast({
+                    title: "Loading Error",
+                    description: "There was a problem fetching the form. Please try again.",
+                    variant: "destructive",
+                });
             } finally {
                 setIsLoading(false);
             }
         };
 
         fetchFormData();
-    }, [formId, currentUser]);
+    }, [formId, currentUser, toast]);
 
     // Effect to reset the form once the form data (and thus defaultValues) is ready
     useEffect(() => {
@@ -154,6 +167,7 @@ export default function FillFormPage() {
                 submittedBy: currentUser.itsId,
                 submitterName: currentUser.name,
                 responses: values,
+                submitterBgkId: currentUser.bgkId || null,
             });
             setHasSubmitted(true); // Set success state
         } catch (error) {
@@ -353,3 +367,5 @@ export default function FillFormPage() {
         </div>
     );
 }
+
+    
