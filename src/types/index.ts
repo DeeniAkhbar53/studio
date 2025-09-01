@@ -127,8 +127,11 @@ export interface FormResponse {
     formId: string;
     submittedBy: string; // ITS ID of submitter
     submitterName: string; // Name of submitter for easy reference
+    submitterBgkId?: string | null; // BGK ID of submitter
     submittedAt: string; // ISO string
     responses: {
         [questionId: string]: string | string[]; // Answer keyed by question ID
     }
 }
+
+    

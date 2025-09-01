@@ -101,7 +101,7 @@ export default function FillFormPage() {
 
     const responseForm = useForm({
         resolver: zodResolver(formSchema),
-        defaultValues,
+        defaultValues: defaultValues, // Initialize with memoized values
     });
     
     // Effect to fetch the form definition and check for prior submissions
@@ -161,14 +161,16 @@ export default function FillFormPage() {
             return;
         }
 
+        const responsePayload: Omit<FormResponse, 'id' | 'submittedAt'> = {
+            formId: form.id,
+            submittedBy: currentUser.itsId,
+            submitterName: currentUser.name,
+            responses: values,
+            submitterBgkId: currentUser.bgkId, // Added BGK ID here
+        };
+
         try {
-            await addFormResponse(form.id, {
-                formId: form.id,
-                submittedBy: currentUser.itsId,
-                submitterName: currentUser.name,
-                responses: values,
-                submitterBgkId: currentUser.bgkId || null,
-            });
+            await addFormResponse(form.id, responsePayload);
             setHasSubmitted(true); // Set success state
         } catch (error) {
             console.error("Failed to submit response:", error);
