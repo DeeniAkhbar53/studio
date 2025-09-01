@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -292,7 +293,7 @@ export default function MarkAttendancePage() {
         markedAt: now.toISOString(),
         markedByItsId: markerItsId,
         status: attendanceStatus,
-        uniformCompliance: isUniformCheckRequired ? compliance : undefined,
+        uniformCompliance: isUniformCheckRequired ? compliance : {},
     };
     
     const newSessionEntry: MarkedAttendanceEntry = {
@@ -632,7 +633,7 @@ export default function MarkAttendancePage() {
           <div className="space-y-6 py-4">
               {currentMiqaatDetails?.uniformRequirements?.fetaPaghri && (
                   <div>
-                      <Label className="text-base font-medium">Feta/Paghri Present?</Label>
+                      <Label className="text-base font-medium">Feta/Paghri?</Label>
                       <RadioGroup
                           value={uniformCompliance.fetaPaghri ? "yes" : "no"}
                           onValueChange={(value) => setUniformCompliance(prev => ({...prev, fetaPaghri: value === "yes"}))}
@@ -652,7 +653,7 @@ export default function MarkAttendancePage() {
               )}
                {currentMiqaatDetails?.uniformRequirements?.koti && (
                   <div>
-                      <Label className="text-base font-medium">Koti Present?</Label>
+                      <Label className="text-base font-medium">Koti?</Label>
                       <RadioGroup
                           value={uniformCompliance.koti ? "yes" : "no"}
                           onValueChange={(value) => setUniformCompliance(prev => ({...prev, koti: value === "yes"}))}
