@@ -89,6 +89,12 @@ export default function EditFormPage() {
     });
 
     const handleUpdateFormSubmit = async (values: FormBuilderValues) => {
+        const editorId = typeof window !== "undefined" ? localStorage.getItem('userItsId') : null;
+        if (!editorId) {
+            toast({ title: "Error", description: "Could not identify editor. Please log in again.", variant: "destructive" });
+            return;
+        }
+
         try {
             const updatedFormPayload = {
                 title: values.title,
@@ -100,6 +106,7 @@ export default function EditFormPage() {
                     required: q.required,
                     options: q.options?.map(opt => opt.value)
                 })),
+                updatedBy: editorId,
             };
 
             await updateForm(formId, updatedFormPayload);

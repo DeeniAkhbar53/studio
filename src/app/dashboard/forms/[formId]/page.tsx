@@ -257,7 +257,7 @@ export default function FillFormPage() {
     return (
         <div className="max-w-4xl mx-auto p-4 md:p-6">
             <Card className="shadow-lg border-primary/20 bg-gradient-to-br from-card to-muted/20">
-                <CardHeader className="text-center p-4 md:p-6">
+                <CardHeader className="text-left p-4 md:p-6">
                     <CardTitle className="text-2xl md:text-3xl font-bold">{form.title}</CardTitle>
                     {form.description && <CardDescription className="text-md mt-2">{form.description}</CardDescription>}
                 </CardHeader>

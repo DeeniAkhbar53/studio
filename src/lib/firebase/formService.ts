@@ -26,8 +26,8 @@ const formsCollectionRef = collection(db, 'forms');
 
 // --- Form Management ---
 
-export type FormForAdd = Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'status'>;
-export type FormForUpdate = Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'createdBy' | 'status'>;
+export type FormForAdd = Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'status' | 'updatedAt' | 'updatedBy'>;
+export type FormForUpdate = Pick<Form, 'title' | 'description' | 'questions'> & { updatedBy: string };
 
 
 export const addForm = async (formData: FormForAdd): Promise<Form> => {
@@ -63,10 +63,14 @@ export const getForms = async (): Promise<Form[]> => {
             const createdAt = data.createdAt instanceof Timestamp
                               ? data.createdAt.toDate().toISOString()
                               : new Date().toISOString();
+            const updatedAt = data.updatedAt instanceof Timestamp
+                              ? data.updatedAt.toDate().toISOString()
+                              : data.updatedAt; // Keep as string if already converted
             return { 
                 ...data, 
                 id: docSnapshot.id, 
                 createdAt,
+                updatedAt,
                 status: data.status || 'open' // Default to open if status is not set
             } as Form;
         });
@@ -91,11 +95,16 @@ export const getForm = async (formId: string): Promise<Form | null> => {
         const createdAt = data.createdAt instanceof Timestamp
                           ? data.createdAt.toDate().toISOString()
                           : new Date().toISOString();
+        
+        const updatedAt = data.updatedAt instanceof Timestamp
+                          ? data.updatedAt.toDate().toISOString()
+                          : data.updatedAt;
 
         return { 
             ...data, 
             id: formDocSnap.id, 
             createdAt,
+            updatedAt,
             status: data.status || 'open' // Default to open
         } as Form;
     } catch (error) {
@@ -107,7 +116,10 @@ export const getForm = async (formId: string): Promise<Form | null> => {
 export const updateForm = async (formId: string, formData: FormForUpdate): Promise<void> => {
     try {
         const formDocRef = doc(db, 'forms', formId);
-        await updateDoc(formDocRef, formData as any);
+        await updateDoc(formDocRef, {
+            ...formData,
+            updatedAt: serverTimestamp() // Add timestamp on every update
+        });
     } catch (error) {
         console.error("Error updating form: ", error);
         throw error;

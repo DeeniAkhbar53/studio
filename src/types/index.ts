@@ -121,6 +121,8 @@ export interface Form {
   createdAt: string; // ISO string
   responseCount?: number;
   status: 'open' | 'closed'; // Status for accepting responses
+  updatedBy?: string; // ITS ID of user who last updated
+  updatedAt?: string; // ISO string of last update
 }
 
 export interface FormResponse {

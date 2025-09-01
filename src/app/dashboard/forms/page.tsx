@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, FileText, Loader2, Users, MoreHorizontal, Edit, Trash2, Calendar, User as UserIcon, Eye, CheckCircle, XCircle } from "lucide-react";
+import { PlusCircle, FileText, Loader2, Users, MoreHorizontal, Edit, Trash2, Calendar, User as UserIcon, Eye, CheckCircle, XCircle, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Form as FormType } from "@/types";
 import { getForms, deleteForm, updateFormStatus } from "@/lib/firebase/formService";
@@ -142,12 +142,14 @@ export default function FormsListPage() {
                                         </div>
                                          <div className="flex items-center gap-2">
                                             <Calendar className="h-4 w-4" />
-                                            <span>Created: {format(new Date(form.createdAt), "MMM d, yyyy")}</span>
+                                            <span>Created: {format(new Date(form.createdAt), "MMM d, yyyy")} by {form.createdBy}</span>
                                         </div>
-                                         <div className="flex items-center gap-2">
-                                            <UserIcon className="h-4 w-4" />
-                                            <span>By: {form.createdBy}</span>
-                                        </div>
+                                        {form.updatedAt && (
+                                            <div className="flex items-center gap-2">
+                                                <Pencil className="h-4 w-4" />
+                                                <span>Updated: {format(new Date(form.updatedAt), "MMM d, yyyy")} by {form.updatedBy}</span>
+                                            </div>
+                                        )}
                                     </CardContent>
                                     <Separator />
                                     <CardFooter className="flex flex-wrap justify-end gap-2 p-2">
@@ -206,7 +208,7 @@ export default function FormsListPage() {
                                        <TableHead>Title</TableHead>
                                        <TableHead>Status</TableHead>
                                        <TableHead>Responses</TableHead>
-                                       <TableHead>Created</TableHead>
+                                       <TableHead>Details</TableHead>
                                        <TableHead className="text-right">Actions</TableHead>
                                    </TableRow>
                                </TableHeader>
@@ -222,24 +224,12 @@ export default function FormsListPage() {
                                                     {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
                                                 </Badge>
                                            </TableCell>
-                                           <TableCell>
-                                                {canManageForms ? (
-                                                    <Button variant="link" className="p-0 h-auto" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
-                                                        <div className="flex items-center gap-2">
-                                                            <Users className="h-4 w-4 text-muted-foreground" />
-                                                            {form.responseCount || 0}
-                                                        </div>
-                                                    </Button>
-                                                ) : (
-                                                     <div className="flex items-center gap-2">
-                                                        <Users className="h-4 w-4 text-muted-foreground" />
-                                                        {form.responseCount || 0}
-                                                    </div>
-                                                )}
+                                           <TableCell className="text-center">
+                                                {form.responseCount || 0}
                                            </TableCell>
                                            <TableCell>
-                                               {format(new Date(form.createdAt), "MMM d, yyyy")}
-                                               <p className="text-xs text-muted-foreground">by {form.createdBy}</p>
+                                               <div className="text-xs">Created: {format(new Date(form.createdAt), "MMM d, yyyy")} by {form.createdBy}</div>
+                                               {form.updatedAt && <div className="text-xs text-muted-foreground">Updated: {format(new Date(form.updatedAt), "MMM d, yyyy")} by {form.updatedBy}</div>}
                                            </TableCell>
                                            <TableCell className="text-right space-x-2">
                                                 {canManageForms && (
@@ -313,5 +303,3 @@ export default function FormsListPage() {
         </div>
     );
 }
-
-    
