@@ -26,8 +26,8 @@ const formsCollectionRef = collection(db, 'forms');
 
 // --- Form Management ---
 
-export type FormForAdd = Omit<Form, 'id' | 'createdAt' | 'responseCount'>;
-export type FormForUpdate = Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'createdBy'>;
+export type FormForAdd = Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'status'>;
+export type FormForUpdate = Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'createdBy' | 'status'>;
 
 
 export const addForm = async (formData: FormForAdd): Promise<Form> => {
@@ -36,6 +36,7 @@ export const addForm = async (formData: FormForAdd): Promise<Form> => {
       ...formData,
       responseCount: 0,
       createdAt: serverTimestamp(),
+      status: 'open', // Forms are open by default
     });
 
     const newForm: Form = {
@@ -43,6 +44,7 @@ export const addForm = async (formData: FormForAdd): Promise<Form> => {
       id: docRef.id,
       responseCount: 0,
       createdAt: new Date().toISOString(),
+      status: 'open',
     };
     return newForm;
   } catch (error) {
@@ -61,7 +63,12 @@ export const getForms = async (): Promise<Form[]> => {
             const createdAt = data.createdAt instanceof Timestamp
                               ? data.createdAt.toDate().toISOString()
                               : new Date().toISOString();
-            return { ...data, id: docSnapshot.id, createdAt } as Form;
+            return { 
+                ...data, 
+                id: docSnapshot.id, 
+                createdAt,
+                status: data.status || 'open' // Default to open if status is not set
+            } as Form;
         });
         return forms;
     } catch (error) {
@@ -85,7 +92,12 @@ export const getForm = async (formId: string): Promise<Form | null> => {
                           ? data.createdAt.toDate().toISOString()
                           : new Date().toISOString();
 
-        return { ...data, id: formDocSnap.id, createdAt } as Form;
+        return { 
+            ...data, 
+            id: formDocSnap.id, 
+            createdAt,
+            status: data.status || 'open' // Default to open
+        } as Form;
     } catch (error) {
         console.error("Error fetching form: ", error);
         throw error;
@@ -95,9 +107,19 @@ export const getForm = async (formId: string): Promise<Form | null> => {
 export const updateForm = async (formId: string, formData: FormForUpdate): Promise<void> => {
     try {
         const formDocRef = doc(db, 'forms', formId);
-        await updateDoc(formDocRef, formData);
+        await updateDoc(formDocRef, formData as any);
     } catch (error) {
         console.error("Error updating form: ", error);
+        throw error;
+    }
+};
+
+export const updateFormStatus = async (formId: string, status: 'open' | 'closed'): Promise<void> => {
+    try {
+        const formDocRef = doc(db, 'forms', formId);
+        await updateDoc(formDocRef, { status });
+    } catch (error) {
+        console.error(`Error updating form status for ${formId}:`, error);
         throw error;
     }
 };
@@ -137,6 +159,9 @@ export const addFormResponse = async (formId: string, responseData: FormResponse
             const formDoc = await transaction.get(formRef);
             if (!formDoc.exists()) {
                 throw new Error("Form does not exist!");
+            }
+            if (formDoc.data().status === 'closed') {
+                throw new Error("This form is currently not accepting new responses.");
             }
 
             const newResponseRef = doc(responsesRef); // Create a new doc ref in the subcollection
@@ -189,7 +214,10 @@ export const deleteFormResponse = async (formId: string, responseId: string): Pr
                 throw new Error("Form does not exist!");
             }
             // Decrement the responseCount on the parent form document
-            transaction.update(formRef, { responseCount: increment(-1) });
+            const currentCount = formDoc.data().responseCount || 0;
+            if (currentCount > 0) {
+              transaction.update(formRef, { responseCount: increment(-1) });
+            }
             // Delete the specific response document
             transaction.delete(responseRef);
         });

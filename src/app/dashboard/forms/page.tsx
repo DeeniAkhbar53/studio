@@ -7,6 +7,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,10 +16,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, FileText, Loader2, Users, MoreHorizontal, Edit, Trash2, Calendar, User as UserIcon, Eye } from "lucide-react";
+import { PlusCircle, FileText, Loader2, Users, MoreHorizontal, Edit, Trash2, Calendar, User as UserIcon, Eye, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Form as FormType } from "@/types";
-import { getForms, deleteForm } from "@/lib/firebase/formService";
+import { getForms, deleteForm, updateFormStatus } from "@/lib/firebase/formService";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 
@@ -28,24 +30,24 @@ export default function FormsListPage() {
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
+    const fetchForms = async () => {
+        setIsLoading(true);
+        try {
+            const fetchedForms = await getForms();
+            setForms(fetchedForms);
+        } catch (error) {
+            console.error("Failed to fetch forms:", error);
+            toast({ title: "Error", description: "Could not load forms.", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
         const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
         setCurrentUserRole(role);
-        
-        const fetchForms = async () => {
-            setIsLoading(true);
-            try {
-                const fetchedForms = await getForms();
-                setForms(fetchedForms);
-            } catch (error) {
-                console.error("Failed to fetch forms:", error);
-                toast({ title: "Error", description: "Could not load forms.", variant: "destructive" });
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         fetchForms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [toast]);
 
     const canCreateForms = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker';
@@ -58,14 +60,28 @@ export default function FormsListPage() {
                 description: `The form "${formTitle}" has been successfully deleted.`,
                 variant: "destructive"
             });
-            // Refetch forms
-            const fetchedForms = await getForms();
-            setForms(fetchedForms);
+            await fetchForms(); // Refetch forms
         } catch (error) {
             console.error("Failed to delete form:", error);
             toast({ title: "Error", description: `Could not delete form "${formTitle}".`, variant: "destructive" });
         }
     };
+    
+    const handleStatusToggle = async (formId: string, currentStatus: 'open' | 'closed') => {
+        const newStatus = currentStatus === 'open' ? 'closed' : 'open';
+        try {
+            await updateFormStatus(formId, newStatus);
+            setForms(forms.map(f => f.id === formId ? { ...f, status: newStatus } : f));
+            toast({
+                title: "Status Updated",
+                description: `Form is now ${newStatus}.`,
+            });
+        } catch (error) {
+            console.error("Failed to update form status:", error);
+            toast({ title: "Error", description: `Could not update the form's status.`, variant: "destructive" });
+        }
+    };
+
 
     return (
         <div className="space-y-6">
@@ -107,10 +123,16 @@ export default function FormsListPage() {
                             {forms.map((form) => (
                                 <Card key={form.id} className="w-full shadow-md">
                                     <CardHeader>
-                                        <CardTitle className="text-lg">
-                                            {form.title}
-                                        </CardTitle>
-                                        <CardDescription className="line-clamp-2">{form.description}</CardDescription>
+                                        <div className="flex justify-between items-start">
+                                            <CardTitle className="text-lg pr-4">
+                                                {form.title}
+                                            </CardTitle>
+                                             <Badge variant={form.status === 'open' ? 'default' : 'destructive'} className="shrink-0">
+                                                 {form.status === 'open' ? <CheckCircle className="mr-1 h-3 w-3" /> : <XCircle className="mr-1 h-3 w-3" />}
+                                                {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
+                                            </Badge>
+                                        </div>
+                                        <CardDescription className="line-clamp-2 pt-1">{form.description}</CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-3 text-sm text-muted-foreground">
                                         <div className="flex items-center gap-2">
@@ -129,35 +151,43 @@ export default function FormsListPage() {
                                     <Separator />
                                     <CardFooter className="flex flex-wrap justify-end gap-2 p-2">
                                          <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
-                                            <Eye className="mr-2 h-4 w-4" /> View Responses
+                                            <Eye className="mr-2 h-4 w-4" /> Responses
                                          </Button>
-                                         <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)}>
+                                         <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={form.status === 'closed'}>
                                             Fill Out
                                         </Button>
                                         {canCreateForms && (
-                                             <AlertDialog>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon">
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                         <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
-                                                            <Edit className="mr-2 h-4 w-4" /> Edit
-                                                        </DropdownMenuItem>
-                                                         <AlertDialogTrigger asChild>
-                                                            <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                            <div className="flex items-center">
+                                                <Switch 
+                                                    checked={form.status === 'open'}
+                                                    onCheckedChange={() => handleStatusToggle(form.id, form.status)}
+                                                    aria-label={`Toggle form status for ${form.title}`}
+                                                    className="mr-2"
+                                                />
+                                                 <AlertDialog>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon">
+                                                                <MoreHorizontal className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                             <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
+                                                                <Edit className="mr-2 h-4 w-4" /> Edit
                                                             </DropdownMenuItem>
-                                                        </AlertDialogTrigger>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete "{form.title}" and all its responses.</AlertDialogDescription></AlertDialogHeader>
-                                                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteForm(form.id, form.title)}>Delete</AlertDialogAction></AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
+                                                             <AlertDialogTrigger asChild>
+                                                                <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                                </DropdownMenuItem>
+                                                            </AlertDialogTrigger>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete "{form.title}" and all its responses.</AlertDialogDescription></AlertDialogHeader>
+                                                        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteForm(form.id, form.title)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
                                         )}
                                     </CardFooter>
                                 </Card>
@@ -169,6 +199,7 @@ export default function FormsListPage() {
                                <TableHeader>
                                    <TableRow>
                                        <TableHead>Title</TableHead>
+                                       <TableHead>Status</TableHead>
                                        <TableHead>Responses</TableHead>
                                        <TableHead>Created</TableHead>
                                        <TableHead className="text-right">Actions</TableHead>
@@ -180,6 +211,11 @@ export default function FormsListPage() {
                                            <TableCell className="font-medium">
                                                 {form.title}
                                                <p className="text-sm text-muted-foreground line-clamp-1">{form.description}</p>
+                                           </TableCell>
+                                           <TableCell>
+                                                <Badge variant={form.status === 'open' ? 'default' : 'destructive'}>
+                                                    {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
+                                                </Badge>
                                            </TableCell>
                                            <TableCell>
                                                 <Button variant="link" className="p-0 h-auto" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
@@ -197,49 +233,56 @@ export default function FormsListPage() {
                                                 <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
                                                    <Eye className="mr-2 h-4 w-4" /> Responses
                                                 </Button>
-                                               <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)}>
+                                               <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={form.status === 'closed'}>
                                                     Fill Out
                                                </Button>
                                                {canCreateForms && (
-                                                <AlertDialog>
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon">
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                                <span className="sr-only">More actions</span>
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
-                                                                <Edit className="mr-2 h-4 w-4" /> Edit
-                                                            </DropdownMenuItem>
-                                                            <AlertDialogTrigger asChild>
-                                                                <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                <div className="inline-flex items-center gap-1">
+                                                    <Switch
+                                                        checked={form.status === 'open'}
+                                                        onCheckedChange={() => handleStatusToggle(form.id, form.status)}
+                                                        aria-label={`Toggle form status for ${form.title}`}
+                                                    />
+                                                    <AlertDialog>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon">
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                    <span className="sr-only">More actions</span>
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
+                                                                    <Edit className="mr-2 h-4 w-4" /> Edit
                                                                 </DropdownMenuItem>
-                                                            </AlertDialogTrigger>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                    <AlertDialogContent>
-                                                        <AlertDialogHeader>
-                                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                                            <AlertDialogDescription>
-                                                                This action cannot be undone. This will permanently delete the form
-                                                                <span className="font-semibold"> "{form.title}" </span> 
-                                                                and all of its responses.
-                                                            </AlertDialogDescription>
-                                                        </AlertDialogHeader>
-                                                        <AlertDialogFooter>
-                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                            <AlertDialogAction 
-                                                                className="bg-destructive hover:bg-destructive/90"
-                                                                onClick={() => handleDeleteForm(form.id, form.title)}
-                                                            >
-                                                                Continue
-                                                            </AlertDialogAction>
-                                                        </AlertDialogFooter>
-                                                    </AlertDialogContent>
-                                                </AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                                    </DropdownMenuItem>
+                                                                </AlertDialogTrigger>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                                <AlertDialogDescription>
+                                                                    This action cannot be undone. This will permanently delete the form
+                                                                    <span className="font-semibold"> "{form.title}" </span> 
+                                                                    and all of its responses.
+                                                                </AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction 
+                                                                    className="bg-destructive hover:bg-destructive/90"
+                                                                    onClick={() => handleDeleteForm(form.id, form.title)}
+                                                                >
+                                                                    Continue
+                                                                </AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </div>
                                                )}
                                            </TableCell>
                                        </TableRow>

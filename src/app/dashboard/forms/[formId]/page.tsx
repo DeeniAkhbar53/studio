@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form as UIForm, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2 } from "lucide-react";
+import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Form as FormType, FormResponse } from "@/types";
 import { getForm, addFormResponse, checkIfUserHasResponded } from "@/lib/firebase/formService";
@@ -112,6 +112,9 @@ export default function FillFormPage() {
 
                 if (fetchedForm) {
                     setForm(fetchedForm);
+                    if (fetchedForm.status === 'closed' && !userHasResponded) {
+                         setError("This form is currently closed and not accepting new responses.");
+                    }
                     setHasAlreadyResponded(userHasResponded);
                 } else {
                     setError("This form could not be found or may have been deleted.");
@@ -144,6 +147,10 @@ export default function FillFormPage() {
             toast({ title: "Submission Failed", description: "Cannot identify the user or form. Please log in again.", variant: "destructive" });
             return;
         }
+        if (form.status === 'closed') {
+            toast({ title: "Submission Failed", description: "This form is closed and no longer accepting responses.", variant: "destructive" });
+            return;
+        }
 
         const responsePayload: Omit<FormResponse, 'id' | 'submittedAt'> = {
             formId: form.id,
@@ -158,7 +165,8 @@ export default function FillFormPage() {
             setHasSubmitted(true);
         } catch (error) {
             console.error("Failed to submit response:", error);
-            toast({ title: "Error", description: "Could not submit your response. Please try again.", variant: "destructive" });
+            const errorMessage = error instanceof Error ? error.message : "Could not submit your response. Please try again.";
+            toast({ title: "Error", description: errorMessage, variant: "destructive" });
         }
     };
     
@@ -217,6 +225,27 @@ export default function FillFormPage() {
              </div>
         );
     }
+
+    if (form.status === 'closed') {
+        return (
+             <div className="flex flex-col h-screen items-center justify-center bg-background p-4">
+                 <Card className="w-full max-w-2xl shadow-lg border-destructive/20">
+                     <CardContent className="flex flex-col items-center justify-center p-8 sm:p-12 text-center">
+                         <Lock className="h-20 w-20 text-destructive mb-6" />
+                         <h1 className="text-3xl font-bold text-destructive">Form Closed</h1>
+                         <p className="text-lg text-muted-foreground mt-2">
+                            This form is not accepting new responses at this time.
+                         </p>
+                          <Button variant="outline" onClick={() => router.push('/dashboard/forms')} className="mt-8">
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            Back to All Forms
+                        </Button>
+                     </CardContent>
+                 </Card>
+             </div>
+        );
+    }
+
 
     return (
         <div className="max-w-4xl mx-auto p-4 md:p-6">

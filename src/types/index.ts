@@ -119,7 +119,8 @@ export interface Form {
   questions: FormQuestion[];
   createdBy: string; // ITS ID of creator
   createdAt: string; // ISO string
-  responseCount?: number; // Added to track submission count
+  responseCount?: number;
+  status: 'open' | 'closed'; // Status for accepting responses
 }
 
 export interface FormResponse {
@@ -133,5 +134,3 @@ export interface FormResponse {
         [questionId: string]: string | string[]; // Answer keyed by question ID
     }
 }
-
-    
