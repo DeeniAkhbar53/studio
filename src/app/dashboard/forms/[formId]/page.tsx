@@ -20,6 +20,52 @@ import type { Form as FormType, FormResponse } from "@/types";
 import { getForm, addFormResponse, checkIfUserHasResponded } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 
+// Helper function to generate schema and defaults
+const generateFormSchemaAndDefaults = (form: FormType | null) => {
+    if (!form) {
+        return { formSchema: z.object({}), defaultValues: {} };
+    }
+
+    const shape: { [key: string]: z.ZodType<any, any> } = {};
+    const defaults: { [key: string]: any } = {};
+
+    form.questions.forEach(q => {
+        let fieldSchema: z.ZodType<any, any>;
+
+        switch (q.type) {
+            case 'text':
+            case 'textarea':
+            case 'radio':
+            case 'select':
+                fieldSchema = z.string();
+                if (q.required) {
+                    fieldSchema = fieldSchema.min(1, `${q.label} is required.`);
+                } else {
+                    fieldSchema = fieldSchema.optional().default("");
+                }
+                defaults[q.id] = "";
+                break;
+            case 'checkbox':
+                fieldSchema = z.array(z.string());
+                if (q.required) {
+                    fieldSchema = fieldSchema.nonempty({ message: `Please select at least one option for ${q.label}.` });
+                } else {
+                    fieldSchema = fieldSchema.optional().default([]);
+                }
+                defaults[q.id] = [];
+                break;
+            default:
+                fieldSchema = z.any().optional();
+        }
+        shape[q.id] = fieldSchema;
+    });
+
+    return {
+        formSchema: z.object(shape),
+        defaultValues: defaults,
+    };
+};
+
 export default function FillFormPage() {
     const router = useRouter();
     const params = useParams();
@@ -32,6 +78,15 @@ export default function FillFormPage() {
     
     const [hasAlreadyResponded, setHasAlreadyResponded] = useState<boolean | null>(null);
     const [hasSubmitted, setHasSubmitted] = useState(false);
+
+    // Generate schema and defaults based on the current form state
+    const { formSchema, defaultValues } = useMemo(() => generateFormSchemaAndDefaults(form), [form]);
+    
+    // Initialize useForm
+    const responseForm = useForm({
+        resolver: zodResolver(formSchema),
+        defaultValues: defaultValues,
+    });
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -46,56 +101,6 @@ export default function FillFormPage() {
             }
         }
     }, []);
-
-    const { formSchema, defaultValues } = useMemo(() => {
-        if (!form) {
-            return { formSchema: z.object({}), defaultValues: {} };
-        }
-
-        const shape: { [key: string]: z.ZodType<any, any> } = {};
-        const defaults: { [key: string]: any } = {};
-
-        form.questions.forEach(q => {
-            let fieldSchema: z.ZodType<any, any>;
-
-            switch (q.type) {
-                case 'text':
-                case 'textarea':
-                case 'radio':
-                case 'select':
-                    fieldSchema = z.string();
-                    if (q.required) {
-                        fieldSchema = fieldSchema.min(1, `${q.label} is required.`);
-                    } else {
-                        fieldSchema = fieldSchema.optional().default("");
-                    }
-                    defaults[q.id] = "";
-                    break;
-                case 'checkbox':
-                     fieldSchema = z.array(z.string());
-                     if (q.required) {
-                        fieldSchema = fieldSchema.nonempty({ message: `Please select at least one option for ${q.label}.` });
-                     } else {
-                        fieldSchema = fieldSchema.optional().default([]);
-                     }
-                    defaults[q.id] = [];
-                    break;
-                default:
-                    fieldSchema = z.any().optional();
-            }
-            shape[q.id] = fieldSchema;
-        });
-
-        return {
-            formSchema: z.object(shape),
-            defaultValues: defaults,
-        };
-    }, [form]);
-
-    const responseForm = useForm({
-        resolver: zodResolver(formSchema),
-        defaultValues: defaultValues,
-    });
     
     useEffect(() => {
         if (!formId || !currentUser) {
@@ -135,11 +140,13 @@ export default function FillFormPage() {
         fetchFormData();
     }, [formId, currentUser, toast]);
 
+    // This effect now correctly resets the form with new defaults when the form data changes.
     useEffect(() => {
         if (form) {
-            responseForm.reset(defaultValues);
+            const { defaultValues: newDefaults } = generateFormSchemaAndDefaults(form);
+            responseForm.reset(newDefaults);
         }
-    }, [form, defaultValues, responseForm]);
+    }, [form, responseForm]);
 
 
     const handleResponseSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -301,8 +308,8 @@ export default function FillFormPage() {
                                             </FormLabel>
                                             <FormControl className="pt-4">
                                                 <div>
-                                                    {question.type === 'text' && <Input {...field} />}
-                                                    {question.type === 'textarea' && <Textarea {...field} rows={4} />}
+                                                    {question.type === 'text' && <Input {...field} value={field.value || ''} />}
+                                                    {question.type === 'textarea' && <Textarea {...field} value={field.value || ''} rows={4} />}
                                                     {question.type === 'radio' && (
                                                         <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-2">
                                                             {question.options?.map(option => (
