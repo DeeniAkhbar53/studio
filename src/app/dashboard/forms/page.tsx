@@ -127,7 +127,7 @@ export default function FormsListPage() {
                                         </div>
                                     </CardContent>
                                     <Separator />
-                                    <CardFooter className="flex justify-end gap-2 p-2">
+                                    <CardFooter className="flex flex-wrap justify-end gap-2 p-2">
                                          <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
                                             <Eye className="mr-2 h-4 w-4" /> View Responses
                                          </Button>
@@ -178,14 +178,16 @@ export default function FormsListPage() {
                                    {forms.map((form) => (
                                        <TableRow key={form.id} className="hover:bg-muted/50">
                                            <TableCell className="font-medium">
-                                               {form.title}
+                                                {form.title}
                                                <p className="text-sm text-muted-foreground line-clamp-1">{form.description}</p>
                                            </TableCell>
                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <Users className="h-4 w-4 text-muted-foreground" />
-                                                    {form.responseCount || 0}
-                                                </div>
+                                                <Button variant="link" className="p-0 h-auto" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
+                                                    <div className="flex items-center gap-2">
+                                                        <Users className="h-4 w-4 text-muted-foreground" />
+                                                        {form.responseCount || 0}
+                                                    </div>
+                                                </Button>
                                            </TableCell>
                                            <TableCell>
                                                {format(new Date(form.createdAt), "MMM d, yyyy")}
