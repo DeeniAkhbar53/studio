@@ -316,14 +316,8 @@ export default function MarkAttendancePage() {
             });
         } else {
             await markAttendanceInMiqaat(selectedMiqaatDetails.id, attendanceEntryPayload);
-            setAllMiqaats(prevMiqaats => 
-                prevMiqaats.map(m => 
-                    m.id === selectedMiqaatId 
-                    ? { ...m, attendance: [...(m.attendance || []), attendanceEntryPayload] } 
-                    : m
-                )
-            );
-
+            // We no longer update the local state here. We will rely on the realtime listener `getMiqaats` to update `allMiqaats` state automatically.
+            // This prevents the double-counting bug.
             toast({
               title: `Attendance Marked (${attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)})`,
               description: `${attendanceEntryPayload.userName} (${attendanceEntryPayload.userItsId}) marked for ${selectedMiqaatDetails.name}.`,
