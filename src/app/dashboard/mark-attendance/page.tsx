@@ -402,6 +402,14 @@ export default function MarkAttendancePage() {
     ? format(new Date(currentMiqaatDetails.endTime), "PPp")
     : null;
 
+  const miqaatHasUniformRequirements = useMemo(() => {
+    if (!currentMiqaatDetails || !currentMiqaatDetails.uniformRequirements) {
+      return false;
+    }
+    const { fetaPaghri, koti, safar } = currentMiqaatDetails.uniformRequirements;
+    return fetaPaghri || koti || safar;
+  }, [currentMiqaatDetails]);
+
 
   if (isAuthorized === null) {
     return (
@@ -547,10 +555,12 @@ export default function MarkAttendancePage() {
             >
               {isProcessing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
+              ) : miqaatHasUniformRequirements ? (
                 <CheckCircle className="mr-2 h-4 w-4" />
+              ) : (
+                <CheckSquare className="mr-2 h-4 w-4" />
               )}
-               Find Member
+              {miqaatHasUniformRequirements ? "Find Member" : "Mark Attendance"}
             </Button>
           </form>
 
