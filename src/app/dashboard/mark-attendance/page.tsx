@@ -23,9 +23,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 
 type UniformComplianceState = {
-    fetaPaghri: boolean;
-    koti: boolean;
-    safar: boolean;
+    fetaPaghri: 'yes' | 'no' | 'safar';
+    koti: 'yes' | 'no' | 'safar';
 };
 
 export default function MarkAttendancePage() {
@@ -44,7 +43,7 @@ export default function MarkAttendancePage() {
   // State for uniform check dialog
   const [isUniformDialogOpen, setIsUniformDialogOpen] = useState(false);
   const [memberForUniformCheck, setMemberForUniformCheck] = useState<User | null>(null);
-  const [uniformCompliance, setUniformCompliance] = useState<UniformComplianceState>({ fetaPaghri: false, koti: false, safar: false });
+  const [uniformCompliance, setUniformCompliance] = useState<UniformComplianceState>({ fetaPaghri: 'no', koti: 'no' });
 
   // Offline state management
   const [isOffline, setIsOffline] = useState(false);
@@ -171,7 +170,7 @@ export default function MarkAttendancePage() {
         reportingTime: m.reportingTime,
         mohallahIds: m.mohallahIds || [],
         attendance: m.attendance || [],
-        uniformRequirements: m.uniformRequirements || { fetaPaghri: false, koti: false },
+        uniformRequirements: m.uniformRequirements || { fetaPaghri: false, koti: false, safar: false },
       })));
       setIsLoadingMiqaats(false);
     });
@@ -259,11 +258,11 @@ export default function MarkAttendancePage() {
     
     const uniformReqs = selectedMiqaatDetails.uniformRequirements;
     if (uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti)) {
-      setUniformCompliance({ fetaPaghri: false, koti: false, safar: false }); // Reset before opening
+      setUniformCompliance({ fetaPaghri: 'no', koti: 'no' }); // Reset before opening
       setMemberForUniformCheck(member);
       setIsUniformDialogOpen(true);
     } else {
-      finalizeAttendance(member, { fetaPaghri: false, koti: false, safar: false }); // No uniform compliance needed, but still needs safar check
+      finalizeAttendance(member, { fetaPaghri: 'no', koti: 'no' });
     }
 
     setIsProcessing(false); // Processing is done after member is found
@@ -553,7 +552,7 @@ export default function MarkAttendancePage() {
               ) : (
                 <CheckSquare className="mr-2 h-4 w-4" />
               )}
-              {miqaatHasUniformRequirements ? "Find Member" : "Mark Attendance"}
+              {miqaatHasUniformRequirements ? "Find Member & Check Uniform" : "Mark Attendance"}
             </Button>
           </form>
 
@@ -638,8 +637,8 @@ export default function MarkAttendancePage() {
                   <div>
                       <Label className="text-base font-medium">Feta/Paghri?</Label>
                       <RadioGroup
-                          value={uniformCompliance.fetaPaghri ? "yes" : "no"}
-                          onValueChange={(value) => setUniformCompliance(prev => ({...prev, fetaPaghri: value === "yes"}))}
+                          value={uniformCompliance.fetaPaghri}
+                          onValueChange={(value) => setUniformCompliance(prev => ({...prev, fetaPaghri: value as 'yes' | 'no' | 'safar'}))}
                           className="flex gap-4 mt-2"
                       >
                           <div className="flex items-center space-x-2">
@@ -650,6 +649,10 @@ export default function MarkAttendancePage() {
                               <RadioGroupItem value="no" id="feta-no" />
                               <Label htmlFor="feta-no">No</Label>
                           </div>
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="safar" id="feta-safar" />
+                              <Label htmlFor="feta-safar">Safar</Label>
+                          </div>
                       </RadioGroup>
                   </div>
               )}
@@ -657,8 +660,8 @@ export default function MarkAttendancePage() {
                   <div>
                       <Label className="text-base font-medium">Koti?</Label>
                       <RadioGroup
-                          value={uniformCompliance.koti ? "yes" : "no"}
-                          onValueChange={(value) => setUniformCompliance(prev => ({...prev, koti: value === "yes"}))}
+                          value={uniformCompliance.koti}
+                          onValueChange={(value) => setUniformCompliance(prev => ({...prev, koti: value as 'yes' | 'no' | 'safar'}))}
                           className="flex gap-4 mt-2"
                       >
                           <div className="flex items-center space-x-2">
@@ -669,26 +672,13 @@ export default function MarkAttendancePage() {
                               <RadioGroupItem value="no" id="koti-no" />
                               <Label htmlFor="koti-no">No</Label>
                           </div>
+                           <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="safar" id="koti-safar" />
+                              <Label htmlFor="koti-safar">Safar</Label>
+                          </div>
                       </RadioGroup>
                   </div>
               )}
-              <div>
-                  <Label className="text-base font-medium">Safar?</Label>
-                  <RadioGroup
-                      value={uniformCompliance.safar ? "yes" : "no"}
-                      onValueChange={(value) => setUniformCompliance(prev => ({...prev, safar: value === "yes"}))}
-                      className="flex gap-4 mt-2"
-                  >
-                      <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="yes" id="safar-yes" />
-                          <Label htmlFor="safar-yes">Yes</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="no" id="safar-no" />
-                          <Label htmlFor="safar-no">No</Label>
-                      </div>
-                  </RadioGroup>
-              </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsUniformDialogOpen(false)}>Cancel</Button>

@@ -25,9 +25,8 @@ export type MiqaatAttendanceEntryItem = {
   markedByItsId: string;
   status?: 'present' | 'late' | 'early';
   uniformCompliance?: {
-      fetaPaghri: boolean;
-      koti: boolean;
-      safar: boolean;
+      fetaPaghri: 'yes' | 'no' | 'safar';
+      koti: 'yes' | 'no' | 'safar';
   }
 };
 
@@ -47,6 +46,7 @@ export type Miqaat = {
   uniformRequirements?: {
       fetaPaghri: boolean;
       koti: boolean;
+      safar: boolean;
   };
 };
 
@@ -60,9 +60,8 @@ export type AttendanceRecord = {
   markedByItsId?: string;
   status?: 'present' | 'late' | 'early' | 'absent';
   uniformCompliance?: {
-      fetaPaghri: boolean;
-      koti: boolean;
-      safar: boolean;
+      fetaPaghri: 'yes' | 'no' | 'safar';
+      koti: 'yes' | 'no' | 'safar';
   }
 };
 
@@ -107,9 +106,8 @@ export interface ReportResultItem {
   status: "Present" | "Absent" | "Late" | "Early";
   markedByItsId?: string;
   uniformCompliance?: {
-    fetaPaghri: boolean;
-    koti: boolean;
-    safar: boolean;
+    fetaPaghri: 'yes' | 'no' | 'safar';
+    koti: 'yes' | 'no' | 'safar';
   };
 }
 
