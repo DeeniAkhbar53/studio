@@ -157,7 +157,7 @@ export default function FormsListPage() {
                                             </Button>
                                          )}
                                          <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={form.status === 'closed'}>
-                                            Fill Out
+                                            Fill
                                         </Button>
                                         {canManageForms && (
                                             <div className="flex items-center">
@@ -248,7 +248,7 @@ export default function FormsListPage() {
                                                     </Button>
                                                 )}
                                                <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={form.status === 'closed'}>
-                                                    Fill Out
+                                                    Fill
                                                </Button>
                                                {canManageForms && (
                                                 <div className="inline-flex items-center gap-1">
@@ -313,3 +313,5 @@ export default function FormsListPage() {
         </div>
     );
 }
+
+    
