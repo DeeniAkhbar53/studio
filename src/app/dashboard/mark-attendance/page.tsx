@@ -201,6 +201,20 @@ export default function MarkAttendancePage() {
       toast({ title: "ITS/BGK ID Required", description: "Please enter the member's ITS or BGK ID.", variant: "destructive" });
       return;
     }
+    
+    const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
+    if (!selectedMiqaatDetails) {
+        toast({ title: "Error", description: "Selected Miqaat details not found.", variant: "destructive" });
+        setIsProcessing(false);
+        return;
+    }
+
+    const miqaatEndTime = new Date(selectedMiqaatDetails.endTime);
+    if (new Date() > miqaatEndTime) {
+        toast({ title: "Miqaat has ended", description: "This Miqaat is closed and no longer accepting attendance.", variant: "destructive" });
+        return;
+    }
+
 
     setIsProcessing(true);
     let member: User | null = null;
@@ -222,13 +236,6 @@ export default function MarkAttendancePage() {
       toast({ title: "Member Not Found", description: `No member found with ID: ${memberIdInput}.`, variant: "destructive" });
       setIsProcessing(false);
       return;
-    }
-    
-    const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
-    if (!selectedMiqaatDetails) {
-        toast({ title: "Error", description: "Selected Miqaat details not found.", variant: "destructive" });
-        setIsProcessing(false);
-        return;
     }
     
     const alreadyMarkedInSession = markedAttendanceThisSession.some(
@@ -304,20 +311,20 @@ export default function MarkAttendancePage() {
         miqaatName: selectedMiqaatDetails.name,
         status: attendanceStatus,
     };
-    setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
+    
 
     try {
         if (isOffline) {
             await savePendingAttendance(selectedMiqaatDetails.id, attendanceEntryPayload);
             await checkPendingRecords();
+             setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
             toast({
                 title: "Saved Offline",
                 description: `Attendance for ${attendanceEntryPayload.userName} for ${selectedMiqaatDetails.name} saved locally. Sync when online.`,
             });
         } else {
             await markAttendanceInMiqaat(selectedMiqaatDetails.id, attendanceEntryPayload);
-            // We no longer update the local state here. We will rely on the realtime listener `getMiqaats` to update `allMiqaats` state automatically.
-            // This prevents the double-counting bug.
+            setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
             toast({
               title: `Attendance Marked (${attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)})`,
               description: `${attendanceEntryPayload.userName} (${attendanceEntryPayload.userItsId}) marked for ${selectedMiqaatDetails.name}.`,
