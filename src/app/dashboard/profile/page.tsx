@@ -6,16 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { AttendanceRecord, User, Mohallah } from "@/types";
+import type { AttendanceRecord, User, Mohallah, Miqaat } from "@/types";
 import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService";
+import { getMiqaats } from "@/lib/firebase/miqaatService";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
+import { cn } from "@/lib/utils";
+
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -26,84 +29,113 @@ export default function ProfilePage() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const router = useRouter();
 
-  useEffect(() => {
-    let unsubscribeMohallahs: Unsubscribe | null = null;
+  const fetchProfileData = useCallback(async () => {
+    setIsLoading(true);
     let isMounted = true;
+    let unsubscribeMohallahs: Unsubscribe | null = null;
+    let unsubscribeMiqaats: Unsubscribe | null = null;
 
-    const fetchProfileData = async () => {
-      setIsLoading(true);
-      setHistoryError(null); 
+    if (typeof window !== "undefined") {
+      const storedItsId = localStorage.getItem('userItsId');
+      if (!storedItsId) {
+        if (isMounted) router.push('/');
+        setIsLoading(false);
+        return;
+      }
 
-      if (typeof window !== "undefined") {
-        const storedItsId = localStorage.getItem('userItsId');
-        if (storedItsId) {
-          try {
-            const fetchedUser = await getUserByItsOrBgkId(storedItsId);
-            if (isMounted) {
-              setUser(fetchedUser);
-            }
+      try {
+        const fetchedUser = await getUserByItsOrBgkId(storedItsId);
+        if (!isMounted) return;
+        setUser(fetchedUser);
 
-            unsubscribeMohallahs = getMohallahs((fetchedMohallahsData) => {
+        if (fetchedUser) {
+          setIsLoadingHistory(true);
+          setHistoryError(null);
+
+          // Get all mohallahs for name resolution
+          unsubscribeMohallahs = getMohallahs((fetchedMohallahs) => {
+            if (isMounted) setMohallahs(fetchedMohallahs);
+          });
+
+          // Fetch all miqaats and user's attendance to compare
+          unsubscribeMiqaats = getMiqaats(async (allMiqaats) => {
+            try {
+              if (!isMounted) return;
+              
+              const userAttendedRecords = await getAttendanceRecordsByUser(fetchedUser.itsId);
+              const attendedMiqaatIds = new Set(userAttendedRecords.map(rec => rec.miqaatId));
+              
+              const combinedHistory: AttendanceRecord[] = [...userAttendedRecords];
+
+              const eligibleMiqaats = allMiqaats.filter(miqaat => {
+                  const now = new Date();
+                  const miqaatEndTime = new Date(miqaat.endTime);
+                  // Only consider past miqaats for "absent" status
+                  if (now < miqaatEndTime) {
+                      return false;
+                  }
+
+                  const isForEveryone = (!miqaat.mohallahIds || miqaat.mohallahIds.length === 0) && (!miqaat.teams || miqaat.teams.length === 0);
+                  const isInMohallah = fetchedUser.mohallahId && miqaat.mohallahIds?.includes(fetchedUser.mohallahId);
+                  const isInTeam = fetchedUser.team && miqaat.teams?.includes(fetchedUser.team);
+                  return isForEveryone || isInMohallah || isInTeam;
+              });
+
+              eligibleMiqaats.forEach(miqaat => {
+                if (!attendedMiqaatIds.has(miqaat.id)) {
+                  // This is an absent record
+                  combinedHistory.push({
+                    id: `absent-${miqaat.id}-${fetchedUser.itsId}`,
+                    miqaatId: miqaat.id,
+                    miqaatName: miqaat.name,
+                    userItsId: fetchedUser.itsId,
+                    userName: fetchedUser.name,
+                    markedAt: miqaat.startTime, // Use miqaat start time as the date for sorting
+                    status: 'absent',
+                  });
+                }
+              });
+
+              combinedHistory.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());
+
               if (isMounted) {
-                setMohallahs(fetchedMohallahsData);
+                  setAttendanceHistory(combinedHistory);
               }
-            });
-
-            if (fetchedUser) {
-              setIsLoadingHistory(true);
-              try {
-                const history = await getAttendanceRecordsByUser(fetchedUser.itsId);
-                if (isMounted) {
-                  setAttendanceHistory(history);
-                }
-              } catch (historyFetchError: any) {
-                console.error("Failed to fetch attendance history:", historyFetchError); // Crucial log
-                if (isMounted) {
-                  setAttendanceHistory([]);
-                  // Simplified error message - directs user to console for specific Firebase error
-                  setHistoryError("Could not load attendance history at this time. Please check the browser console for more details.");
-                }
-              } finally {
-                if (isMounted) {
-                  setIsLoadingHistory(false);
-                }
-              }
-            } else {
+            } catch (historyFetchError: any) {
+              console.error("Failed to fetch or process attendance history:", historyFetchError);
               if (isMounted) {
-                setAttendanceHistory([]);
-                setIsLoadingHistory(false);
+                setHistoryError("Could not load attendance history.");
               }
+            } finally {
+               if (isMounted) setIsLoadingHistory(false);
             }
-          } catch (error) {
-            console.error("Failed to fetch profile data (user details):", error);
-            if (isMounted) {
-              setUser(null);
-              setAttendanceHistory([]);
-            }
-          } finally {
-            if (isMounted) {
-              setIsLoading(false);
-            }
-          }
+          });
         } else {
-          router.push('/');
-          if (isMounted) setIsLoading(false);
-          return;
+            if (isMounted) setIsLoadingHistory(false);
         }
-      } else {
+      } catch (error) {
+        console.error("Failed to fetch profile data:", error);
+        if (isMounted) {
+            setUser(null);
+            setHistoryError("Could not load user profile.");
+        }
+      } finally {
         if (isMounted) setIsLoading(false);
       }
-    };
-
-    fetchProfileData();
-
+    } else {
+       if (isMounted) setIsLoading(false);
+    }
+    
     return () => {
       isMounted = false;
-      if (unsubscribeMohallahs) {
-        unsubscribeMohallahs();
-      }
+      if (unsubscribeMohallahs) unsubscribeMohallahs();
+      if (unsubscribeMiqaats) unsubscribeMiqaats();
     };
   }, [router]);
+
+  useEffect(() => {
+    fetchProfileData();
+  }, [fetchProfileData]);
 
   const getMohallahName = (mohallahId?: string) => {
     if (!mohallahId || mohallahs.length === 0) return "N/A";
@@ -197,6 +229,7 @@ export default function ProfilePage() {
                       <TableRow>
                         <TableHead>Miqaat Name</TableHead>
                         <TableHead>Date Marked</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead className="text-right">Marked By (ITS)</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -205,6 +238,16 @@ export default function ProfilePage() {
                         <TableRow key={record.id}>
                           <TableCell className="font-medium">{record.miqaatName}</TableCell>
                           <TableCell>{format(new Date(record.markedAt), "PP p")}</TableCell>
+                           <TableCell>
+                                <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
+                                    record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                    record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                    record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                )}>
+                                    {record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'Present'}
+                                </span>
+                           </TableCell>
                           <TableCell className="text-right">
                             {record.markedByItsId || "Self/System"}
                           </TableCell>
