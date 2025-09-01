@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -473,7 +472,7 @@ export default function MarkAttendancePage() {
                 </>
               ) : (
                 <>
-                  <UserSearch className="mr-2 h-4 w-4" /> Refresh Offline Cache
+                  <UserSearch className="mr-2 h-4 w-4" /> Refresh Offline Members List
                 </>
               )}
             </Button>
@@ -511,7 +510,7 @@ export default function MarkAttendancePage() {
                 <CardHeader className="p-4">
                   <CardTitle className="text-base flex items-center gap-2">
                     <CalendarClock className="h-5 w-5 text-primary" />
-                    Time Thresholds
+                    Reporting Time
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-0 text-sm space-y-1">
@@ -673,7 +672,7 @@ export default function MarkAttendancePage() {
               )}
                {currentMiqaatDetails?.uniformRequirements?.safar && (
                   <div>
-                      <Label className="text-base font-medium">Safar Compliance?</Label>
+                      <Label className="text-base font-medium">Safar?</Label>
                       <RadioGroup
                           value={uniformCompliance.safar ? "yes" : "no"}
                           onValueChange={(value) => setUniformCompliance(prev => ({...prev, safar: value === "yes"}))}
