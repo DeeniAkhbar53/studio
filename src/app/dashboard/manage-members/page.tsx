@@ -50,6 +50,13 @@ const roleDescriptions: Record<UserRole, string> = {
     superadmin: "Full access to all system features and settings, across all Mohallahs. Specific page access can be customized.",
 };
 
+const ALL_ROLES: { value: UserRole, label: string }[] = [
+    { value: 'user', label: 'User' },
+    { value: 'attendance-marker', label: 'Attendance Marker' },
+    { value: 'admin', label: 'Admin' },
+    { value: 'superadmin', label: 'Super Admin' },
+];
+
 const AVAILABLE_PAGE_RIGHTS: PageRightConfig[] = [
   { id: 'mark-attendance', label: 'Mark Attendance', path: '/dashboard/mark-attendance', description: 'Allows user to mark attendance for others.' },
   { id: 'miqaat-management', label: 'Manage Miqaats', path: '/dashboard/miqaat-management', description: 'Create, edit, delete Miqaats.' },
@@ -81,6 +88,7 @@ export default function ManageMembersPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const [selectedFilterMohallahId, setSelectedFilterMohallahId] = useState<string>("all");
+  const [selectedFilterRole, setSelectedFilterRole] = useState<string>("all");
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -529,8 +537,9 @@ export default function ManageMembersPage() {
                             m.itsId.includes(searchTerm) ||
                             (m.bgkId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                             (mohallahs.find(moh => moh.id === m.mohallahId)?.name.toLowerCase() || "").includes(searchTerm.toLowerCase());
-    return searchTermMatch;
-  }), [members, searchTerm, mohallahs]);
+    const roleMatch = selectedFilterRole === 'all' || m.role === selectedFilterRole;
+    return searchTermMatch && roleMatch;
+  }), [members, searchTerm, mohallahs, selectedFilterRole]);
 
   const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
   const currentMembersToDisplay = useMemo(() => {
@@ -870,28 +879,40 @@ export default function ManageMembersPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            {currentUserRole === 'superadmin' && (
-              <div className="w-full sm:w-auto sm:min-w-[200px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full sm:w-auto">
+                <Select
+                    value={selectedFilterRole}
+                    onValueChange={(value) => setSelectedFilterRole(value)}
+                >
+                    <SelectTrigger>
+                        <SelectValue placeholder="Filter by Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Roles</SelectItem>
+                        {ALL_ROLES.map(r => (
+                            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                {currentUserRole === 'superadmin' && (
                 <Select
                     value={selectedFilterMohallahId}
-                    onValueChange={(value) => {
-                        setSelectedFilterMohallahId(value);
-                    }}
+                    onValueChange={(value) => setSelectedFilterMohallahId(value)}
                     disabled={isLoadingMohallahs}
                 >
-                  <SelectTrigger>
+                    <SelectTrigger>
                     <SelectValue placeholder="Filter by Mohallah" />
-                  </SelectTrigger>
-                  <SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
                     <SelectItem value="all">All Mohallahs</SelectItem>
                     {isLoadingMohallahs && <SelectItem value="loading" disabled>Loading...</SelectItem>}
                     {mohallahs.map(m => (
-                      <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                     ))}
-                  </SelectContent>
+                    </SelectContent>
                 </Select>
-              </div>
-            )}
+                )}
+            </div>
           </div>
           {fetchError && (
             <Alert variant="destructive" className="mb-4">
@@ -1169,3 +1190,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    
