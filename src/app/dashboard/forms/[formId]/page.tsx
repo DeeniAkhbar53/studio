@@ -31,7 +31,12 @@ export default function FillFormPage() {
     const [error, setError] = useState<string | null>(null);
 
     const { formSchema, defaultValues } = useMemo(() => {
-        if (!form) return { formSchema: z.object({}), defaultValues: {} };
+        if (!form) {
+            // Even when the form is not loaded, we return a schema and default values
+            // to avoid the controlled/uncontrolled input error. The schema can be simple
+            // and the default values can be an empty object.
+            return { formSchema: z.object({}), defaultValues: {} };
+        }
 
         const shape: { [key: string]: z.ZodType<any, any> } = {};
         const defaults: { [key: string]: any } = {};
@@ -48,6 +53,7 @@ export default function FillFormPage() {
                     if (q.required) {
                         fieldSchema = fieldSchema.min(1, `${q.label} is required.`);
                     } else {
+                        // Ensure it's optional and has a default value to prevent uncontrolled -> controlled switch
                         fieldSchema = fieldSchema.optional().default("");
                     }
                     defaults[q.id] = "";
@@ -57,12 +63,14 @@ export default function FillFormPage() {
                      if (q.required) {
                         fieldSchema = fieldSchema.nonempty({ message: `Please select at least one option for ${q.label}.` });
                      } else {
+                        // Ensure it's optional and has a default value
                         fieldSchema = fieldSchema.optional().default([]);
                      }
                     defaults[q.id] = [];
                     break;
                 default:
-                    fieldSchema = z.any();
+                    // Fallback for any other type, though we should handle all explicit types
+                    fieldSchema = z.any().optional();
             }
             shape[q.id] = fieldSchema;
         });
@@ -264,3 +272,5 @@ export default function FillFormPage() {
         </div>
     );
 }
+
+    
