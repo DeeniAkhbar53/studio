@@ -43,6 +43,18 @@ const miqaatSchema = z.object({
 
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
 
+// Helper function to format date to local YYYY-MM-DDTHH:MM for input[type=datetime-local]
+const toLocalISOString = (date: Date) => {
+  const ten = (i: number) => (i < 10 ? '0' : '') + i;
+  const YYYY = date.getFullYear();
+  const MM = ten(date.getMonth() + 1);
+  const DD = ten(date.getDate());
+  const HH = ten(date.getHours());
+  const mm = ten(date.getMinutes());
+  return `${YYYY}-${MM}-${DD}T${HH}:${mm}`;
+};
+
+
 export default function MiqaatManagementPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
@@ -133,9 +145,9 @@ export default function MiqaatManagementPage() {
       form.reset({
         name: editingMiqaat.name,
         location: editingMiqaat.location || "",
-        startTime: editingMiqaat.startTime ? new Date(editingMiqaat.startTime).toISOString().substring(0, 16) : "",
-        endTime: editingMiqaat.endTime ? new Date(editingMiqaat.endTime).toISOString().substring(0, 16) : "",
-        reportingTime: editingMiqaat.reportingTime ? new Date(editingMiqaat.reportingTime).toISOString().substring(0, 16) : "",
+        startTime: editingMiqaat.startTime ? toLocalISOString(new Date(editingMiqaat.startTime)) : "",
+        endTime: editingMiqaat.endTime ? toLocalISOString(new Date(editingMiqaat.endTime)) : "",
+        reportingTime: editingMiqaat.reportingTime ? toLocalISOString(new Date(editingMiqaat.reportingTime)) : "",
         mohallahIds: editingMiqaat.mohallahIds || [],
         teams: editingMiqaat.teams || [], 
         barcodeData: editingMiqaat.barcodeData || "",
