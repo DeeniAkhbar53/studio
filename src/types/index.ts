@@ -42,7 +42,10 @@ export type Miqaat = {
   createdAt?: string; // ISO string
   attendance?: MiqaatAttendanceEntryItem[];
   attendedUserItsIds?: string[];
-  uniformType?: 'attendance_only' | 'feta_paghri' | 'koti' | 'safar';
+  uniformRequirements?: {
+      fetaPaghri: boolean;
+      koti: boolean;
+  };
 };
 
 export type AttendanceRecord = {
@@ -149,3 +152,5 @@ export interface FormResponse {
         [questionId: string]: string | string[]; // Answer keyed by question ID
     }
 }
+
+    

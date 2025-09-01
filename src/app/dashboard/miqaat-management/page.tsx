@@ -12,7 +12,7 @@ import type { Miqaat, UserRole, Mohallah } from "@/types";
 import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert } from "lucide-react"; 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
@@ -34,7 +34,10 @@ const miqaatSchema = z.object({
   mohallahIds: z.array(z.string()).optional().default([]),
   teams: z.array(z.string()).optional().default([]), 
   barcodeData: z.string().optional(),
-  uniformType: z.enum(['attendance_only', 'feta_paghri', 'koti', 'safar']).default('attendance_only'),
+  uniformRequirements: z.object({
+    fetaPaghri: z.boolean().default(false),
+    koti: z.boolean().default(false),
+  }).default({ fetaPaghri: false, koti: false }),
 });
 
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
@@ -42,7 +45,7 @@ type MiqaatFormValues = z.infer<typeof miqaatSchema>;
 export default function MiqaatManagementPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformType">[]>([]);
+  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
@@ -50,7 +53,7 @@ export default function MiqaatManagementPage() {
   const [isLoadingTeams, setIsLoadingTeams] = useState(true); 
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformType"> | null>(null);
+  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements"> | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const { toast } = useToast();
 
@@ -65,7 +68,7 @@ export default function MiqaatManagementPage() {
       mohallahIds: [],
       teams: [], 
       barcodeData: "",
-      uniformType: 'attendance_only',
+      uniformRequirements: { fetaPaghri: false, koti: false },
     },
   });
 
@@ -135,10 +138,10 @@ export default function MiqaatManagementPage() {
         mohallahIds: editingMiqaat.mohallahIds || [],
         teams: editingMiqaat.teams || [], 
         barcodeData: editingMiqaat.barcodeData || "",
-        uniformType: editingMiqaat.uniformType || 'attendance_only',
+        uniformRequirements: editingMiqaat.uniformRequirements || { fetaPaghri: false, koti: false },
       });
     } else {
-      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", mohallahIds: [], teams: [], barcodeData: "", uniformType: 'attendance_only' });
+      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", mohallahIds: [], teams: [], barcodeData: "", uniformRequirements: { fetaPaghri: false, koti: false } });
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
@@ -152,7 +155,7 @@ export default function MiqaatManagementPage() {
       location: values.location, 
       reportingTime: values.reportingTime, 
       barcodeData: values.barcodeData,
-      uniformType: values.uniformType,
+      uniformRequirements: values.uniformRequirements,
     };
     
     try {
@@ -171,7 +174,7 @@ export default function MiqaatManagementPage() {
     }
   };
 
-  const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformType">) => {
+  const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements">) => {
     setEditingMiqaat(miqaat);
     setIsDialogOpen(true);
   };
@@ -284,24 +287,38 @@ export default function MiqaatManagementPage() {
                     )} />
                     <FormField
                         control={form.control}
-                        name="uniformType"
-                        render={({ field }) => (
-                          <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                              <ShadFormLabel className="text-right">Uniform</ShadFormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                  <FormControl className="col-span-3">
-                                      <SelectTrigger>
-                                          <SelectValue placeholder="Select uniform requirement" />
-                                      </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                      <SelectItem value="attendance_only">Attendance Only</SelectItem>
-                                      <SelectItem value="feta_paghri">Feta/Paghri</SelectItem>
-                                      <SelectItem value="koti">Koti</SelectItem>
-                                      <SelectItem value="safar">Safar (Feta/Paghri & Koti)</SelectItem>
-                                  </SelectContent>
-                              </Select>
-                              <FormMessage className="col-start-2 col-span-3 text-xs" />
+                        name="uniformRequirements"
+                        render={() => (
+                          <FormItem className="grid grid-cols-4 items-start gap-x-4">
+                            <ShadFormLabel className="text-right pt-2 col-span-1">Uniform</ShadFormLabel>
+                            <div className="col-span-3 space-y-2">
+                                <FormField
+                                    control={form.control}
+                                    name="uniformRequirements.fetaPaghri"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                            <FormControl>
+                                                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                            </FormControl>
+                                            <FormLabel className="font-normal text-sm">Feta/Paghri Required</FormLabel>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="uniformRequirements.koti"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                            <FormControl>
+                                                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                            </FormControl>
+                                            <FormLabel className="font-normal text-sm">Koti Required</FormLabel>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormDescription className="text-xs">If neither is selected, only attendance will be marked.</FormDescription>
+                            </div>
+                            <FormMessage className="col-start-2 col-span-3 text-xs" />
                           </FormItem>
                         )}
                     />
@@ -448,3 +465,5 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
+
+    

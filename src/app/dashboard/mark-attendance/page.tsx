@@ -28,7 +28,7 @@ export default function MarkAttendancePage() {
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
   const [memberIdInput, setMemberIdInput] = useState("");
   const [markedAttendanceThisSession, setMarkedAttendanceThisSession] = useState<MarkedAttendanceEntry[]>([]);
-  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "attendance" | "uniformType">[]>([]);
+  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "attendance" | "uniformRequirements">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [markerItsId, setMarkerItsId] = useState<string | null>(null);
@@ -165,7 +165,7 @@ export default function MarkAttendancePage() {
         reportingTime: m.reportingTime,
         mohallahIds: m.mohallahIds || [],
         attendance: m.attendance || [],
-        uniformType: m.uniformType || 'attendance_only',
+        uniformRequirements: m.uniformRequirements || { fetaPaghri: false, koti: false },
       })));
       setIsLoadingMiqaats(false);
     });
@@ -244,10 +244,9 @@ export default function MarkAttendancePage() {
       return;
     }
     
-    // Logic to open uniform check dialog or mark attendance directly
-    if (selectedMiqaatDetails.uniformType && selectedMiqaatDetails.uniformType !== 'attendance_only') {
-      let isSafar = selectedMiqaatDetails.uniformType === 'safar';
-      setUniformCompliance({ fetaPaghri: isSafar, koti: isSafar });
+    const uniformReqs = selectedMiqaatDetails.uniformRequirements;
+    if (uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti)) {
+      setUniformCompliance({ fetaPaghri: false, koti: false }); // Reset before opening
       setMemberForUniformCheck(member);
       setIsUniformDialogOpen(true);
     } else {
@@ -278,6 +277,9 @@ export default function MarkAttendancePage() {
     } else {
       attendanceStatus = 'present';
     }
+    
+    const uniformReqs = selectedMiqaatDetails.uniformRequirements;
+    const isUniformCheckRequired = uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti);
 
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
         userItsId: member.itsId,
@@ -285,7 +287,7 @@ export default function MarkAttendancePage() {
         markedAt: now.toISOString(),
         markedByItsId: markerItsId,
         status: attendanceStatus,
-        uniformCompliance: selectedMiqaatDetails.uniformType !== 'attendance_only' ? compliance : undefined,
+        uniformCompliance: isUniformCheckRequired ? compliance : undefined,
     };
     
     const newSessionEntry: MarkedAttendanceEntry = {
@@ -616,26 +618,24 @@ export default function MarkAttendancePage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {(currentMiqaatDetails?.uniformType === 'feta_paghri' || currentMiqaatDetails?.uniformType === 'safar') && (
+            {currentMiqaatDetails?.uniformRequirements?.fetaPaghri && (
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="fetaPaghri"
                   checked={uniformCompliance.fetaPaghri}
                   onCheckedChange={(checked) => setUniformCompliance(prev => ({ ...prev, fetaPaghri: !!checked }))}
-                  disabled={currentMiqaatDetails?.uniformType === 'safar'}
                 />
                 <Label htmlFor="fetaPaghri" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   Feta/Paghri Present
                 </Label>
               </div>
             )}
-            {(currentMiqaatDetails?.uniformType === 'koti' || currentMiqaatDetails?.uniformType === 'safar') && (
+            {currentMiqaatDetails?.uniformRequirements?.koti && (
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="koti"
                   checked={uniformCompliance.koti}
                   onCheckedChange={(checked) => setUniformCompliance(prev => ({ ...prev, koti: !!checked }))}
-                  disabled={currentMiqaatDetails?.uniformType === 'safar'}
                 />
                 <Label htmlFor="koti" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   Koti Present
@@ -661,3 +661,5 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
+
+    

@@ -47,16 +47,14 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
     return `${year}-${month}-${day}`;
   };
 
-  const formatUniformType = (type?: Miqaat['uniformType']) => {
-    if (!type) return "Attendance Only";
-    switch(type) {
-        case 'feta_paghri': return "Feta/Paghri";
-        case 'koti': return "Koti";
-        case 'safar': return "Safar (Full)";
-        case 'attendance_only':
-        default:
-            return "Attendance Only";
+  const formatUniformRequirements = (reqs?: Miqaat['uniformRequirements']) => {
+    if (!reqs || (!reqs.fetaPaghri && !reqs.koti)) {
+      return "Attendance Only";
     }
+    const requirements = [];
+    if (reqs.fetaPaghri) requirements.push("Feta/Paghri");
+    if (reqs.koti) requirements.push("Koti");
+    return requirements.join(" & ");
   };
 
   const formattedStartDate = formatDate(miqaat.startTime);
@@ -212,7 +210,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
           )}
           <div className="flex items-center text-muted-foreground">
             <Shirt className="mr-2 h-4 w-4 text-primary shrink-0" />
-            <span>Uniform: {formatUniformType(miqaat.uniformType)}</span>
+            <span>Uniform: {formatUniformRequirements(miqaat.uniformRequirements)}</span>
           </div>
           <div className="flex items-center text-muted-foreground">
             <MapPin className="mr-2 h-4 w-4 text-primary shrink-0" />
@@ -298,3 +296,5 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
     </>
   );
 }
+
+    
