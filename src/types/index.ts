@@ -7,6 +7,7 @@ export type User = {
   itsId: string;
   bgkId?: string;
   name: string;
+  password?: string; // For admin/superadmin login
   team?: string;
   phoneNumber?: string;
   mohallahId?: string;

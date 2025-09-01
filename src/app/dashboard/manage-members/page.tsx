@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Mohallah, User, UserRole, UserDesignation, PageRightConfig } from "@/types";
-import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Users as UsersIcon, Download, AlertTriangle, ChevronLeft, ChevronRight, BellDot, ShieldAlert } from "lucide-react";
+import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Users as UsersIcon, Download, AlertTriangle, ChevronLeft, ChevronRight, BellDot, ShieldAlert, Lock } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
@@ -33,12 +33,21 @@ const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   itsId: z.string().min(8, "ITS ID must be 8 characters").max(8, "ITS ID must be 8 characters"),
   bgkId: z.string().optional().or(z.literal("")),
+  password: z.string().optional(),
   team: z.string().optional().or(z.literal("")),
   phoneNumber: z.string().optional().or(z.literal("")),
   role: z.enum(["user", "admin", "superadmin", "attendance-marker"]),
   mohallahId: z.string().min(1, "Mohallah must be selected"),
   designation: z.enum(["Captain", "Vice Captain", "Member"]).optional().or(z.literal("")),
   pageRights: z.array(z.string()).optional().default([]),
+}).refine(data => {
+    if ((data.role === 'admin' || data.role === 'superadmin') && (!data.password || data.password.length < 6)) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Password must be at least 6 characters for Admins and Super Admins.",
+    path: ["password"],
 });
 
 type MemberFormValues = z.infer<typeof memberSchema>;
@@ -46,8 +55,8 @@ type MemberFormValues = z.infer<typeof memberSchema>;
 const roleDescriptions: Record<UserRole, string> = {
     user: "Regular user with basic access. Can scan their own attendance and view profile/notifications.",
     "attendance-marker": "Can mark attendance for members and view reports. Specific page access can be customized.",
-    admin: "Can manage users, Miqaats, Mohallahs, and generate reports within their assigned Mohallah. Specific page access can be customized.",
-    superadmin: "Full access to all system features and settings, across all Mohallahs. Specific page access can be customized.",
+    admin: "Can manage users, Miqaats, Mohallahs, and generate reports within their assigned Mohallah. Requires password to log in. Specific page access can be customized.",
+    superadmin: "Full access to all system features and settings, across all Mohallahs. Requires password to log in. Specific page access can be customized.",
 };
 
 const ALL_ROLES: { value: UserRole, label: string }[] = [
@@ -105,7 +114,7 @@ export default function ManageMembersPage() {
 
   const memberForm = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema),
-    defaultValues: { name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user", mohallahId: "", designation: "Member", pageRights: [] },
+    defaultValues: { name: "", itsId: "", bgkId: "", password: "", team: "", phoneNumber: "", role: "user", mohallahId: "", designation: "Member", pageRights: [] },
   });
 
   const watchedRole = memberForm.watch("role");
@@ -241,6 +250,7 @@ export default function ManageMembersPage() {
         name: editingMember.name,
         itsId: editingMember.itsId,
         bgkId: editingMember.bgkId || "",
+        password: "", // Always clear password on edit for security
         team: editingMember.team || "",
         phoneNumber: editingMember.phoneNumber || "",
         role: editingMember.role,
@@ -258,7 +268,7 @@ export default function ManageMembersPage() {
                               : (mohallahs.length > 0 ? mohallahs[0].id : "");
       }
       memberForm.reset({
-        name: "", itsId: "", bgkId: "", team: "", phoneNumber: "", role: "user",
+        name: "", itsId: "", bgkId: "", password: "", team: "", phoneNumber: "", role: "user",
         mohallahId: defaultMohallahForForm,
         designation: "Member",
         pageRights: [],
@@ -275,7 +285,7 @@ export default function ManageMembersPage() {
         return;
     }
 
-    const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string, designation?: UserDesignation, pageRights?: string[] } = {
+    const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string, designation?: UserDesignation, pageRights?: string[], password?: string } = {
       name: values.name,
       itsId: values.itsId,
       bgkId: values.bgkId,
@@ -287,8 +297,16 @@ export default function ManageMembersPage() {
       pageRights: values.role === 'user' ? [] : (values.pageRights || []), 
     };
 
+    if (values.password && (values.role === 'admin' || values.role === 'superadmin')) {
+        memberPayload.password = values.password;
+    }
+
     try {
       if (editingMember && editingMember.mohallahId) {
+        // If password field is empty during an edit, it means "do not change"
+        if (!memberPayload.password) {
+            delete memberPayload.password;
+        }
         const updatePayload = { ...memberPayload };
         await updateUser(editingMember.id, editingMember.mohallahId, updatePayload);
         toast({ title: "Member Updated", description: `"${values.name}" has been updated.` });
@@ -454,6 +472,7 @@ export default function ManageMembersPage() {
               name: trimmedRow.name,
               itsId: trimmedRow.itsId,
               bgkId: trimmedRow.bgkId || undefined, 
+              password: trimmedRow.password || undefined,
               team: trimmedRow.team || undefined,
               phoneNumber: trimmedRow.phoneNumber || undefined,
               role: trimmedRow.role as UserRole,
@@ -543,11 +562,11 @@ export default function ManageMembersPage() {
 
 
   const downloadSampleCsv = () => {
-    const csvHeaders = "name,itsId,bgkId,team,phoneNumber,role,mohallahName,designation,pageRights\n";
+    const csvHeaders = "name,itsId,bgkId,password,team,phoneNumber,role,mohallahName,designation,pageRights\n";
     const csvDummyData = [
-      "Abbas Bhai,10101010,BGK001,Alpha Team,1234567890,user,Houston,Member,",
+      "Abbas Bhai,10101010,BGK001,,Alpha Team,1234567890,user,Houston,Member,",
       "Fatema Ben,20202020,,Bravo Team,0987654321,attendance-marker,Dallas,Vice Captain,/dashboard/reports;/dashboard/mark-attendance",
-      "Yusuf Bhai,30303030,BGK003,Alpha Team,,admin,Houston,Captain,/dashboard/reports;/dashboard/manage-members",
+      "Yusuf Bhai,30303030,BGK003,strongpassword,Alpha Team,,admin,Houston,Captain,/dashboard/reports;/dashboard/manage-members",
     ].join("\n");
     const csvContent = csvHeaders + csvDummyData;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -704,7 +723,7 @@ export default function ManageMembersPage() {
                     <DialogHeader>
                         <DialogTitle>Import Members via CSV</DialogTitle>
                         <DialogDescription>
-                        Select CSV file. Columns: `name`, `itsId`, `bgkId`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist. Admins can only import to their assigned Mohallah.
+                        Select CSV file. Columns: `name`, `itsId`, `bgkId`, `password`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist. Admins can only import to their assigned Mohallah.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -826,6 +845,29 @@ export default function ManageMembersPage() {
                               <FormMessage />
                             </FormItem>
                           )} />
+                           {(watchedRole === 'admin' || watchedRole === 'superadmin') && (
+                            <FormField
+                              control={memberForm.control}
+                              name="password"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Password</FormLabel>
+                                  <FormControl>
+                                    <div className="relative">
+                                      <Lock className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                      <Input
+                                        type="password"
+                                        placeholder={editingMember ? "Leave blank to keep unchanged" : "Required for admin roles"}
+                                        {...field}
+                                        className="pl-9"
+                                      />
+                                    </div>
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          )}
                           <FormField control={memberForm.control} name="mohallahId" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Mohallah</FormLabel>
@@ -1222,7 +1264,7 @@ export default function ManageMembersPage() {
           <DialogHeader>
             <DialogTitle>Import Members via CSV</DialogTitle>
             <DialogDescription>
-              Select CSV file. Columns: `name`, `itsId`, `bgkId`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist. Admins can only import to their assigned Mohallah.
+              Select CSV file. Columns: `name`, `itsId`, `bgkId`, `password`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist. Admins can only import to their assigned Mohallah.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -1258,4 +1300,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-

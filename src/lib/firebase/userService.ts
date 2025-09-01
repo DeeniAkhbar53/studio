@@ -25,6 +25,10 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
       pageRights: userData.pageRights || [],
       fcmTokens: [], // Initialize FCM tokens array
     };
+    
+    if (userData.password) {
+        payloadForFirestore.password = userData.password;
+    }
 
     if (userData.bgkId && userData.bgkId.trim() !== "") {
       payloadForFirestore.bgkId = userData.bgkId;
@@ -57,6 +61,14 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
     // MohallahId cannot be changed via this function; it's part of the document path
     delete updatePayload.mohallahId; 
     delete updatePayload.id; // id also cannot be changed
+    
+    // Explicitly handle password: if it's an empty string, don't include it in update.
+    // This allows admins to update other details without changing the password.
+    // The form should be responsible for sending undefined if password is not being changed.
+    if (updatedData.password === '') {
+        delete updatePayload.password;
+    }
+
 
      Object.keys(updatePayload).forEach(key => {
       const K = key as keyof UserDataForUpdate;
@@ -225,5 +237,3 @@ export const updateUserFcmToken = async (userItsId: string, userMohallahId: stri
         console.error(`Error updating FCM token for user ${userItsId}: `, error);
     }
 };
-
-    
