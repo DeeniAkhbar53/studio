@@ -300,7 +300,7 @@ export default function MiqaatManagementPage() {
                                             <FormControl>
                                                 <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                                             </FormControl>
-                                            <FormLabel className="font-normal text-sm">Feta/Paghri Required</FormLabel>
+                                            <ShadFormLabel className="font-normal text-sm">Feta/Paghri Required</ShadFormLabel>
                                         </FormItem>
                                     )}
                                 />
@@ -312,7 +312,7 @@ export default function MiqaatManagementPage() {
                                             <FormControl>
                                                 <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                                             </FormControl>
-                                            <FormLabel className="font-normal text-sm">Koti Required</FormLabel>
+                                            <ShadFormLabel className="font-normal text-sm">Koti Required</ShadFormLabel>
                                         </FormItem>
                                     )}
                                 />
