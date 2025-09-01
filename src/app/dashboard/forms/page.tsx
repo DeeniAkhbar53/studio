@@ -136,15 +136,17 @@ export default function FormsListPage() {
                                         <CardDescription className="line-clamp-2 pt-1">{form.description}</CardDescription>
                                     </CardHeader>
                                     <CardContent className="space-y-3 text-sm text-muted-foreground">
-                                        <div className="flex items-center gap-2">
-                                            <Users className="h-4 w-4" />
-                                            <span>{form.responseCount || 0} Responses</span>
-                                        </div>
+                                        {canManageForms && (
+                                            <div className="flex items-center gap-2">
+                                                <Users className="h-4 w-4" />
+                                                <span>{form.responseCount || 0} Responses</span>
+                                            </div>
+                                        )}
                                          <div className="flex items-center gap-2">
                                             <Calendar className="h-4 w-4" />
                                             <span>Created: {format(new Date(form.createdAt), "MMM d, yyyy")} by {form.createdBy}</span>
                                         </div>
-                                        {form.updatedAt && (
+                                        {canManageForms && form.updatedAt && (
                                             <div className="flex items-center gap-2">
                                                 <Pencil className="h-4 w-4" />
                                                 <span>Updated: {format(new Date(form.updatedAt), "MMM d, yyyy")} by {form.updatedBy}</span>
@@ -207,7 +209,7 @@ export default function FormsListPage() {
                                    <TableRow>
                                        <TableHead>Title</TableHead>
                                        <TableHead>Status</TableHead>
-                                       <TableHead>Responses</TableHead>
+                                       {canManageForms && <TableHead>Responses</TableHead>}
                                        <TableHead>Details</TableHead>
                                        <TableHead className="text-right">Actions</TableHead>
                                    </TableRow>
@@ -224,12 +226,14 @@ export default function FormsListPage() {
                                                     {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
                                                 </Badge>
                                            </TableCell>
-                                           <TableCell className="text-center">
-                                                {form.responseCount || 0}
-                                           </TableCell>
+                                           {canManageForms && (
+                                               <TableCell className="text-center">
+                                                    {form.responseCount || 0}
+                                               </TableCell>
+                                           )}
                                            <TableCell>
                                                <div className="text-xs">Created: {format(new Date(form.createdAt), "MMM d, yyyy")} by {form.createdBy}</div>
-                                               {form.updatedAt && <div className="text-xs text-muted-foreground">Updated: {format(new Date(form.updatedAt), "MMM d, yyyy")} by {form.updatedBy}</div>}
+                                               {canManageForms && form.updatedAt && <div className="text-xs text-muted-foreground">Updated: {format(new Date(form.updatedAt), "MMM d, yyyy")} by {form.updatedBy}</div>}
                                            </TableCell>
                                            <TableCell className="text-right space-x-2">
                                                 {canManageForms && (
