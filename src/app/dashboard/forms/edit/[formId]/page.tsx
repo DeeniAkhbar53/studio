@@ -132,7 +132,7 @@ export default function EditFormPage() {
                                 Modify the title, description, and questions for your form.
                             </CardDescription>
                         </div>
-                         <Button type="button" variant="outline" onClick={() => router.push('/dashboard/forms')}>
+                         <Button type="button" variant="outline" onClick={() => router.push('/dashboard/forms')} className="w-full sm:w-auto mt-2 sm:mt-0">
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Forms
                         </Button>
                     </CardHeader>
