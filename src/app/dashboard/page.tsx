@@ -5,13 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera } from "lucide-react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import type { UserRole, Miqaat, MiqaatAttendanceEntryItem } from "@/types";
-import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
+import type { UserRole, Miqaat, MiqaatAttendanceEntryItem, Form as FormType } from "@/types";
+import { getMiqaats } from "@/lib/firebase/miqaatService";
 import { getUsersCount } from "@/lib/firebase/userService";
 import { getMohallahsCount } from "@/lib/firebase/mohallahService";
+import { getForms } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
@@ -43,9 +44,13 @@ export default function DashboardOverviewPage() {
   const router = useRouter();
 
   const [activeMiqaatsCount, setActiveMiqaatsCount] = useState<number>(0);
+  const [totalMiqaatsCount, setTotalMiqaatsCount] = useState<number>(0);
   const [allMiqaatsList, setAllMiqaatsList] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>([]);
   const [totalMembersCount, setTotalMembersCount] = useState<number>(0);
   const [totalMohallahsCount, setTotalMohallahsCount] = useState<number>(0);
+  const [totalFormsCount, setTotalFormsCount] = useState<number>(0);
+  const [activeFormsCount, setActiveFormsCount] = useState<number>(0);
+
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   const [isScannerDialogOpen, setIsScannerDialogOpen] = useState(false);
@@ -84,20 +89,24 @@ export default function DashboardOverviewPage() {
       setActiveMiqaatsCount(0);
       setTotalMembersCount(0);
       setTotalMohallahsCount(0);
+      setTotalFormsCount(0);
+      setActiveFormsCount(0);
       return;
     }
 
     setIsLoadingStats(true);
     let miqaatsLoaded = false;
+    let formsLoaded = !(currentUserRole === 'admin' || currentUserRole === 'superadmin');
     let adminCountsLoaded = !(currentUserRole === 'admin' || currentUserRole === 'superadmin');
 
     const checkAndSetLoadingDone = () => {
-      if (miqaatsLoaded && adminCountsLoaded) {
+      if (miqaatsLoaded && adminCountsLoaded && formsLoaded) {
         setIsLoadingStats(false);
       }
     };
 
     const unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
+      setTotalMiqaatsCount(fetchedMiqaats.length);
       setActiveMiqaatsCount(fetchedMiqaats.filter(m => new Date(m.endTime) > new Date()).length);
       setAllMiqaatsList(fetchedMiqaats);
       miqaatsLoaded = true;
@@ -105,7 +114,7 @@ export default function DashboardOverviewPage() {
     });
 
     if (currentUserRole === 'admin' || currentUserRole === 'superadmin') {
-      const fetchAdminCounts = async () => {
+      const fetchAdminData = async () => {
         try {
           const membersCountPromise = getUsersCount(currentUserRole === 'admin' ? currentUserMohallahId || undefined : undefined);
           const mohallahsCountPromise = currentUserRole === 'superadmin' ? getMohallahsCount() : Promise.resolve(0);
@@ -121,9 +130,25 @@ export default function DashboardOverviewPage() {
           checkAndSetLoadingDone();
         }
       };
-      fetchAdminCounts();
+
+      const fetchFormsData = async () => {
+        try {
+          const forms = await getForms();
+          setTotalFormsCount(forms.length);
+          setActiveFormsCount(forms.filter(f => f.status === 'open').length);
+        } catch (err) {
+            console.error("Failed to fetch forms stats", err);
+        } finally {
+            formsLoaded = true;
+            checkAndSetLoadingDone();
+        }
+      };
+
+      fetchAdminData();
+      fetchFormsData();
     } else {
       adminCountsLoaded = true; // For non-admin roles, counts are considered loaded
+      formsLoaded = true;
       checkAndSetLoadingDone();
     }
 
@@ -336,13 +361,14 @@ export default function DashboardOverviewPage() {
 
   const adminOverviewStats: AdminStat[] = [
     { title: "Active Miqaats", value: activeMiqaatsCount, icon: CalendarCheck, isLoading: isLoadingStats },
+    { title: "Total Miqaats", value: totalMiqaatsCount, icon: CalendarCheck, isLoading: isLoadingStats },
     { title: "Total Members", value: totalMembersCount, icon: Users, isLoading: isLoadingStats, trend: currentUserRole === 'admin' ? "In your Mohallah" : "System-wide" },
+    { title: "Total Forms", value: totalFormsCount, icon: FileText, isLoading: isLoadingStats },
+    { title: "Active Forms", value: activeFormsCount, icon: FileText, isLoading: isLoadingStats },
   ];
 
   if (currentUserRole === 'superadmin') {
-    adminOverviewStats.push(
-      { title: "Total Mohallahs", value: totalMohallahsCount, icon: Users, isLoading: isLoadingStats }
-    );
+    adminOverviewStats.splice(3, 0, { title: "Total Mohallahs", value: totalMohallahsCount, icon: Users, isLoading: isLoadingStats });
   }
 
   if (isLoadingUser && !currentUserItsId) {
@@ -491,5 +517,3 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
-
-    
