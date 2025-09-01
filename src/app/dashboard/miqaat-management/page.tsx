@@ -461,8 +461,16 @@ export default function MiqaatManagementPage() {
             </div>
           ) : filteredMiqaats.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredMiqaats.map((miqaat) => (
-                <MiqaatCard key={miqaat.id} miqaat={miqaat as Miqaat} onEdit={handleEdit} onDelete={handleDelete} currentUserRole={currentUserRole} allMohallahs={availableMohallahs} />
+              {filteredMiqaats.map((miqaat, index) => (
+                <MiqaatCard 
+                  key={miqaat.id} 
+                  miqaat={miqaat as Miqaat} 
+                  onEdit={handleEdit} 
+                  onDelete={handleDelete} 
+                  currentUserRole={currentUserRole} 
+                  allMohallahs={availableMohallahs}
+                  serialNumber={index + 1}
+                />
               ))}
             </div>
           ) : (

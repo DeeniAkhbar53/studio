@@ -6,7 +6,7 @@ import type { Miqaat, MiqaatAttendanceEntryItem } from '@/types';
 const miqaatsCollectionRef = collection(db, 'miqaats');
 
 export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendedUserItsIds" | "uniformRequirements">[]) => void): Unsubscribe => {
-  const q = query(miqaatsCollectionRef, orderBy('startTime', 'desc'));
+  const q = query(miqaatsCollectionRef, orderBy('createdAt', 'desc'));
 
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
     const miqaats = querySnapshot.docs.map((docSnapshot) => {

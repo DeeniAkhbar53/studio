@@ -26,9 +26,10 @@ interface MiqaatCardProps {
   onDelete: (miqaatId: string) => void;
   currentUserRole: UserRole | null;
   allMohallahs: Mohallah[];
+  serialNumber: number;
 }
 
-export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohallahs }: MiqaatCardProps) {
+export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohallahs, serialNumber }: MiqaatCardProps) {
   const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
   const qrCodeDisplayRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -188,9 +189,12 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
 
   return (
     <>
-      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
+      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full relative">
+        <div className="absolute top-2 right-2 bg-primary/20 text-primary-foreground font-bold rounded-full h-8 w-8 flex items-center justify-center text-sm">
+            {serialNumber}
+        </div>
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">{miqaat.name}</CardTitle>
+          <CardTitle className="text-lg font-semibold pr-10">{miqaat.name}</CardTitle>
           <CardDescription>{miqaat.location || "Location not specified"}</CardDescription>
         </CardHeader>
         <CardContent className="flex-grow space-y-2 text-sm">
