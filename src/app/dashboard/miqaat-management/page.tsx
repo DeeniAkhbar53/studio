@@ -37,8 +37,7 @@ const miqaatSchema = z.object({
   uniformRequirements: z.object({
     fetaPaghri: z.boolean().default(false),
     koti: z.boolean().default(false),
-    safar: z.boolean().default(false),
-  }).default({ fetaPaghri: false, koti: false, safar: false }),
+  }).default({ fetaPaghri: false, koti: false }),
 });
 
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
@@ -81,7 +80,7 @@ export default function MiqaatManagementPage() {
       mohallahIds: [],
       teams: [], 
       barcodeData: "",
-      uniformRequirements: { fetaPaghri: false, koti: false, safar: false },
+      uniformRequirements: { fetaPaghri: false, koti: false },
     },
   });
 
@@ -151,10 +150,10 @@ export default function MiqaatManagementPage() {
         mohallahIds: editingMiqaat.mohallahIds || [],
         teams: editingMiqaat.teams || [], 
         barcodeData: editingMiqaat.barcodeData || "",
-        uniformRequirements: editingMiqaat.uniformRequirements || { fetaPaghri: false, koti: false, safar: false },
+        uniformRequirements: editingMiqaat.uniformRequirements || { fetaPaghri: false, koti: false },
       });
     } else {
-      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", mohallahIds: [], teams: [], barcodeData: "", uniformRequirements: { fetaPaghri: false, koti: false, safar: false } });
+      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", mohallahIds: [], teams: [], barcodeData: "", uniformRequirements: { fetaPaghri: false, koti: false } });
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
@@ -326,18 +325,6 @@ export default function MiqaatManagementPage() {
                                                 <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                                             </FormControl>
                                             <ShadFormLabel className="font-normal text-sm">Koti Required</ShadFormLabel>
-                                        </FormItem>
-                                    )}
-                                />
-                                 <FormField
-                                    control={form.control}
-                                    name="uniformRequirements.safar"
-                                    render={({ field }) => (
-                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                            <FormControl>
-                                                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                                            </FormControl>
-                                            <ShadFormLabel className="font-normal text-sm">Safar Required</ShadFormLabel>
                                         </FormItem>
                                     )}
                                 />

@@ -47,7 +47,6 @@ export type Miqaat = {
   uniformRequirements?: {
       fetaPaghri: boolean;
       koti: boolean;
-      safar: boolean;
   };
 };
 
@@ -59,7 +58,7 @@ export type AttendanceRecord = {
   userName: string;
   markedAt: string; // ISO string
   markedByItsId?: string;
-  status?: 'present' | 'late' | 'early';
+  status?: 'present' | 'late' | 'early' | 'absent';
   uniformCompliance?: {
       fetaPaghri: boolean;
       koti: boolean;
