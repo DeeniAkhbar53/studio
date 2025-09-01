@@ -192,7 +192,7 @@ export default function DashboardOverviewPage() {
 
     const uniformReqs = targetMiqaat.uniformRequirements;
     if (uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti || uniformReqs.safar)) {
-      setScanDisplayMessage({ type: 'error', text: `This Miqaat (${targetMiqaat.name}) requires uniform check. Please see an attendance marker.` });
+      setScanDisplayMessage({ type: 'error', text: `This Miqaat (${targetMiqaat.name}) requires a manual check-in by management. Please see an attendance marker.` });
       setIsProcessingScan(false);
       setIsScannerDialogOpen(false);
       return;
