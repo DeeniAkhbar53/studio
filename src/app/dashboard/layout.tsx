@@ -37,7 +37,8 @@ export default function DashboardLayout({
     }
   }, [router]);
 
-  // FCM Setup Effect
+  /*
+  // FCM Setup Effect - DISABLED FOR NOW
   useEffect(() => {
     if (typeof window === 'undefined' || !("Notification" in window) || !("serviceWorker" in navigator)) {
         console.log("FCM Setup: Browser doesn't support notifications or service workers. Skipping FCM setup.");
@@ -174,13 +175,14 @@ export default function DashboardLayout({
     
     if (isAuthenticated) {
         console.log("FCM Setup: User is authenticated, proceeding with FCM setup.");
-        setupFCM();
+        // setupFCM();
     } else {
         console.log("FCM Setup: User is not authenticated, skipping FCM setup.");
         setFcmTokenStatus("skipped_not_authenticated");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
+  */
 
   useEffect(() => {
     console.log("FCM Token Status Changed:", fcmTokenStatus);
