@@ -14,6 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Form as UIForm, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { PlusCircle, FileText, Loader2, ShieldAlert, Trash2, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Form as FormType, FormField as FormFieldType } from "@/types";
@@ -27,7 +30,7 @@ const formQuestionSchema = z.object({
   options: z.array(z.object({ value: z.string().min(1, "Option cannot be empty.") })).optional(),
 });
 
-// Schema for the entire form
+// Schema for the entire form builder
 const formBuilderSchema = z.object({
   title: z.string().min(1, "Form title cannot be empty."),
   description: z.string().optional(),
@@ -38,7 +41,11 @@ type FormBuilderValues = z.infer<typeof formBuilderSchema>;
 
 // Placeholder data - in the future this would come from Firestore
 const MOCK_FORMS: FormType[] = [
-    { id: "1", title: "Annual Event Feedback", description: "Share your feedback on this year's annual event.", createdBy: "10101010", createdAt: new Date().toISOString(), questions: [] },
+    { id: "1", title: "Annual Event Feedback", description: "Share your feedback on this year's annual event.", createdBy: "10101010", createdAt: new Date().toISOString(), questions: [
+        { id: "q1", label: "What was your favorite part?", type: 'text', required: true},
+        { id: "q2", label: "How would you rate the event?", type: 'radio', required: true, options: ['Excellent', 'Good', 'Average', 'Poor']},
+        { id: "q3", label: "Any suggestions for next year?", type: 'textarea', required: false},
+    ] },
     { id: "2", title: "Volunteer Signup 2024", description: "Sign up to volunteer for upcoming community services.", createdBy: "10101010", createdAt: new Date().toISOString(), questions: [] },
 ];
 
@@ -50,6 +57,11 @@ export default function FormsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
     const [isCreateFormOpen, setIsCreateFormOpen] = useState(false);
+    
+    // State for filling out a form
+    const [selectedForm, setSelectedForm] = useState<FormType | null>(null);
+    const [isFillFormOpen, setIsFillFormOpen] = useState(false);
+
 
     const formBuilder = useForm<FormBuilderValues>({
         resolver: zodResolver(formBuilderSchema),
@@ -82,12 +94,12 @@ export default function FormsPage() {
     const canCreateForms = currentUserRole === 'admin' || currentUserRole === 'superadmin';
 
     const handleCreateFormSubmit = (values: FormBuilderValues) => {
-        console.log("Form Submitted:", values);
+        console.log("Form Created:", values);
         // In the future, this will save to Firestore
         const newForm: FormType = {
             id: String(Date.now()), // temporary ID
             ...values,
-            questions: values.questions.map(q => ({...q, id: String(Math.random())})), // temp question IDs
+            questions: values.questions.map((q, index) => ({...q, id: String(Math.random()), options: q.options ? q.options.map(opt => opt.value) : undefined })),
             createdBy: localStorage.getItem('userItsId') || 'unknown',
             createdAt: new Date().toISOString(),
         };
@@ -95,6 +107,11 @@ export default function FormsPage() {
         toast({ title: "Form Created!", description: `"${values.title}" has been created.` });
         setIsCreateFormOpen(false);
         formBuilder.reset();
+    };
+
+    const handleOpenFillForm = (formToFill: FormType) => {
+        setSelectedForm(formToFill);
+        setIsFillFormOpen(true);
     };
     
     if (isAuthorized === null) {
@@ -256,7 +273,7 @@ export default function FormsPage() {
                                         <CardDescription>{form.description}</CardDescription>
                                     </CardHeader>
                                     <CardFooter>
-                                        <Button className="w-full" onClick={() => toast({ title: "Coming Soon!", description: "The ability to fill out forms will be added next."})}>
+                                        <Button className="w-full" onClick={() => handleOpenFillForm(form)}>
                                             Fill Out Form
                                         </Button>
                                     </CardFooter>
@@ -266,6 +283,14 @@ export default function FormsPage() {
                     )}
                 </CardContent>
             </Card>
+
+             {selectedForm && (
+                <FillFormDialog
+                    isOpen={isFillFormOpen}
+                    onClose={() => setIsFillFormOpen(false)}
+                    form={selectedForm}
+                />
+            )}
         </div>
     );
 }
@@ -301,5 +326,167 @@ function OptionsArray({ control, nestIndex }: { control: any, nestIndex: number 
     );
 }
 
+// Dialog for filling out a form
+function FillFormDialog({ isOpen, onClose, form }: { isOpen: boolean, onClose: () => void, form: FormType | null }) {
+    const { toast } = useToast();
 
-    
+    // Dynamically build the Zod schema and default values from the form questions
+    const { formSchema, defaultValues } = useMemo(() => {
+        if (!form) return { formSchema: z.object({}), defaultValues: {} };
+
+        const shape: { [key: string]: z.ZodType<any, any> } = {};
+        const defaults: { [key: string]: any } = {};
+
+        form.questions.forEach(q => {
+            let fieldSchema: z.ZodType<any, any>;
+
+            switch (q.type) {
+                case 'text':
+                case 'textarea':
+                case 'radio':
+                case 'select':
+                    fieldSchema = z.string();
+                    if (q.required) {
+                        fieldSchema = fieldSchema.min(1, `${q.label} is required.`);
+                    } else {
+                        fieldSchema = fieldSchema.optional();
+                    }
+                    defaults[q.id] = "";
+                    break;
+                case 'checkbox':
+                     fieldSchema = z.array(z.string());
+                     if (q.required) {
+                        fieldSchema = fieldSchema.nonempty(`${q.label} is required.`);
+                     } else {
+                        fieldSchema = fieldSchema.optional();
+                     }
+                    defaults[q.id] = [];
+                    break;
+                default:
+                    fieldSchema = z.any();
+            }
+            shape[q.id] = fieldSchema;
+        });
+
+        return {
+            formSchema: z.object(shape),
+            defaultValues: defaults,
+        };
+    }, [form]);
+
+    const responseForm = useForm({
+        resolver: zodResolver(formSchema),
+        defaultValues: defaultValues,
+    });
+
+     useEffect(() => {
+        responseForm.reset(defaultValues);
+    }, [form, defaultValues, responseForm]);
+
+
+    if (!form) return null;
+
+    const handleResponseSubmit = (values: z.infer<typeof formSchema>) => {
+        console.log("Form Response Submitted:", {
+            formId: form.id,
+            submittedBy: localStorage.getItem('userItsId') || 'unknown',
+            responses: values,
+        });
+        toast({ title: "Response Submitted", description: "Thank you for filling out the form!" });
+        onClose();
+        responseForm.reset();
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="max-w-2xl h-[90vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>{form.title}</DialogTitle>
+                    <DialogDescription>{form.description}</DialogDescription>
+                </DialogHeader>
+                <UIForm {...responseForm}>
+                    <form onSubmit={responseForm.handleSubmit(handleResponseSubmit)} className="flex-1 overflow-y-auto space-y-6 pr-6">
+                        {form.questions.map(question => (
+                             <FormField
+                                key={question.id}
+                                control={responseForm.control}
+                                name={question.id}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="font-semibold">{question.label} {question.required && <span className="text-destructive">*</span>}</FormLabel>
+                                        <FormControl>
+                                            <>
+                                                {question.type === 'text' && <Input {...field} />}
+                                                {question.type === 'textarea' && <Textarea {...field} />}
+                                                {question.type === 'radio' && (
+                                                    <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-1">
+                                                        {question.options?.map(option => (
+                                                            <FormItem key={option} className="flex items-center space-x-3 space-y-0">
+                                                                <FormControl>
+                                                                    <RadioGroupItem value={option} />
+                                                                </FormControl>
+                                                                <FormLabel className="font-normal">{option}</FormLabel>
+                                                            </FormItem>
+                                                        ))}
+                                                    </RadioGroup>
+                                                )}
+                                                {question.type === 'select' && (
+                                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <SelectTrigger><SelectValue placeholder={`Select an option`} /></SelectTrigger>
+                                                        <SelectContent>
+                                                            {question.options?.map(option => (
+                                                                <SelectItem key={option} value={option}>{option}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                                {question.type === 'checkbox' && (
+                                                    <div className="space-y-2">
+                                                        {question.options?.map(option => (
+                                                            <FormField
+                                                                key={option}
+                                                                control={responseForm.control}
+                                                                name={question.id}
+                                                                render={({ field: checkboxField }) => {
+                                                                    return (
+                                                                        <FormItem key={option} className="flex flex-row items-start space-x-3 space-y-0">
+                                                                            <FormControl>
+                                                                                <Checkbox
+                                                                                    checked={(checkboxField.value as string[] | undefined)?.includes(option)}
+                                                                                    onCheckedChange={(checked) => {
+                                                                                        const currentValue = (checkboxField.value as string[] | undefined) || [];
+                                                                                        return checked
+                                                                                            ? checkboxField.onChange([...currentValue, option])
+                                                                                            : checkboxField.onChange(currentValue.filter(v => v !== option));
+                                                                                    }}
+                                                                                />
+                                                                            </FormControl>
+                                                                            <FormLabel className="text-sm font-normal">{option}</FormLabel>
+                                                                        </FormItem>
+                                                                    );
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        ))}
+                    </form>
+                </UIForm>
+                 <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="outline">Cancel</Button>
+                    </DialogClose>
+                    <Button type="submit" onClick={responseForm.handleSubmit(handleResponseSubmit)}>
+                        Submit Response
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
