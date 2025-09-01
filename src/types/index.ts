@@ -26,6 +26,7 @@ export type MiqaatAttendanceEntryItem = {
   uniformCompliance?: {
       fetaPaghri: boolean;
       koti: boolean;
+      safar: boolean;
   }
 };
 
@@ -45,6 +46,7 @@ export type Miqaat = {
   uniformRequirements?: {
       fetaPaghri: boolean;
       koti: boolean;
+      safar: boolean;
   };
 };
 
@@ -60,6 +62,7 @@ export type AttendanceRecord = {
   uniformCompliance?: {
       fetaPaghri: boolean;
       koti: boolean;
+      safar: boolean;
   }
 };
 
@@ -106,6 +109,7 @@ export interface ReportResultItem {
   uniformCompliance?: {
     fetaPaghri: boolean;
     koti: boolean;
+    safar: boolean;
   };
 }
 
@@ -152,5 +156,3 @@ export interface FormResponse {
         [questionId: string]: string | string[]; // Answer keyed by question ID
     }
 }
-
-    

@@ -37,7 +37,8 @@ const miqaatSchema = z.object({
   uniformRequirements: z.object({
     fetaPaghri: z.boolean().default(false),
     koti: z.boolean().default(false),
-  }).default({ fetaPaghri: false, koti: false }),
+    safar: z.boolean().default(false),
+  }).default({ fetaPaghri: false, koti: false, safar: false }),
 });
 
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
@@ -68,7 +69,7 @@ export default function MiqaatManagementPage() {
       mohallahIds: [],
       teams: [], 
       barcodeData: "",
-      uniformRequirements: { fetaPaghri: false, koti: false },
+      uniformRequirements: { fetaPaghri: false, koti: false, safar: false },
     },
   });
 
@@ -138,10 +139,10 @@ export default function MiqaatManagementPage() {
         mohallahIds: editingMiqaat.mohallahIds || [],
         teams: editingMiqaat.teams || [], 
         barcodeData: editingMiqaat.barcodeData || "",
-        uniformRequirements: editingMiqaat.uniformRequirements || { fetaPaghri: false, koti: false },
+        uniformRequirements: editingMiqaat.uniformRequirements || { fetaPaghri: false, koti: false, safar: false },
       });
     } else {
-      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", mohallahIds: [], teams: [], barcodeData: "", uniformRequirements: { fetaPaghri: false, koti: false } });
+      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", mohallahIds: [], teams: [], barcodeData: "", uniformRequirements: { fetaPaghri: false, koti: false, safar: false } });
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
@@ -316,7 +317,19 @@ export default function MiqaatManagementPage() {
                                         </FormItem>
                                     )}
                                 />
-                                <FormDescription className="text-xs">If neither is selected, only attendance will be marked.</FormDescription>
+                                 <FormField
+                                    control={form.control}
+                                    name="uniformRequirements.safar"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                            <FormControl>
+                                                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                            </FormControl>
+                                            <ShadFormLabel className="font-normal text-sm">Safar Required</ShadFormLabel>
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormDescription className="text-xs">If none are selected, only attendance will be marked.</FormDescription>
                             </div>
                             <FormMessage className="col-start-2 col-span-3 text-xs" />
                           </FormItem>
@@ -350,9 +363,9 @@ export default function MiqaatManagementPage() {
                                         }
                                       }}
                                     />
-                                    <Label htmlFor={`mohallah-checkbox-${mohallah.id}`} className="font-normal text-sm">
+                                    <ShadFormLabel htmlFor={`mohallah-checkbox-${mohallah.id}`} className="font-normal text-sm">
                                       {mohallah.name}
-                                    </Label>
+                                    </ShadFormLabel>
                                   </div>
                                 ))
                               )}
@@ -391,9 +404,9 @@ export default function MiqaatManagementPage() {
                                         }
                                       }}
                                     />
-                                    <Label htmlFor={`team-checkbox-${teamName.replace(/\s+/g, '-')}`} className="font-normal text-sm">
+                                    <ShadFormLabel htmlFor={`team-checkbox-${teamName.replace(/\s+/g, '-')}`} className="font-normal text-sm">
                                       {teamName}
-                                    </Label>
+                                    </ShadFormLabel>
                                   </div>
                                 ))
                               )}
@@ -465,5 +478,3 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
-
-    

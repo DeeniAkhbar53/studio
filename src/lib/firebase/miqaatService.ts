@@ -34,7 +34,7 @@ export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "sta
             markedAt: convertTimestampToString(att.markedAt) || new Date().toISOString()
         })) : [],
         attendedUserItsIds: Array.isArray(miqaatData.attendedUserItsIds) ? miqaatData.attendedUserItsIds : [],
-        uniformRequirements: miqaatData.uniformRequirements || { fetaPaghri: false, koti: false },
+        uniformRequirements: miqaatData.uniformRequirements || { fetaPaghri: false, koti: false, safar: false },
       };
       return miqaat;
     });
@@ -59,7 +59,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
         teams: Array.isArray(miqaatData.teams) ? miqaatData.teams : [],
         attendance: [],
         attendedUserItsIds: [], // Initialize new field
-        uniformRequirements: miqaatData.uniformRequirements || { fetaPaghri: false, koti: false },
+        uniformRequirements: miqaatData.uniformRequirements || { fetaPaghri: false, koti: false, safar: false },
         createdAt: serverTimestamp(),
     };
 
@@ -188,5 +188,3 @@ export const batchMarkAttendanceInMiqaat = async (miqaatId: string, entries: Miq
         throw error;
     }
 };
-
-    

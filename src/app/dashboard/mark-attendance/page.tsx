@@ -19,8 +19,14 @@ import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
+
+type UniformComplianceState = {
+    fetaPaghri: boolean;
+    koti: boolean;
+    safar: boolean;
+};
 
 export default function MarkAttendancePage() {
   const router = useRouter();
@@ -38,7 +44,7 @@ export default function MarkAttendancePage() {
   // State for uniform check dialog
   const [isUniformDialogOpen, setIsUniformDialogOpen] = useState(false);
   const [memberForUniformCheck, setMemberForUniformCheck] = useState<User | null>(null);
-  const [uniformCompliance, setUniformCompliance] = useState<{ fetaPaghri: boolean; koti: boolean }>({ fetaPaghri: false, koti: false });
+  const [uniformCompliance, setUniformCompliance] = useState<UniformComplianceState>({ fetaPaghri: false, koti: false, safar: false });
 
   // Offline state management
   const [isOffline, setIsOffline] = useState(false);
@@ -165,7 +171,7 @@ export default function MarkAttendancePage() {
         reportingTime: m.reportingTime,
         mohallahIds: m.mohallahIds || [],
         attendance: m.attendance || [],
-        uniformRequirements: m.uniformRequirements || { fetaPaghri: false, koti: false },
+        uniformRequirements: m.uniformRequirements || { fetaPaghri: false, koti: false, safar: false },
       })));
       setIsLoadingMiqaats(false);
     });
@@ -245,18 +251,18 @@ export default function MarkAttendancePage() {
     }
     
     const uniformReqs = selectedMiqaatDetails.uniformRequirements;
-    if (uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti)) {
-      setUniformCompliance({ fetaPaghri: false, koti: false }); // Reset before opening
+    if (uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti || uniformReqs.safar)) {
+      setUniformCompliance({ fetaPaghri: false, koti: false, safar: false }); // Reset before opening
       setMemberForUniformCheck(member);
       setIsUniformDialogOpen(true);
     } else {
-      await finalizeAttendance(member, { fetaPaghri: false, koti: false }); // No uniform compliance needed
+      await finalizeAttendance(member, { fetaPaghri: false, koti: false, safar: false }); // No uniform compliance needed
     }
 
     setIsProcessing(false); // Processing is done after member is found
   };
   
-  const finalizeAttendance = async (member: User, compliance: { fetaPaghri: boolean; koti: boolean }) => {
+  const finalizeAttendance = async (member: User, compliance: UniformComplianceState) => {
     if (!selectedMiqaatId || !markerItsId) {
         toast({ title: "Error", description: "Miqaat or Marker ID missing.", variant: "destructive" });
         return;
@@ -279,7 +285,7 @@ export default function MarkAttendancePage() {
     }
     
     const uniformReqs = selectedMiqaatDetails.uniformRequirements;
-    const isUniformCheckRequired = uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti);
+    const isUniformCheckRequired = uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti || uniformReqs.safar);
 
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
         userItsId: member.itsId,
@@ -378,6 +384,13 @@ export default function MarkAttendancePage() {
       setIsSyncing(false);
     }
   };
+  
+   // Effect to manage special Safar logic in the dialog
+  useEffect(() => {
+    if (uniformCompliance.safar) {
+      setUniformCompliance(prev => ({ ...prev, fetaPaghri: true, koti: true }));
+    }
+  }, [uniformCompliance.safar]);
 
   const currentMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
   const currentMiqaatAttendanceCount = currentMiqaatDetails?.attendance?.length || 0;
@@ -617,31 +630,66 @@ export default function MarkAttendancePage() {
               Confirm uniform compliance for Miqaat: {currentSelectedMiqaatName}.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            {currentMiqaatDetails?.uniformRequirements?.fetaPaghri && (
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="fetaPaghri"
-                  checked={uniformCompliance.fetaPaghri}
-                  onCheckedChange={(checked) => setUniformCompliance(prev => ({ ...prev, fetaPaghri: !!checked }))}
-                />
-                <Label htmlFor="fetaPaghri" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Feta/Paghri Present
-                </Label>
-              </div>
-            )}
-            {currentMiqaatDetails?.uniformRequirements?.koti && (
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="koti"
-                  checked={uniformCompliance.koti}
-                  onCheckedChange={(checked) => setUniformCompliance(prev => ({ ...prev, koti: !!checked }))}
-                />
-                <Label htmlFor="koti" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                  Koti Present
-                </Label>
-              </div>
-            )}
+          <div className="space-y-6 py-4">
+              {currentMiqaatDetails?.uniformRequirements?.fetaPaghri && (
+                  <div>
+                      <Label className="text-base font-medium">Feta/Paghri Present?</Label>
+                      <RadioGroup
+                          value={uniformCompliance.fetaPaghri ? "yes" : "no"}
+                          onValueChange={(value) => setUniformCompliance(prev => ({...prev, fetaPaghri: value === "yes"}))}
+                          className="flex gap-4 mt-2"
+                          disabled={uniformCompliance.safar}
+                      >
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="yes" id="feta-yes" />
+                              <Label htmlFor="feta-yes">Yes</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="no" id="feta-no" />
+                              <Label htmlFor="feta-no">No</Label>
+                          </div>
+                      </RadioGroup>
+                  </div>
+              )}
+               {currentMiqaatDetails?.uniformRequirements?.koti && (
+                  <div>
+                      <Label className="text-base font-medium">Koti Present?</Label>
+                      <RadioGroup
+                          value={uniformCompliance.koti ? "yes" : "no"}
+                          onValueChange={(value) => setUniformCompliance(prev => ({...prev, koti: value === "yes"}))}
+                          className="flex gap-4 mt-2"
+                           disabled={uniformCompliance.safar}
+                      >
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="yes" id="koti-yes" />
+                              <Label htmlFor="koti-yes">Yes</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="no" id="koti-no" />
+                              <Label htmlFor="koti-no">No</Label>
+                          </div>
+                      </RadioGroup>
+                  </div>
+              )}
+               {currentMiqaatDetails?.uniformRequirements?.safar && (
+                  <div>
+                      <Label className="text-base font-medium">Safar Compliance?</Label>
+                      <RadioGroup
+                          value={uniformCompliance.safar ? "yes" : "no"}
+                          onValueChange={(value) => setUniformCompliance(prev => ({...prev, safar: value === "yes"}))}
+                          className="flex gap-4 mt-2"
+                      >
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="yes" id="safar-yes" />
+                              <Label htmlFor="safar-yes">Yes</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="no" id="safar-no" />
+                              <Label htmlFor="safar-no">No</Label>
+                          </div>
+                      </RadioGroup>
+                  </div>
+              )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsUniformDialogOpen(false)}>Cancel</Button>
@@ -661,5 +709,3 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
-
-    

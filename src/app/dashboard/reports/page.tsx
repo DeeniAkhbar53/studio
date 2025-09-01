@@ -101,7 +101,7 @@ export default function ReportsPage() {
   const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "uniformType">[]>([]);
+  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "uniformRequirements">[]>([]);
   const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
   const [availableTeams, setAvailableTeams] = useState<string[]>([]);
   
@@ -341,7 +341,7 @@ export default function ReportsPage() {
       toast({ title: "No data to export", description: "Please generate a report first.", variant: "destructive" });
       return;
     }
-    const headers = ["User Name", "ITS ID", "Miqaat", "Date", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti"];
+    const headers = ["User Name", "ITS ID", "Miqaat", "Date", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti", "Safar"];
     const csvRows = [
       headers.join(','),
       ...reportData.map(row => [
@@ -352,7 +352,8 @@ export default function ReportsPage() {
         row.status,
         row.markedByItsId || "N/A",
         row.uniformCompliance ? (row.uniformCompliance.fetaPaghri ? "Yes" : "No") : "N/A",
-        row.uniformCompliance ? (row.uniformCompliance.koti ? "Yes" : "No") : "N/A"
+        row.uniformCompliance ? (row.uniformCompliance.koti ? "Yes" : "No") : "N/A",
+        row.uniformCompliance ? (row.uniformCompliance.safar ? "Yes" : "No") : "N/A"
       ].join(','))
     ];
     const csvString = csvRows.join('\n');
@@ -807,6 +808,7 @@ export default function ReportsPage() {
                                     <>
                                         <p><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri ? 'Yes' : 'No'}</p>
                                         <p><strong>Koti:</strong> {record.uniformCompliance.koti ? 'Yes' : 'No'}</p>
+                                        <p><strong>Safar:</strong> {record.uniformCompliance.safar ? 'Yes' : 'No'}</p>
                                     </>
                                 )}
                             </div>
@@ -827,6 +829,7 @@ export default function ReportsPage() {
                         <TableHead>Status</TableHead>
                         <TableHead>Feta/Paghri</TableHead>
                         <TableHead>Koti</TableHead>
+                        <TableHead>Safar</TableHead>
                         { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
                             <TableHead className="text-right">Marked By</TableHead>
                         }
@@ -851,6 +854,7 @@ export default function ReportsPage() {
                             </TableCell>
                             <TableCell>{record.uniformCompliance ? (record.uniformCompliance.fetaPaghri ? 'Yes' : 'No') : 'N/A'}</TableCell>
                             <TableCell>{record.uniformCompliance ? (record.uniformCompliance.koti ? 'Yes' : 'No') : 'N/A'}</TableCell>
+                            <TableCell>{record.uniformCompliance ? (record.uniformCompliance.safar ? 'Yes' : 'No') : 'N/A'}</TableCell>
                             { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
                                 <TableCell className="text-right">{record.markedByItsId || "N/A"}</TableCell>
                             }

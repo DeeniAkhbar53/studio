@@ -48,12 +48,13 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
   };
 
   const formatUniformRequirements = (reqs?: Miqaat['uniformRequirements']) => {
-    if (!reqs || (!reqs.fetaPaghri && !reqs.koti)) {
+    if (!reqs || (!reqs.fetaPaghri && !reqs.koti && !reqs.safar)) {
       return "Attendance Only";
     }
     const requirements = [];
     if (reqs.fetaPaghri) requirements.push("Feta/Paghri");
     if (reqs.koti) requirements.push("Koti");
+    if (reqs.safar) requirements.push("Safar");
     return requirements.join(" & ");
   };
 
@@ -296,5 +297,3 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
     </>
   );
 }
-
-    
