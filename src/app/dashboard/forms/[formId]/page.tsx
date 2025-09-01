@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,8 @@ import type { Form as FormType } from "@/types";
 import { getForm, addFormResponse } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 
-export default function FillFormPage({ params: { formId } }: { params: { formId: string } }) {
+// The main component that handles all the client-side logic
+function FillFormClient({ formId }: { formId: string }) {
     const router = useRouter();
     const { toast } = useToast();
     const [form, setForm] = useState<FormType | null>(null);
@@ -254,3 +255,12 @@ export default function FillFormPage({ params: { formId } }: { params: { formId:
         </div>
     );
 }
+
+// This is the exported page component.
+// It safely extracts the formId from params and passes it to the client component.
+export default function FillFormPage({ params }: { params: { formId: string } }) {
+    const { formId } = params;
+    return <FillFormClient formId={formId} />;
+}
+
+    
