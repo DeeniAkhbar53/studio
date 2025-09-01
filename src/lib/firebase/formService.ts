@@ -14,8 +14,6 @@ import {
   query,
   orderBy,
   Timestamp,
-  onSnapshot,
-  Unsubscribe,
   increment,
   runTransaction
 } from 'firebase/firestore';
@@ -48,10 +46,11 @@ export const addForm = async (formData: FormForAdd): Promise<Form> => {
   }
 };
 
-export const getForms = (onUpdate: (forms: Form[]) => void): Unsubscribe => {
+export const getForms = async (): Promise<Form[]> => {
     const q = query(formsCollectionRef, orderBy('createdAt', 'desc'));
     
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    try {
+        const querySnapshot = await getDocs(q);
         const forms = querySnapshot.docs.map(docSnapshot => {
             const data = docSnapshot.data();
             const createdAt = data.createdAt instanceof Timestamp
@@ -59,13 +58,11 @@ export const getForms = (onUpdate: (forms: Form[]) => void): Unsubscribe => {
                               : new Date().toISOString();
             return { ...data, id: docSnapshot.id, createdAt } as Form;
         });
-        onUpdate(forms);
-    }, (error) => {
-        console.error("Error listening to forms collection: ", error);
-        onUpdate([]);
-    });
-
-    return unsubscribe;
+        return forms;
+    } catch (error) {
+        console.error("Error getting forms: ", error);
+        throw error;
+    }
 };
 
 export const getForm = async (formId: string): Promise<Form | null> => {

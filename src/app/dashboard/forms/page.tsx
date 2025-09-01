@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form as UIForm } from "@/components/ui/form";
-import { PlusCircle, FileText, Loader2, ShieldAlert, Trash2, GripVertical, CheckSquare } from "lucide-react";
+import { PlusCircle, FileText, Loader2, Users as UsersIcon, Trash2, GripVertical, CheckSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Form as FormType, FormQuestion } from "@/types";
 import { addForm, getForms } from "@/lib/firebase/formService";
@@ -63,13 +63,21 @@ export default function FormsPage() {
         const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
         setCurrentUserRole(role);
         
-        const unsubscribe = getForms((fetchedForms) => {
-            setForms(fetchedForms);
-            setIsLoading(false);
-        });
+        const fetchForms = async () => {
+            setIsLoading(true);
+            try {
+                const fetchedForms = await getForms();
+                setForms(fetchedForms);
+            } catch (error) {
+                console.error("Failed to fetch forms:", error);
+                toast({ title: "Error", description: "Could not load forms.", variant: "destructive" });
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-        return () => unsubscribe();
-    }, []);
+        fetchForms();
+    }, [toast]);
 
     const canCreateForms = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker';
 
@@ -103,6 +111,13 @@ export default function FormsPage() {
                 description: "",
                 questions: [{ label: "", type: 'text', required: false, options: [] }],
             });
+            
+            // Refetch forms
+            setIsLoading(true);
+            const fetchedForms = await getForms();
+            setForms(fetchedForms);
+            setIsLoading(false);
+
         } catch (error) {
             console.error("Failed to create form:", error);
             toast({ title: "Error", description: "Failed to save the form to the database.", variant: "destructive" });
