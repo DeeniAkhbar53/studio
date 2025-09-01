@@ -51,6 +51,7 @@ export function LoginForm() {
           localStorage.setItem('userName', user.name);
           localStorage.setItem('userItsId', user.itsId);
           localStorage.setItem('userMohallahId', user.mohallahId || '');
+          localStorage.setItem('userBgkId', user.bgkId || ''); // Store BGK ID
           localStorage.setItem('userPageRights', JSON.stringify(user.pageRights || []));
           localStorage.setItem('unreadNotificationCount', '0');
           window.dispatchEvent(new CustomEvent('notificationsUpdated'));

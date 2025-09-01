@@ -29,7 +29,7 @@ export default function FillFormPage() {
     const [form, setForm] = useState<FormType | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [currentUser, setCurrentUser] = useState<{name: string, itsId: string} | null>(null);
+    const [currentUser, setCurrentUser] = useState<{name: string, itsId: string, bgkId?: string} | null>(null);
 
 
     // Effect to get current user from localStorage
@@ -37,8 +37,9 @@ export default function FillFormPage() {
         if (typeof window !== "undefined") {
             const userName = localStorage.getItem('userName');
             const userItsId = localStorage.getItem('userItsId');
+            const userBgkId = localStorage.getItem('userBgkId'); // Fetch BGK ID
             if (userName && userItsId) {
-                setCurrentUser({ name: userName, itsId: userItsId });
+                setCurrentUser({ name: userName, itsId: userItsId, bgkId: userBgkId || undefined });
             }
         }
     }, []);
@@ -211,7 +212,7 @@ export default function FillFormPage() {
                                         </CardTitle>
                                         <CardDescription>This information is automatically recorded with your submission.</CardDescription>
                                     </CardHeader>
-                                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         <div>
                                             <FormLabel>Full Name</FormLabel>
                                             <Input value={currentUser.name} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
@@ -219,6 +220,10 @@ export default function FillFormPage() {
                                         <div>
                                             <FormLabel>ITS ID</FormLabel>
                                             <Input value={currentUser.itsId} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
+                                        </div>
+                                         <div>
+                                            <FormLabel>BGK ID</FormLabel>
+                                            <Input value={currentUser.bgkId || "N/A"} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
                                         </div>
                                     </CardContent>
                                 </Card>
