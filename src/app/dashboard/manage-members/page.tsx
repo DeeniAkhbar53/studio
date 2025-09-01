@@ -160,10 +160,10 @@ export default function ManageMembersPage() {
 
       if (role === 'admin' && mohallahId) {
         setSelectedFilterMohallahId(mohallahId);
-        form.setValue('mohallahId', mohallahId);
+        memberForm.setValue('mohallahId', mohallahId);
       }
     }
-  }, [isAuthorized, form]);
+  }, [isAuthorized, memberForm]);
 
   useEffect(() => {
     if (!isAuthorized) return;
@@ -1259,4 +1259,3 @@ export default function ManageMembersPage() {
   );
 }
 
-    
