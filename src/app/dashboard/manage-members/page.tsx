@@ -62,6 +62,7 @@ const AVAILABLE_PAGE_RIGHTS: PageRightConfig[] = [
   { id: 'miqaat-management', label: 'Manage Miqaats', path: '/dashboard/miqaat-management', description: 'Create, edit, delete Miqaats.' },
   { id: 'manage-mohallahs', label: 'Manage Mohallahs', path: '/dashboard/manage-mohallahs', description: 'Create, edit, delete Mohallahs.' },
   { id: 'manage-members', label: 'Manage Members', path: '/dashboard/manage-members', description: 'Add, edit, delete members and assign roles/rights.' },
+  { id: 'forms', label: 'Manage Forms / Surveys', path: '/dashboard/forms', description: 'Create, edit, delete forms and view responses.' },
   { id: 'manage-notifications', label: 'Manage Notifications', path: '/dashboard/manage-notifications', description: 'Create and delete system-wide notifications.' },
   { id: 'reports', label: 'View Reports', path: '/dashboard/reports', description: 'Generate and view various attendance reports.' },
 ];
@@ -1190,5 +1191,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
-    
