@@ -1,6 +1,4 @@
 
-'use server';
-
 import { db } from './firebase';
 import {
   collection,
