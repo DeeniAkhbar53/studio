@@ -94,6 +94,7 @@ export default function FillFormPage() {
 
     const responseForm = useForm({
         resolver: zodResolver(formSchema),
+        defaultValues: defaultValues,
     });
     
     useEffect(() => {
@@ -163,7 +164,7 @@ export default function FillFormPage() {
     
     if (isLoading || hasAlreadyResponded === null) {
         return (
-            <div className="flex h-screen items-center justify-center p-8">
+            <div className="flex h-screen items-center justify-center p-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
         );
@@ -171,7 +172,7 @@ export default function FillFormPage() {
     
     if (error) {
          return (
-            <div className="flex flex-col items-center justify-center h-screen p-8 text-center">
+            <div className="flex flex-col items-center justify-center h-screen p-4 text-center">
                 <FileWarning className="h-16 w-16 text-destructive mb-4" />
                 <h1 className="text-2xl font-bold text-destructive">Form Not Available</h1>
                 <p className="text-muted-foreground mt-2">{error}</p>
@@ -184,7 +185,7 @@ export default function FillFormPage() {
 
     if (!form) {
         return (
-             <div className="flex flex-col items-center justify-center h-screen p-8 text-center">
+             <div className="flex flex-col items-center justify-center h-screen p-4 text-center">
                 <FileWarning className="h-16 w-16 text-muted-foreground mb-4" />
                 <h1 className="text-2xl font-bold text-muted-foreground">Form Not Loaded</h1>
                 <p className="text-muted-foreground mt-2">The form could not be loaded. Please try again.</p>
@@ -197,9 +198,9 @@ export default function FillFormPage() {
 
     if (hasSubmitted || hasAlreadyResponded) {
         return (
-             <div className="flex flex-col h-screen items-center justify-center bg-background">
+             <div className="flex flex-col h-screen items-center justify-center bg-background p-4">
                  <Card className="w-full max-w-2xl shadow-lg border-primary/20 bg-gradient-to-br from-card to-muted/20">
-                     <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+                     <CardContent className="flex flex-col items-center justify-center p-8 sm:p-12 text-center">
                          <CheckCircle2 className="h-20 w-20 text-green-500 mb-6" />
                          <h1 className="text-3xl font-bold text-foreground">
                             {hasSubmitted ? "Thank You!" : "Response Recorded"}
@@ -220,8 +221,8 @@ export default function FillFormPage() {
     return (
         <div className="max-w-4xl mx-auto p-4 md:p-6">
             <Card className="shadow-lg border-primary/20 bg-gradient-to-br from-card to-muted/20">
-                <CardHeader className="text-center">
-                    <CardTitle className="text-3xl font-bold">{form.title}</CardTitle>
+                <CardHeader className="text-center p-4 md:p-6">
+                    <CardTitle className="text-2xl md:text-3xl font-bold">{form.title}</CardTitle>
                     {form.description && <CardDescription className="text-md mt-2">{form.description}</CardDescription>}
                 </CardHeader>
                 <Separator />
@@ -238,7 +239,7 @@ export default function FillFormPage() {
                                         </CardTitle>
                                         <CardDescription>This information is automatically recorded with your submission.</CardDescription>
                                     </CardHeader>
-                                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div>
                                             <FormLabel>Full Name</FormLabel>
                                             <Input value={currentUser.name} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
@@ -263,7 +264,7 @@ export default function FillFormPage() {
                                     control={responseForm.control}
                                     name={question.id}
                                     render={({ field }) => (
-                                        <FormItem className="p-6 rounded-lg border bg-background shadow-sm">
+                                        <FormItem className="p-4 md:p-6 rounded-lg border bg-background shadow-sm">
                                             <FormLabel className="text-lg font-semibold flex items-baseline gap-2">
                                                 <span>{index + 1}.</span>
                                                 {question.label} 
@@ -332,7 +333,7 @@ export default function FillFormPage() {
                                 />
                             ))}
                         </CardContent>
-                        <CardFooter>
+                        <CardFooter className="p-4 md:p-6">
                             <Button type="submit" className="w-full md:w-auto" disabled={responseForm.formState.isSubmitting}>
                                 {responseForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                                 <Send className="mr-2 h-4 w-4" />

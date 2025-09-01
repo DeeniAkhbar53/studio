@@ -86,11 +86,11 @@ export default function CreateFormPage() {
     return (
         <UIForm {...formBuilder}>
             <form onSubmit={formBuilder.handleSubmit(handleCreateFormSubmit)} className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                     <Button type="button" variant="outline" onClick={() => router.push('/dashboard/forms')}>
                         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Forms
                     </Button>
-                    <Button type="submit" disabled={formBuilder.formState.isSubmitting}>
+                    <Button type="submit" disabled={formBuilder.formState.isSubmitting} className="w-full sm:w-auto">
                         {formBuilder.formState.isSubmitting ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
                         ) : (
@@ -132,7 +132,7 @@ export default function CreateFormPage() {
                             const questionType = formBuilder.watch(`questions.${index}.type`);
                             return (
                                 <Card key={field.id} className="p-4 bg-muted/50 relative">
-                                    <div className="flex gap-4">
+                                    <div className="flex gap-2 sm:gap-4">
                                          <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab shrink-0 mt-1" />
                                         <div className="flex-grow space-y-4">
                                             <div className="flex justify-between items-center">
@@ -209,7 +209,7 @@ function OptionsArray({ control, nestIndex }: { control: any, nestIndex: number 
     });
 
     return (
-        <div className="space-y-3 pt-2 pl-6 border-l-2 ml-2">
+        <div className="space-y-3 pt-2 pl-2 sm:pl-6 border-l-2 ml-2">
             <Label className="font-semibold">Options</Label>
             {fields.map((item, k) => (
                 <div key={item.id} className="flex items-center gap-2">
@@ -217,7 +217,7 @@ function OptionsArray({ control, nestIndex }: { control: any, nestIndex: number 
                         {...control.register(`questions.${nestIndex}.options.${k}.value`)}
                         placeholder={`Option ${k + 1}`}
                     />
-                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(k)}>
+                    <Button type="button" variant="ghost" size="icon" className="text-destructive shrink-0" onClick={() => remove(k)}>
                         <Trash2 className="h-4 w-4" />
                     </Button>
                 </div>

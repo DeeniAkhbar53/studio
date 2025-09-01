@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   DropdownMenu,
@@ -14,11 +14,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, FileText, Loader2, Users, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, FileText, Loader2, Users, MoreHorizontal, Edit, Trash2, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Form as FormType } from "@/types";
 import { getForms, deleteForm } from "@/lib/firebase/formService";
 import { format } from "date-fns";
+import { Separator } from "@/components/ui/separator";
 
 export default function FormsListPage() {
     const router = useRouter();
@@ -69,7 +70,7 @@ export default function FormsListPage() {
     return (
         <div className="space-y-6">
             <Card className="shadow-lg">
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between">
                     <div>
                         <CardTitle className="flex items-center">
                             <FileText className="mr-2 h-5 w-5 text-primary"/>
@@ -80,7 +81,7 @@ export default function FormsListPage() {
                         </CardDescription>
                     </div>
                     {canCreateForms && (
-                        <Button size="sm" onClick={() => router.push('/dashboard/forms/new')}>
+                        <Button size="sm" onClick={() => router.push('/dashboard/forms/new')} className="w-full md:w-auto mt-2 md:mt-0">
                             <PlusCircle className="mr-2 h-4 w-4" /> Create New Form
                         </Button>
                     )}
@@ -100,7 +101,63 @@ export default function FormsListPage() {
                             </p>
                         </div>
                     ) : (
-                       <div className="border rounded-md">
+                       <>
+                         {/* Mobile View: Cards */}
+                         <div className="md:hidden space-y-4">
+                            {forms.map((form) => (
+                                <Card key={form.id} className="w-full shadow-md">
+                                    <CardHeader>
+                                        <CardTitle className="text-lg">
+                                            <Link href={`/dashboard/forms/${form.id}`} className="hover:underline">{form.title}</Link>
+                                        </CardTitle>
+                                        <CardDescription className="line-clamp-2">{form.description}</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3 text-sm text-muted-foreground">
+                                        <div className="flex items-center gap-2">
+                                            <Users className="h-4 w-4" />
+                                            <span>{form.responseCount || 0} Responses</span>
+                                        </div>
+                                         <div className="flex items-center gap-2">
+                                            <Calendar className="h-4 w-4" />
+                                            <span>Created: {format(new Date(form.createdAt), "MMM d, yyyy")}</span>
+                                        </div>
+                                    </CardContent>
+                                    <Separator />
+                                    <CardFooter className="flex justify-end gap-2 p-2">
+                                         <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)}>
+                                            Fill Out
+                                        </Button>
+                                        {canCreateForms && (
+                                             <AlertDialog>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="icon">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                         <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
+                                                            <Edit className="mr-2 h-4 w-4" /> Edit
+                                                        </DropdownMenuItem>
+                                                         <AlertDialogTrigger asChild>
+                                                            <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                            </DropdownMenuItem>
+                                                        </AlertDialogTrigger>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete "{form.title}" and all its responses.</AlertDialogDescription></AlertDialogHeader>
+                                                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteForm(form.id, form.title)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        )}
+                                    </CardFooter>
+                                </Card>
+                            ))}
+                         </div>
+                         {/* Desktop View: Table */}
+                         <div className="hidden md:block border rounded-md">
                            <Table>
                                <TableHeader>
                                    <TableRow>
@@ -175,6 +232,7 @@ export default function FormsListPage() {
                                </TableBody>
                            </Table>
                        </div>
+                       </>
                     )}
                 </CardContent>
             </Card>
