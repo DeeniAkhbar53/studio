@@ -1,11 +1,11 @@
 
 import { db } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion, onSnapshot, Unsubscribe, writeBatch, runTransaction } from 'firebase/firestore';
-import type { Miqaat, MiqaatAttendanceEntryItem } from '@/types';
+import type { Miqaat, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem } from '@/types';
 
 const miqaatsCollectionRef = collection(db, 'miqaats');
 
-export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendedUserItsIds" | "uniformRequirements">[]) => void): Unsubscribe => {
+export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendedUserItsIds" | "uniformRequirements">[]) => void): Unsubscribe => {
   const q = query(miqaatsCollectionRef, orderBy('createdAt', 'desc'));
 
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -18,7 +18,7 @@ export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "sta
         return timestampField;
       };
 
-      const miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendedUserItsIds" | "uniformRequirements"> = {
+      const miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendedUserItsIds" | "uniformRequirements"> = {
         id: docSnapshot.id,
         name: miqaatData.name,
         startTime: convertTimestampToString(miqaatData.startTime)!,
@@ -32,6 +32,10 @@ export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "sta
         attendance: Array.isArray(miqaatData.attendance) ? miqaatData.attendance.map((att: any) => ({
             ...att,
             markedAt: convertTimestampToString(att.markedAt) || new Date().toISOString()
+        })) : [],
+        safarList: Array.isArray(miqaatData.safarList) ? miqaatData.safarList.map((safar: any) => ({
+            ...safar,
+            markedAt: convertTimestampToString(safar.markedAt) || new Date().toISOString()
         })) : [],
         attendedUserItsIds: Array.isArray(miqaatData.attendedUserItsIds) ? miqaatData.attendedUserItsIds : [],
         uniformRequirements: miqaatData.uniformRequirements || { fetaPaghri: false, koti: false },
@@ -47,7 +51,7 @@ export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "sta
   return unsubscribe;
 };
 
-export type MiqaatDataForAdd = Omit<Miqaat, 'id' | 'createdAt' | 'attendance' | 'attendedUserItsIds'>;
+export type MiqaatDataForAdd = Omit<Miqaat, 'id' | 'createdAt' | 'attendance' | 'safarList' | 'attendedUserItsIds'>;
 
 export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> => {
   try {
@@ -58,6 +62,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
         mohallahIds: Array.isArray(miqaatData.mohallahIds) ? miqaatData.mohallahIds : [],
         teams: Array.isArray(miqaatData.teams) ? miqaatData.teams : [],
         attendance: [],
+        safarList: [],
         attendedUserItsIds: [], // Initialize new field
         uniformRequirements: miqaatData.uniformRequirements || { fetaPaghri: false, koti: false },
         createdAt: serverTimestamp(),
@@ -88,6 +93,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
       mohallahIds: firestorePayload.mohallahIds,
       teams: firestorePayload.teams,
       attendance: firestorePayload.attendance,
+      safarList: firestorePayload.safarList,
       attendedUserItsIds: firestorePayload.attendedUserItsIds,
       uniformRequirements: firestorePayload.uniformRequirements,
       createdAt: new Date().toISOString(),
@@ -102,7 +108,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
   }
 };
 
-export type MiqaatDataForUpdate = Partial<Omit<Miqaat, 'id' | 'createdAt' | 'attendance' | 'attendedUserItsIds'>>;
+export type MiqaatDataForUpdate = Partial<Omit<Miqaat, 'id' | 'createdAt' | 'attendance' | 'safarList' | 'attendedUserItsIds'>>;
 
 export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUpdate): Promise<void> => {
   try {
@@ -176,7 +182,7 @@ export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAtte
   }
 };
 
-export const batchMarkAttendanceInMiqaat = async (miqaatId: string, entries: MiqaatAttendanceEntryItem[]): Promise<void> => {
+export const batchMarkSafarInMiqaat = async (miqaatId: string, entries: MiqaatSafarEntryItem[]): Promise<void> => {
     if (entries.length === 0) {
         return;
     }
@@ -190,28 +196,27 @@ export const batchMarkAttendanceInMiqaat = async (miqaatId: string, entries: Miq
                 throw new Error("Miqaat does not exist!");
             }
             
-            const existingAttendance: MiqaatAttendanceEntryItem[] = miqaatDoc.data().attendance || [];
-            const existingItsIds = new Set(existingAttendance.map(e => e.userItsId));
+            const existingSafarList: MiqaatSafarEntryItem[] = miqaatDoc.data().safarList || [];
+            const existingItsIdsInSafar = new Set(existingSafarList.map(e => e.userItsId));
             
-            const newEntries = entries.filter(entry => !existingItsIds.has(entry.userItsId));
+            const newEntries = entries.filter(entry => !existingItsIdsInSafar.has(entry.userItsId));
             
             if (newEntries.length === 0) {
-                console.log("All selected members already have attendance records for this Miqaat.");
+                console.log("All selected members already in Safar list for this Miqaat.");
                 return;
             }
 
-            const updatedAttendance = [...existingAttendance, ...newEntries];
-            const attendedUserItsIdsToAdd = newEntries.map(e => e.userItsId);
+            const safarUserItsIdsToAdd = newEntries.map(e => e.userItsId);
 
             transaction.update(miqaatDocRef, {
-                attendance: updatedAttendance,
-                attendedUserItsIds: arrayUnion(...attendedUserItsIdsToAdd)
+                safarList: arrayUnion(...newEntries),
+                attendedUserItsIds: arrayUnion(...safarUserItsIdsToAdd)
             });
 
-            console.log(`Transactionally updating Miqaat ${miqaatId} with ${newEntries.length} new attendance records.`);
+            console.log(`Transactionally updating Miqaat ${miqaatId} with ${newEntries.length} new Safar records.`);
         });
     } catch (error) {
-        console.error(`Error during batch attendance update for Miqaat ${miqaatId}:`, error);
+        console.error(`Error during batch Safar update for Miqaat ${miqaatId}:`, error);
         throw error;
     }
 };

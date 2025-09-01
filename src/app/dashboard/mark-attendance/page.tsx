@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, UserRole } from "@/types";
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
-import { getMiqaats, markAttendanceInMiqaat, batchMarkAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
+import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { savePendingAttendance, getPendingAttendance, clearPendingAttendance, cacheAllUsers, getCachedUserByItsOrBgkId } from "@/lib/offlineService";
 import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -262,7 +262,7 @@ export default function MarkAttendancePage() {
       setMemberForUniformCheck(member);
       setIsUniformDialogOpen(true);
     } else {
-      finalizeAttendance(member, { fetaPaghri: 'no', koti: 'no' });
+      finalizeAttendance(member, { fetaPaghri: 'safar', koti: 'safar' }); // 'safar' implies not applicable for this context
     }
 
     setIsProcessing(false); // Processing is done after member is found
@@ -290,8 +290,6 @@ export default function MarkAttendancePage() {
       attendanceStatus = 'present';
     }
     
-    const isUniformCheckRequired = miqaatHasUniformRequirements;
-
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
         userItsId: member.itsId,
         userName: member.name,
@@ -368,9 +366,12 @@ export default function MarkAttendancePage() {
         return acc;
       }, {} as { [key: string]: MiqaatAttendanceEntryItem[] });
 
-      // Perform batch writes for each Miqaat
+      // This part requires a batch update function. For now, let's process one by one.
+      // In a real scenario, a `batchMarkAttendanceInMiqaat` would be more efficient.
       for (const miqaatId in recordsByMiqaat) {
-        await batchMarkAttendanceInMiqaat(miqaatId, recordsByMiqaat[miqaatId]);
+         for (const entry of recordsByMiqaat[miqaatId]) {
+            await markAttendanceInMiqaat(miqaatId, entry);
+         }
       }
 
       await clearPendingAttendance();
@@ -698,3 +699,5 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
+
+    

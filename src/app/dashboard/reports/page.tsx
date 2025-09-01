@@ -20,8 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohallah, UserDesignation, MiqaatAttendanceEntryItem } from "@/types";
-import { getMiqaats, batchMarkAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
+import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohallah, UserDesignation, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem } from "@/types";
+import { getMiqaats, batchMarkSafarInMiqaat } from "@/lib/firebase/miqaatService";
 import { getUsers, getUniqueTeamNames } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getAttendanceRecordsByMiqaat } from "@/lib/firebase/attendanceService";
@@ -50,7 +50,7 @@ import { allNavItems } from "@/components/dashboard/sidebar-nav";
 
 
 const reportSchema = z.object({
-  reportType: z.enum(["miqaat_summary", "member_attendance", "overall_activity", "non_attendance_miqaat"], {
+  reportType: z.enum(["miqaat_summary", "miqaat_safar_list", "member_attendance", "overall_activity", "non_attendance_miqaat"], {
     required_error: "You need to select a report type.",
   }),
   miqaatId: z.string().optional(),
@@ -66,7 +66,7 @@ const reportSchema = z.object({
   designation: z.string().optional(),
   status: z.string().optional(),
 }).superRefine((data, ctx) => {
-    if ((data.reportType === "miqaat_summary" || data.reportType === "non_attendance_miqaat") && !data.miqaatId) {
+    if ((data.reportType === "miqaat_summary" || data.reportType === "non_attendance_miqaat" || data.reportType === "miqaat_safar_list") && !data.miqaatId) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: "Miqaat selection is required for this report type.",
@@ -104,7 +104,7 @@ export default function ReportsPage() {
   const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "uniformRequirements" | "attendedUserItsIds">[]>([]);
+  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "safarList" | "attendedUserItsIds" | "uniformRequirements">[]>([]);
   const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
   const [availableTeams, setAvailableTeams] = useState<string[]>([]);
   
@@ -204,18 +204,31 @@ export default function ReportsPage() {
     let reportResultItems: ReportResultItem[] = [];
 
     try {
-      if (values.reportType === "miqaat_summary" && values.miqaatId) {
-        fetchedAttendanceRecords = await getAttendanceRecordsByMiqaat(values.miqaatId);
+      const selectedMiqaat = availableMiqaats.find(m => m.id === values.miqaatId);
+
+      if (values.reportType === "miqaat_summary" && selectedMiqaat) {
+        fetchedAttendanceRecords = await getAttendanceRecordsByMiqaat(values.miqaatId!);
         reportResultItems = fetchedAttendanceRecords.map(att => ({
           id: att.id,
           userName: att.userName,
           userItsId: att.userItsId,
           miqaatName: att.miqaatName,
           date: att.markedAt,
-          status: att.status || 'present',
+          status: att.status,
           markedByItsId: att.markedByItsId,
           uniformCompliance: att.uniformCompliance,
         }));
+      } else if (values.reportType === "miqaat_safar_list" && selectedMiqaat) {
+          const safarList = selectedMiqaat.safarList || [];
+          reportResultItems = safarList.map(safarEntry => ({
+            id: `${selectedMiqaat.id}-${safarEntry.userItsId}`,
+            userName: safarEntry.userName,
+            userItsId: safarEntry.userItsId,
+            miqaatName: selectedMiqaat.name,
+            date: safarEntry.markedAt,
+            status: 'safar',
+            markedByItsId: safarEntry.markedByItsId,
+          }));
       } else if (values.reportType === "member_attendance" && values.itsId) {
         // This function needs to be created or adapted
         // fetchedAttendanceRecords = await getAttendanceRecordsByUser(values.itsId);
@@ -225,12 +238,12 @@ export default function ReportsPage() {
             userItsId: att.userItsId,
             miqaatName: att.miqaatName,
             date: att.markedAt,
-            status: att.status || 'present',
+            status: att.status,
             markedByItsId: att.markedByItsId,
             uniformCompliance: att.uniformCompliance,
           }));
       } else if (values.reportType === "overall_activity") {
-        const allMiqaatDocs = await new Promise<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance"| "attendedUserItsIds">[]>((resolve) => {
+        const allMiqaatDocs = await new Promise<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance"| "safarList" | "attendedUserItsIds">[]>((resolve) => {
             const unsubscribe = getMiqaats((data) => {
                 resolve(data);
                 unsubscribe(); 
@@ -245,20 +258,13 @@ export default function ReportsPage() {
             userItsId: att.userItsId,
             miqaatName: att.miqaatName,
             date: att.markedAt,
-            status: att.status || 'present',
+            status: att.status,
             markedByItsId: att.markedByItsId,
             uniformCompliance: att.uniformCompliance,
         }));
-      } else if (values.reportType === "non_attendance_miqaat" && values.miqaatId) {
-        const selectedMiqaat = availableMiqaats.find(m => m.id === values.miqaatId);
-        if (!selectedMiqaat) {
-          toast({ title: "Error", description: "Selected Miqaat not found.", variant: "destructive" });
-          setIsLoading(false);
-          return;
-        }
+      } else if (values.reportType === "non_attendance_miqaat" && selectedMiqaat) {
         const allUsers = await getUsers(); 
-        const attendanceForMiqaat = selectedMiqaat.attendance || [];
-        const attendedItsIds = new Set(attendanceForMiqaat.map(att => att.userItsId));
+        const attendedItsIds = new Set(selectedMiqaat.attendedUserItsIds || []);
         
         let eligibleUsers = allUsers;
         if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
@@ -303,10 +309,10 @@ export default function ReportsPage() {
         const userDetails = userMap.get(record.userItsId);
         if (!userDetails) return false; 
         
-        const mohallahMatch = values.mohallahId === 'all' || userDetails.mohallahId === values.mohallahId;
-        const teamMatch = values.team === 'all' || userDetails.team === values.team;
-        const designationMatch = values.designation === 'all' || userDetails.designation === values.designation;
-        const statusMatch = values.status === 'all' || record.status === values.status;
+        const mohallahMatch = values.mohallahId === 'all' || !values.mohallahId || userDetails.mohallahId === values.mohallahId;
+        const teamMatch = values.team === 'all' || !values.team || userDetails.team === values.team;
+        const designationMatch = values.designation === 'all' || !values.designation || userDetails.designation === values.designation;
+        const statusMatch = values.status === 'all' || !values.status || record.status === values.status;
 
         return mohallahMatch && teamMatch && designationMatch && statusMatch;
       });
@@ -422,7 +428,7 @@ export default function ReportsPage() {
         throw new Error("Could not identify the person marking attendance.");
       }
       
-      const attendanceEntries: MiqaatAttendanceEntryItem[] = reportData!
+      const safarEntries: MiqaatSafarEntryItem[] = reportData!
         .filter(record => selectedIds.includes(record.userItsId))
         .map(record => ({
           userItsId: record.userItsId,
@@ -432,7 +438,7 @@ export default function ReportsPage() {
           status: 'safar',
         }));
 
-      await batchMarkAttendanceInMiqaat(miqaatId, attendanceEntries);
+      await batchMarkSafarInMiqaat(miqaatId, safarEntries);
 
       toast({
         title: "Bulk Update Successful",
@@ -530,6 +536,7 @@ export default function ReportsPage() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="miqaat_summary">Miqaat Summary (Attendance)</SelectItem>
+                          <SelectItem value="miqaat_safar_list">Miqaat Safar List</SelectItem>
                           <SelectItem value="non_attendance_miqaat">Miqaat Non-Attendance</SelectItem>
                           <SelectItem value="member_attendance">Member Full History</SelectItem>
                           <SelectItem value="overall_activity">Overall Activity Log</SelectItem>
@@ -540,7 +547,7 @@ export default function ReportsPage() {
                   )}
                 />
 
-                {(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat") && (
+                {(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && (
                   <FormField
                     control={form.control}
                     name="miqaatId"
@@ -751,7 +758,7 @@ export default function ReportsPage() {
                 <Separator className="my-2" />
                 <CardDescription>
                     Displaying {reportData.length} record(s) 
-                    {(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat") && selectedMiqaatDetails && ` for Miqaat: ${selectedMiqaatDetails.name}`}
+                    {(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && selectedMiqaatDetails && ` for Miqaat: ${selectedMiqaatDetails.name}`}
                     {watchedReportType === "member_attendance" && form.getValues("itsId") && ` for ITS ID: ${form.getValues("itsId")}`}
                     {form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}
                     {form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.
