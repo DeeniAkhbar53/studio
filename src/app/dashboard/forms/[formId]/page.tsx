@@ -104,7 +104,6 @@ export default function FillFormPage() {
         }
 
         const fetchForm = async () => {
-            // Keep loading true until form is fetched and form state is reset
             setIsLoading(true); 
             try {
                 const fetchedForm = await getForm(formId);
@@ -116,8 +115,6 @@ export default function FillFormPage() {
             } catch (err) {
                 console.error(err);
                 setError("An error occurred while loading the form.");
-            } finally {
-                // We will set loading to false in the other useEffect after form is reset
             }
         };
 
@@ -128,7 +125,6 @@ export default function FillFormPage() {
     useEffect(() => {
         if (form) {
             responseForm.reset(defaultValues);
-            // Only stop loading after the form has been fetched and reset with the correct values
             setIsLoading(false); 
         }
     }, [form, defaultValues, responseForm]);
@@ -203,32 +199,32 @@ export default function FillFormPage() {
                 </CardHeader>
                 <Separator />
                 
-                {currentUser && (
-                    <CardContent className="py-6 px-4 md:px-8">
-                        <Card className="bg-primary/5 border-primary/20">
-                            <CardHeader>
-                                <CardTitle className="text-xl flex items-center gap-3">
-                                    <UserIcon className="h-6 w-6 text-primary" />
-                                    Your Information
-                                </CardTitle>
-                                <CardDescription>This information is automatically recorded with your submission.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <FormLabel>Full Name</FormLabel>
-                                    <Input value={currentUser.name} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
-                                </div>
-                                <div>
-                                    <FormLabel>ITS ID</FormLabel>
-                                    <Input value={currentUser.itsId} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </CardContent>
-                )}
-
                 <UIForm {...responseForm}>
                     <form onSubmit={responseForm.handleSubmit(handleResponseSubmit)}>
+                        {currentUser && (
+                            <CardContent className="py-6 px-4 md:px-8">
+                                <Card className="bg-primary/5 border-primary/20">
+                                    <CardHeader>
+                                        <CardTitle className="text-xl flex items-center gap-3">
+                                            <UserIcon className="h-6 w-6 text-primary" />
+                                            Your Information
+                                        </CardTitle>
+                                        <CardDescription>This information is automatically recorded with your submission.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <FormLabel>Full Name</FormLabel>
+                                            <Input value={currentUser.name} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
+                                        </div>
+                                        <div>
+                                            <FormLabel>ITS ID</FormLabel>
+                                            <Input value={currentUser.itsId} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </CardContent>
+                        )}
+
                         <CardContent className="pt-0 pb-6 px-4 md:px-8 space-y-8">
                             {form.questions.map((question, index) => (
                                  <FormField
@@ -318,5 +314,3 @@ export default function FillFormPage() {
         </div>
     );
 }
-
-    
