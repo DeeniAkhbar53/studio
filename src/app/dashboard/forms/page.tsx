@@ -108,7 +108,7 @@ export default function FormsListPage() {
                                 <Card key={form.id} className="w-full shadow-md">
                                     <CardHeader>
                                         <CardTitle className="text-lg">
-                                            <Link href={`/dashboard/forms/${form.id}`} className="hover:underline">{form.title}</Link>
+                                            {form.title}
                                         </CardTitle>
                                         <CardDescription className="line-clamp-2">{form.description}</CardDescription>
                                     </CardHeader>
@@ -177,9 +177,7 @@ export default function FormsListPage() {
                                    {forms.map((form) => (
                                        <TableRow key={form.id} className="hover:bg-muted/50">
                                            <TableCell className="font-medium">
-                                               <Link href={`/dashboard/forms/${form.id}`} className="hover:underline">
-                                                   {form.title}
-                                               </Link>
+                                               {form.title}
                                                <p className="text-sm text-muted-foreground line-clamp-1">{form.description}</p>
                                            </TableCell>
                                            <TableCell>

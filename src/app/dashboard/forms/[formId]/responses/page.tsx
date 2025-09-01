@@ -8,12 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Loader2, ArrowLeft, Trash2, Users, FileWarning, Calendar, User as UserIcon } from "lucide-react";
+import { Loader2, ArrowLeft, Trash2, Users, FileWarning, Download, User as UserIcon } from "lucide-react";
 import type { FormResponse, UserRole, Form as FormType } from "@/types";
 import { getFormResponsesRealtime, deleteFormResponse, getForm } from "@/lib/firebase/formService";
 import { format } from "date-fns";
 import { Unsubscribe } from "firebase/firestore";
 import { Separator } from "@/components/ui/separator";
+import Papa from "papaparse";
 
 export default function ViewResponsesPage() {
     const router = useRouter();
@@ -61,7 +62,6 @@ export default function ViewResponsesPage() {
             setIsLoading(false);
         });
 
-        // Cleanup subscription on component unmount
         return () => unsubscribe();
 
     }, [formId]);
@@ -83,12 +83,58 @@ export default function ViewResponsesPage() {
         }
     };
     
-    const renderResponseValue = (questionId: string, value: string | string[]) => {
+    const renderResponseValue = (questionId: string, value: any) => {
         const question = form?.questions.find(q => q.id === questionId);
         if (question?.type === 'checkbox' && Array.isArray(value)) {
             return value.join(', ');
         }
-        return value as string;
+        if (typeof value === 'string') {
+            return value;
+        }
+        if (typeof value === 'object' && value !== null) {
+            return JSON.stringify(value);
+        }
+        return value || "";
+    };
+
+    const handleExport = () => {
+        if (!form || !responses || responses.length === 0) {
+          toast({ title: "No data to export", description: "Please wait for responses to load.", variant: "default" });
+          return;
+        }
+    
+        const headers = ["Submitted At", "ITS ID", "Name", "BGK ID", ...form.questions.map(q => q.label)];
+        
+        const dataRows = responses.map(response => {
+            const row: { [key: string]: any } = {
+                "Submitted At": format(new Date(response.submittedAt), "yyyy-MM-dd HH:mm:ss"),
+                "ITS ID": response.submittedBy,
+                "Name": response.submitterName,
+                "BGK ID": response.submitterBgkId || 'N/A',
+            };
+            form.questions.forEach(q => {
+                const answer = response.responses[q.id];
+                row[q.label] = Array.isArray(answer) ? answer.join('; ') : answer;
+            });
+            return row;
+        });
+
+        const csv = Papa.unparse({
+            fields: headers,
+            data: dataRows
+        });
+    
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        const safeTitle = form.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        link.setAttribute("download", `responses_${safeTitle}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({ title: "Export Complete", description: "The response data has been downloaded as a CSV file." });
     };
 
     if (isLoading || isLoadingForm) {
@@ -114,9 +160,14 @@ export default function ViewResponsesPage() {
 
     return (
         <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-             <Button variant="outline" onClick={() => router.push('/dashboard/forms')}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Forms
-            </Button>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                 <Button variant="outline" onClick={() => router.push('/dashboard/forms')} className="w-full sm:w-auto">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Forms
+                </Button>
+                <Button onClick={handleExport} disabled={responses.length === 0} className="w-full sm:w-auto">
+                    <Download className="mr-2 h-4 w-4" /> Export as CSV
+                </Button>
+            </div>
             <Card className="shadow-lg">
                 <CardHeader>
                     <CardTitle className="text-2xl md:text-3xl font-bold">{form?.title || "Form Responses"}</CardTitle>
@@ -132,7 +183,60 @@ export default function ViewResponsesPage() {
                             </p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
+                        <>
+                        {/* Mobile/Tablet View */}
+                        <div className="md:hidden space-y-4">
+                            {responses.map(response => (
+                                <Card key={response.id} className="w-full">
+                                    <CardHeader>
+                                        <CardTitle className="text-lg">{response.submitterName}</CardTitle>
+                                        <CardDescription>
+                                            ITS: {response.submittedBy} | BGK: {response.submitterBgkId || 'N/A'}
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        <div className="text-xs text-muted-foreground">
+                                            Submitted: {format(new Date(response.submittedAt), "MMM d, yyyy 'at' p")}
+                                        </div>
+                                        <Separator />
+                                        <div className="space-y-3">
+                                            {form?.questions.map(q => (
+                                                <div key={q.id}>
+                                                    <p className="font-semibold text-sm text-foreground">{q.label}</p>
+                                                    <p className="text-sm text-muted-foreground">{renderResponseValue(q.id, response.responses[q.id]) || "N/A"}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                    {canDeleteResponses && (
+                                        <CardFooter className="flex justify-end p-2 border-t">
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            This will permanently delete the response from {response.submitterName}. This action cannot be undone.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteResponse(response.id)}>Delete</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </CardFooter>
+                                    )}
+                                </Card>
+                            ))}
+                        </div>
+
+                        {/* Desktop View */}
+                        <div className="hidden md:block overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -190,6 +294,7 @@ export default function ViewResponsesPage() {
                                 </TableBody>
                             </Table>
                         </div>
+                        </>
                     )}
                 </CardContent>
                 <CardFooter>
