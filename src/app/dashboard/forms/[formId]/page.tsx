@@ -20,9 +20,8 @@ import type { Form as FormType } from "@/types";
 import { getForm, addFormResponse } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 
-export default function FillFormPage({ params }: { params: { formId: string } }) {
+export default function FillFormPage({ params: { formId } }: { params: { formId: string } }) {
     const router = useRouter();
-    const { formId } = params;
     const { toast } = useToast();
     const [form, setForm] = useState<FormType | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -255,4 +254,3 @@ export default function FillFormPage({ params }: { params: { formId: string } })
         </div>
     );
 }
-
