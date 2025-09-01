@@ -14,10 +14,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form as UIForm, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon } from "lucide-react";
+import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Form as FormType } from "@/types";
-import { getForm, addFormResponse } from "@/lib/firebase/formService";
+import { getForm, addFormResponse, checkIfUserHasResponded } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 
 // This is the exported page component.
@@ -30,6 +30,10 @@ export default function FillFormPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<{name: string, itsId: string, bgkId?: string} | null>(null);
+    
+    // New state variables for submission flow
+    const [hasAlreadyResponded, setHasAlreadyResponded] = useState<boolean | null>(null);
+    const [hasSubmitted, setHasSubmitted] = useState(false);
 
 
     // Effect to get current user from localStorage
@@ -96,44 +100,51 @@ export default function FillFormPage() {
         defaultValues,
     });
     
-    // Effect to fetch the form definition
+    // Effect to fetch the form definition and check for prior submissions
     useEffect(() => {
-        if (!formId) {
-            setError("Form ID is missing.");
+        if (!formId || !currentUser?.itsId) {
+            if(!formId) setError("Form ID is missing.");
+            if(!currentUser?.itsId) setError("Cannot verify user identity.");
             setIsLoading(false);
             return;
         }
 
-        const fetchForm = async () => {
+        const fetchFormData = async () => {
             setIsLoading(true); 
             try {
-                const fetchedForm = await getForm(formId);
+                const [fetchedForm, userHasResponded] = await Promise.all([
+                    getForm(formId),
+                    checkIfUserHasResponded(formId, currentUser.itsId)
+                ]);
+
                 if (fetchedForm) {
                     setForm(fetchedForm);
+                    setHasAlreadyResponded(userHasResponded);
                 } else {
                     setError("This form could not be found or may have been deleted.");
                 }
             } catch (err) {
                 console.error(err);
-                setError("An error occurred while loading the form.");
+                setError("An error occurred while loading the form data.");
+            } finally {
+                setIsLoading(false);
             }
         };
 
-        fetchForm();
-    }, [formId]);
+        fetchFormData();
+    }, [formId, currentUser]);
 
     // Effect to reset the form once the form data (and thus defaultValues) is ready
     useEffect(() => {
         if (form) {
             responseForm.reset(defaultValues);
-            setIsLoading(false); 
         }
     }, [form, defaultValues, responseForm]);
 
 
     const handleResponseSubmit = async (values: z.infer<typeof formSchema>) => {
         if (!currentUser?.itsId || !form) {
-            toast({ title: "Submission Failed", description: "Cannot identify the user. Please log in again.", variant: "destructive" });
+            toast({ title: "Submission Failed", description: "Cannot identify the user or form. Please log in again.", variant: "destructive" });
             return;
         }
 
@@ -141,17 +152,17 @@ export default function FillFormPage() {
             await addFormResponse(form.id, {
                 formId: form.id,
                 submittedBy: currentUser.itsId,
+                submitterName: currentUser.name,
                 responses: values,
             });
-            toast({ title: "Response Submitted", description: "Thank you for filling out the form!" });
-            router.push('/dashboard/forms');
+            setHasSubmitted(true); // Set success state
         } catch (error) {
             console.error("Failed to submit response:", error);
             toast({ title: "Error", description: "Could not submit your response. Please try again.", variant: "destructive" });
         }
     };
     
-    if (isLoading) {
+    if (isLoading || hasAlreadyResponded === null) {
         return (
             <div className="flex h-full w-full items-center justify-center p-8">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -184,6 +195,29 @@ export default function FillFormPage() {
                     <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
                 </Button>
             </div>
+        );
+    }
+
+    // Render success message or "already filled" message
+    if (hasSubmitted || hasAlreadyResponded) {
+        return (
+             <div className="max-w-4xl mx-auto p-4 md:p-6">
+                 <Button variant="ghost" onClick={() => router.push('/dashboard/forms')} className="mb-4">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to All Forms
+                </Button>
+                 <Card className="shadow-lg border-primary/20 bg-gradient-to-br from-card to-muted/20">
+                     <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+                         <CheckCircle2 className="h-20 w-20 text-green-500 mb-6" />
+                         <h1 className="text-3xl font-bold text-foreground">
+                            {hasSubmitted ? "Thank You!" : "Response Recorded"}
+                         </h1>
+                         <p className="text-lg text-muted-foreground mt-2">
+                             {hasSubmitted ? "Your response has been successfully submitted." : "You have already filled out this form."}
+                         </p>
+                     </CardContent>
+                 </Card>
+             </div>
         );
     }
 

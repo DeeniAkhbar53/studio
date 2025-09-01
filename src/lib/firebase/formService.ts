@@ -15,7 +15,9 @@ import {
   orderBy,
   Timestamp,
   increment,
-  runTransaction
+  runTransaction,
+  where,
+  limit
 } from 'firebase/firestore';
 import type { Form, FormQuestion, FormResponse } from '@/types';
 
@@ -148,5 +150,18 @@ export const getFormResponses = async (formId: string): Promise<FormResponse[]> 
     } catch (error) {
         console.error("Error fetching form responses: ", error);
         throw error;
+    }
+};
+
+export const checkIfUserHasResponded = async (formId: string, userId: string): Promise<boolean> => {
+    try {
+        const responsesRef = collection(db, 'forms', formId, 'responses');
+        const q = query(responsesRef, where('submittedBy', '==', userId), limit(1));
+        const querySnapshot = await getDocs(q);
+        return !querySnapshot.empty;
+    } catch (error) {
+        console.error("Error checking if user has responded:", error);
+        // Default to false to allow user to attempt to fill form, backend validation will be the final guard.
+        return false;
     }
 };
