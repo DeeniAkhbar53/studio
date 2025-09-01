@@ -11,7 +11,6 @@ import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock 
 import { useState, useEffect, useCallback } from "react";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
-import { getAttendanceRecordsByUser } from "@/lib/firebase/attendanceService";
 import { getMiqaats } from "@/lib/firebase/miqaatService";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -60,54 +59,80 @@ export default function ProfilePage() {
           // Fetch all miqaats and user's attendance to compare
           unsubscribeMiqaats = getMiqaats(async (allMiqaats) => {
             try {
-              if (!isMounted) return;
-              
-              const userAttendedRecords = await getAttendanceRecordsByUser(fetchedUser.itsId);
-              const attendedMiqaatIds = new Set(userAttendedRecords.map(rec => rec.miqaatId));
-              
-              const combinedHistory: AttendanceRecord[] = [...userAttendedRecords];
+                if (!isMounted) return;
+                
+                const attendedRecords: AttendanceRecord[] = [];
+                const attendedMiqaatIds = new Set<string>();
 
-              const eligibleMiqaats = allMiqaats.filter(miqaat => {
-                  const now = new Date();
-                  const miqaatEndTime = new Date(miqaat.endTime);
-                  // Only consider past miqaats for "absent" status
-                  if (now < miqaatEndTime) {
-                      return false;
-                  }
+                allMiqaats.forEach(miqaat => {
+                    const regularEntry = miqaat.attendance?.find(a => a.userItsId === fetchedUser.itsId);
+                    if (regularEntry) {
+                        attendedRecords.push({
+                            id: `${miqaat.id}-${regularEntry.userItsId}`,
+                            miqaatId: miqaat.id,
+                            miqaatName: miqaat.name,
+                            userItsId: regularEntry.userItsId,
+                            userName: regularEntry.userName,
+                            markedAt: regularEntry.markedAt,
+                            markedByItsId: regularEntry.markedByItsId,
+                            status: regularEntry.status || 'present',
+                            uniformCompliance: regularEntry.uniformCompliance,
+                        });
+                        attendedMiqaatIds.add(miqaat.id);
+                    }
 
-                  const isForEveryone = (!miqaat.mohallahIds || miqaat.mohallahIds.length === 0) && (!miqaat.teams || miqaat.teams.length === 0);
-                  const isInMohallah = fetchedUser.mohallahId && miqaat.mohallahIds?.includes(fetchedUser.mohallahId);
-                  const isInTeam = fetchedUser.team && miqaat.teams?.includes(fetchedUser.team);
-                  return isForEveryone || isInMohallah || isInTeam;
-              });
+                    const safarEntry = miqaat.safarList?.find(s => s.userItsId === fetchedUser.itsId);
+                    if (safarEntry) {
+                         attendedRecords.push({
+                            id: `safar-${miqaat.id}-${safarEntry.userItsId}`,
+                            miqaatId: miqaat.id,
+                            miqaatName: miqaat.name,
+                            userItsId: safarEntry.userItsId,
+                            userName: safarEntry.userName,
+                            markedAt: safarEntry.markedAt,
+                            markedByItsId: safarEntry.markedByItsId,
+                            status: 'safar',
+                        });
+                        attendedMiqaatIds.add(miqaat.id);
+                    }
+                });
 
-              eligibleMiqaats.forEach(miqaat => {
-                if (!attendedMiqaatIds.has(miqaat.id)) {
-                  // This is an absent record
-                  combinedHistory.push({
-                    id: `absent-${miqaat.id}-${fetchedUser.itsId}`,
-                    miqaatId: miqaat.id,
-                    miqaatName: miqaat.name,
-                    userItsId: fetchedUser.itsId,
-                    userName: fetchedUser.name,
-                    markedAt: miqaat.startTime, // Use miqaat start time as the date for sorting
-                    status: 'absent',
-                  });
+                const eligibleMiqaats = allMiqaats.filter(miqaat => {
+                    const now = new Date();
+                    const miqaatEndTime = new Date(miqaat.endTime);
+                    if (now < miqaatEndTime) return false;
+
+                    const isForEveryone = (!miqaat.mohallahIds || miqaat.mohallahIds.length === 0) && (!miqaat.teams || miqaat.teams.length === 0);
+                    const isInMohallah = fetchedUser.mohallahId && miqaat.mohallahIds?.includes(fetchedUser.mohallahId);
+                    const isInTeam = fetchedUser.team && miqaat.teams?.includes(fetchedUser.team);
+                    return isForEveryone || isInMohallah || isInTeam;
+                });
+
+                const absentRecords = eligibleMiqaats
+                    .filter(miqaat => !attendedMiqaatIds.has(miqaat.id))
+                    .map(miqaat => ({
+                        id: `absent-${miqaat.id}-${fetchedUser.itsId}`,
+                        miqaatId: miqaat.id,
+                        miqaatName: miqaat.name,
+                        userItsId: fetchedUser.itsId,
+                        userName: fetchedUser.name,
+                        markedAt: miqaat.startTime,
+                        status: 'absent' as const,
+                    }));
+
+                const combinedHistory = [...attendedRecords, ...absentRecords];
+                combinedHistory.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());
+
+                if (isMounted) {
+                    setAttendanceHistory(combinedHistory);
                 }
-              });
-
-              combinedHistory.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());
-
-              if (isMounted) {
-                  setAttendanceHistory(combinedHistory);
-              }
             } catch (historyFetchError: any) {
-              console.error("Failed to fetch or process attendance history:", historyFetchError);
-              if (isMounted) {
-                setHistoryError("Could not load attendance history.");
-              }
+                console.error("Failed to fetch or process attendance history:", historyFetchError);
+                if (isMounted) {
+                    setHistoryError("Could not load attendance history.");
+                }
             } finally {
-               if (isMounted) setIsLoadingHistory(false);
+                if (isMounted) setIsLoadingHistory(false);
             }
           });
         } else {
@@ -243,6 +268,7 @@ export default function ProfilePage() {
                                     record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                                     record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
                                     record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                    record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
                                     'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                                 )}>
                                     {record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'Present'}
@@ -270,5 +296,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    
