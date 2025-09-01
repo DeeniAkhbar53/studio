@@ -101,7 +101,7 @@ export default function FillFormPage() {
 
     const responseForm = useForm({
         resolver: zodResolver(formSchema),
-        defaultValues: defaultValues, // Initialize with memoized values
+        // No defaultValues here to prevent uncontrolled to controlled error
     });
     
     // Effect to fetch the form definition and check for prior submissions
@@ -370,4 +370,3 @@ export default function FillFormPage() {
     );
 }
 
-    
