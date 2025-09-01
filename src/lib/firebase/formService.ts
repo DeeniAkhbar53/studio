@@ -18,7 +18,9 @@ import {
   runTransaction,
   where,
   limit,
-  writeBatch
+  writeBatch,
+  onSnapshot,
+  Unsubscribe
 } from 'firebase/firestore';
 import type { Form, FormQuestion, FormResponse } from '@/types';
 
@@ -157,21 +159,44 @@ export const addFormResponse = async (formId: string, responseData: FormResponse
     }
 };
 
-export const getFormResponses = async (formId: string): Promise<FormResponse[]> => {
-    try {
-        const responsesCollectionRef = collection(db, 'forms', formId, 'responses');
-        const q = query(responsesCollectionRef, orderBy('submittedAt', 'desc'));
-        const querySnapshot = await getDocs(q);
+export const getFormResponsesRealtime = (formId: string, onUpdate: (responses: FormResponse[]) => void): Unsubscribe => {
+    const responsesCollectionRef = collection(db, 'forms', formId, 'responses');
+    const q = query(responsesCollectionRef, orderBy('submittedAt', 'desc'));
 
-        return querySnapshot.docs.map(docSnapshot => {
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const responses = querySnapshot.docs.map(docSnapshot => {
             const data = docSnapshot.data();
             const submittedAt = data.submittedAt instanceof Timestamp
                               ? data.submittedAt.toDate().toISOString()
                               : new Date().toISOString();
             return { ...data, id: docSnapshot.id, submittedAt } as FormResponse;
         });
+        onUpdate(responses);
+    }, (error) => {
+        console.error(`Error fetching real-time responses for form ${formId}:`, error);
+        onUpdate([]); // Send empty array on error
+    });
+
+    return unsubscribe;
+};
+
+export const deleteFormResponse = async (formId: string, responseId: string): Promise<void> => {
+    const formRef = doc(db, 'forms', formId);
+    const responseRef = doc(formRef, 'responses', responseId);
+
+    try {
+         await runTransaction(db, async (transaction) => {
+            const formDoc = await transaction.get(formRef);
+            if (!formDoc.exists()) {
+                throw new Error("Form does not exist!");
+            }
+            // Decrement the responseCount on the parent form document
+            transaction.update(formRef, { responseCount: increment(-1) });
+            // Delete the specific response document
+            transaction.delete(responseRef);
+        });
     } catch (error) {
-        console.error("Error fetching form responses: ", error);
+        console.error(`Error deleting response ${responseId} from form ${formId}:`, error);
         throw error;
     }
 };

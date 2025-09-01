@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, FileText, Loader2, Users, MoreHorizontal, Edit, Trash2, Calendar } from "lucide-react";
+import { PlusCircle, FileText, Loader2, Users, MoreHorizontal, Edit, Trash2, Calendar, User as UserIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Form as FormType } from "@/types";
 import { getForms, deleteForm } from "@/lib/firebase/formService";
@@ -115,11 +115,17 @@ export default function FormsListPage() {
                                     <CardContent className="space-y-3 text-sm text-muted-foreground">
                                         <div className="flex items-center gap-2">
                                             <Users className="h-4 w-4" />
-                                            <span>{form.responseCount || 0} Responses</span>
+                                             <Link href={`/dashboard/forms/${form.id}/responses`} className="hover:underline font-medium">
+                                                {form.responseCount || 0} Responses
+                                            </Link>
                                         </div>
                                          <div className="flex items-center gap-2">
                                             <Calendar className="h-4 w-4" />
                                             <span>Created: {format(new Date(form.createdAt), "MMM d, yyyy")}</span>
+                                        </div>
+                                         <div className="flex items-center gap-2">
+                                            <UserIcon className="h-4 w-4" />
+                                            <span>By: {form.createdBy}</span>
                                         </div>
                                     </CardContent>
                                     <Separator />
@@ -163,7 +169,7 @@ export default function FormsListPage() {
                                    <TableRow>
                                        <TableHead>Title</TableHead>
                                        <TableHead>Responses</TableHead>
-                                       <TableHead>Created At</TableHead>
+                                       <TableHead>Created</TableHead>
                                        <TableHead className="text-right">Actions</TableHead>
                                    </TableRow>
                                </TableHeader>
@@ -177,10 +183,15 @@ export default function FormsListPage() {
                                                <p className="text-sm text-muted-foreground line-clamp-1">{form.description}</p>
                                            </TableCell>
                                            <TableCell>
-                                                <Users className="h-4 w-4 inline mr-2 text-muted-foreground" />
-                                                {form.responseCount || 0}
+                                                <Link href={`/dashboard/forms/${form.id}/responses`} className="flex items-center gap-2 hover:underline">
+                                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                                    {form.responseCount || 0}
+                                                </Link>
                                            </TableCell>
-                                           <TableCell>{format(new Date(form.createdAt), "MMM d, yyyy")}</TableCell>
+                                           <TableCell>
+                                               {format(new Date(form.createdAt), "MMM d, yyyy")}
+                                               <p className="text-xs text-muted-foreground">by {form.createdBy}</p>
+                                           </TableCell>
                                            <TableCell className="text-right">
                                                <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} className="mr-2">
                                                     Fill Out
