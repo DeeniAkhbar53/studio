@@ -32,9 +32,7 @@ export default function FillFormPage() {
 
     const { formSchema, defaultValues } = useMemo(() => {
         if (!form) {
-            // Even when the form is not loaded, we return a schema and default values
-            // to avoid the controlled/uncontrolled input error. The schema can be simple
-            // and the default values can be an empty object.
+            // Return a valid empty schema and default values to prevent errors during initial render.
             return { formSchema: z.object({}), defaultValues: {} };
         }
 
@@ -53,7 +51,6 @@ export default function FillFormPage() {
                     if (q.required) {
                         fieldSchema = fieldSchema.min(1, `${q.label} is required.`);
                     } else {
-                        // Ensure it's optional and has a default value to prevent uncontrolled -> controlled switch
                         fieldSchema = fieldSchema.optional().default("");
                     }
                     defaults[q.id] = "";
@@ -63,13 +60,11 @@ export default function FillFormPage() {
                      if (q.required) {
                         fieldSchema = fieldSchema.nonempty({ message: `Please select at least one option for ${q.label}.` });
                      } else {
-                        // Ensure it's optional and has a default value
                         fieldSchema = fieldSchema.optional().default([]);
                      }
                     defaults[q.id] = [];
                     break;
                 default:
-                    // Fallback for any other type, though we should handle all explicit types
                     fieldSchema = z.any().optional();
             }
             shape[q.id] = fieldSchema;
@@ -95,19 +90,20 @@ export default function FillFormPage() {
         }
 
         const fetchForm = async () => {
-            setIsLoading(true);
+            // Keep loading true until form is fetched and form state is reset
+            setIsLoading(true); 
             try {
                 const fetchedForm = await getForm(formId);
                 if (fetchedForm) {
                     setForm(fetchedForm);
                 } else {
                     setError("This form could not be found or may have been deleted.");
+                    setIsLoading(false); // Stop loading on error
                 }
             } catch (err) {
                 console.error(err);
                 setError("An error occurred while loading the form.");
-            } finally {
-                setIsLoading(false);
+                setIsLoading(false); // Stop loading on error
             }
         };
 
@@ -118,6 +114,8 @@ export default function FillFormPage() {
     useEffect(() => {
         if (form) {
             responseForm.reset(defaultValues);
+            // Only stop loading after the form has been reset with the correct values
+            setIsLoading(false); 
         }
     }, [form, defaultValues, responseForm]);
 
@@ -166,7 +164,17 @@ export default function FillFormPage() {
     }
 
     if (!form) {
-        return null; // Should be handled by error state, but as a fallback
+        // This case should ideally be covered by isLoading or error states, but it's a good fallback.
+        return (
+             <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                <FileWarning className="h-16 w-16 text-muted-foreground mb-4" />
+                <h1 className="text-2xl font-bold text-muted-foreground">Form Not Loaded</h1>
+                <p className="text-muted-foreground mt-2">The form could not be loaded. Please try again.</p>
+                 <Button variant="outline" onClick={() => router.back()} className="mt-6">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+                </Button>
+            </div>
+        );
     }
 
     return (
