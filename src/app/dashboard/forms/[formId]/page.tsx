@@ -77,7 +77,8 @@ export default function FillFormPage() {
         resolver: zodResolver(formSchema),
         defaultValues,
     });
-
+    
+    // Effect to fetch the form definition
     useEffect(() => {
         if (!formId) {
             setError("Form ID is missing.");
@@ -91,7 +92,6 @@ export default function FillFormPage() {
                 const fetchedForm = await getForm(formId);
                 if (fetchedForm) {
                     setForm(fetchedForm);
-                    responseForm.reset(defaultValues);
                 } else {
                     setError("This form could not be found or may have been deleted.");
                 }
@@ -104,7 +104,14 @@ export default function FillFormPage() {
         };
 
         fetchForm();
-    }, [formId, defaultValues, responseForm]);
+    }, [formId]);
+
+    // Effect to reset the form once the form data (and thus defaultValues) is ready
+    useEffect(() => {
+        if (form) {
+            responseForm.reset(defaultValues);
+        }
+    }, [form, defaultValues, responseForm]);
 
 
     const handleResponseSubmit = async (values: z.infer<typeof formSchema>) => {
