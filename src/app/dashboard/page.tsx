@@ -45,7 +45,7 @@ export default function DashboardOverviewPage() {
 
   const [activeMiqaatsCount, setActiveMiqaatsCount] = useState<number>(0);
   const [totalMiqaatsCount, setTotalMiqaatsCount] = useState<number>(0);
-  const [allMiqaatsList, setAllMiqaatsList] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>([]);
+  const [allMiqaatsList, setAllMiqaatsList] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "uniformRequirements">[]>([]);
   const [totalMembersCount, setTotalMembersCount] = useState<number>(0);
   const [totalMohallahsCount, setTotalMohallahsCount] = useState<number>(0);
   const [totalFormsCount, setTotalFormsCount] = useState<number>(0);
@@ -185,6 +185,14 @@ export default function DashboardOverviewPage() {
 
     if (now > miqaatEndTime) {
       setScanDisplayMessage({ type: 'error', text: `This Miqaat (${targetMiqaat.name}) has ended and is no longer accepting attendance.` });
+      setIsProcessingScan(false);
+      setIsScannerDialogOpen(false);
+      return;
+    }
+
+    const uniformReqs = targetMiqaat.uniformRequirements;
+    if (uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti || uniformReqs.safar)) {
+      setScanDisplayMessage({ type: 'error', text: `This Miqaat (${targetMiqaat.name}) requires uniform check. Please see an attendance marker.` });
       setIsProcessingScan(false);
       setIsScannerDialogOpen(false);
       return;
@@ -372,8 +380,8 @@ export default function DashboardOverviewPage() {
   const attendanceMarkerStats: AdminStat[] = [
     { title: "Active Miqaats", value: activeMiqaatsCount, icon: CalendarCheck, isLoading: isLoadingStats },
     { title: "Total Miqaats", value: totalMiqaatsCount, icon: CalendarCheck, isLoading: isLoadingStats },
-    { title: "Total Forms", value: totalFormsCount, icon: FileText, isLoading: isLoadingStats },
     { title: "Active Forms", value: activeFormsCount, icon: FileText, isLoading: isLoadingStats },
+    { title: "Total Forms", value: totalFormsCount, icon: FileText, isLoading: isLoadingStats },
   ];
 
   const adminOverviewStats: AdminStat[] = [
@@ -385,7 +393,12 @@ export default function DashboardOverviewPage() {
     adminOverviewStats.splice(5, 0, { title: "Total Mohallahs", value: totalMohallahsCount, icon: Users, isLoading: isLoadingStats });
   }
 
-  const statsToDisplay = currentUserRole === 'admin' || currentUserRole === 'superadmin' ? adminOverviewStats : attendanceMarkerStats;
+  const statsToDisplay = (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') ? adminOverviewStats : [];
+  
+  if (currentUserRole === 'attendance-marker') {
+      statsToDisplay.splice(4, 2); // Remove member and mohallah counts for attendance-marker
+  }
+
 
   if (isLoadingUser && !currentUserItsId) {
     return (
