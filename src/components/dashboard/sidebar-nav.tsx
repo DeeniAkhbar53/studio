@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { UserDesignation, UserRole } from "@/types";
-import { Home, User, CalendarDays, Building, BarChart3, UserCheck, ScanBarcode, Bell, Settings, Users as UsersIcon, FileText } from "lucide-react";
+import { Home, User, CalendarDays, Building, BarChart3, UserCheck, ScanBarcode, Bell, Settings, Users as UsersIcon, FileText, ScrollText } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 
 interface NavItem {
@@ -66,6 +66,12 @@ export const allNavItems: NavItem[] = [
     href: "/dashboard/forms",
     label: "Forms / Surveys",
     icon: FileText,
+  },
+  {
+    href: "/dashboard/system-logs",
+    label: "System Logs",
+    icon: ScrollText,
+    allowedRoles: ['superadmin']
   },
 ];
 
@@ -163,6 +169,7 @@ export function SidebarNav() {
     }
 
     return allNavItems.filter(item => {
+      // Show form page to all logged-in users
       if (item.href === '/dashboard/forms') {
         return true;
       }

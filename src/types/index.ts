@@ -46,7 +46,6 @@ export type Miqaat = {
   uniformRequirements?: {
       fetaPaghri: boolean;
       koti: boolean;
-      safar: boolean;
   };
 };
 
@@ -153,4 +152,13 @@ export interface FormResponse {
     responses: {
         [questionId: string]: string | string[]; // Answer keyed by question ID
     }
+}
+
+// New type for System Logs
+export interface SystemLog {
+    id: string;
+    level: 'info' | 'warning' | 'error';
+    message: string;
+    context?: string; // stringified JSON
+    timestamp: string; // ISO string
 }

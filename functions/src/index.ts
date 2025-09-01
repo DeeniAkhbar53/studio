@@ -20,6 +20,20 @@ interface NotificationData {
   createdBy: string;
 }
 
+// Helper to write to our new logs collection
+const addSystemLog = async (level: 'info' | 'warning' | 'error', message: string, context?: object) => {
+  try {
+    await db.collection('system_logs').add({
+      level,
+      message,
+      context: context ? JSON.stringify(context, null, 2) : "No context provided.",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (logError) {
+    functions.logger.error("CRITICAL: Failed to write to system_logs collection.", { originalMessage: message, logError });
+  }
+};
+
 export const onNewNotificationCreated = functions.firestore
   .document("notifications/{notificationId}")
   .onCreate(async (snapshot, context) => {
@@ -29,15 +43,11 @@ export const onNewNotificationCreated = functions.firestore
     functions.logger.log(`New notification created (ID: ${notificationId}):`, notification);
 
     let usersQuery: admin.firestore.Query;
-
-    // Use a collection group query to get all members across all mohallahs
     const membersCollectionGroup = db.collectionGroup("members");
 
     if (notification.targetAudience === "all") {
-      // Query for all documents in the 'members' collection group
       usersQuery = membersCollectionGroup;
     } else {
-      // Query for members with a specific role
       usersQuery = membersCollectionGroup.where("role", "==", notification.targetAudience);
     }
 
@@ -45,23 +55,23 @@ export const onNewNotificationCreated = functions.firestore
       const usersSnapshot = await usersQuery.get();
       if (usersSnapshot.empty) {
         functions.logger.log("No users found for target audience:", notification.targetAudience);
+        await addSystemLog('info', 'No users found for notification target audience.', { notificationId, targetAudience: notification.targetAudience });
         return null;
       }
 
       const tokens: string[] = [];
       usersSnapshot.forEach((doc) => {
         const user = doc.data() as User;
-        // Check for fcmTokens and ensure it's a non-empty array
         if (user.fcmTokens && Array.isArray(user.fcmTokens) && user.fcmTokens.length > 0) {
           tokens.push(...user.fcmTokens);
         }
       });
 
-      // Remove duplicate tokens to avoid sending the same notification multiple times to one device
       const uniqueTokens = [...new Set(tokens)];
 
       if (uniqueTokens.length === 0) {
         functions.logger.log("No FCM tokens found for the targeted users.");
+        await addSystemLog('info', 'No FCM tokens found for targeted users.', { notificationId, targetAudience: notification.targetAudience });
         return null;
       }
 
@@ -71,21 +81,21 @@ export const onNewNotificationCreated = functions.firestore
         notification: {
           title: notification.title,
           body: notification.content,
-          icon: "/logo.png", // Using a default icon
+          icon: "/logo.png",
         },
         data: {
-          // This data is sent to the client. The URL helps navigate the user on notification click.
           url: "/dashboard/notifications",
           notificationId: notificationId,
         },
       };
 
       const response = await admin.messaging().sendToDevice(uniqueTokens, messagePayload);
-
       functions.logger.log("Successfully sent message(s):", response.successCount, "failures:", response.failureCount);
+      
+      if(response.failureCount > 0) {
+        await addSystemLog('warning', `Push notification sending had ${response.failureCount} failures.`, { notificationId, successCount: response.successCount, failureCount: response.failureCount });
+      }
 
-      // --- Token Cleanup ---
-      const tokensToRemove: Promise<any>[] = [];
       response.results.forEach((result, index) => {
         const error = result.error;
         if (error) {
@@ -96,19 +106,26 @@ export const onNewNotificationCreated = functions.firestore
           ) {
              const invalidToken = uniqueTokens[index];
              functions.logger.warn(`Invalid token found: ${invalidToken}. Implement cleanup logic here.`);
-             // In a real application, you would now need a reverse lookup to find the user
-             // associated with this token and remove it from their `fcmTokens` array.
-             // This is a complex operation and is omitted for simplicity, but logging it is the first step.
+             addSystemLog('warning', `Invalid FCM token found and needs cleanup.`, { invalidToken, notificationId, errorCode: error.code });
           }
         }
       });
-      // --- End Token Cleanup ---
-
       return null;
     } catch (error) {
       functions.logger.error("Error sending notification:", error);
-      if (error instanceof Error && error.message.includes("index")) {
-          functions.logger.error("Firestore query failed. This is likely due to a missing Firestore index. Please check your Firebase console for index creation recommendations on the 'members' collection group for the 'role' field.");
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorContext = {
+        notificationId,
+        targetAudience: notification.targetAudience,
+        error: errorMessage,
+      };
+
+      if (errorMessage.includes("index")) {
+          const detailedMessage = "Firestore query failed. This is likely due to a missing Firestore index on the 'members' collection group for the 'role' field.";
+          functions.logger.error(detailedMessage);
+          await addSystemLog('error', detailedMessage, errorContext);
+      } else {
+          await addSystemLog('error', 'Error sending notification', errorContext);
       }
       return null;
     }
