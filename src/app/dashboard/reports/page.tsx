@@ -64,6 +64,7 @@ const reportSchema = z.object({
   mohallahId: z.string().optional(),
   team: z.string().optional(),
   designation: z.string().optional(),
+  status: z.string().optional(),
 }).superRefine((data, ctx) => {
     if ((data.reportType === "miqaat_summary" || data.reportType === "non_attendance_miqaat") && !data.miqaatId) {
         ctx.addIssue({
@@ -93,6 +94,8 @@ type ChartDataItem = { name: string; present: number; late: number; totalAttenda
 type ChartType = "vertical_bar" | "horizontal_bar" | "pie";
 
 const ALL_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Member"];
+const ALL_STATUSES: AttendanceRecord['status'][] = ["present", "late", "early", "absent", "safar"];
+
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -101,7 +104,7 @@ export default function ReportsPage() {
   const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "uniformRequirements">[]>([]);
+  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "uniformRequirements" | "attendedUserItsIds">[]>([]);
   const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
   const [availableTeams, setAvailableTeams] = useState<string[]>([]);
   
@@ -132,6 +135,7 @@ export default function ReportsPage() {
       mohallahId: "all",
       team: "all",
       designation: "all",
+      status: "all",
     },
   });
 
@@ -226,7 +230,7 @@ export default function ReportsPage() {
             uniformCompliance: att.uniformCompliance,
           }));
       } else if (values.reportType === "overall_activity") {
-        const allMiqaatDocs = await new Promise<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance">[]>((resolve) => {
+        const allMiqaatDocs = await new Promise<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance"| "attendedUserItsIds">[]>((resolve) => {
             const unsubscribe = getMiqaats((data) => {
                 resolve(data);
                 unsubscribe(); 
@@ -253,8 +257,9 @@ export default function ReportsPage() {
           return;
         }
         const allUsers = await getUsers(); 
-        const attendanceForMiqaat = await getAttendanceRecordsByMiqaat(values.miqaatId); 
+        const attendanceForMiqaat = selectedMiqaat.attendance || [];
         const attendedItsIds = new Set(attendanceForMiqaat.map(att => att.userItsId));
+        
         let eligibleUsers = allUsers;
         if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
           eligibleUsers = allUsers.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
@@ -298,12 +303,12 @@ export default function ReportsPage() {
         const userDetails = userMap.get(record.userItsId);
         if (!userDetails) return false; 
         
-        // The form.mohallahId is used here. For admin, it's pre-filled and disabled. For superadmin, it's their selection.
         const mohallahMatch = values.mohallahId === 'all' || userDetails.mohallahId === values.mohallahId;
         const teamMatch = values.team === 'all' || userDetails.team === values.team;
         const designationMatch = values.designation === 'all' || userDetails.designation === values.designation;
+        const statusMatch = values.status === 'all' || record.status === values.status;
 
-        return mohallahMatch && teamMatch && designationMatch;
+        return mohallahMatch && teamMatch && designationMatch && statusMatch;
       });
       
       setReportData(filteredData);
@@ -633,7 +638,7 @@ export default function ReportsPage() {
               <Separator />
               <div className="space-y-4">
                  <h3 className="text-md font-medium text-muted-foreground">Advanced Filters</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
                     {currentUserRole === 'superadmin' && (
                         <FormField
                             control={form.control}
@@ -694,6 +699,27 @@ export default function ReportsPage() {
                                 <SelectContent>
                                     <SelectItem value="all">All Designations</SelectItem>
                                     {ALL_DESIGNATIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="status"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Filter by Status</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="All Statuses" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="all">All Statuses</SelectItem>
+                                    {ALL_STATUSES.map(s => <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                             <FormMessage />

@@ -139,69 +139,76 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
 export const deleteMiqaat = async (miqaatId: string): Promise<void> => {
     try {
         const miqaatDoc = doc(db, 'miqaats', miqaatId);
-        const attendanceCollectionRef = collection(miqaatDoc, 'attendance');
-        
-        // Delete all documents in the 'attendance' subcollection
-        const attendanceSnapshot = await getDocs(attendanceCollectionRef);
-        const batch = writeBatch(db);
-        attendanceSnapshot.docs.forEach((doc) => {
-            batch.delete(doc.ref);
-        });
-        await batch.commit();
-
-        // Delete the main Miqaat document
+        // This assumes no subcollections anymore. If there were, they would need cleanup.
         await deleteDoc(miqaatDoc);
     } catch (error) {
-        console.error("Error deleting miqaat and its subcollection: ", error);
+        console.error("Error deleting miqaat: ", error);
         throw error;
     }
 };
 
 export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAttendanceEntryItem): Promise<void> => {
-  const attendanceCollectionRef = collection(db, 'miqaats', miqaatId, 'attendance');
-  // Use userItsId as the document ID to prevent duplicates
-  const attendanceDocRef = doc(attendanceCollectionRef, entry.userItsId);
-
+  const miqaatDocRef = doc(db, 'miqaats', miqaatId);
   try {
-    await runTransaction(db, async (transaction) => {
-      const attendanceDoc = await transaction.get(attendanceDocRef);
-      if (attendanceDoc.exists()) {
-        console.log(`User ${entry.userItsId} already marked for miqaat ${miqaatId}. Skipping.`);
-        return; // Exit transaction without writing
-      }
-      
-      // If user is not already marked, set the new attendance document.
-      transaction.set(attendanceDocRef, entry);
-    });
+      await runTransaction(db, async (transaction) => {
+          const miqaatDoc = await transaction.get(miqaatDocRef);
+          if (!miqaatDoc.exists()) {
+              throw new Error("Miqaat does not exist!");
+          }
+
+          // Check if user is already in the attendance array
+          const currentAttendance = miqaatDoc.data().attendance || [];
+          const alreadyExists = currentAttendance.some((e: MiqaatAttendanceEntryItem) => e.userItsId === entry.userItsId);
+
+          if (alreadyExists) {
+              console.log(`User ${entry.userItsId} already marked for miqaat ${miqaatId}. Skipping.`);
+              return;
+          }
+
+          transaction.update(miqaatDocRef, {
+              attendance: arrayUnion(entry),
+              attendedUserItsIds: arrayUnion(entry.userItsId)
+          });
+      });
   } catch (error) {
     console.error("Error marking attendance in Miqaat document: ", error);
     throw error;
   }
 };
 
-
 export const batchMarkAttendanceInMiqaat = async (miqaatId: string, entries: MiqaatAttendanceEntryItem[]): Promise<void> => {
     if (entries.length === 0) {
         return;
     }
     
-    const attendanceCollectionRef = collection(db, 'miqaats', miqaatId, 'attendance');
+    const miqaatDocRef = doc(db, 'miqaats', miqaatId);
 
     try {
         await runTransaction(db, async (transaction) => {
-            // It's more complex to check for existence in a subcollection during a transaction for a batch.
-            // A common strategy is to query first, then transact. For simplicity and robustness here,
-            // we will overwrite if an entry exists, as the document ID is the user's ITS.
-            // This is safe because we are creating the Safar record for users who are confirmed non-attendants.
+            const miqaatDoc = await transaction.get(miqaatDocRef);
+            if (!miqaatDoc.exists()) {
+                throw new Error("Miqaat does not exist!");
+            }
             
-            entries.forEach(entry => {
-                const docRef = doc(attendanceCollectionRef, entry.userItsId);
-                // set will create or overwrite. This is acceptable for the "Safar" use case
-                // as we are marking non-attendants.
-                transaction.set(docRef, entry);
+            const existingAttendance: MiqaatAttendanceEntryItem[] = miqaatDoc.data().attendance || [];
+            const existingItsIds = new Set(existingAttendance.map(e => e.userItsId));
+            
+            const newEntries = entries.filter(entry => !existingItsIds.has(entry.userItsId));
+            
+            if (newEntries.length === 0) {
+                console.log("All selected members already have attendance records for this Miqaat.");
+                return;
+            }
+
+            const updatedAttendance = [...existingAttendance, ...newEntries];
+            const attendedUserItsIdsToAdd = newEntries.map(e => e.userItsId);
+
+            transaction.update(miqaatDocRef, {
+                attendance: updatedAttendance,
+                attendedUserItsIds: arrayUnion(...attendedUserItsIdsToAdd)
             });
 
-            console.log(`Transactionally updating Miqaat ${miqaatId} with ${entries.length} new attendance records.`);
+            console.log(`Transactionally updating Miqaat ${miqaatId} with ${newEntries.length} new attendance records.`);
         });
     } catch (error) {
         console.error(`Error during batch attendance update for Miqaat ${miqaatId}:`, error);
