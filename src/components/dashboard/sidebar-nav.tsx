@@ -4,7 +4,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import type { UserRole } from "@/types";
+import type { UserDesignation, UserRole } from "@/types";
 import { Home, User, CalendarDays, Building, BarChart3, UserCheck, ScanBarcode, Bell, Settings, Users as UsersIcon, FileText } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 
@@ -85,12 +85,14 @@ function SidebarNavSkeleton() {
 export function SidebarNav() {
   const pathname = usePathname();
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
   const [userPageRights, setUserPageRights] = useState<string[]>([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     const storedRole = localStorage.getItem('userRole') as UserRole | null;
+    const storedDesignation = localStorage.getItem('userDesignation') as UserDesignation | null;
     const storedPageRightsRaw = localStorage.getItem('userPageRights');
     const storedUnreadCount = parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10);
     
@@ -106,9 +108,8 @@ export function SidebarNav() {
       }
     }
     
-    // console.log("[SidebarNav useEffect] Loaded from localStorage - Role:", storedRole, "Raw PageRights:", storedPageRightsRaw, "Parsed PageRights:", parsedPageRights);
-
     setCurrentUserRole(storedRole);
+    setCurrentUserDesignation(storedDesignation);
     setUserPageRights(parsedPageRights);
     setUnreadNotificationCount(storedUnreadCount);
     setIsMounted(true);
@@ -116,6 +117,9 @@ export function SidebarNav() {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'userRole') {
         setCurrentUserRole(localStorage.getItem('userRole') as UserRole | null);
+      }
+      if (event.key === 'userDesignation') {
+        setCurrentUserDesignation(localStorage.getItem('userDesignation') as UserDesignation | null);
       }
       if (event.key === 'userPageRights') {
         const updatedPageRightsRaw = localStorage.getItem('userPageRights');
@@ -159,7 +163,6 @@ export function SidebarNav() {
     }
 
     return allNavItems.filter(item => {
-      // New logic for forms page: show to everyone
       if (item.href === '/dashboard/forms') {
         return true;
       }
@@ -169,6 +172,13 @@ export function SidebarNav() {
       if (ESSENTIAL_PATHS.includes(item.href)) {
         return true;
       }
+
+      // Special check for Manage Members for Captains/Vice Captains
+      if (item.href === '/dashboard/manage-members') {
+        if (roleAllowsItem) return true; // Admins/Superadmins can see it
+        const isTeamLead = currentUserDesignation === 'Captain' || currentUserDesignation === 'Vice Captain';
+        if (isTeamLead) return true; // Team leads can also see it
+      }
       
       if (Array.isArray(userPageRights) && userPageRights.length > 0) {
         return userPageRights.includes(item.href);
@@ -176,7 +186,7 @@ export function SidebarNav() {
       
       return roleAllowsItem;
     });
-  }, [isMounted, resolvedCurrentUserRole, userPageRights]);
+  }, [isMounted, resolvedCurrentUserRole, userPageRights, currentUserDesignation]);
 
 
   if (!isMounted) {
