@@ -49,10 +49,10 @@ export const getAttendanceRecordsByMiqaat = async (miqaatId: string): Promise<At
 export const getAttendanceRecordsByUser = async (userItsId: string): Promise<AttendanceRecord[]> => {
   try {
     const miqaatsCollectionRef = collection(db, 'miqaats');
+    // We cannot sort here without an index. Sorting will be done in-memory.
     const q = firestoreQuery(
       miqaatsCollectionRef,
-      where('attendedUserItsIds', 'array-contains', userItsId),
-      firestoreOrderBy('startTime', 'desc')
+      where('attendedUserItsIds', 'array-contains', userItsId)
     );
     const miqaatsSnapshot = await getDocs(q);
 
@@ -107,6 +107,7 @@ export const getAttendanceRecordsByUser = async (userItsId: string): Promise<Att
       }
     });
 
+    // Perform sorting in memory
     return userAttendanceRecords.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());
   } catch (error) {
     console.error(`Error fetching attendance records for User ITS ID ${userItsId}: `, error);

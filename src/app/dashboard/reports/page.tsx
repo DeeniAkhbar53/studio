@@ -208,7 +208,7 @@ export default function ReportsPage() {
           userItsId: att.userItsId,
           miqaatName: att.miqaatName,
           date: att.markedAt,
-          status: att.status || 'Present',
+          status: att.status || 'present',
           markedByItsId: att.markedByItsId,
           uniformCompliance: att.uniformCompliance,
         }));
@@ -221,7 +221,7 @@ export default function ReportsPage() {
             userItsId: att.userItsId,
             miqaatName: att.miqaatName,
             date: att.markedAt,
-            status: att.status || 'Present',
+            status: att.status || 'present',
             markedByItsId: att.markedByItsId,
             uniformCompliance: att.uniformCompliance,
           }));
@@ -241,7 +241,7 @@ export default function ReportsPage() {
             userItsId: att.userItsId,
             miqaatName: att.miqaatName,
             date: att.markedAt,
-            status: att.status || 'Present',
+            status: att.status || 'present',
             markedByItsId: att.markedByItsId,
             uniformCompliance: att.uniformCompliance,
         }));
@@ -268,7 +268,7 @@ export default function ReportsPage() {
           userItsId: user.itsId,
           miqaatName: selectedMiqaat.name,
           date: new Date(selectedMiqaat.startTime).toISOString(), 
-          status: "Absent",
+          status: "absent",
         }));
       }
 
@@ -314,10 +314,10 @@ export default function ReportsPage() {
           if (!attendanceByMiqaat[record.miqaatName]) {
             attendanceByMiqaat[record.miqaatName] = { present: 0, late: 0, totalAttendance: 0 };
           }
-          if (record.status === "Present" || record.status === "early") {
+          if (record.status === "present" || record.status === "early") {
             attendanceByMiqaat[record.miqaatName].present++;
             attendanceByMiqaat[record.miqaatName].totalAttendance++;
-          } else if (record.status === "Late") {
+          } else if (record.status === "late") {
             attendanceByMiqaat[record.miqaatName].late++;
             attendanceByMiqaat[record.miqaatName].totalAttendance++;
           }
@@ -867,9 +867,9 @@ export default function ReportsPage() {
                                     <p className="text-sm text-muted-foreground">ITS: {record.userItsId}</p>
                                 </div>
                                 <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
-                                  record.status === 'Present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                  record.status === 'Absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                  record.status === 'Late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                  record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                  record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                  record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
                                   record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
                                   'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                                 )}>
@@ -941,9 +941,9 @@ export default function ReportsPage() {
                             <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
                             <TableCell>
                                 <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
-                                    record.status === 'Present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                    record.status === 'Absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                    record.status === 'Late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                    record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                    record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                    record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
                                     record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
                                     'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                                 )}>
