@@ -14,13 +14,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form as UIForm, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2, Info } from "lucide-react";
+import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Form as FormType, FormResponse } from "@/types";
 import { getForm, addFormResponse, checkIfUserHasResponded } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 
-// This is the exported page component.
 export default function FillFormPage() {
     const router = useRouter();
     const params = useParams();
@@ -31,31 +30,25 @@ export default function FillFormPage() {
     const [error, setError] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<{name: string, itsId: string, bgkId?: string} | null>(null);
     
-    // New state variables for submission flow
     const [hasAlreadyResponded, setHasAlreadyResponded] = useState<boolean | null>(null);
     const [hasSubmitted, setHasSubmitted] = useState(false);
 
-
-    // Effect to get current user from localStorage
     useEffect(() => {
         if (typeof window !== "undefined") {
             const userName = localStorage.getItem('userName');
             const userItsId = localStorage.getItem('userItsId');
-            const userBgkId = localStorage.getItem('userBgkId'); // Fetch BGK ID
+            const userBgkId = localStorage.getItem('userBgkId');
             if (userName && userItsId) {
                 setCurrentUser({ name: userName, itsId: userItsId, bgkId: userBgkId || undefined });
             } else {
-                // If user details are not found, we can't proceed.
                 setError("Cannot verify user identity. Please log in again.");
                 setIsLoading(false);
             }
         }
     }, []);
 
-
     const { formSchema, defaultValues } = useMemo(() => {
         if (!form) {
-            // Return a valid empty schema and default values to prevent errors during initial render.
             return { formSchema: z.object({}), defaultValues: {} };
         }
 
@@ -101,19 +94,10 @@ export default function FillFormPage() {
 
     const responseForm = useForm({
         resolver: zodResolver(formSchema),
-        // No defaultValues here to prevent uncontrolled to controlled error
     });
     
-    // Effect to fetch the form definition and check for prior submissions
     useEffect(() => {
-        if (!formId) {
-            setError("Form ID is missing from the URL.");
-            setIsLoading(false);
-            return;
-        }
-        
-        // Wait until currentUser is loaded
-        if (!currentUser) {
+        if (!formId || !currentUser) {
             return;
         }
 
@@ -147,7 +131,6 @@ export default function FillFormPage() {
         fetchFormData();
     }, [formId, currentUser, toast]);
 
-    // Effect to reset the form once the form data (and thus defaultValues) is ready
     useEffect(() => {
         if (form) {
             responseForm.reset(defaultValues);
@@ -166,12 +149,12 @@ export default function FillFormPage() {
             submittedBy: currentUser.itsId,
             submitterName: currentUser.name,
             responses: values,
-            submitterBgkId: currentUser.bgkId, // Added BGK ID here
+            submitterBgkId: currentUser.bgkId,
         };
 
         try {
             await addFormResponse(form.id, responsePayload);
-            setHasSubmitted(true); // Set success state
+            setHasSubmitted(true);
         } catch (error) {
             console.error("Failed to submit response:", error);
             toast({ title: "Error", description: "Could not submit your response. Please try again.", variant: "destructive" });
@@ -180,16 +163,15 @@ export default function FillFormPage() {
     
     if (isLoading || hasAlreadyResponded === null) {
         return (
-            <div className="flex h-full w-full items-center justify-center p-8">
+            <div className="flex h-screen items-center justify-center p-8">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="ml-3 text-muted-foreground">Loading Form...</p>
             </div>
         );
     }
     
     if (error) {
          return (
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+            <div className="flex flex-col items-center justify-center h-screen p-8 text-center">
                 <FileWarning className="h-16 w-16 text-destructive mb-4" />
                 <h1 className="text-2xl font-bold text-destructive">Form Not Available</h1>
                 <p className="text-muted-foreground mt-2">{error}</p>
@@ -201,9 +183,8 @@ export default function FillFormPage() {
     }
 
     if (!form) {
-        // This case should ideally be covered by isLoading or error states, but it's a good fallback.
         return (
-             <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+             <div className="flex flex-col items-center justify-center h-screen p-8 text-center">
                 <FileWarning className="h-16 w-16 text-muted-foreground mb-4" />
                 <h1 className="text-2xl font-bold text-muted-foreground">Form Not Loaded</h1>
                 <p className="text-muted-foreground mt-2">The form could not be loaded. Please try again.</p>
@@ -214,15 +195,10 @@ export default function FillFormPage() {
         );
     }
 
-    // Render success message or "already filled" message
     if (hasSubmitted || hasAlreadyResponded) {
         return (
-             <div className="max-w-4xl mx-auto p-4 md:p-6">
-                 <Button variant="ghost" onClick={() => router.push('/dashboard/forms')} className="mb-4">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to All Forms
-                </Button>
-                 <Card className="shadow-lg border-primary/20 bg-gradient-to-br from-card to-muted/20">
+             <div className="flex flex-col h-screen items-center justify-center bg-background">
+                 <Card className="w-full max-w-2xl shadow-lg border-primary/20 bg-gradient-to-br from-card to-muted/20">
                      <CardContent className="flex flex-col items-center justify-center p-12 text-center">
                          <CheckCircle2 className="h-20 w-20 text-green-500 mb-6" />
                          <h1 className="text-3xl font-bold text-foreground">
@@ -231,6 +207,10 @@ export default function FillFormPage() {
                          <p className="text-lg text-muted-foreground mt-2">
                              {hasSubmitted ? "Your response has been successfully submitted." : "You have already filled out this form."}
                          </p>
+                          <Button variant="outline" onClick={() => router.push('/dashboard/forms')} className="mt-8">
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            Back to All Forms
+                        </Button>
                      </CardContent>
                  </Card>
              </div>
@@ -239,10 +219,6 @@ export default function FillFormPage() {
 
     return (
         <div className="max-w-4xl mx-auto p-4 md:p-6">
-            <Button variant="ghost" onClick={() => router.push('/dashboard/forms')} className="mb-4">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to All Forms
-            </Button>
             <Card className="shadow-lg border-primary/20 bg-gradient-to-br from-card to-muted/20">
                 <CardHeader className="text-center">
                     <CardTitle className="text-3xl font-bold">{form.title}</CardTitle>
@@ -369,4 +345,3 @@ export default function FillFormPage() {
         </div>
     );
 }
-

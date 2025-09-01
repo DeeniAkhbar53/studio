@@ -17,7 +17,8 @@ import {
   increment,
   runTransaction,
   where,
-  limit
+  limit,
+  writeBatch
 } from 'firebase/firestore';
 import type { Form, FormQuestion, FormResponse } from '@/types';
 
@@ -26,6 +27,8 @@ const formsCollectionRef = collection(db, 'forms');
 // --- Form Management ---
 
 export type FormForAdd = Omit<Form, 'id' | 'createdAt' | 'responseCount'>;
+export type FormForUpdate = Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'createdBy'>;
+
 
 export const addForm = async (formData: FormForAdd): Promise<Form> => {
   try {
@@ -89,14 +92,34 @@ export const getForm = async (formId: string): Promise<Form | null> => {
     }
 };
 
-export const deleteForm = async (formId: string): Promise<void> => {
-    // Note: This doesn't delete the subcollection of responses. 
-    // For a production app, a Cloud Function would be needed to handle subcollection deletion recursively.
+export const updateForm = async (formId: string, formData: FormForUpdate): Promise<void> => {
     try {
         const formDocRef = doc(db, 'forms', formId);
+        await updateDoc(formDocRef, formData);
+    } catch (error) {
+        console.error("Error updating form: ", error);
+        throw error;
+    }
+};
+
+
+export const deleteForm = async (formId: string): Promise<void> => {
+    const formDocRef = doc(db, 'forms', formId);
+    const responsesRef = collection(formDocRef, 'responses');
+    
+    try {
+        // Efficiently delete the subcollection of responses
+        const responsesSnapshot = await getDocs(responsesRef);
+        const batch = writeBatch(db);
+        responsesSnapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+
+        // Delete the main form document
         await deleteDoc(formDocRef);
     } catch (error) {
-        console.error("Error deleting form: ", error);
+        console.error(`Error deleting form ${formId} and its responses: `, error);
         throw error;
     }
 };
@@ -165,5 +188,3 @@ export const checkIfUserHasResponded = async (formId: string, userId: string): P
         return false;
     }
 };
-
-    
