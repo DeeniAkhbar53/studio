@@ -57,6 +57,8 @@ const ALL_ROLES: { value: UserRole, label: string }[] = [
     { value: 'superadmin', label: 'Super Admin' },
 ];
 
+const ALL_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Member"];
+
 const AVAILABLE_PAGE_RIGHTS: PageRightConfig[] = [
   { id: 'mark-attendance', label: 'Mark Attendance', path: '/dashboard/mark-attendance', description: 'Allows user to mark attendance for others.' },
   { id: 'miqaat-management', label: 'Manage Miqaats', path: '/dashboard/miqaat-management', description: 'Create, edit, delete Miqaats.' },
@@ -87,9 +89,14 @@ export default function ManageMembersPage() {
   const { toast } = useToast();
 
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
+  const [currentUserTeam, setCurrentUserTeam] = useState<string | null>(null);
+
   const [selectedFilterMohallahId, setSelectedFilterMohallahId] = useState<string>("all");
   const [selectedFilterRole, setSelectedFilterRole] = useState<string>("all");
+  const [selectedFilterDesignation, setSelectedFilterDesignation] = useState<string>("all");
+
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -102,27 +109,40 @@ export default function ManageMembersPage() {
   });
 
   const watchedRole = memberForm.watch("role");
+
+  const isTeamLeadView = useMemo(() => {
+    if (!currentUserRole || !currentUserDesignation) return false;
+    const isAdminOrSuper = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+    const isTeamLead = currentUserDesignation === 'Captain' || currentUserDesignation === 'Vice Captain';
+    return !isAdminOrSuper && isTeamLead;
+  }, [currentUserRole, currentUserDesignation]);
   
   useEffect(() => {
-    const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
-    const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
-    const pageRights = JSON.parse(pageRightsRaw || '[]');
-    const navItem = allNavItems.find(item => item.href === '/dashboard/manage-members');
-    
-    if (navItem) {
-      const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
-      const hasPageRight = pageRights.includes(navItem.href);
-      
-      if (hasRoleAccess || hasPageRight) {
-        setIsAuthorized(true);
+    if (typeof window !== "undefined") {
+      const role = localStorage.getItem('userRole') as UserRole | null;
+      const designation = localStorage.getItem('userDesignation') as UserDesignation | null;
+      const pageRightsRaw = localStorage.getItem('userPageRights') || '[]';
+      const pageRights = JSON.parse(pageRightsRaw);
+
+      setCurrentUserRole(role);
+      setCurrentUserDesignation(designation);
+
+      const navItem = allNavItems.find(item => item.href === '/dashboard/manage-members');
+      if (navItem) {
+        const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
+        const hasPageRight = pageRights.includes(navItem.href);
+        const isDesignatedTeamLead = designation === 'Captain' || designation === 'Vice Captain';
+        
+        if (hasRoleAccess || hasPageRight || isDesignatedTeamLead) {
+          setIsAuthorized(true);
+        } else {
+          setIsAuthorized(false);
+          setTimeout(() => router.replace('/dashboard'), 2000);
+        }
       } else {
         setIsAuthorized(false);
-        // Redirect after a short delay to show the message
         setTimeout(() => router.replace('/dashboard'), 2000);
       }
-    } else {
-       setIsAuthorized(false);
-       setTimeout(() => router.replace('/dashboard'), 2000);
     }
   }, [router]);
 
@@ -132,13 +152,18 @@ export default function ManageMembersPage() {
     if (typeof window !== "undefined") {
       const role = localStorage.getItem('userRole') as UserRole | null;
       const mohallahId = localStorage.getItem('userMohallahId');
+      const team = localStorage.getItem('userTeam');
+
       setCurrentUserRole(role);
       setCurrentUserMohallahId(mohallahId);
+      setCurrentUserTeam(team);
+
       if (role === 'admin' && mohallahId) {
         setSelectedFilterMohallahId(mohallahId);
+        form.setValue('mohallahId', mohallahId);
       }
     }
-  }, [isAuthorized]);
+  }, [isAuthorized, form]);
 
   useEffect(() => {
     if (!isAuthorized) return;
@@ -176,31 +201,37 @@ export default function ManageMembersPage() {
   }, [toast, currentUserRole]);
 
   useEffect(() => {
-    if (!isAuthorized) return;
-    if (!currentUserRole) {
+    if (!isAuthorized || !currentUserRole) {
       setIsLoadingMembers(false);
       return;
     }
 
-    let mohallahIdToFetch: string | undefined = undefined;
-
-    if (currentUserRole === 'admin') {
-      if (currentUserMohallahId) {
-        mohallahIdToFetch = currentUserMohallahId;
+    // Logic for Admins and Superadmins
+    if (currentUserRole === 'admin' || currentUserRole === 'superadmin') {
+      let mohallahIdToFetch: string | undefined = undefined;
+      if (currentUserRole === 'admin') {
+        if (currentUserMohallahId) {
+          mohallahIdToFetch = currentUserMohallahId;
+          fetchAndSetMembers(mohallahIdToFetch);
+        } else {
+          setMembers([]);
+          setIsLoadingMembers(false);
+          setFetchError("Admin's Mohallah ID not found. Cannot display members.");
+        }
+      } else if (currentUserRole === 'superadmin') {
+        mohallahIdToFetch = selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId;
         fetchAndSetMembers(mohallahIdToFetch);
-      } else {
-        setMembers([]); 
-        setIsLoadingMembers(false);
-        setFetchError("Admin's Mohallah ID not found. Cannot display members.");
       }
-    } else if (currentUserRole === 'superadmin') {
-      mohallahIdToFetch = selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId;
-      fetchAndSetMembers(mohallahIdToFetch);
-    } else {
+    }
+    // Logic for Team Leads (Captains/Vice Captains) who are not Admins
+    else if (isTeamLeadView) {
+      fetchAndSetMembers(); // Fetch all members to be filtered client-side
+    }
+    else {
       setMembers([]); 
       setIsLoadingMembers(false);
     }
-  }, [currentUserRole, currentUserMohallahId, selectedFilterMohallahId, fetchAndSetMembers, isAuthorized]);
+  }, [isTeamLeadView, currentUserRole, currentUserMohallahId, selectedFilterMohallahId, fetchAndSetMembers, isAuthorized]);
 
 
   useEffect(() => {
@@ -533,14 +564,23 @@ export default function ManageMembersPage() {
      toast({ title: "Sample CSV Downloaded", description: "Replace dummy data. MohallahName must match existing. pageRights are semicolon-separated paths." });
   };
 
-  const filteredMembers = useMemo(() => members.filter(m => {
-    const searchTermMatch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            m.itsId.includes(searchTerm) ||
-                            (m.bgkId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            (mohallahs.find(moh => moh.id === m.mohallahId)?.name.toLowerCase() || "").includes(searchTerm.toLowerCase());
-    const roleMatch = selectedFilterRole === 'all' || m.role === selectedFilterRole;
-    return searchTermMatch && roleMatch;
-  }), [members, searchTerm, mohallahs, selectedFilterRole]);
+  const filteredMembers = useMemo(() => {
+    let dataToFilter = [...members];
+    // Special view for Team Leads
+    if (isTeamLeadView && currentUserTeam) {
+        dataToFilter = dataToFilter.filter(m => m.team === currentUserTeam);
+    }
+    // Regular filtering for Admins/Superadmins
+    return dataToFilter.filter(m => {
+        const searchTermMatch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                m.itsId.includes(searchTerm) ||
+                                (m.bgkId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                (mohallahs.find(moh => moh.id === m.mohallahId)?.name.toLowerCase() || "").includes(searchTerm.toLowerCase());
+        const roleMatch = selectedFilterRole === 'all' || m.role === selectedFilterRole;
+        const designationMatch = selectedFilterDesignation === 'all' || m.designation === selectedFilterDesignation;
+        return searchTermMatch && roleMatch && designationMatch;
+    });
+  }, [members, searchTerm, mohallahs, selectedFilterRole, selectedFilterDesignation, isTeamLeadView, currentUserTeam]);
 
   const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
   const currentMembersToDisplay = useMemo(() => {
@@ -613,11 +653,16 @@ export default function ManageMembersPage() {
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
             <div className="flex-grow">
-              <CardTitle className="flex items-center"><UsersIcon className="mr-2 h-5 w-5 text-primary"/>Manage Members</CardTitle>
+              <CardTitle className="flex items-center"><UsersIcon className="mr-2 h-5 w-5 text-primary"/>
+                {isTeamLeadView ? `Team Members: ${currentUserTeam}` : "Manage Members"}
+              </CardTitle>
               <CardDescription className="mt-1">
-                {currentUserRole === 'admin' && currentUserMohallahId
+                 {isTeamLeadView
+                  ? 'Viewing members of your assigned team.'
+                  : currentUserRole === 'admin' && currentUserMohallahId
                   ? `Managing members for Mohallah: ${getMohallahNameById(currentUserMohallahId)}.`
-                  : 'Add, view, and manage members. Data is stored in the system.'}
+                  : 'Add, view, and manage members.'
+                 }
               </CardDescription>
             </div>
              {canManageMembers && (
@@ -880,40 +925,56 @@ export default function ManageMembersPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full sm:w-auto">
-                <Select
-                    value={selectedFilterRole}
-                    onValueChange={(value) => setSelectedFilterRole(value)}
-                >
-                    <SelectTrigger>
-                        <SelectValue placeholder="Filter by Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Roles</SelectItem>
-                        {ALL_ROLES.map(r => (
-                            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-                {currentUserRole === 'superadmin' && (
-                <Select
-                    value={selectedFilterMohallahId}
-                    onValueChange={(value) => setSelectedFilterMohallahId(value)}
-                    disabled={isLoadingMohallahs}
-                >
-                    <SelectTrigger>
-                    <SelectValue placeholder="Filter by Mohallah" />
-                    </SelectTrigger>
-                    <SelectContent>
-                    <SelectItem value="all">All Mohallahs</SelectItem>
-                    {isLoadingMohallahs && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                    {mohallahs.map(m => (
-                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                    ))}
-                    </SelectContent>
-                </Select>
-                )}
-            </div>
+            {!isTeamLeadView && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full sm:w-auto">
+                  <Select
+                      value={selectedFilterRole}
+                      onValueChange={(value) => setSelectedFilterRole(value)}
+                  >
+                      <SelectTrigger>
+                          <SelectValue placeholder="Filter by Role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="all">All Roles</SelectItem>
+                          {ALL_ROLES.map(r => (
+                              <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+                   <Select
+                      value={selectedFilterDesignation}
+                      onValueChange={(value) => setSelectedFilterDesignation(value)}
+                  >
+                      <SelectTrigger>
+                          <SelectValue placeholder="Filter by Designation" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="all">All Designations</SelectItem>
+                          {ALL_DESIGNATIONS.map(d => (
+                              <SelectItem key={d} value={d}>{d}</SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+                  {currentUserRole === 'superadmin' && (
+                  <Select
+                      value={selectedFilterMohallahId}
+                      onValueChange={(value) => setSelectedFilterMohallahId(value)}
+                      disabled={isLoadingMohallahs}
+                  >
+                      <SelectTrigger>
+                      <SelectValue placeholder="Filter by Mohallah" />
+                      </SelectTrigger>
+                      <SelectContent>
+                      <SelectItem value="all">All Mohallahs</SelectItem>
+                      {isLoadingMohallahs && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                      {mohallahs.map(m => (
+                          <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))}
+                      </SelectContent>
+                  </Select>
+                  )}
+              </div>
+            )}
           </div>
           {fetchError && (
             <Alert variant="destructive" className="mb-4">
@@ -937,9 +998,10 @@ export default function ManageMembersPage() {
               {/* Mobile View: List of Cards */}
               <div className="md:hidden space-y-4">
                 {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member) => (
-                  <Card key={member.id} className="w-full" data-state={selectedMemberIds.includes(member.id) ? "selected" : undefined}>
+                  <Card key={member.id} className="w-full" data-state={canManageMembers ? (selectedMemberIds.includes(member.id) ? "selected" : undefined) : undefined}>
                     <CardContent className="p-4 flex flex-col gap-4">
                       <div className="flex items-center gap-4">
+                        {canManageMembers && (
                          <Checkbox
                            id={`mobile-select-${member.id}`}
                            checked={selectedMemberIds.includes(member.id)}
@@ -947,6 +1009,7 @@ export default function ManageMembersPage() {
                            aria-label={`Select member ${member.name}`}
                            className="shrink-0"
                          />
+                        )}
                         <Avatar className="h-12 w-12">
                           <AvatarImage src={member.avatarUrl || `https://placehold.co/48x48.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
                           <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
@@ -970,7 +1033,7 @@ export default function ManageMembersPage() {
                           <p className="text-sm text-muted-foreground">{member.designation || "N/A"}</p>
                         </div>
                       </div>
-                      <div className="text-sm text-muted-foreground space-y-1 pl-16">
+                      <div className="text-sm text-muted-foreground space-y-1" style={{ paddingLeft: canManageMembers ? '4rem' : '0.5rem' }}>
                           <p><strong>Mohallah:</strong> {getMohallahNameById(member.mohallahId)}</p>
                           <p><strong>Team:</strong> {member.team || "N/A"}</p>
                           <p><strong>Role:</strong> {member.role.charAt(0).toUpperCase() + member.role.slice(1).replace(/-/g, ' ')}</p>
@@ -1015,14 +1078,16 @@ export default function ManageMembersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[40px] px-2">
-                        <Checkbox
-                          checked={selectedMemberIds.length > 0 && currentMembersToDisplay.length > 0 && currentMembersToDisplay.every(m => selectedMemberIds.includes(m.id))}
-                          onCheckedChange={handleSelectAllOnPage}
-                          aria-label="Select all members on current page"
-                          disabled={currentMembersToDisplay.length === 0}
-                        />
-                      </TableHead>
+                      {canManageMembers && (
+                        <TableHead className="w-[40px] px-2">
+                          <Checkbox
+                            checked={selectedMemberIds.length > 0 && currentMembersToDisplay.length > 0 && currentMembersToDisplay.every(m => selectedMemberIds.includes(m.id))}
+                            onCheckedChange={handleSelectAllOnPage}
+                            aria-label="Select all members on current page"
+                            disabled={currentMembersToDisplay.length === 0}
+                          />
+                        </TableHead>
+                      )}
                       <TableHead className="w-[60px] sm:w-[80px]">Avatar</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>ITS ID</TableHead>
@@ -1036,14 +1101,16 @@ export default function ManageMembersPage() {
                   </TableHeader>
                   <TableBody>
                     {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member) => (
-                      <TableRow key={member.id} data-state={selectedMemberIds.includes(member.id) ? "selected" : undefined}>
-                        <TableCell className="px-2">
-                           <Checkbox
-                            checked={selectedMemberIds.includes(member.id)}
-                            onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
-                            aria-label={`Select member ${member.name}`}
-                          />
-                        </TableCell>
+                      <TableRow key={member.id} data-state={canManageMembers ? (selectedMemberIds.includes(member.id) ? "selected" : undefined) : undefined}>
+                        {canManageMembers && (
+                            <TableCell className="px-2">
+                            <Checkbox
+                                checked={selectedMemberIds.includes(member.id)}
+                                onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
+                                aria-label={`Select member ${member.name}`}
+                            />
+                            </TableCell>
+                        )}
                         <TableCell>
                           <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
                             <AvatarImage src={member.avatarUrl || `https://placehold.co/40x40.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
@@ -1191,3 +1258,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    

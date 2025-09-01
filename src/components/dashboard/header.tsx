@@ -184,6 +184,9 @@ export function Header() {
       localStorage.removeItem('userName');
       localStorage.removeItem('userItsId');
       localStorage.removeItem('userMohallahId');
+      localStorage.removeItem('userBgkId');
+      localStorage.removeItem('userTeam');
+      localStorage.removeItem('userDesignation');
       localStorage.removeItem('userPageRights');
       localStorage.removeItem('unreadNotificationCount'); // Clear this on logout
     }
