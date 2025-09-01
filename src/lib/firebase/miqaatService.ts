@@ -1,6 +1,6 @@
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion, onSnapshot, Unsubscribe, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion, onSnapshot, Unsubscribe, writeBatch, runTransaction } from 'firebase/firestore';
 import type { Miqaat, MiqaatAttendanceEntryItem } from '@/types';
 
 const miqaatsCollectionRef = collection(db, 'miqaats');
@@ -147,13 +147,25 @@ export const deleteMiqaat = async (miqaatId: string): Promise<void> => {
 };
 
 export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAttendanceEntryItem): Promise<void> => {
+  const miqaatDocRef = doc(db, 'miqaats', miqaatId);
   try {
-    const miqaatDocRef = doc(db, 'miqaats', miqaatId);
-    // Atomically add the new attendance entry to the 'attendance' array
-    // and the user's ITS ID to the 'attendedUserItsIds' array
-    await updateDoc(miqaatDocRef, {
-      attendance: arrayUnion(entry),
-      attendedUserItsIds: arrayUnion(entry.userItsId)
+    await runTransaction(db, async (transaction) => {
+      const miqaatDoc = await transaction.get(miqaatDocRef);
+      if (!miqaatDoc.exists()) {
+        throw new Error("Miqaat does not exist!");
+      }
+      
+      const attendedUserIds: string[] = miqaatDoc.data().attendedUserItsIds || [];
+      if (attendedUserIds.includes(entry.userItsId)) {
+        console.log(`User ${entry.userItsId} already marked for miqaat ${miqaatId}. Skipping.`);
+        return; // Exit transaction without writing
+      }
+      
+      // If user is not already marked, add them.
+      transaction.update(miqaatDocRef, {
+        attendance: arrayUnion(entry),
+        attendedUserItsIds: arrayUnion(entry.userItsId)
+      });
     });
   } catch (error) {
     console.error("Error marking attendance in Miqaat document: ", error);
@@ -161,28 +173,38 @@ export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAtte
   }
 };
 
+
 export const batchMarkAttendanceInMiqaat = async (miqaatId: string, entries: MiqaatAttendanceEntryItem[]): Promise<void> => {
     if (entries.length === 0) {
         return;
     }
+    
+    const miqaatDocRef = doc(db, 'miqaats', miqaatId);
 
     try {
-        const miqaatDocRef = doc(db, 'miqaats', miqaatId);
-        
-        // Firestore batches have a limit of 500 operations. arrayUnion is one operation.
-        // If you expect more than 500 entries at once, you will need to split this into multiple batches.
-        // For now, we assume a reasonable number of offline entries per sync.
-        const batch = writeBatch(db);
+        await runTransaction(db, async (transaction) => {
+            const miqaatDoc = await transaction.get(miqaatDocRef);
+            if (!miqaatDoc.exists()) {
+                throw new Error(`Miqaat with ID ${miqaatId} does not exist!`);
+            }
 
-        const attendedUserItsIds = entries.map(e => e.userItsId);
+            const existingAttendees = new Set<string>(miqaatDoc.data().attendedUserItsIds || []);
+            
+            const uniqueNewEntries = entries.filter(entry => !existingAttendees.has(entry.userItsId));
+            
+            if (uniqueNewEntries.length === 0) {
+                console.log(`All ${entries.length} synced entries for Miqaat ${miqaatId} were already marked. No update needed.`);
+                return;
+            }
 
-        batch.update(miqaatDocRef, {
-            attendance: arrayUnion(...entries),
-            attendedUserItsIds: arrayUnion(...attendedUserItsIds)
+            const uniqueNewAttendeeIds = uniqueNewEntries.map(e => e.userItsId);
+
+            transaction.update(miqaatDocRef, {
+                attendance: arrayUnion(...uniqueNewEntries),
+                attendedUserItsIds: arrayUnion(...uniqueNewAttendeeIds)
+            });
+            console.log(`Transactionally updating Miqaat ${miqaatId} with ${uniqueNewEntries.length} new attendance records.`);
         });
-
-        await batch.commit();
-        console.log(`Successfully batch-updated ${entries.length} attendance records for Miqaat ${miqaatId}.`);
     } catch (error) {
         console.error(`Error during batch attendance update for Miqaat ${miqaatId}:`, error);
         throw error;
