@@ -104,7 +104,7 @@ export interface PageRightConfig {
 // Types for the new Forms feature
 export type FormFieldType = 'text' | 'textarea' | 'checkbox' | 'radio' | 'select';
 
-export interface FormField {
+export interface FormQuestion {
   id: string;
   label: string;
   type: FormFieldType;
@@ -116,7 +116,18 @@ export interface Form {
   id: string;
   title: string;
   description?: string;
-  questions: FormField[];
+  questions: FormQuestion[];
   createdBy: string; // ITS ID of creator
   createdAt: string; // ISO string
+  responseCount?: number; // Added to track submission count
+}
+
+export interface FormResponse {
+    id: string;
+    formId: string;
+    submittedBy: string; // ITS ID of submitter
+    submittedAt: string; // ISO string
+    responses: {
+        [questionId: string]: string | string[]; // Answer keyed by question ID
+    }
 }
