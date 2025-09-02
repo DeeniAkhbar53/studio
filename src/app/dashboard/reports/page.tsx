@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChartHorizontal, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChartHorizontal, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck, Users } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toPng } from "html-to-image";
 
@@ -204,42 +204,70 @@ export default function ReportsPage() {
 
     try {
       const allMiqaats = availableMiqaats;
+      const allUsers = await getUsers();
+      const userMap = new Map(allUsers.map(u => [u.itsId, u]));
       const selectedMiqaat = allMiqaats.find(m => m.id === values.miqaatId);
 
       if (values.reportType === "miqaat_summary" && selectedMiqaat) {
-        const attendanceRecords = await getAttendanceRecordsByMiqaat(values.miqaatId!);
-        const safarRecords = selectedMiqaat.safarList || [];
-        
-        const combinedRecords = [
-            ...attendanceRecords,
-            ...safarRecords.map(safarEntry => ({
-                id: `${selectedMiqaat.id}-${safarEntry.userItsId}`,
-                miqaatId: selectedMiqaat.id,
-                miqaatName: selectedMiqaat.name,
-                userItsId: safarEntry.userItsId,
-                userName: safarEntry.userName,
-                markedAt: safarEntry.markedAt,
-                markedByItsId: safarEntry.markedByItsId,
-                status: 'safar' as const,
-            }))
-        ];
+          const attendedItsIds = new Set(selectedMiqaat.attendedUserItsIds || []);
+          const attendanceRecords = selectedMiqaat.attendance || [];
+          const safarRecords = selectedMiqaat.safarList || [];
+          
+          let eligibleUsers = allUsers;
+          if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
+              eligibleUsers = allUsers.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
+          } else if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
+              eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
+          }
 
-        reportResultItems = combinedRecords.map(rec => ({
-          id: rec.id,
-          userName: rec.userName,
-          userItsId: rec.userItsId,
-          miqaatName: rec.miqaatName,
-          date: rec.markedAt,
-          status: rec.status,
-          markedByItsId: rec.markedByItsId,
-          uniformCompliance: rec.uniformCompliance,
-        }));
+          const combinedRecords = eligibleUsers.map(user => {
+              const regularEntry = attendanceRecords.find(a => a.userItsId === user.itsId);
+              if (regularEntry) {
+                  return {
+                      id: `${selectedMiqaat.id}-${user.itsId}`,
+                      userName: user.name,
+                      userItsId: user.itsId,
+                      team: user.team,
+                      miqaatName: selectedMiqaat.name,
+                      date: regularEntry.markedAt,
+                      status: regularEntry.status || 'present',
+                      markedByItsId: regularEntry.markedByItsId,
+                      uniformCompliance: regularEntry.uniformCompliance,
+                  };
+              }
+              const safarEntry = safarRecords.find(s => s.userItsId === user.itsId);
+              if (safarEntry) {
+                  return {
+                      id: `${selectedMiqaat.id}-${user.itsId}`,
+                      userName: user.name,
+                      userItsId: user.itsId,
+                      team: user.team,
+                      miqaatName: selectedMiqaat.name,
+                      date: safarEntry.markedAt,
+                      status: 'safar' as const,
+                      markedByItsId: safarEntry.markedByItsId,
+                  };
+              }
+              return {
+                  id: `${selectedMiqaat.id}-${user.itsId}`,
+                  userName: user.name,
+                  userItsId: user.itsId,
+                  team: user.team,
+                  miqaatName: selectedMiqaat.name,
+                  date: selectedMiqaat.startTime,
+                  status: 'absent' as const,
+              };
+          });
+
+          reportResultItems = combinedRecords;
+
       } else if (values.reportType === "miqaat_safar_list" && selectedMiqaat) {
           const safarList = selectedMiqaat.safarList || [];
           reportResultItems = safarList.map(safarEntry => ({
             id: `${selectedMiqaat.id}-${safarEntry.userItsId}`,
             userName: safarEntry.userName,
             userItsId: safarEntry.userItsId,
+            team: userMap.get(safarEntry.userItsId)?.team,
             miqaatName: selectedMiqaat.name,
             date: safarEntry.markedAt,
             status: 'safar',
@@ -254,6 +282,7 @@ export default function ReportsPage() {
                       id: `${miqaat.id}-${regularAttendance.userItsId}`,
                       userName: regularAttendance.userName,
                       userItsId: regularAttendance.userItsId,
+                      team: userMap.get(regularAttendance.userItsId)?.team,
                       miqaatName: miqaat.name,
                       date: regularAttendance.markedAt,
                       status: regularAttendance.status,
@@ -268,6 +297,7 @@ export default function ReportsPage() {
                       id: `${miqaat.id}-${safarAttendance.userItsId}`,
                       userName: safarAttendance.userName,
                       userItsId: safarAttendance.userItsId,
+                      team: userMap.get(safarAttendance.userItsId)?.team,
                       miqaatName: miqaat.name,
                       date: safarAttendance.markedAt,
                       status: 'safar',
@@ -287,6 +317,7 @@ export default function ReportsPage() {
                   id: `${miqaat.id}-${att.userItsId}`,
                   userName: att.userName,
                   userItsId: att.userItsId,
+                  team: userMap.get(att.userItsId)?.team,
                   miqaatName: miqaat.name,
                   date: att.markedAt,
                   status: att.status,
@@ -298,6 +329,7 @@ export default function ReportsPage() {
                   id: `${miqaat.id}-${safar.userItsId}`,
                   userName: safar.userName,
                   userItsId: safar.userItsId,
+                  team: userMap.get(safar.userItsId)?.team,
                   miqaatName: miqaat.name,
                   date: safar.markedAt,
                   status: 'safar',
@@ -307,7 +339,6 @@ export default function ReportsPage() {
           reportResultItems = allRecords;
 
       } else if (values.reportType === "non_attendance_miqaat" && selectedMiqaat) {
-        const allUsers = await getUsers(); 
         const attendedItsIds = new Set(selectedMiqaat.attendedUserItsIds || []);
         
         let eligibleUsers = allUsers;
@@ -321,6 +352,7 @@ export default function ReportsPage() {
           id: user.id, 
           userName: user.name,
           userItsId: user.itsId,
+          team: user.team,
           miqaatName: selectedMiqaat.name,
           date: new Date(selectedMiqaat.startTime).toISOString(), 
           status: "absent",
@@ -329,9 +361,7 @@ export default function ReportsPage() {
 
       // --- APPLY FILTERS ---
       let filteredData = [...reportResultItems];
-      const allUsers = await getUsers();
-      const userMap = new Map(allUsers.map(u => [u.itsId, u]));
-
+      
       // Role-based data segregation
       if (currentUserRole === 'admin' && currentUserMohallahId) {
           filteredData = filteredData.filter(record => {
@@ -405,12 +435,13 @@ export default function ReportsPage() {
       toast({ title: "No data to export", description: "Please generate a report first.", variant: "destructive" });
       return;
     }
-    const headers = ["User Name", "ITS ID", "Miqaat", "Date", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti"];
+    const headers = ["User Name", "ITS ID", "Team", "Miqaat", "Date", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti"];
     const csvRows = [
       headers.join(','),
       ...reportData.map(row => [
         `"${row.userName.replace(/"/g, '""')}"`,
         row.userItsId,
+        row.team || 'N/A',
         `"${row.miqaatName.replace(/"/g, '""')}"`,
         row.date ? format(new Date(row.date), "yyyy-MM-dd HH:mm:ss") : "N/A",
         row.status,
@@ -579,7 +610,7 @@ export default function ReportsPage() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="miqaat_summary">Miqaat Summary (Attendance)</SelectItem>
+                          <SelectItem value="miqaat_summary">Miqaat Summary (Roster)</SelectItem>
                           <SelectItem value="miqaat_safar_list">Miqaat Safar List</SelectItem>
                           <SelectItem value="non_attendance_miqaat">Miqaat Non-Attendance</SelectItem>
                           <SelectItem value="member_attendance">Member Full History</SelectItem>
@@ -954,7 +985,8 @@ export default function ReportsPage() {
                                 </span>
                             </div>
                             <Separator className="my-2" />
-                            <div className="text-sm text-muted-foreground space-y-1 pl-10">
+                            <div className="text-sm text-muted-foreground space-y-1" style={{paddingLeft: isNonAttendanceReport ? '2.5rem' : '0'}}>
+                                <p><strong>Team:</strong> {record.team || "N/A"}</p>
                                 <p><strong>Miqaat:</strong> {record.miqaatName}</p>
                                 <p><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</p>
                                 { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
@@ -988,6 +1020,7 @@ export default function ReportsPage() {
                           )}
                         <TableHead>Member Name</TableHead>
                         <TableHead>ITS ID</TableHead>
+                        <TableHead>Team</TableHead>
                         <TableHead>Miqaat</TableHead>
                         <TableHead>Date / Time</TableHead>
                         <TableHead>Status</TableHead>
@@ -1014,6 +1047,7 @@ export default function ReportsPage() {
                             )}
                             <TableCell className="font-medium">{record.userName}</TableCell>
                             <TableCell>{record.userItsId}</TableCell>
+                            <TableCell>{record.team || 'N/A'}</TableCell>
                             <TableCell>{record.miqaatName}</TableCell>
                             <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
                             <TableCell>
@@ -1068,3 +1102,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    

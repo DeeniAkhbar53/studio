@@ -111,6 +111,7 @@ export interface ReportResultItem {
   id: string;
   userName: string;
   userItsId: string;
+  team?: string;
   miqaatName: string;
   date?: string; // ISO string
   status: "present" | "absent" | "late" | "early" | "safar"; // Added safar here
@@ -173,3 +174,5 @@ export interface SystemLog {
     context?: string; // stringified JSON
     timestamp: string; // ISO string
 }
+
+    
