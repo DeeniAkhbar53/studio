@@ -222,7 +222,7 @@ export default function DashboardLayout({
           </div>
         </div>
       </aside>
-      <div className="flex flex-col">
+      <div className="flex flex-col max-h-screen overflow-hidden">
         <Header />
         <main className="flex-1 overflow-auto bg-background p-4 md:p-6 lg:p-8">
           {children}
