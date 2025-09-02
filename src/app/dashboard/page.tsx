@@ -30,7 +30,7 @@ interface ScanDisplayMessage {
   type: 'success' | 'error' | 'info';
   miqaatName?: string;
   time?: string;
-  status?: 'present' | 'late';
+  status?: 'present' | 'late' | 'early';
 }
 
 const qrReaderElementId = "qr-reader-dashboard";
@@ -236,16 +236,13 @@ export default function DashboardOverviewPage() {
     }
 
     try {
-      const attendanceEntry: Omit<MiqaatAttendanceEntryItem, 'uniformCompliance'> & { uniformCompliance?: MiqaatAttendanceEntryItem['uniformCompliance']} = {
+      const attendanceEntry: MiqaatAttendanceEntryItem = {
         userItsId: currentUserItsId,
         userName: currentUserName,
         markedAt: now.toISOString(),
         markedByItsId: currentUserItsId,
         status: attendanceStatus,
       };
-
-      // Since this is a user QR scan, uniform compliance is not checked.
-      // So, we don't add the uniformCompliance field at all.
 
       await markAttendanceInMiqaat(targetMiqaat.id, attendanceEntry);
       setAllMiqaatsList(prev => prev.map(m => m.id === targetMiqaat.id ? { ...m, attendance: [...(m.attendance || []), attendanceEntry] } : m));
@@ -454,7 +451,7 @@ export default function DashboardOverviewPage() {
             {scanDisplayMessage.type === 'error' && <XCircle className="h-4 w-4" />}
             {scanDisplayMessage.type === 'info' && <AlertCircleIcon className="h-4 w-4" />}
             <AlertTitle>
-              {scanDisplayMessage.type === 'success' ? `Scan Successful ${scanDisplayMessage.status === 'late' ? '(Late)' : ''}` : scanDisplayMessage.type === 'error' ? "Scan Error" : "Scan Info"}
+              {scanDisplayMessage.type === 'success' ? `Scan Successful ${scanDisplayMessage.status === 'late' ? '(Late)' : (scanDisplayMessage.status === 'early' ? '(Early)' : '')}` : scanDisplayMessage.type === 'error' ? "Scan Error" : "Scan Info"}
             </AlertTitle>
             <AlertDescription>{scanDisplayMessage.text}</AlertDescription>
           </Alert>

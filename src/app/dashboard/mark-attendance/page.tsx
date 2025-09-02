@@ -270,7 +270,7 @@ export default function MarkAttendancePage() {
       toast({
         title: "Already Marked",
         description: `${member?.name} has already been marked for ${selectedMiqaatDetails.name} ${alreadyMarkedInSession ? 'in this session' : ''} (${existingEntry?.status || 'present'}).`,
-        variant: "default",
+        className: 'border-blue-500 bg-blue-50 dark:bg-blue-900/30',
       });
       setMemberIdInput("");
       setIsProcessing(false);
@@ -345,6 +345,7 @@ export default function MarkAttendancePage() {
             toast({
               title: `Attendance Marked (${attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)})`,
               description: `${attendanceEntryPayload.userName} (${attendanceEntryPayload.userItsId}) marked for ${selectedMiqaatDetails.name}.`,
+              className: 'border-green-500 bg-green-50 dark:bg-green-900/30',
             });
         }
         setMemberIdInput("");
