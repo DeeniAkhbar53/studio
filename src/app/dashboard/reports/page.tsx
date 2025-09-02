@@ -959,48 +959,50 @@ export default function ReportsPage() {
                 <div className="md:hidden space-y-4">
                   {reportData.map((record, index) => (
                     <Card key={`${record.id}-${record.date || index}`} className="w-full">
-                        <CardContent className="p-4 flex flex-col gap-2">
-                             <div className="flex items-center gap-4">
-                                {isNonAttendanceReport && (
-                                    <Checkbox
-                                        id={`mobile-select-${record.userItsId}`}
-                                        checked={selectedIds.includes(record.userItsId)}
-                                        onCheckedChange={(checked) => {
-                                            setSelectedIds(prev => checked ? [...prev, record.userItsId] : prev.filter(id => id !== record.userItsId));
-                                        }}
-                                        aria-label={`Select member ${record.userName}`}
-                                    />
-                                )}
-                                <div className="flex-grow">
-                                    <p className="font-semibold text-card-foreground">{record.userName}</p>
-                                    <p className="text-sm text-muted-foreground">ITS: {record.userItsId}</p>
+                       <div className="overflow-x-auto">
+                            <CardContent className="p-4 flex flex-col gap-2">
+                                <div className="flex items-center gap-4">
+                                    {isNonAttendanceReport && (
+                                        <Checkbox
+                                            id={`mobile-select-${record.userItsId}`}
+                                            checked={selectedIds.includes(record.userItsId)}
+                                            onCheckedChange={(checked) => {
+                                                setSelectedIds(prev => checked ? [...prev, record.userItsId] : prev.filter(id => id !== record.userItsId));
+                                            }}
+                                            aria-label={`Select member ${record.userName}`}
+                                        />
+                                    )}
+                                    <div className="flex-grow">
+                                        <p className="font-semibold text-card-foreground">{record.userName}</p>
+                                        <p className="text-sm text-muted-foreground">ITS: {record.userItsId}</p>
+                                    </div>
+                                    <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
+                                    record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                    record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                    record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                    record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                    )}>
+                                    {record.status}
+                                    </span>
                                 </div>
-                                <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
-                                  record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                  record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                  record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                                  record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                  'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                                )}>
-                                  {record.status}
-                                </span>
-                            </div>
-                            <Separator className="my-2" />
-                            <div className="text-sm text-muted-foreground space-y-1" style={{paddingLeft: isNonAttendanceReport ? '2.5rem' : '0'}}>
-                                <p><strong>Team:</strong> {record.team || "N/A"}</p>
-                                <p><strong>Miqaat:</strong> {record.miqaatName}</p>
-                                <p><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</p>
-                                { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
-                                    <p><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</p>
-                                }
-                                {record.uniformCompliance && (
-                                    <>
-                                        <p><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri}</p>
-                                        <p><strong>Koti:</strong> {record.uniformCompliance.koti}</p>
-                                    </>
-                                )}
-                            </div>
-                        </CardContent>
+                                <Separator className="my-2" />
+                                <div className="text-sm text-muted-foreground space-y-1" style={{paddingLeft: isNonAttendanceReport ? '2.5rem' : '0'}}>
+                                    <p><strong>Team:</strong> {record.team || "N/A"}</p>
+                                    <p><strong>Miqaat:</strong> {record.miqaatName}</p>
+                                    <p><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</p>
+                                    { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
+                                        <p><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</p>
+                                    }
+                                    {record.uniformCompliance && (
+                                        <>
+                                            <p><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri}</p>
+                                            <p><strong>Koti:</strong> {record.uniformCompliance.koti}</p>
+                                        </>
+                                    )}
+                                </div>
+                            </CardContent>
+                       </div>
                     </Card>
                   ))}
                 </div>

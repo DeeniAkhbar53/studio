@@ -190,49 +190,51 @@ export default function ViewResponsesPage() {
                         <div className="md:hidden space-y-4">
                             {responses.map(response => (
                                 <Card key={response.id} className="w-full">
-                                    <CardHeader>
-                                        <CardTitle className="text-lg">{response.submitterName}</CardTitle>
-                                        <CardDescription>
-                                            ITS: {response.submittedBy} | BGK: {response.submitterBgkId || 'N/A'}
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div className="text-xs text-muted-foreground">
-                                            Submitted: {format(new Date(response.submittedAt), "MMM d, yyyy 'at' p")}
-                                        </div>
-                                        <Separator />
-                                        <div className="space-y-3">
-                                            {form?.questions.map(q => (
-                                                <div key={q.id}>
-                                                    <p className="font-semibold text-sm text-foreground">{q.label}</p>
-                                                    <p className="text-sm text-muted-foreground">{renderResponseValue(q.id, response.responses[q.id]) || "N/A"}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </CardContent>
-                                    {canDeleteResponses && (
-                                        <CardFooter className="flex justify-end p-2 border-t">
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                                                        <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            This will permanently delete the response from {response.submitterName}. This action cannot be undone.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteResponse(response.id)}>Delete</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </CardFooter>
-                                    )}
+                                   <div className="overflow-x-auto">
+                                        <CardHeader>
+                                            <CardTitle className="text-lg">{response.submitterName}</CardTitle>
+                                            <CardDescription>
+                                                ITS: {response.submittedBy} | BGK: {response.submitterBgkId || 'N/A'}
+                                            </CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <div className="text-xs text-muted-foreground">
+                                                Submitted: {format(new Date(response.submittedAt), "MMM d, yyyy 'at' p")}
+                                            </div>
+                                            <Separator />
+                                            <div className="space-y-3">
+                                                {form?.questions.map(q => (
+                                                    <div key={q.id}>
+                                                        <p className="font-semibold text-sm text-foreground">{q.label}</p>
+                                                        <p className="text-sm text-muted-foreground">{renderResponseValue(q.id, response.responses[q.id]) || "N/A"}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </CardContent>
+                                        {canDeleteResponses && (
+                                            <CardFooter className="flex justify-end p-2 border-t">
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                                                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                This will permanently delete the response from {response.submitterName}. This action cannot be undone.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteResponse(response.id)}>Delete</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </CardFooter>
+                                        )}
+                                   </div>
                                 </Card>
                             ))}
                         </div>
