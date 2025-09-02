@@ -72,6 +72,7 @@ export default function MiqaatManagementPage() {
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [memberSearchTerm, setMemberSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements"> | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
@@ -210,6 +211,11 @@ export default function MiqaatManagementPage() {
     (m.location || "").toLowerCase().includes(searchTerm.toLowerCase())
   );
   
+  const filteredUsers = allUsers.filter(user => {
+    if (!memberSearchTerm) return true;
+    return user.itsId.includes(memberSearchTerm) || (user.bgkId || '').includes(memberSearchTerm);
+  });
+  
   if (isAuthorized === null) {
     return (
       <div className="flex h-full w-full items-center justify-center">
@@ -346,10 +352,20 @@ export default function MiqaatManagementPage() {
                     
                      {eligibilityType === 'specific_members' && (
                         <FormField control={form.control} name="eligibleItsIds" render={({ field }) => (
-                            <FormItem><ShadFormLabel>Eligible Members</ShadFormLabel>
+                            <FormItem>
+                                <ShadFormLabel>Eligible Members</ShadFormLabel>
+                                <div className="relative">
+                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Search by ITS or BGK ID..."
+                                        value={memberSearchTerm}
+                                        onChange={(e) => setMemberSearchTerm(e.target.value)}
+                                        className="pl-8 mb-2"
+                                    />
+                                </div>
                                 <ScrollArea className="rounded-md border p-3 h-60">
                                 {isLoadingUsers ? (<p className="text-sm text-muted-foreground">Loading Users...</p>) : (
-                                    allUsers.map((user) => (
+                                    filteredUsers.map((user) => (
                                     <FormField key={user.id} control={form.control} name="eligibleItsIds" render={({ field: checkboxField }) => (
                                         <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
                                         <FormControl><Checkbox checked={checkboxField.value?.includes(user.itsId)} onCheckedChange={(checked) => {
@@ -360,6 +376,7 @@ export default function MiqaatManagementPage() {
                                     )}/>
                                     ))
                                 )}
+                                {filteredUsers.length === 0 && !isLoadingUsers && <p className="text-sm text-muted-foreground text-center py-4">No members found matching search.</p>}
                                 </ScrollArea>
                                 <FormDescription className="text-xs">Select individual members eligible for this Miqaat.</FormDescription>
                             <FormMessage /></FormItem>
