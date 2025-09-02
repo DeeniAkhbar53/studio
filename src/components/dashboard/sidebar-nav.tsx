@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import Link from "next/link";
@@ -201,7 +202,7 @@ export function SidebarNav() {
   }
 
   return (
-    <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
+    <nav className="flex flex-col gap-1 p-2 text-sm font-medium">
       {navItems.map((item) => {
         const isActive = pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/dashboard" && item.href.length > "/dashboard".length);
         const currentBadgeCount = item.href === "/dashboard/notifications" ? unreadNotificationCount : undefined;

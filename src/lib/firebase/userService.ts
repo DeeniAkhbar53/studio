@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { db } from './firebase';
@@ -18,6 +19,7 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
     const payloadForFirestore: any = {
       name: userData.name,
       itsId: userData.itsId,
+      email: userData.email || null, // Add email
       role: userData.role,
       mohallahId: mohallahId, // Storing mohallahId in the member document for collectionGroup queries
       avatarUrl: userData.avatarUrl || `https://placehold.co/40x40.png?text=${userData.name.substring(0,2).toUpperCase()}`,

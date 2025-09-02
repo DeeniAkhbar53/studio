@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'user' | 'admin' | 'superadmin' | 'attendance-marker';
 export type UserDesignation = 'Captain' | 'Vice Captain' | 'Member';
 
@@ -7,6 +8,7 @@ export type User = {
   itsId: string;
   bgkId?: string;
   name: string;
+  email?: string; // Added email field
   password?: string; // For admin/superadmin login
   team?: string;
   phoneNumber?: string;
@@ -174,5 +176,3 @@ export interface SystemLog {
     context?: string; // stringified JSON
     timestamp: string; // ISO string
 }
-
-    

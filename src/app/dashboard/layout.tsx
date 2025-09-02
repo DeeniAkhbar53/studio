@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -216,14 +217,14 @@ export default function DashboardLayout({
               <span className="text-sidebar-foreground">BGK Attendance</span>
             </Link>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             <SidebarNav />
           </div>
         </div>
       </aside>
       <div className="flex flex-col">
         <Header />
-        <main className="flex-1 overflow-auto bg-background p-4 md:p-6">
+        <main className="flex-1 overflow-auto bg-background p-4 md:p-6 lg:p-8">
           {children}
         </main>
         <footer className="border-t bg-card py-3 px-6 text-muted-foreground">

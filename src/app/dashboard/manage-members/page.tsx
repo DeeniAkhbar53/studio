@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Mohallah, User, UserRole, UserDesignation, PageRightConfig } from "@/types";
-import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Users as UsersIcon, Download, AlertTriangle, ChevronLeft, ChevronRight, BellDot, ShieldAlert, Lock } from "lucide-react";
+import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Users as UsersIcon, Download, AlertTriangle, ChevronLeft, ChevronRight, BellDot, ShieldAlert, Lock, Mail } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
@@ -32,6 +33,7 @@ import { allNavItems } from "@/components/dashboard/sidebar-nav";
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   itsId: z.string().min(8, "ITS ID must be 8 characters").max(8, "ITS ID must be 8 characters"),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
   bgkId: z.string().optional().or(z.literal("")),
   password: z.string().optional(),
   team: z.string().optional().or(z.literal("")),
@@ -114,7 +116,7 @@ export default function ManageMembersPage() {
 
   const memberForm = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema),
-    defaultValues: { name: "", itsId: "", bgkId: "", password: "", team: "", phoneNumber: "", role: "user", mohallahId: "", designation: "Member", pageRights: [] },
+    defaultValues: { name: "", itsId: "", email: "", bgkId: "", password: "", team: "", phoneNumber: "", role: "user", mohallahId: "", designation: "Member", pageRights: [] },
   });
 
   const watchedRole = memberForm.watch("role");
@@ -249,6 +251,7 @@ export default function ManageMembersPage() {
       memberForm.reset({
         name: editingMember.name,
         itsId: editingMember.itsId,
+        email: editingMember.email || "",
         bgkId: editingMember.bgkId || "",
         password: "", // Always clear password on edit for security
         team: editingMember.team || "",
@@ -268,7 +271,7 @@ export default function ManageMembersPage() {
                               : (mohallahs.length > 0 ? mohallahs[0].id : "");
       }
       memberForm.reset({
-        name: "", itsId: "", bgkId: "", password: "", team: "", phoneNumber: "", role: "user",
+        name: "", itsId: "", email: "", bgkId: "", password: "", team: "", phoneNumber: "", role: "user",
         mohallahId: defaultMohallahForForm,
         designation: "Member",
         pageRights: [],
@@ -288,6 +291,7 @@ export default function ManageMembersPage() {
     const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string, designation?: UserDesignation, pageRights?: string[], password?: string } = {
       name: values.name,
       itsId: values.itsId,
+      email: values.email,
       bgkId: values.bgkId,
       team: values.team,
       phoneNumber: values.phoneNumber,
@@ -471,6 +475,7 @@ export default function ManageMembersPage() {
             const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string } = {
               name: trimmedRow.name,
               itsId: trimmedRow.itsId,
+              email: trimmedRow.email || undefined,
               bgkId: trimmedRow.bgkId || undefined, 
               password: trimmedRow.password || undefined,
               team: trimmedRow.team || undefined,
@@ -486,6 +491,7 @@ export default function ManageMembersPage() {
                 bgkId: memberPayload.bgkId || "", 
                 team: memberPayload.team || "",
                 phoneNumber: memberPayload.phoneNumber || "",
+                email: memberPayload.email || "",
             });
 
             if (!validation.success) {
@@ -562,11 +568,11 @@ export default function ManageMembersPage() {
 
 
   const downloadSampleCsv = () => {
-    const csvHeaders = "name,itsId,bgkId,password,team,phoneNumber,role,mohallahName,designation,pageRights\n";
+    const csvHeaders = "name,itsId,email,bgkId,password,team,phoneNumber,role,mohallahName,designation,pageRights\n";
     const csvDummyData = [
-      "Abbas Bhai,10101010,BGK001,,Alpha Team,1234567890,user,Houston,Member,",
-      "Fatema Ben,20202020,,Bravo Team,0987654321,attendance-marker,Dallas,Vice Captain,/dashboard/reports;/dashboard/mark-attendance",
-      "Yusuf Bhai,30303030,BGK003,strongpassword,Alpha Team,,admin,Houston,Captain,/dashboard/reports;/dashboard/manage-members",
+      "Abbas Bhai,10101010,abbas@example.com,BGK001,,Alpha Team,1234567890,user,Houston,Member,",
+      "Fatema Ben,20202020,fatema@example.com,,Bravo Team,0987654321,attendance-marker,Dallas,Vice Captain,/dashboard/reports;/dashboard/mark-attendance",
+      "Yusuf Bhai,30303030,yusuf@example.com,BGK003,strongpassword,Alpha Team,,admin,Houston,Captain,/dashboard/reports;/dashboard/manage-members",
     ].join("\n");
     const csvContent = csvHeaders + csvDummyData;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -593,6 +599,7 @@ export default function ManageMembersPage() {
     return dataToFilter.filter(m => {
         const searchTermMatch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 m.itsId.includes(searchTerm) ||
+                                (m.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 (m.bgkId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 (mohallahs.find(moh => moh.id === m.mohallahId)?.name.toLowerCase() || "").includes(searchTerm.toLowerCase());
         const roleMatch = selectedFilterRole === 'all' || m.role === selectedFilterRole;
@@ -723,7 +730,7 @@ export default function ManageMembersPage() {
                     <DialogHeader>
                         <DialogTitle>Import Members via CSV</DialogTitle>
                         <DialogDescription>
-                        Select CSV file. Columns: `name`, `itsId`, `bgkId`, `password`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist. Admins can only import to their assigned Mohallah.
+                        Select CSV file. Columns: `name`, `itsId`, `email`, `bgkId`, `password`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist. Admins can only import to their assigned Mohallah.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -787,6 +794,13 @@ export default function ManageMembersPage() {
                             <FormItem>
                               <FormLabel>ITS ID</FormLabel>
                               <FormControl><Input {...field} /></FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+                          <FormField control={memberForm.control} name="email" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email</FormLabel>
+                              <FormControl><Input placeholder="Optional" {...field} /></FormControl>
                               <FormMessage />
                             </FormItem>
                           )} />
@@ -961,7 +975,7 @@ export default function ManageMembersPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search members by name, ITS, BGK ID, Mohallah..."
+                placeholder="Search members by name, ID, email..."
                 className="pl-8 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -1076,6 +1090,7 @@ export default function ManageMembersPage() {
                         </div>
                       </div>
                       <div className="text-sm text-muted-foreground space-y-1" style={{ paddingLeft: canManageMembers ? '4rem' : '0.5rem' }}>
+                          <p><strong>Email:</strong> {member.email || "N/A"}</p>
                           <p><strong>Mohallah:</strong> {getMohallahNameById(member.mohallahId)}</p>
                           <p><strong>Team:</strong> {member.team || "N/A"}</p>
                           <p><strong>Role:</strong> {member.role.charAt(0).toUpperCase() + member.role.slice(1).replace(/-/g, ' ')}</p>
@@ -1132,7 +1147,7 @@ export default function ManageMembersPage() {
                       )}
                       <TableHead className="w-[60px] sm:w-[80px]">Avatar</TableHead>
                       <TableHead>Name</TableHead>
-                      <TableHead>ITS ID</TableHead>
+                      <TableHead>ITS / Email</TableHead>
                       <TableHead>BGK ID</TableHead>
                       <TableHead>Mohallah</TableHead>
                       <TableHead>Team</TableHead>
@@ -1174,7 +1189,10 @@ export default function ManageMembersPage() {
                                 )}
                             </div>
                         </TableCell>
-                        <TableCell>{member.itsId}</TableCell>
+                        <TableCell>
+                            <div>{member.itsId}</div>
+                            <div className="text-xs text-muted-foreground">{member.email || "No Email"}</div>
+                        </TableCell>
                         <TableCell>{member.bgkId || "N/A"}</TableCell>
                         <TableCell>{getMohallahNameById(member.mohallahId)}</TableCell>
                         <TableCell>{member.team || "N/A"}</TableCell>
@@ -1264,7 +1282,7 @@ export default function ManageMembersPage() {
           <DialogHeader>
             <DialogTitle>Import Members via CSV</DialogTitle>
             <DialogDescription>
-              Select CSV file. Columns: `name`, `itsId`, `bgkId`, `password`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist. Admins can only import to their assigned Mohallah.
+              Select CSV file. Columns: `name`, `itsId`, `email`, `bgkId`, `password`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist. Admins can only import to their assigned Mohallah.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">

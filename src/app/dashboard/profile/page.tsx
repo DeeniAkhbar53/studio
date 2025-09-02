@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -221,7 +222,7 @@ export default function ProfilePage() {
                 <div>
                   <h3 className="font-semibold text-foreground mb-2">Contact Information</h3>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-primary" /> {user.itsId}@itsjamea.com (Example Email)</li>
+                    <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-primary" /> {user.email || "No email provided"}</li>
                     <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary" /> {user.phoneNumber || "Not Provided"}</li>
                   </ul>
                 </div>
