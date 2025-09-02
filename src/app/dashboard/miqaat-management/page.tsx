@@ -293,11 +293,11 @@ export default function MiqaatManagementPage() {
                     
                     <FormField control={form.control} name="eligibilityType" render={({ field }) => (
                         <FormItem className="space-y-3 pt-2">
-                            <FormLabel className="font-semibold">Eligibility</FormLabel>
+                            <ShadFormLabel className="font-semibold">Eligibility</ShadFormLabel>
                             <FormControl>
                                 <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                    <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="groups" /></FormControl><FormLabel className="font-normal">By Group (Mohallah/Team)</FormLabel></FormItem>
-                                    <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="specific_members" /></FormControl><FormLabel className="font-normal">By Specific Members</FormLabel></FormItem>
+                                    <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="groups" /></FormControl><ShadFormLabel className="font-normal">By Group (Mohallah/Team)</ShadFormLabel></FormItem>
+                                    <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="specific_members" /></FormControl><ShadFormLabel className="font-normal">By Specific Members</ShadFormLabel></FormItem>
                                 </RadioGroup>
                             </FormControl>
                         </FormItem>
