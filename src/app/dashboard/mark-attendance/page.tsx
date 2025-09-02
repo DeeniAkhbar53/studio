@@ -283,13 +283,13 @@ export default function MarkAttendancePage() {
       setMemberForUniformCheck(member);
       setIsUniformDialogOpen(true);
     } else {
-      finalizeAttendance(member, { fetaPaghri: 'safar', koti: 'safar' }); // 'safar' implies not applicable for this context
+      finalizeAttendance(member, undefined); // Pass undefined for no uniform check
     }
 
     setIsProcessing(false); // Processing is done after member is found
   };
   
-  const finalizeAttendance = async (member: User, compliance: UniformComplianceState) => {
+  const finalizeAttendance = async (member: User, compliance?: UniformComplianceState) => {
     if (!selectedMiqaatId || !markerItsId) {
         toast({ title: "Error", description: "Miqaat or Marker ID missing.", variant: "destructive" });
         return;
@@ -317,7 +317,7 @@ export default function MarkAttendancePage() {
         markedAt: now.toISOString(),
         markedByItsId: markerItsId,
         status: attendanceStatus,
-        uniformCompliance: compliance,
+        ...(compliance && { uniformCompliance: compliance }),
     };
     
     const newSessionEntry: MarkedAttendanceEntry = {

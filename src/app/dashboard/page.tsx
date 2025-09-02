@@ -45,7 +45,7 @@ export default function DashboardOverviewPage() {
 
   const [activeMiqaatsCount, setActiveMiqaatsCount] = useState<number>(0);
   const [totalMiqaatsCount, setTotalMiqaatsCount] = useState<number>(0);
-  const [allMiqaatsList, setAllMiqaatsList] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "uniformRequirements">[]>([]);
+  const [allMiqaatsList, setAllMiqaatsList] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "uniformRequirements">[]>([]);
   const [totalMembersCount, setTotalMembersCount] = useState<number>(0);
   const [totalMohallahsCount, setTotalMohallahsCount] = useState<number>(0);
   const [totalFormsCount, setTotalFormsCount] = useState<number>(0);
@@ -191,7 +191,7 @@ export default function DashboardOverviewPage() {
     }
 
     const uniformReqs = targetMiqaat.uniformRequirements;
-    if (uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti || uniformReqs.safar)) {
+    if (uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti)) {
       setScanDisplayMessage({ type: 'error', text: `This Miqaat (${targetMiqaat.name}) requires a manual check-in by management. Please see an attendance marker.` });
       setIsProcessingScan(false);
       setIsScannerDialogOpen(false);
@@ -199,11 +199,13 @@ export default function DashboardOverviewPage() {
     }
 
     let isEligible = false;
-    if (currentUserRole === 'superadmin' || currentUserRole === 'admin' || currentUserRole === 'attendance-marker') {
-      isEligible = true;
-    } else if (currentUserRole === 'user') {
+    // Check specific eligibility first
+    if (targetMiqaat.eligibleItsIds && targetMiqaat.eligibleItsIds.length > 0) {
+      isEligible = targetMiqaat.eligibleItsIds.includes(currentUserItsId);
+    } else { // Fallback to group eligibility
       isEligible = !targetMiqaat.mohallahIds || targetMiqaat.mohallahIds.length === 0 || (!!currentUserMohallahId && targetMiqaat.mohallahIds.includes(currentUserMohallahId));
     }
+
 
     if (!isEligible) {
       setScanDisplayMessage({ type: 'error', text: `Not eligible for Miqaat: ${targetMiqaat.name}.` });
@@ -224,17 +226,27 @@ export default function DashboardOverviewPage() {
     
     const miqaatReportingTime = targetMiqaat.reportingTime ? new Date(targetMiqaat.reportingTime) : null;
     
-    const onTimeThreshold = miqaatReportingTime || miqaatEndTime;
-    const attendanceStatus = now > onTimeThreshold ? 'late' : 'present';
+    let attendanceStatus: 'early' | 'present' | 'late';
+    if (miqaatReportingTime && now < miqaatReportingTime) {
+      attendanceStatus = 'early';
+    } else if (now > miqaatEndTime) {
+      attendanceStatus = 'late';
+    } else {
+      attendanceStatus = 'present';
+    }
 
     try {
-      const attendanceEntry: MiqaatAttendanceEntryItem = {
+      const attendanceEntry: Omit<MiqaatAttendanceEntryItem, 'uniformCompliance'> & { uniformCompliance?: MiqaatAttendanceEntryItem['uniformCompliance']} = {
         userItsId: currentUserItsId,
         userName: currentUserName,
         markedAt: now.toISOString(),
         markedByItsId: currentUserItsId,
         status: attendanceStatus,
       };
+
+      // Since this is a user QR scan, uniform compliance is not checked.
+      // So, we don't add the uniformCompliance field at all.
+
       await markAttendanceInMiqaat(targetMiqaat.id, attendanceEntry);
       setAllMiqaatsList(prev => prev.map(m => m.id === targetMiqaat.id ? { ...m, attendance: [...(m.attendance || []), attendanceEntry] } : m));
       setScanDisplayMessage({
@@ -251,7 +263,7 @@ export default function DashboardOverviewPage() {
       setIsProcessingScan(false);
       setIsScannerDialogOpen(false);
     }
-  }, [currentUserItsId, currentUserName, currentUserRole, currentUserMohallahId, allMiqaatsList]);
+  }, [currentUserItsId, currentUserName, currentUserMohallahId, allMiqaatsList]);
 
 
   useEffect(() => {
