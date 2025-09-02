@@ -5,7 +5,7 @@ import type { Miqaat, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem } from '@/
 
 const miqaatsCollectionRef = collection(db, 'miqaats');
 
-export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendedUserItsIds" | "uniformRequirements">[]) => void): Unsubscribe => {
+export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendedUserItsIds" | "uniformRequirements">[]) => void): Unsubscribe => {
   const q = query(miqaatsCollectionRef, orderBy('createdAt', 'desc'));
 
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -18,7 +18,7 @@ export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "sta
         return timestampField;
       };
 
-      const miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendedUserItsIds" | "uniformRequirements"> = {
+      const miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendedUserItsIds" | "uniformRequirements"> = {
         id: docSnapshot.id,
         name: miqaatData.name,
         startTime: convertTimestampToString(miqaatData.startTime)!,
@@ -26,6 +26,7 @@ export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "sta
         reportingTime: convertTimestampToString(miqaatData.reportingTime),
         mohallahIds: Array.isArray(miqaatData.mohallahIds) ? miqaatData.mohallahIds : [],
         teams: Array.isArray(miqaatData.teams) ? miqaatData.teams : [],
+        eligibleItsIds: Array.isArray(miqaatData.eligibleItsIds) ? miqaatData.eligibleItsIds : [],
         barcodeData: miqaatData.barcodeData,
         location: miqaatData.location,
         createdAt: convertTimestampToString(miqaatData.createdAt),
@@ -61,6 +62,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
         endTime: new Date(miqaatData.endTime).toISOString(),
         mohallahIds: Array.isArray(miqaatData.mohallahIds) ? miqaatData.mohallahIds : [],
         teams: Array.isArray(miqaatData.teams) ? miqaatData.teams : [],
+        eligibleItsIds: Array.isArray(miqaatData.eligibleItsIds) ? miqaatData.eligibleItsIds : [],
         attendance: [],
         safarList: [],
         attendedUserItsIds: [], // Initialize new field
@@ -92,6 +94,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
       endTime: firestorePayload.endTime,
       mohallahIds: firestorePayload.mohallahIds,
       teams: firestorePayload.teams,
+      eligibleItsIds: firestorePayload.eligibleItsIds,
       attendance: firestorePayload.attendance,
       safarList: firestorePayload.safarList,
       attendedUserItsIds: firestorePayload.attendedUserItsIds,
@@ -120,6 +123,7 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
     if (miqaatData.endTime !== undefined) firestorePayload.endTime = new Date(miqaatData.endTime).toISOString();
     if (miqaatData.mohallahIds !== undefined) firestorePayload.mohallahIds = Array.isArray(miqaatData.mohallahIds) ? miqaatData.mohallahIds : [];
     if (miqaatData.teams !== undefined) firestorePayload.teams = Array.isArray(miqaatData.teams) ? miqaatData.teams : [];
+    if (miqaatData.eligibleItsIds !== undefined) firestorePayload.eligibleItsIds = Array.isArray(miqaatData.eligibleItsIds) ? miqaatData.eligibleItsIds : [];
     if (miqaatData.uniformRequirements !== undefined) firestorePayload.uniformRequirements = miqaatData.uniformRequirements;
 
     if (miqaatData.hasOwnProperty('location')) {

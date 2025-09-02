@@ -4,7 +4,7 @@
 import type { Miqaat, UserRole, Mohallah } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CalendarDays, Users, Barcode, Edit, Trash2, Clock, MapPin, Tag, Download, Shirt } from "lucide-react";
+import { CalendarDays, Users, Barcode, Edit, Trash2, Clock, MapPin, Tag, Download, Shirt, UserCheck } from "lucide-react";
 import { QRCodeSVG } from 'qrcode.react';
 import {
   AlertDialog,
@@ -63,13 +63,15 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
   const formattedReportingTime = formatDate(miqaat.reportingTime);
   const canManageMiqaat = currentUserRole === 'admin' || currentUserRole === 'superadmin';
 
+  const isSpecificMemberMiqaat = miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0;
+
   const assignedMohallahNames = miqaat.mohallahIds && miqaat.mohallahIds.length > 0
     ? miqaat.mohallahIds.map(id => allMohallahs.find(m => m.id === id)?.name || 'Unknown ID').join(", ")
-    : "All Mohallahs / Not Specified";
+    : "All Mohallahs";
 
   const assignedTeamNames = miqaat.teams && miqaat.teams.length > 0
     ? miqaat.teams.join(", ")
-    : "All Teams / Not Specified";
+    : "All Teams";
 
   const handleDownloadBarcode = async () => {
     if (!qrCodeDisplayRef.current) return;
@@ -216,14 +218,23 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
             <Shirt className="mr-2 h-4 w-4 text-primary shrink-0" />
             <span>Uniform: {formatUniformRequirements(miqaat.uniformRequirements)}</span>
           </div>
-          <div className="flex items-center text-muted-foreground">
-            <MapPin className="mr-2 h-4 w-4 text-primary shrink-0" />
-            <span>Mohallahs: {assignedMohallahNames}</span>
-          </div>
-           <div className="flex items-center text-muted-foreground">
-            <Tag className="mr-2 h-4 w-4 text-primary shrink-0" />
-            <span>Teams: {assignedTeamNames}</span>
-          </div>
+          {isSpecificMemberMiqaat ? (
+            <div className="flex items-center text-muted-foreground">
+              <UserCheck className="mr-2 h-4 w-4 text-primary shrink-0" />
+              <span>Eligible: {miqaat.eligibleItsIds?.length || 0} specific members</span>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center text-muted-foreground">
+                <MapPin className="mr-2 h-4 w-4 text-primary shrink-0" />
+                <span>Mohallahs: {assignedMohallahNames}</span>
+              </div>
+              <div className="flex items-center text-muted-foreground">
+                <Tag className="mr-2 h-4 w-4 text-primary shrink-0" />
+                <span>Teams: {assignedTeamNames}</span>
+              </div>
+            </>
+          )}
           <div className="flex items-center text-muted-foreground">
              <Users className="mr-2 h-4 w-4 text-primary shrink-0" />
              <span>Attendance: {miqaat.attendance?.length || 0} marked</span>

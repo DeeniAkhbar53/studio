@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -8,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChartHorizontal, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck, Users } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChartHorizontal, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck, Users, UserX } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toPng } from "html-to-image";
 
@@ -95,7 +94,7 @@ type ChartDataItem = { name: string; present: number; late: number; totalAttenda
 type ChartType = "vertical_bar" | "horizontal_bar" | "pie";
 
 const ALL_DESIGNATIONS: UserDesignation[] = ["Asst.Grp Leader", "Captain", "Group Leader", "J.Member", "Major", "Member", "Vice Captain"];
-const ALL_STATUSES: AttendanceRecord['status'][] = ["present", "late", "early", "absent", "safar"];
+const ALL_STATUSES: AttendanceRecord['status'][] = ["present", "late", "early", "absent", "safar", "not-eligible"];
 
 
 export default function ReportsPage() {
@@ -105,7 +104,7 @@ export default function ReportsPage() {
   const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "safarList" | "attendedUserItsIds" | "uniformRequirements">[]>([]);
+  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "attendedUserItsIds" | "uniformRequirements">[]>([]);
   const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
   const [availableTeams, setAvailableTeams] = useState<string[]>([]);
   
@@ -209,101 +208,62 @@ export default function ReportsPage() {
       const userMap = new Map(allUsers.map(u => [u.itsId, u]));
       const selectedMiqaat = allMiqaats.find(m => m.id === values.miqaatId);
 
+      const isSpecificMemberMiqaat = selectedMiqaat?.eligibleItsIds && selectedMiqaat.eligibleItsIds.length > 0;
+
       if (values.reportType === "miqaat_summary" && selectedMiqaat) {
-          const attendedItsIds = new Set(selectedMiqaat.attendedUserItsIds || []);
           const attendanceRecords = selectedMiqaat.attendance || [];
           const safarRecords = selectedMiqaat.safarList || [];
           
-          let eligibleUsers = allUsers;
-          if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
+          let eligibleUsers: User[];
+          if (isSpecificMemberMiqaat) {
+              eligibleUsers = allUsers.filter(user => selectedMiqaat.eligibleItsIds!.includes(user.itsId));
+          } else if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
               eligibleUsers = allUsers.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
           } else if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
               eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
+          } else {
+              eligibleUsers = allUsers; // Open to all
           }
 
           const combinedRecords = eligibleUsers.map(user => {
               const regularEntry = attendanceRecords.find(a => a.userItsId === user.itsId);
               if (regularEntry) {
-                  return {
-                      id: `${selectedMiqaat.id}-${user.itsId}`,
-                      userName: user.name,
-                      userItsId: user.itsId,
-                      team: user.team,
-                      miqaatName: selectedMiqaat.name,
-                      date: regularEntry.markedAt,
-                      status: regularEntry.status || 'present',
-                      markedByItsId: regularEntry.markedByItsId,
-                      uniformCompliance: regularEntry.uniformCompliance,
-                  };
+                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, team: user.team, miqaatName: selectedMiqaat.name, date: regularEntry.markedAt, status: regularEntry.status || 'present', markedByItsId: regularEntry.markedByItsId, uniformCompliance: regularEntry.uniformCompliance };
               }
               const safarEntry = safarRecords.find(s => s.userItsId === user.itsId);
               if (safarEntry) {
-                  return {
-                      id: `${selectedMiqaat.id}-${user.itsId}`,
-                      userName: user.name,
-                      userItsId: user.itsId,
-                      team: user.team,
-                      miqaatName: selectedMiqaat.name,
-                      date: safarEntry.markedAt,
-                      status: 'safar' as const,
-                      markedByItsId: safarEntry.markedByItsId,
-                  };
+                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, team: user.team, miqaatName: selectedMiqaat.name, date: safarEntry.markedAt, status: 'safar' as const, markedByItsId: safarEntry.markedByItsId };
               }
-              return {
-                  id: `${selectedMiqaat.id}-${user.itsId}`,
-                  userName: user.name,
-                  userItsId: user.itsId,
-                  team: user.team,
-                  miqaatName: selectedMiqaat.name,
-                  date: selectedMiqaat.startTime,
-                  status: 'absent' as const,
-              };
+              return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, team: user.team, miqaatName: selectedMiqaat.name, date: selectedMiqaat.startTime, status: 'absent' as const };
           });
+
+          // Add non-eligible users if needed for a full roster, but mark them
+          if (!isSpecificMemberMiqaat) {
+            allUsers.forEach(user => {
+              if (!eligibleUsers.some(eu => eu.id === user.id) && !combinedRecords.some(cr => cr.userItsId === user.itsId)) {
+                combinedRecords.push({ id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, team: user.team, miqaatName: selectedMiqaat.name, date: selectedMiqaat.startTime, status: 'not-eligible' as const, });
+              }
+            });
+          }
 
           reportResultItems = combinedRecords;
 
       } else if (values.reportType === "miqaat_safar_list" && selectedMiqaat) {
           const safarList = selectedMiqaat.safarList || [];
           reportResultItems = safarList.map(safarEntry => ({
-            id: `${selectedMiqaat.id}-${safarEntry.userItsId}`,
-            userName: safarEntry.userName,
-            userItsId: safarEntry.userItsId,
-            team: userMap.get(safarEntry.userItsId)?.team,
-            miqaatName: selectedMiqaat.name,
-            date: safarEntry.markedAt,
-            status: 'safar',
-            markedByItsId: safarEntry.markedByItsId,
+            id: `${selectedMiqaat.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, team: userMap.get(safarEntry.userItsId)?.team, miqaatName: selectedMiqaat.name, date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId,
           }));
       } else if (values.reportType === "member_attendance" && values.itsId) {
           const memberHistory: ReportResultItem[] = [];
           for (const miqaat of allMiqaats) {
               const regularAttendance = miqaat.attendance?.find(a => a.userItsId === values.itsId);
               if (regularAttendance) {
-                  memberHistory.push({
-                      id: `${miqaat.id}-${regularAttendance.userItsId}`,
-                      userName: regularAttendance.userName,
-                      userItsId: regularAttendance.userItsId,
-                      team: userMap.get(regularAttendance.userItsId)?.team,
-                      miqaatName: miqaat.name,
-                      date: regularAttendance.markedAt,
-                      status: regularAttendance.status,
-                      markedByItsId: regularAttendance.markedByItsId,
-                      uniformCompliance: regularAttendance.uniformCompliance,
-                  });
+                  memberHistory.push({ id: `${miqaat.id}-${regularAttendance.userItsId}`, userName: regularAttendance.userName, userItsId: regularAttendance.userItsId, team: userMap.get(regularAttendance.userItsId)?.team, miqaatName: miqaat.name, date: regularAttendance.markedAt, status: regularAttendance.status, markedByItsId: regularAttendance.markedByItsId, uniformCompliance: regularAttendance.uniformCompliance });
               }
 
               const safarAttendance = miqaat.safarList?.find(s => s.userItsId === values.itsId);
               if (safarAttendance) {
-                  memberHistory.push({
-                      id: `${miqaat.id}-${safarAttendance.userItsId}`,
-                      userName: safarAttendance.userName,
-                      userItsId: safarAttendance.userItsId,
-                      team: userMap.get(safarAttendance.userItsId)?.team,
-                      miqaatName: miqaat.name,
-                      date: safarAttendance.markedAt,
-                      status: 'safar',
-                      markedByItsId: safarAttendance.markedByItsId,
-                  });
+                  memberHistory.push({ id: `${miqaat.id}-${safarAttendance.userItsId}`, userName: safarAttendance.userName, userItsId: safarAttendance.userItsId, team: userMap.get(safarAttendance.userItsId)?.team, miqaatName: miqaat.name, date: safarAttendance.markedAt, status: 'safar', markedByItsId: safarAttendance.markedByItsId });
               }
           }
           reportResultItems = memberHistory.sort((a,b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
@@ -314,50 +274,28 @@ export default function ReportsPage() {
               const attendanceRecords = miqaat.attendance || [];
               const safarRecords = miqaat.safarList || [];
               
-              attendanceRecords.forEach(att => allRecords.push({
-                  id: `${miqaat.id}-${att.userItsId}`,
-                  userName: att.userName,
-                  userItsId: att.userItsId,
-                  team: userMap.get(att.userItsId)?.team,
-                  miqaatName: miqaat.name,
-                  date: att.markedAt,
-                  status: att.status,
-                  markedByItsId: att.markedByItsId,
-                  uniformCompliance: att.uniformCompliance
-              }));
+              attendanceRecords.forEach(att => allRecords.push({ id: `${miqaat.id}-${att.userItsId}`, userName: att.userName, userItsId: att.userItsId, team: userMap.get(att.userItsId)?.team, miqaatName: miqaat.name, date: att.markedAt, status: att.status, markedByItsId: att.markedByItsId, uniformCompliance: att.uniformCompliance }));
 
-              safarRecords.forEach(safar => allRecords.push({
-                  id: `${miqaat.id}-${safar.userItsId}`,
-                  userName: safar.userName,
-                  userItsId: safar.userItsId,
-                  team: userMap.get(safar.userItsId)?.team,
-                  miqaatName: miqaat.name,
-                  date: safar.markedAt,
-                  status: 'safar',
-                  markedByItsId: safar.markedByItsId
-              }));
+              safarRecords.forEach(safar => allRecords.push({ id: `${miqaat.id}-${safar.userItsId}`, userName: safar.userName, userItsId: safar.userItsId, team: userMap.get(safar.userItsId)?.team, miqaatName: miqaat.name, date: safar.markedAt, status: 'safar', markedByItsId: safar.markedByItsId }));
           }
           reportResultItems = allRecords;
 
       } else if (values.reportType === "non_attendance_miqaat" && selectedMiqaat) {
         const attendedItsIds = new Set(selectedMiqaat.attendedUserItsIds || []);
         
-        let eligibleUsers = allUsers;
-        if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
+        let eligibleUsers: User[];
+        if (isSpecificMemberMiqaat) {
+          eligibleUsers = allUsers.filter(user => selectedMiqaat.eligibleItsIds!.includes(user.itsId));
+        } else if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
           eligibleUsers = allUsers.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
         } else if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
           eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
+        } else {
+            eligibleUsers = allUsers;
         }
+
         const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
-        reportResultItems = nonAttendantUsers.map(user => ({
-          id: user.id, 
-          userName: user.name,
-          userItsId: user.itsId,
-          team: user.team,
-          miqaatName: selectedMiqaat.name,
-          date: new Date(selectedMiqaat.startTime).toISOString(), 
-          status: "absent",
-        }));
+        reportResultItems = nonAttendantUsers.map(user => ({ id: user.id, userName: user.name, userItsId: user.itsId, team: user.team, miqaatName: selectedMiqaat.name, date: new Date(selectedMiqaat.startTime).toISOString(), status: "absent", }));
       }
 
       // --- APPLY FILTERS ---

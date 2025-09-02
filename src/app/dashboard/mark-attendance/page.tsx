@@ -14,7 +14,7 @@ import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, Us
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { savePendingAttendance, getPendingAttendance, clearPendingAttendance, cacheAllUsers, getCachedUserByItsOrBgkId } from "@/lib/offlineService";
-import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare } from "lucide-react";
+import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare, UserX } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
@@ -33,7 +33,7 @@ export default function MarkAttendancePage() {
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
   const [memberIdInput, setMemberIdInput] = useState("");
   const [markedAttendanceThisSession, setMarkedAttendanceThisSession] = useState<MarkedAttendanceEntry[]>([]);
-  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "attendance" | "uniformRequirements">[]>([]);
+  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "attendance" | "uniformRequirements">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [markerItsId, setMarkerItsId] = useState<string | null>(null);
@@ -169,8 +169,10 @@ export default function MarkAttendancePage() {
         endTime: m.endTime,
         reportingTime: m.reportingTime,
         mohallahIds: m.mohallahIds || [],
+        teams: m.teams || [],
+        eligibleItsIds: m.eligibleItsIds || [],
         attendance: m.attendance || [],
-        uniformRequirements: m.uniformRequirements || { fetaPaghri: false, koti: false, safar: false },
+        uniformRequirements: m.uniformRequirements || { fetaPaghri: false, koti: false },
       })));
       setIsLoadingMiqaats(false);
     });
@@ -183,6 +185,9 @@ export default function MarkAttendancePage() {
     if (!currentUserMohallahId) return [];
 
     return allMiqaats.filter(miqaat => {
+      if (miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0) {
+        return true; 
+      }
       if (!miqaat.mohallahIds || miqaat.mohallahIds.length === 0) {
         return true; 
       }
@@ -235,6 +240,22 @@ export default function MarkAttendancePage() {
       toast({ title: "Member Not Found", description: `No member found with ID: ${memberIdInput}.`, variant: "destructive" });
       setIsProcessing(false);
       return;
+    }
+
+    // Check eligibility
+    const eligibleItsIds = selectedMiqaatDetails.eligibleItsIds;
+    if (eligibleItsIds && eligibleItsIds.length > 0) {
+      if (!eligibleItsIds.includes(member.itsId)) {
+        toast({
+            title: "Not Eligible",
+            description: `${member.name} (${member.itsId}) is not on the specific eligibility list for this Miqaat.`,
+            variant: "destructive",
+            duration: 7000,
+        });
+        setMemberIdInput("");
+        setIsProcessing(false);
+        return;
+      }
     }
     
     const alreadyMarkedInSession = markedAttendanceThisSession.some(
@@ -497,7 +518,7 @@ export default function MarkAttendancePage() {
                 </SelectTrigger>
                 <SelectContent>
                   {isLoadingMiqaats && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                  {!isLoadingMiqaats && availableMiqaatsForUser.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available for your Mohallah</SelectItem>}
+                  {!isLoadingMiqaats && availableMiqaatsForUser.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available</SelectItem>}
                   {availableMiqaatsForUser.map(miqaat => (
                     <SelectItem key={miqaat.id} value={miqaat.id}>
                       {miqaat.name} ({format(new Date(miqaat.startTime), "P")})
@@ -511,8 +532,15 @@ export default function MarkAttendancePage() {
               <Card className="bg-muted/50">
                 <CardHeader className="p-4">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <CalendarClock className="h-5 w-5 text-primary" />
-                    Reporting Time
+                     {currentMiqaatDetails.eligibleItsIds && currentMiqaatDetails.eligibleItsIds.length > 0 ? (
+                        <UserX className="h-5 w-5 text-primary" />
+                     ) : (
+                        <CalendarClock className="h-5 w-5 text-primary" />
+                     )}
+                     {currentMiqaatDetails.eligibleItsIds && currentMiqaatDetails.eligibleItsIds.length > 0
+                        ? `${currentMiqaatDetails.eligibleItsIds.length} Specific Members Eligible`
+                        : "Reporting Time"
+                     }
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-0 text-sm space-y-1">
@@ -699,5 +727,3 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
-
-    

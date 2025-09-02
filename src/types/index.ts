@@ -1,6 +1,5 @@
 
 
-
 export type UserRole = 'user' | 'admin' | 'superadmin' | 'attendance-marker';
 export type UserDesignation = 'Captain' | 'Vice Captain' | 'Member' | 'Asst.Grp Leader' | 'Group Leader' | 'J.Member' | 'Major';
 
@@ -51,6 +50,7 @@ export type Miqaat = {
   reportingTime?: string; // ISO string, for "on-time" threshold
   mohallahIds?: string[];
   teams?: string[];
+  eligibleItsIds?: string[]; // For specific member selection
   barcodeData?: string;
   location?: string;
   createdAt?: string; // ISO string
@@ -71,7 +71,7 @@ export type AttendanceRecord = {
   userName: string;
   markedAt: string; // ISO string
   markedByItsId?: string;
-  status: 'present' | 'late' | 'early' | 'absent' | 'safar';
+  status: 'present' | 'late' | 'early' | 'absent' | 'safar' | 'not-eligible';
   uniformCompliance?: {
       fetaPaghri: 'yes' | 'no' | 'safar';
       koti: 'yes' | 'no' | 'safar';
@@ -117,7 +117,7 @@ export interface ReportResultItem {
   team?: string;
   miqaatName: string;
   date?: string; // ISO string
-  status: "present" | "absent" | "late" | "early" | "safar"; // Added safar here
+  status: "present" | "absent" | "late" | "early" | "safar" | "not-eligible"; // Added safar and not-eligible
   markedByItsId?: string;
   uniformCompliance?: {
     fetaPaghri: 'yes' | 'no' | 'safar';

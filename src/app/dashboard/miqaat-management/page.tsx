@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { MiqaatCard } from "@/components/dashboard/miqaat-card";
-import type { Miqaat, UserRole, Mohallah } from "@/types";
-import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert } from "lucide-react"; 
+import type { Miqaat, UserRole, Mohallah, User } from "@/types";
+import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users } from "lucide-react"; 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
@@ -19,10 +19,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel as ShadFormLabel, FormDescription } from "@/components/ui/form";
 import { getMiqaats, addMiqaat, updateMiqaat, deleteMiqaat as fbDeleteMiqaat, MiqaatDataForAdd, MiqaatDataForUpdate } from "@/lib/firebase/miqaatService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
-import { getUniqueTeamNames } from "@/lib/firebase/userService"; 
+import { getUniqueTeamNames, getUsers } from "@/lib/firebase/userService"; 
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
 
 const miqaatSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -31,8 +34,10 @@ const miqaatSchema = z.object({
   endTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid end date" }),
   reportingTime: z.string().optional().nullable()
     .refine(val => !val || val === "" || !isNaN(Date.parse(val)), { message: "Invalid reporting date if provided" }),
+  eligibilityType: z.enum(['groups', 'specific_members']).default('groups'),
   mohallahIds: z.array(z.string()).optional().default([]),
   teams: z.array(z.string()).optional().default([]), 
+  eligibleItsIds: z.array(z.string()).optional().default([]),
   barcodeData: z.string().optional(),
   uniformRequirements: z.object({
     fetaPaghri: z.boolean().default(false),
@@ -57,15 +62,18 @@ const toLocalISOString = (date: Date) => {
 export default function MiqaatManagementPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements">[]>([]);
+  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
   const [availableTeams, setAvailableTeams] = useState<string[]>([]); 
   const [isLoadingTeams, setIsLoadingTeams] = useState(true); 
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements"> | null>(null);
+  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements"> | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const { toast } = useToast();
 
@@ -77,12 +85,16 @@ export default function MiqaatManagementPage() {
       startTime: "",
       endTime: "",
       reportingTime: "",
+      eligibilityType: "groups",
       mohallahIds: [],
       teams: [], 
+      eligibleItsIds: [],
       barcodeData: "",
       uniformRequirements: { fetaPaghri: false, koti: false },
     },
   });
+
+  const eligibilityType = form.watch("eligibilityType");
 
   useEffect(() => {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
@@ -98,7 +110,6 @@ export default function MiqaatManagementPage() {
         setIsAuthorized(true);
       } else {
         setIsAuthorized(false);
-        // Redirect after a short delay to show the message
         setTimeout(() => router.replace('/dashboard'), 2000);
       }
     } else {
@@ -112,58 +123,51 @@ export default function MiqaatManagementPage() {
     const role = localStorage.getItem('userRole') as UserRole | null;
     setCurrentUserRole(role);
 
-    setIsLoadingMiqaats(true);
-    const unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
-      setMiqaats(fetchedMiqaats);
-      setIsLoadingMiqaats(false);
-    });
+    const dataFetchPromises = [
+        new Promise<void>(resolve => { setIsLoadingMiqaats(true); const unsub = getMiqaats(data => { setMiqaats(data); setIsLoadingMiqaats(false); resolve(); unsub(); }); }),
+        new Promise<void>(resolve => { setIsLoadingMohallahs(true); const unsub = getMohallahs(data => { setAvailableMohallahs(data); setIsLoadingMohallahs(false); resolve(); unsub(); }); }),
+        getUniqueTeamNames().then(setAvailableTeams).catch(err => console.error("Failed to fetch teams", err)).finally(() => setIsLoadingTeams(false)),
+        getUsers().then(setAllUsers).catch(err => console.error("Failed to fetch users", err)).finally(() => setIsLoadingUsers(false)),
+    ];
 
-    setIsLoadingMohallahs(true);
-    const unsubscribeMohallahs = getMohallahs((fetchedMohallahs) => {
-      setAvailableMohallahs(fetchedMohallahs);
-      setIsLoadingMohallahs(false);
-    });
+    Promise.all(dataFetchPromises);
 
-    setIsLoadingTeams(true); 
-    getUniqueTeamNames()
-      .then(setAvailableTeams)
-      .catch(err => {
-        console.error("Failed to fetch teams", err);
-        toast({ title: "Error", description: "Could not load team data.", variant: "destructive" });
-      })
-      .finally(() => setIsLoadingTeams(false));
-
-    return () => {
-      unsubscribeMiqaats();
-      unsubscribeMohallahs();
-    };
-  }, [isAuthorized, toast]);
+  }, [isAuthorized]);
 
   useEffect(() => {
     if (editingMiqaat) {
+      let type: 'groups' | 'specific_members' = 'groups';
+      if (editingMiqaat.eligibleItsIds && editingMiqaat.eligibleItsIds.length > 0) {
+        type = 'specific_members';
+      }
+
       form.reset({
         name: editingMiqaat.name,
         location: editingMiqaat.location || "",
         startTime: editingMiqaat.startTime ? toLocalISOString(new Date(editingMiqaat.startTime)) : "",
         endTime: editingMiqaat.endTime ? toLocalISOString(new Date(editingMiqaat.endTime)) : "",
         reportingTime: editingMiqaat.reportingTime ? toLocalISOString(new Date(editingMiqaat.reportingTime)) : "",
+        eligibilityType: type,
         mohallahIds: editingMiqaat.mohallahIds || [],
         teams: editingMiqaat.teams || [], 
+        eligibleItsIds: editingMiqaat.eligibleItsIds || [],
         barcodeData: editingMiqaat.barcodeData || "",
         uniformRequirements: editingMiqaat.uniformRequirements || { fetaPaghri: false, koti: false },
       });
     } else {
-      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", mohallahIds: [], teams: [], barcodeData: "", uniformRequirements: { fetaPaghri: false, koti: false } });
+      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", eligibilityType: "groups", mohallahIds: [], teams: [], eligibleItsIds: [], barcodeData: "", uniformRequirements: { fetaPaghri: false, koti: false } });
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
   const handleFormSubmit = async (values: MiqaatFormValues) => {
+    
     const dataForService: MiqaatDataForAdd | MiqaatDataForUpdate = {
       name: values.name,
       startTime: values.startTime,
       endTime: values.endTime,
-      mohallahIds: values.mohallahIds || [],
-      teams: values.teams || [], 
+      mohallahIds: values.eligibilityType === 'groups' ? (values.mohallahIds || []) : [],
+      teams: values.eligibilityType === 'groups' ? (values.teams || []) : [],
+      eligibleItsIds: values.eligibilityType === 'specific_members' ? (values.eligibleItsIds || []) : [],
       location: values.location, 
       reportingTime: values.reportingTime, 
       barcodeData: values.barcodeData,
@@ -186,7 +190,7 @@ export default function MiqaatManagementPage() {
     }
   };
 
-  const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements">) => {
+  const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements">) => {
     setEditingMiqaat(miqaat);
     setIsDialogOpen(true);
   };
@@ -242,7 +246,7 @@ export default function MiqaatManagementPage() {
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Miqaat
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[525px]">
+              <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                   <DialogTitle>{editingMiqaat ? "Edit Miqaat" : "Create New Miqaat"}</DialogTitle>
                   <DialogDescription>
@@ -250,187 +254,125 @@ export default function MiqaatManagementPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleFormSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+                  <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
                     <FormField control={form.control} name="name" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="name" className="text-right">Name</ShadFormLabel>
-                        <FormControl className="col-span-3">
-                          <Input id="name" {...field} />
-                        </FormControl>
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                      </FormItem>
+                      <FormItem><ShadFormLabel>Name</ShadFormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
-                    <FormField control={form.control} name="location" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="location" className="text-right">Location</ShadFormLabel>
-                        <FormControl className="col-span-3">
-                          <Input id="location" placeholder="Optional" {...field} />
-                        </FormControl>
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                      </FormItem>
+                     <FormField control={form.control} name="location" render={({ field }) => (
+                      <FormItem><ShadFormLabel>Location</ShadFormLabel><FormControl><Input placeholder="Optional" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
-                    <FormField control={form.control} name="startTime" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="startTime" className="text-right">Start Time</ShadFormLabel>
-                        <FormControl className="col-span-3">
-                          <Input id="startTime" type="datetime-local" {...field} />
-                        </FormControl>
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="endTime" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="endTime" className="text-right">End Time</ShadFormLabel>
-                        <FormControl className="col-span-3">
-                          <Input id="endTime" type="datetime-local" {...field} />
-                        </FormControl>
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                      </FormItem>
-                    )} />
-                    <FormField control={form.control} name="reportingTime" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="reportingTime" className="text-right">Reporting Time</ShadFormLabel>
-                        <FormControl className="col-span-3">
-                          <Input id="reportingTime" type="datetime-local" {...field} value={field.value || ""} />
-                        </FormControl>
-                        <FormDescription className="col-start-2 col-span-3 text-xs">Optional. Leave blank if not applicable.</FormDescription>
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                      </FormItem>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="startTime" render={({ field }) => (
+                        <FormItem><ShadFormLabel>Start Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={form.control} name="endTime" render={({ field }) => (
+                        <FormItem><ShadFormLabel>End Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                    </div>
+                     <FormField control={form.control} name="reportingTime" render={({ field }) => (
+                      <FormItem><ShadFormLabel>Reporting Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} value={field.value || ""} /></FormControl><FormDescription className="text-xs">Optional. Leave blank if not applicable.</FormDescription><FormMessage /></FormItem>
                     )} />
                     <FormField
                         control={form.control}
                         name="uniformRequirements"
                         render={() => (
-                          <FormItem className="grid grid-cols-4 items-start gap-x-4">
-                            <ShadFormLabel className="text-right pt-2 col-span-1">Uniform</ShadFormLabel>
-                            <div className="col-span-3 space-y-2">
-                                <FormField
-                                    control={form.control}
-                                    name="uniformRequirements.fetaPaghri"
-                                    render={({ field }) => (
-                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                            <FormControl>
-                                                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                                            </FormControl>
-                                            <ShadFormLabel className="font-normal text-sm">Feta/Paghri Required</ShadFormLabel>
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="uniformRequirements.koti"
-                                    render={({ field }) => (
-                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                            <FormControl>
-                                                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                                            </FormControl>
-                                            <ShadFormLabel className="font-normal text-sm">Koti Required</ShadFormLabel>
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormDescription className="text-xs">If none are selected, only attendance will be marked.</FormDescription>
+                          <FormItem className="space-y-2 pt-2">
+                            <ShadFormLabel className="font-semibold">Uniform Requirements</ShadFormLabel>
+                            <div className="flex gap-4">
+                                <FormField control={form.control} name="uniformRequirements.fetaPaghri" render={({ field }) => (
+                                    <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Feta/Paghri</ShadFormLabel></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="uniformRequirements.koti" render={({ field }) => (
+                                    <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Koti</ShadFormLabel></FormItem>
+                                )}/>
                             </div>
-                            <FormMessage className="col-start-2 col-span-3 text-xs" />
+                            <FormDescription className="text-xs">If none selected, only attendance will be marked.</FormDescription>
                           </FormItem>
                         )}
                     />
                     
-                    <FormField
-                      control={form.control}
-                      name="mohallahIds"
-                      render={({ field }) => (
-                        <FormItem className="grid grid-cols-4 items-start gap-x-4">
-                          <ShadFormLabel className="text-right pt-2 col-span-1">Assigned Mohallahs</ShadFormLabel>
-                          <div className="col-span-3 space-y-1">
-                            <div className="rounded-md border p-3 min-h-[60px] max-h-40 overflow-y-auto space-y-2 bg-background">
-                              {isLoadingMohallahs ? (
-                                <p className="text-sm text-muted-foreground">Loading Mohallahs...</p>
-                              ) : availableMohallahs.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">No Mohallahs found. Please add Mohallahs first.</p>
-                              ) : (
+                    <FormField control={form.control} name="eligibilityType" render={({ field }) => (
+                        <FormItem className="space-y-3 pt-2">
+                            <FormLabel className="font-semibold">Eligibility</FormLabel>
+                            <FormControl>
+                                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
+                                    <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="groups" /></FormControl><FormLabel className="font-normal">By Group (Mohallah/Team)</FormLabel></FormItem>
+                                    <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="specific_members" /></FormControl><FormLabel className="font-normal">By Specific Members</FormLabel></FormItem>
+                                </RadioGroup>
+                            </FormControl>
+                        </FormItem>
+                    )}/>
+                    
+                    {eligibilityType === 'groups' && (
+                        <>
+                        <FormField control={form.control} name="mohallahIds" render={({ field }) => (
+                        <FormItem><ShadFormLabel>Assigned Mohallahs</ShadFormLabel>
+                            <ScrollArea className="rounded-md border p-3 h-40">
+                              {isLoadingMohallahs ? (<p className="text-sm text-muted-foreground">Loading...</p>) : (
                                 availableMohallahs.map((mohallah) => (
-                                  <div key={mohallah.id} className="flex items-center space-x-2">
-                                    <Checkbox
-                                      id={`mohallah-checkbox-${mohallah.id}`}
-                                      checked={field.value?.includes(mohallah.id)}
-                                      onCheckedChange={(checked) => {
-                                        const currentMohallahIds = Array.isArray(field.value) ? field.value : [];
-                                        if (checked) {
-                                          field.onChange([...currentMohallahIds, mohallah.id]);
-                                        } else {
-                                          field.onChange(currentMohallahIds.filter((id) => id !== mohallah.id));
-                                        }
-                                      }}
-                                    />
-                                    <ShadFormLabel htmlFor={`mohallah-checkbox-${mohallah.id}`} className="font-normal text-sm">
-                                      {mohallah.name}
-                                    </ShadFormLabel>
-                                  </div>
+                                  <FormField key={mohallah.id} control={form.control} name="mohallahIds" render={({ field: checkboxField }) => (
+                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
+                                      <FormControl><Checkbox checked={checkboxField.value?.includes(mohallah.id)} onCheckedChange={(checked) => {
+                                        return checked ? checkboxField.onChange([...(checkboxField.value || []), mohallah.id]) : checkboxField.onChange(checkboxField.value?.filter((value) => value !== mohallah.id));
+                                      }} /></FormControl>
+                                      <ShadFormLabel className="font-normal text-sm">{mohallah.name}</ShadFormLabel>
+                                    </FormItem>
+                                  )}/>
                                 ))
                               )}
-                            </div>
-                            <FormDescription className="text-xs">Select Mohallahs for this Miqaat.</FormDescription>
-                            <FormMessage className="text-xs" />
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="teams"
-                      render={({ field }) => (
-                        <FormItem className="grid grid-cols-4 items-start gap-x-4">
-                          <ShadFormLabel className="text-right pt-2 col-span-1">Assigned Teams</ShadFormLabel>
-                          <div className="col-span-3 space-y-1">
-                            <div className="rounded-md border p-3 min-h-[60px] max-h-40 overflow-y-auto space-y-2 bg-background">
-                              {isLoadingTeams ? (
-                                <p className="text-sm text-muted-foreground">Loading Teams...</p>
-                              ) : availableTeams.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">No Teams found. Members need to be assigned teams first.</p>
-                              ) : (
-                                availableTeams.map((teamName) => (
-                                  <div key={teamName} className="flex items-center space-x-2">
-                                    <Checkbox
-                                      id={`team-checkbox-${teamName.replace(/\s+/g, '-')}`}
-                                      checked={field.value?.includes(teamName)}
-                                      onCheckedChange={(checked) => {
-                                        const currentTeamNames = Array.isArray(field.value) ? field.value : [];
-                                        if (checked) {
-                                          field.onChange([...currentTeamNames, teamName]);
-                                        } else {
-                                          field.onChange(currentTeamNames.filter((name) => name !== teamName));
-                                        }
-                                      }}
-                                    />
-                                    <ShadFormLabel htmlFor={`team-checkbox-${teamName.replace(/\s+/g, '-')}`} className="font-normal text-sm">
-                                      {teamName}
-                                    </ShadFormLabel>
-                                  </div>
+                            </ScrollArea>
+                            <FormDescription className="text-xs">Select Mohallahs. Leave empty for all.</FormDescription><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="teams" render={({ field }) => (
+                        <FormItem><ShadFormLabel>Assigned Teams</ShadFormLabel>
+                            <ScrollArea className="rounded-md border p-3 h-40">
+                              {isLoadingTeams ? (<p className="text-sm text-muted-foreground">Loading...</p>) : (
+                                availableTeams.map((team) => (
+                                  <FormField key={team} control={form.control} name="teams" render={({ field: checkboxField }) => (
+                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
+                                      <FormControl><Checkbox checked={checkboxField.value?.includes(team)} onCheckedChange={(checked) => {
+                                        return checked ? checkboxField.onChange([...(checkboxField.value || []), team]) : checkboxField.onChange(checkboxField.value?.filter((value) => value !== team));
+                                      }} /></FormControl>
+                                      <ShadFormLabel className="font-normal text-sm">{team}</ShadFormLabel>
+                                    </FormItem>
+                                  )}/>
                                 ))
                               )}
-                            </div>
-                            <FormDescription className="text-xs">Select Teams for this Miqaat.</FormDescription>
-                            <FormMessage className="text-xs" />
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-
+                            </ScrollArea>
+                            <FormDescription className="text-xs">Select Teams. Leave empty for all.</FormDescription><FormMessage /></FormItem>
+                        )}/>
+                        </>
+                    )}
+                    
+                     {eligibilityType === 'specific_members' && (
+                        <FormField control={form.control} name="eligibleItsIds" render={({ field }) => (
+                            <FormItem><ShadFormLabel>Eligible Members</ShadFormLabel>
+                                <ScrollArea className="rounded-md border p-3 h-60">
+                                {isLoadingUsers ? (<p className="text-sm text-muted-foreground">Loading Users...</p>) : (
+                                    allUsers.map((user) => (
+                                    <FormField key={user.id} control={form.control} name="eligibleItsIds" render={({ field: checkboxField }) => (
+                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
+                                        <FormControl><Checkbox checked={checkboxField.value?.includes(user.itsId)} onCheckedChange={(checked) => {
+                                            return checked ? checkboxField.onChange([...(checkboxField.value || []), user.itsId]) : checkboxField.onChange(checkboxField.value?.filter((value) => value !== user.itsId));
+                                        }} /></FormControl>
+                                        <ShadFormLabel className="font-normal text-sm">{user.name} ({user.itsId})</ShadFormLabel>
+                                        </FormItem>
+                                    )}/>
+                                    ))
+                                )}
+                                </ScrollArea>
+                                <FormDescription className="text-xs">Select individual members eligible for this Miqaat.</FormDescription>
+                            <FormMessage /></FormItem>
+                        )}/>
+                    )}
 
                     <FormField control={form.control} name="barcodeData" render={({ field }) => (
-                      <FormItem className="grid grid-cols-4 items-center gap-x-4">
-                        <ShadFormLabel htmlFor="barcodeData" className="text-right">Barcode Data</ShadFormLabel>
-                        <FormControl className="col-span-3">
-                          <Input id="barcodeData" placeholder="Optional (auto-generates if empty)" {...field} />
-                        </FormControl>
-                        <FormMessage className="col-start-2 col-span-3 text-xs" />
-                      </FormItem>
+                      <FormItem><ShadFormLabel>Barcode Data</ShadFormLabel><FormControl><Input placeholder="Optional (auto-generates if empty)" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <DialogFooter>
                       <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                      <Button type="submit" disabled={form.formState.isSubmitting || isLoadingMohallahs || isLoadingTeams}>
-                        {(form.formState.isSubmitting || isLoadingMohallahs || isLoadingTeams) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <Button type="submit" disabled={form.formState.isSubmitting || isLoadingMohallahs || isLoadingTeams || isLoadingUsers}>
+                        {(form.formState.isSubmitting || isLoadingMohallahs || isLoadingTeams || isLoadingUsers) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {editingMiqaat ? "Save Changes" : "Create Miqaat"}
                       </Button>
                     </DialogFooter>
