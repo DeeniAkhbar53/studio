@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -222,12 +221,12 @@ export default function DashboardLayout({
           </div>
         </div>
       </aside>
-      <div className="flex flex-col md:max-h-screen md:overflow-hidden">
+      <div className="flex flex-col md:h-screen md:overflow-hidden">
         <Header />
         <main className="flex-1 overflow-y-auto bg-background p-4 md:p-6 lg:p-8">
           {children}
         </main>
-        <footer className="border-t bg-card py-3 px-6 text-muted-foreground mt-auto md:mt-0">
+        <footer className="border-t bg-card py-3 px-6 text-muted-foreground mt-auto">
           <div className="text-left">
             <p className="text-xs">&copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
             <p className="text-xs text-muted-foreground/80 mt-0.5">Designed and Managed by Shabbir Shakir</p>
