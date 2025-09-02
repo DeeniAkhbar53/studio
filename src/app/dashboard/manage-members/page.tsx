@@ -398,7 +398,7 @@ export default function ManageMembersPage() {
   };
 
 
-  const handleProcessCsvUpload = async () => {
+ const handleProcessCsvUpload = async () => {
     if (!selectedFile) {
         toast({ title: "No file selected", description: "Please select a CSV file to upload.", variant: "destructive" });
         return;
@@ -406,170 +406,169 @@ export default function ManageMembersPage() {
     setIsCsvProcessing(true);
 
     try {
-      const fileContent = await selectedFile.text();
-      Papa.parse(fileContent, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: header => header.trim(),
-        complete: async (results) => {
-          let successfullyAddedCount = 0;
-          let skippedCount = 0;
-          let errorCount = 0;
-          const failedRecords: { data: any, reason: string }[] = [];
+        const fileContent = await selectedFile.text();
+        Papa.parse(fileContent, {
+            header: true,
+            skipEmptyLines: true,
+            transformHeader: header => header.trim(),
+            complete: async (results) => {
+                let addedCount = 0;
+                let updatedCount = 0;
+                let skippedCount = 0;
+                let errorCount = 0;
+                const failedRecords: { data: any, reason: string }[] = [];
 
-          const dataRows = results.data as any[];
+                const dataRows = results.data as any[];
 
-          for (const row of dataRows) {
-            // Trim all values in the row
-            const trimmedRow: {[key: string]: any} = {};
-            for (const key in row) {
-              const value = (row as any)[key];
-              trimmedRow[key] = typeof value === 'string' ? value.trim() : value;
-            }
-            
-            if (Object.keys(trimmedRow).length === 0 || Object.values(trimmedRow).every(val => val === "" || val === null)) {
-                continue; 
-            }
+                for (const row of dataRows) {
+                    const trimmedRow: {[key: string]: any} = {};
+                    for (const key in row) {
+                        const value = (row as any)[key];
+                        trimmedRow[key] = typeof value === 'string' ? value.trim() : value;
+                    }
 
-            const { name, itsId, mohallahName, role } = trimmedRow;
+                    if (Object.keys(trimmedRow).length === 0 || Object.values(trimmedRow).every(val => val === "" || val === null)) {
+                        continue; 
+                    }
 
-            if (!name || !itsId || !mohallahName || !role) {
-              failedRecords.push({ data: row, reason: `Missing required fields (name, itsId, mohallahName, role). Found: name='${name}', itsId='${itsId}', mohallahName='${mohallahName}', role='${role}'.` });
-              skippedCount++;
-              continue;
-            }
+                    const { name, itsId, mohallahName, role } = trimmedRow;
 
-            const mohallah = mohallahs.find(m => m.name.toLowerCase() === mohallahName.toLowerCase());
-            if (!mohallah) {
-              failedRecords.push({ data: row, reason: `Mohallah "${mohallahName}" not found.` });
-              skippedCount++;
-              continue;
-            }
-            const mohallahId = mohallah.id;
+                    if (!name || !itsId || !mohallahName || !role) {
+                        failedRecords.push({ data: row, reason: `Missing required fields (name, itsId, mohallahName, role). Found: name='${name}', itsId='${itsId}', mohallahName='${mohallahName}', role='${role}'.` });
+                        skippedCount++;
+                        continue;
+                    }
 
-            if (currentUserRole === 'admin' && mohallahId !== currentUserMohallahId) {
-                failedRecords.push({ data: row, reason: `Admins can only import to their assigned Mohallah. Row skipped for Mohallah "${mohallahName}".` });
-                skippedCount++;
-                continue;
-            }
+                    const mohallah = mohallahs.find(m => m.name.toLowerCase() === mohallahName.toLowerCase());
+                    if (!mohallah) {
+                        failedRecords.push({ data: row, reason: `Mohallah "${mohallahName}" not found.` });
+                        skippedCount++;
+                        continue;
+                    }
+                    const mohallahId = mohallah.id;
 
-            try {
-                if (!itsId || typeof itsId !== 'string') {
-                    failedRecords.push({ data: row, reason: `Invalid or missing ITS ID.` });
-                    skippedCount++;
-                    continue;
+                    if (currentUserRole === 'admin' && mohallahId !== currentUserMohallahId) {
+                        failedRecords.push({ data: row, reason: `Admins can only import to their assigned Mohallah. Row skipped for Mohallah "${mohallahName}".` });
+                        skippedCount++;
+                        continue;
+                    }
+
+                    const memberPayloadFromCsv: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string } = {
+                      name: trimmedRow.name,
+                      itsId: trimmedRow.itsId,
+                      email: trimmedRow.email || undefined,
+                      bgkId: trimmedRow.bgkId || undefined, 
+                      password: trimmedRow.password || undefined,
+                      team: trimmedRow.team || undefined,
+                      phoneNumber: trimmedRow.phoneNumber || undefined,
+                      role: trimmedRow.role as UserRole,
+                      mohallahId: mohallahId, 
+                      designation: (trimmedRow.designation as UserDesignation) || "Member", 
+                      pageRights: trimmedRow.pageRights ? trimmedRow.pageRights.split(';').map((s: string) => s.trim()).filter(Boolean) : [],
+                    };
+
+                    const validation = memberSchema.safeParse({
+                        ...memberPayloadFromCsv,
+                        bgkId: memberPayloadFromCsv.bgkId || "", 
+                        team: memberPayloadFromCsv.team || "",
+                        phoneNumber: memberPayloadFromCsv.phoneNumber || "",
+                        email: memberPayloadFromCsv.email || "",
+                        password: memberPayloadFromCsv.password || "",
+                    });
+
+                    if (!validation.success) {
+                        const errorMessages = Object.values(validation.error.flatten().fieldErrors).flat().join(' ');
+                        failedRecords.push({ data: row, reason: `Validation failed: ${errorMessages}` });
+                        skippedCount++;
+                        continue;
+                    }
+                    
+                    const validatedData = validation.data;
+
+                    try {
+                        const existingUser = await getUserByItsOrBgkId(validatedData.itsId);
+
+                        if (existingUser) {
+                            // UPDATE existing user
+                            const updatePayload = {
+                                name: validatedData.name,
+                                email: validatedData.email,
+                                bgkId: validatedData.bgkId,
+                                team: validatedData.team,
+                                phoneNumber: validatedData.phoneNumber,
+                                role: validatedData.role,
+                                designation: validatedData.designation,
+                                pageRights: validatedData.pageRights,
+                                // Password and mohallahId are not updated from CSV for existing users for security/data integrity.
+                            };
+                            await updateUser(existingUser.id, existingUser.mohallahId, updatePayload);
+                            updatedCount++;
+                        } else {
+                            // ADD new user
+                            await addUser(validatedData, mohallahId); 
+                            addedCount++;
+                        }
+                    } catch (dbError: any) {
+                        failedRecords.push({ data: row, reason: `DB Error: ${dbError.message}` });
+                        errorCount++;
+                    }
                 }
-                const existingUser = await getUserByItsOrBgkId(itsId);
-                if (existingUser) {
-                  failedRecords.push({ data: row, reason: `User with ITS ID ${itsId} already exists.` });
-                  skippedCount++;
-                  continue;
+
+                setIsCsvProcessing(false);
+                setIsCsvImportDialogOpen(false);
+                setSelectedFile(null);
+                if (currentUserRole === 'admin' && currentUserMohallahId) {
+                    fetchAndSetMembers(currentUserMohallahId);
+                } else if (currentUserRole === 'superadmin') {
+                    fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
                 }
-              } catch (err: any) {
-                 // Ignore "not found" errors from getUserByItsOrBgkId, but log others
-                 if (!err.message.includes("not found")) {
-                    console.error(`Error checking for duplicate user with ITS ID ${itsId}:`, err);
-                    failedRecords.push({ data: row, reason: `Error checking duplicate for ITS ID ${itsId}: ${err.message}` });
-                    errorCount++; 
-                    continue;
-                 }
-              }
 
+                const totalProcessed = addedCount + updatedCount + skippedCount + errorCount;
+                if (errorCount > 0 || skippedCount > 0) {
+                    toast({
+                        title: "CSV Processed with Issues",
+                        description: `${addedCount} added, ${updatedCount} updated. ${skippedCount} skipped. ${errorCount} failed. Check console for details.`,
+                        variant: "destructive",
+                        duration: 10000,
+                    });
+                } else if (totalProcessed === 0 && dataRows.length > 0) {
+                    toast({
+                        title: "CSV Import Complete",
+                        description: "All rows were skipped or resulted in no changes.",
+                        variant: "default",
+                        duration: 10000,
+                    });
+                } else {
+                    toast({
+                        title: "CSV Import Success",
+                        description: `Successfully processed CSV file. ${addedCount} users added, ${updatedCount} users updated.`,
+                    });
+                }
 
-            const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string } = {
-              name: trimmedRow.name,
-              itsId: trimmedRow.itsId,
-              email: trimmedRow.email || undefined,
-              bgkId: trimmedRow.bgkId || undefined, 
-              password: trimmedRow.password || undefined,
-              team: trimmedRow.team || undefined,
-              phoneNumber: trimmedRow.phoneNumber || undefined,
-              role: trimmedRow.role as UserRole,
-              mohallahId: mohallahId, 
-              designation: (trimmedRow.designation as UserDesignation) || "Member", 
-              pageRights: trimmedRow.pageRights ? trimmedRow.pageRights.split(';').map((s: string) => s.trim()).filter(Boolean) : [],
-            };
-
-            const validation = memberSchema.safeParse({
-                ...memberPayload,
-                bgkId: memberPayload.bgkId || "", 
-                team: memberPayload.team || "",
-                phoneNumber: memberPayload.phoneNumber || "",
-                email: memberPayload.email || "",
-                password: memberPayload.password || "",
-            });
-
-            if (!validation.success) {
-                const errorMessages = Object.values(validation.error.flatten().fieldErrors).flat().join(' ');
-                failedRecords.push({ data: row, reason: `Validation failed: ${errorMessages}` });
-                skippedCount++;
-                continue;
+                if (failedRecords.length > 0) {
+                    console.warn("CSV Import - Skipped/Failed Records:", failedRecords);
+                }
+            },
+            error: (error: any) => {
+                console.error("Error parsing CSV:", error);
+                setIsCsvProcessing(false);
+                toast({
+                    title: "CSV Parsing Error",
+                    description: `Could not parse file: ${error.message}.`,
+                    variant: "destructive",
+                });
             }
-
-            try {
-              await addUser(validation.data, mohallahId); 
-              successfullyAddedCount++;
-            } catch (dbError: any) {
-              failedRecords.push({ data: row, reason: `DB Error: ${dbError.message}` });
-              errorCount++;
-            }
-          }
-
-          setIsCsvProcessing(false);
-          setIsCsvImportDialogOpen(false);
-          setSelectedFile(null);
-          if (currentUserRole === 'admin' && currentUserMohallahId) {
-            fetchAndSetMembers(currentUserMohallahId);
-          } else if (currentUserRole === 'superadmin') {
-            fetchAndSetMembers(selectedFilterMohallahId === 'all' ? undefined : selectedFilterMohallahId);
-          }
-
-          const totalProcessed = successfullyAddedCount + skippedCount + errorCount;
-           if (errorCount > 0 || skippedCount > 0) {
-            toast({
-                title: "CSV Import Processed with Issues",
-                description: `${successfullyAddedCount} added. ${skippedCount} skipped. ${errorCount} failed. Check console for details.`,
-                variant: "destructive",
-                duration: 10000,
-            });
-          } else if (totalProcessed === 0 && dataRows.length > 0) {
-             toast({
-                title: "CSV Import Complete",
-                description: "All rows were skipped. This may be due to existing users or invalid data.",
-                variant: "default",
-                duration: 10000,
-            });
-          } else {
-            toast({
-                title: "CSV Import Success",
-                description: `Successfully processed CSV file. ${successfullyAddedCount} users added.`,
-            });
-          }
-
-          if (failedRecords.length > 0) {
-            console.warn("CSV Import - Skipped/Failed Records:", failedRecords);
-          }
-        },
-        error: (error: any) => {
-          console.error("Error parsing CSV:", error);
-          setIsCsvProcessing(false);
-          toast({
-            title: "CSV Parsing Error",
-            description: `Could not parse file: ${error.message}.`,
-            variant: "destructive",
-          });
-        }
-      });
+        });
     } catch (error) {
-      console.error("Error reading file:", error);
-      setIsCsvProcessing(false);
-      toast({
-        title: "File Read Error",
-        description: "Could not read the selected file.",
-        variant: "destructive",
-      });
+        console.error("Error reading file:", error);
+        setIsCsvProcessing(false);
+        toast({
+            title: "File Read Error",
+            description: "Could not read the selected file.",
+            variant: "destructive",
+        });
     }
-  };
+};
 
 
   const downloadSampleCsv = () => {
@@ -1321,4 +1320,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
