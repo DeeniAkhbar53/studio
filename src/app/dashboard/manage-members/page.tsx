@@ -452,7 +452,7 @@ export default function ManageMembersPage() {
                         skippedCount++;
                         continue;
                     }
-
+                    
                     const memberPayloadFromCsv: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string } = {
                       name: trimmedRow.name,
                       itsId: trimmedRow.itsId,
@@ -488,9 +488,9 @@ export default function ManageMembersPage() {
                     try {
                         const existingUser = await getUserByItsOrBgkId(validatedData.itsId);
 
-                        if (existingUser) {
+                        if (existingUser && existingUser.id) {
                             // UPDATE existing user
-                            const updatePayload = {
+                             const updatePayload: Partial<User> = {
                                 name: validatedData.name,
                                 email: validatedData.email,
                                 bgkId: validatedData.bgkId,
@@ -499,9 +499,10 @@ export default function ManageMembersPage() {
                                 role: validatedData.role,
                                 designation: validatedData.designation,
                                 pageRights: validatedData.pageRights,
-                                // Password and mohallahId are not updated from CSV for existing users for security/data integrity.
+                                // Password is intentionally not updated via CSV for security.
+                                // Mohallah ID is not updated as it would require moving documents.
                             };
-                            await updateUser(existingUser.id, existingUser.mohallahId, updatePayload);
+                            await updateUser(existingUser.id, existingUser.mohallahId!, updatePayload);
                             updatedCount++;
                         } else {
                             // ADD new user
@@ -526,9 +527,9 @@ export default function ManageMembersPage() {
                 const totalProcessed = addedCount + updatedCount + skippedCount + errorCount;
                 if (errorCount > 0 || skippedCount > 0) {
                     toast({
-                        title: "CSV Processed with Issues",
+                        title: "CSV Processed",
                         description: `${addedCount} added, ${updatedCount} updated. ${skippedCount} skipped. ${errorCount} failed. Check console for details.`,
-                        variant: "destructive",
+                        variant: "default",
                         duration: 10000,
                     });
                 } else if (totalProcessed === 0 && dataRows.length > 0) {
@@ -1056,7 +1057,7 @@ export default function ManageMembersPage() {
               {/* Mobile View: List of Cards */}
               <div className="md:hidden space-y-4">
                 {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member) => (
-                  <Card key={member.id} className="w-full" data-state={canManageMembers ? (selectedMemberIds.includes(member.id) ? "selected" : undefined) : undefined}>
+                  <Card key={member.id} className="w-full">
                      <div className="overflow-x-auto">
                         <CardContent className="p-4 flex flex-col gap-4">
                           <div className="flex items-center gap-4">
