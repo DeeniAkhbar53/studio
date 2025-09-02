@@ -434,7 +434,7 @@ export default function ManageMembersPage() {
             const { name, itsId, mohallahName, role } = trimmedRow;
 
             if (!name || !itsId || !mohallahName || !role) {
-              failedRecords.push({ data: row, reason: `Missing required fields. Found: name='${name}', itsId='${itsId}', mohallahName='${mohallahName}', role='${role}'.` });
+              failedRecords.push({ data: row, reason: `Missing required fields (name, itsId, mohallahName, role). Found: name='${name}', itsId='${itsId}', mohallahName='${mohallahName}', role='${role}'.` });
               skippedCount++;
               continue;
             }
@@ -454,23 +454,27 @@ export default function ManageMembersPage() {
             }
 
             try {
-              if (!itsId || typeof itsId !== 'string') {
-                  failedRecords.push({ data: row, reason: `Invalid or missing ITS ID.` });
+                if (!itsId || typeof itsId !== 'string') {
+                    failedRecords.push({ data: row, reason: `Invalid or missing ITS ID.` });
+                    skippedCount++;
+                    continue;
+                }
+                const existingUser = await getUserByItsOrBgkId(itsId);
+                if (existingUser) {
+                  failedRecords.push({ data: row, reason: `User with ITS ID ${itsId} already exists.` });
                   skippedCount++;
                   continue;
+                }
+              } catch (err: any) {
+                 // Ignore "not found" errors from getUserByItsOrBgkId, but log others
+                 if (!err.message.includes("not found")) {
+                    console.error(`Error checking for duplicate user with ITS ID ${itsId}:`, err);
+                    failedRecords.push({ data: row, reason: `Error checking duplicate for ITS ID ${itsId}: ${err.message}` });
+                    errorCount++; 
+                    continue;
+                 }
               }
-              const existingUser = await getUserByItsOrBgkId(itsId);
-              if (existingUser) {
-                failedRecords.push({ data: row, reason: `User with ITS ID ${itsId} already exists.` });
-                skippedCount++;
-                continue;
-              }
-            } catch (err) {
-               console.error(`Error checking for duplicate user with ITS ID ${itsId}:`, err);
-               failedRecords.push({ data: row, reason: `Error checking duplicate for ITS ID ${itsId}.` });
-               errorCount++; 
-               continue;
-            }
+
 
             const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string } = {
               name: trimmedRow.name,
@@ -492,6 +496,7 @@ export default function ManageMembersPage() {
                 team: memberPayload.team || "",
                 phoneNumber: memberPayload.phoneNumber || "",
                 email: memberPayload.email || "",
+                password: memberPayload.password || "",
             });
 
             if (!validation.success) {
@@ -1316,3 +1321,4 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
