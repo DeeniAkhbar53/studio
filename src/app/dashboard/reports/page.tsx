@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -93,7 +94,7 @@ type ReportFormValues = z.infer<typeof reportSchema>;
 type ChartDataItem = { name: string; present: number; late: number; totalAttendance: number };
 type ChartType = "vertical_bar" | "horizontal_bar" | "pie";
 
-const ALL_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Member"];
+const ALL_DESIGNATIONS: UserDesignation[] = ["Asst.Grp Leader", "Captain", "Group Leader", "J.Member", "Major", "Member", "Vice Captain"];
 const ALL_STATUSES: AttendanceRecord['status'][] = ["present", "late", "early", "absent", "safar"];
 
 
@@ -1102,5 +1103,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    

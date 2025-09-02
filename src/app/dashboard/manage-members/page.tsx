@@ -40,7 +40,7 @@ const memberSchema = z.object({
   phoneNumber: z.string().optional().or(z.literal("")),
   role: z.enum(["user", "admin", "superadmin", "attendance-marker"]),
   mohallahId: z.string().min(1, "Mohallah must be selected"),
-  designation: z.enum(["Captain", "Vice Captain", "Member"]).optional().or(z.literal("")),
+  designation: z.enum(["Captain", "Vice Captain", "Member", "Asst.Grp Leader", "Group Leader", "J.Member", "Major"]).optional().or(z.literal("")),
   pageRights: z.array(z.string()).optional().default([]),
 }).refine(data => {
     if ((data.role === 'admin' || data.role === 'superadmin') && (!data.password || data.password.length < 6)) {
@@ -68,7 +68,7 @@ const ALL_ROLES: { value: UserRole, label: string }[] = [
     { value: 'superadmin', label: 'Super Admin' },
 ];
 
-const ALL_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Member"];
+const ALL_DESIGNATIONS: UserDesignation[] = ["Asst.Grp Leader", "Captain", "Group Leader", "J.Member", "Major", "Member", "Vice Captain"];
 
 const AVAILABLE_PAGE_RIGHTS: PageRightConfig[] = [
   { id: 'mark-attendance', label: 'Mark Attendance', path: '/dashboard/mark-attendance', description: 'Allows user to mark attendance for others.' },
@@ -831,9 +831,7 @@ export default function ManageMembersPage() {
                                 <Select onValueChange={field.onChange} value={field.value || "Member"}>
                                   <FormControl><SelectTrigger><SelectValue placeholder="Select designation" /></SelectTrigger></FormControl>
                                   <SelectContent>
-                                    <SelectItem value="Member">Member</SelectItem>
-                                    <SelectItem value="Vice Captain">Vice Captain</SelectItem>
-                                    <SelectItem value="Captain">Captain</SelectItem>
+                                    {ALL_DESIGNATIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                                   </SelectContent>
                                 </Select>
                                 <FormMessage />

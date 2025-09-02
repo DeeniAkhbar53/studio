@@ -1,7 +1,8 @@
 
 
+
 export type UserRole = 'user' | 'admin' | 'superadmin' | 'attendance-marker';
-export type UserDesignation = 'Captain' | 'Vice Captain' | 'Member';
+export type UserDesignation = 'Captain' | 'Vice Captain' | 'Member' | 'Asst.Grp Leader' | 'Group Leader' | 'J.Member' | 'Major';
 
 export type User = {
   id: string;
