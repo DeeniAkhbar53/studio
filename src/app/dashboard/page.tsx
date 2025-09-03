@@ -179,8 +179,16 @@ export default function DashboardOverviewPage() {
       setIsScannerDialogOpen(false);
       return;
     }
-
+    
     const now = new Date();
+    const miqaatStartTime = new Date(targetMiqaat.startTime);
+    if (now < miqaatStartTime) {
+        setScanDisplayMessage({ type: 'error', text: `This Miqaat (${targetMiqaat.name}) has not started yet.` });
+        setIsProcessingScan(false);
+        setIsScannerDialogOpen(false);
+        return;
+    }
+
     const miqaatEndTime = new Date(targetMiqaat.endTime);
 
     if (now > miqaatEndTime) {
@@ -191,7 +199,9 @@ export default function DashboardOverviewPage() {
     }
 
     const uniformReqs = targetMiqaat.uniformRequirements;
-    if (uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti)) {
+    const isUniformRequired = uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti);
+
+    if (isUniformRequired) {
       setScanDisplayMessage({ type: 'error', text: `This Miqaat (${targetMiqaat.name}) requires a manual check-in by management. Please see an attendance marker.` });
       setIsProcessingScan(false);
       setIsScannerDialogOpen(false);

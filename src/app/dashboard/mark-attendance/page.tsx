@@ -213,6 +213,16 @@ export default function MarkAttendancePage() {
         return;
     }
 
+    const miqaatStartTime = new Date(selectedMiqaatDetails.startTime);
+    if (new Date() < miqaatStartTime) {
+        toast({
+            variant: "destructive",
+            title: "Miqaat Has Not Started",
+            description: `Attendance cannot be marked before ${format(miqaatStartTime, "PPp")}.`,
+        });
+        return;
+    }
+
     const miqaatEndTime = new Date(selectedMiqaatDetails.endTime);
     if (new Date() > miqaatEndTime) {
         toast({ title: "Miqaat has ended", description: "This Miqaat is closed and no longer accepting attendance.", variant: "destructive" });
@@ -283,7 +293,7 @@ export default function MarkAttendancePage() {
       setMemberForUniformCheck(member);
       setIsUniformDialogOpen(true);
     } else {
-      finalizeAttendance(member, undefined); // Pass undefined for no uniform check
+      finalizeAttendance(member, undefined);
     }
 
     setIsProcessing(false); // Processing is done after member is found
@@ -329,10 +339,22 @@ export default function MarkAttendancePage() {
         status: attendanceStatus,
     };
     
+     const uniformReqs = selectedMiqaatDetails.uniformRequirements;
+    const isUniformRequired = uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti);
+    
+    const attendanceEntryForSave: MiqaatAttendanceEntryItem = {
+        userItsId: member.itsId,
+        userName: member.name,
+        markedAt: new Date().toISOString(),
+        markedByItsId: markerItsId,
+        status: attendanceStatus,
+        ...(isUniformRequired && compliance ? { uniformCompliance: compliance } : {}),
+    };
+
 
     try {
         if (isOffline) {
-            await savePendingAttendance(selectedMiqaatDetails.id, attendanceEntryPayload);
+            await savePendingAttendance(selectedMiqaatDetails.id, attendanceEntryForSave);
             await checkPendingRecords();
              setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
             toast({
@@ -340,7 +362,7 @@ export default function MarkAttendancePage() {
                 description: `Attendance for ${attendanceEntryPayload.userName} for ${selectedMiqaatDetails.name} saved locally. Sync when online.`,
             });
         } else {
-            await markAttendanceInMiqaat(selectedMiqaatDetails.id, attendanceEntryPayload);
+            await markAttendanceInMiqaat(selectedMiqaatDetails.id, attendanceEntryForSave);
             setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
             toast({
               title: `Attendance Marked (${attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)})`,
