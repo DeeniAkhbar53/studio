@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
@@ -16,6 +16,7 @@ import { getForms } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
+import { DialogFooter } from "@/components/ui/dialog";
 
 interface AdminStat {
   title: string;
@@ -682,8 +683,11 @@ export default function DashboardOverviewPage() {
               <ul className="space-y-2">
                 {absenteeData.absentees.map(member => (
                   <li key={member.id} className="flex justify-between items-center p-2 rounded-md border">
-                    <span>{member.name}</span>
-                    <span className="text-sm text-muted-foreground">{member.itsId}</span>
+                    <div>
+                        <p className="font-medium">{member.name}</p>
+                        <p className="text-xs text-muted-foreground">BGK: {member.bgkId || 'N/A'}</p>
+                    </div>
+                    <span className="text-sm text-muted-foreground">ITS: {member.itsId}</span>
                   </li>
                 ))}
               </ul>
