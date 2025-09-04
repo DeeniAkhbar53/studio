@@ -114,6 +114,7 @@ export interface ReportResultItem {
   id: string;
   userName: string;
   userItsId: string;
+  bgkId?: string;
   team?: string;
   miqaatName: string;
   date?: string; // ISO string

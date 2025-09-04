@@ -239,20 +239,20 @@ export default function ReportsPage() {
           const combinedRecords = eligibleUsers.map(user => {
               const regularEntry = attendanceRecords.find(a => a.userItsId === user.itsId);
               if (regularEntry) {
-                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, team: user.team, miqaatName: selectedMiqaat.name, date: regularEntry.markedAt, status: regularEntry.status || 'present', markedByItsId: regularEntry.markedByItsId, uniformCompliance: regularEntry.uniformCompliance };
+                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, date: regularEntry.markedAt, status: regularEntry.status || 'present', markedByItsId: regularEntry.markedByItsId, uniformCompliance: regularEntry.uniformCompliance };
               }
               const safarEntry = safarRecords.find(s => s.userItsId === user.itsId);
               if (safarEntry) {
-                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, team: user.team, miqaatName: selectedMiqaat.name, date: safarEntry.markedAt, status: 'safar' as const, markedByItsId: safarEntry.markedByItsId };
+                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, date: safarEntry.markedAt, status: 'safar' as const, markedByItsId: safarEntry.markedByItsId };
               }
-              return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, team: user.team, miqaatName: selectedMiqaat.name, date: selectedMiqaat.startTime, status: 'absent' as const };
+              return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, date: selectedMiqaat.startTime, status: 'absent' as const };
           });
 
           // Add non-eligible users if needed for a full roster, but mark them
           if (!isSpecificMemberMiqaat) {
             allUsers.forEach(user => {
               if (!eligibleUsers.some(eu => eu.id === user.id) && !combinedRecords.some(cr => cr.userItsId === user.itsId)) {
-                combinedRecords.push({ id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, team: user.team, miqaatName: selectedMiqaat.name, date: selectedMiqaat.startTime, status: 'not-eligible' as const, });
+                combinedRecords.push({ id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, date: selectedMiqaat.startTime, status: 'not-eligible' as const, });
               }
             });
           }
@@ -282,19 +282,19 @@ export default function ReportsPage() {
       } else if (values.reportType === "miqaat_safar_list" && selectedMiqaat) {
           const safarList = selectedMiqaat.safarList || [];
           reportResultItems = safarList.map(safarEntry => ({
-            id: `${selectedMiqaat.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, team: userMap.get(safarEntry.userItsId)?.team, miqaatName: selectedMiqaat.name, date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId,
+            id: `${selectedMiqaat.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, bgkId: userMap.get(safarEntry.userItsId)?.bgkId, team: userMap.get(safarEntry.userItsId)?.team, miqaatName: selectedMiqaat.name, date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId,
           }));
       } else if (values.reportType === "member_attendance" && values.itsId) {
           const memberHistory: ReportResultItem[] = [];
           for (const miqaat of allMiqaats) {
               const regularAttendance = miqaat.attendance?.find(a => a.userItsId === values.itsId);
               if (regularAttendance) {
-                  memberHistory.push({ id: `${miqaat.id}-${regularAttendance.userItsId}`, userName: regularAttendance.userName, userItsId: regularAttendance.userItsId, team: userMap.get(regularAttendance.userItsId)?.team, miqaatName: miqaat.name, date: regularAttendance.markedAt, status: regularAttendance.status, markedByItsId: regularAttendance.markedByItsId, uniformCompliance: regularAttendance.uniformCompliance });
+                  memberHistory.push({ id: `${miqaat.id}-${regularAttendance.userItsId}`, userName: regularAttendance.userName, userItsId: regularAttendance.userItsId, bgkId: userMap.get(regularAttendance.userItsId)?.bgkId, team: userMap.get(regularAttendance.userItsId)?.team, miqaatName: miqaat.name, date: regularAttendance.markedAt, status: regularAttendance.status, markedByItsId: regularAttendance.markedByItsId, uniformCompliance: regularAttendance.uniformCompliance });
               }
 
               const safarAttendance = miqaat.safarList?.find(s => s.userItsId === values.itsId);
               if (safarAttendance) {
-                  memberHistory.push({ id: `${miqaat.id}-${safarAttendance.userItsId}`, userName: safarAttendance.userName, userItsId: safarAttendance.userItsId, team: userMap.get(safarAttendance.userItsId)?.team, miqaatName: miqaat.name, date: safarAttendance.markedAt, status: 'safar', markedByItsId: safarAttendance.markedByItsId });
+                  memberHistory.push({ id: `${miqaat.id}-${safarAttendance.userItsId}`, userName: safarAttendance.userName, userItsId: safarAttendance.userItsId, bgkId: userMap.get(safarAttendance.userItsId)?.bgkId, team: userMap.get(safarAttendance.userItsId)?.team, miqaatName: miqaat.name, date: safarAttendance.markedAt, status: 'safar', markedByItsId: safarAttendance.markedByItsId });
               }
           }
           reportResultItems = memberHistory.sort((a,b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
@@ -305,9 +305,9 @@ export default function ReportsPage() {
               const attendanceRecords = miqaat.attendance || [];
               const safarRecords = miqaat.safarList || [];
               
-              attendanceRecords.forEach(att => allRecords.push({ id: `${miqaat.id}-${att.userItsId}`, userName: att.userName, userItsId: att.userItsId, team: userMap.get(att.userItsId)?.team, miqaatName: miqaat.name, date: att.markedAt, status: att.status, markedByItsId: att.markedByItsId, uniformCompliance: att.uniformCompliance }));
+              attendanceRecords.forEach(att => allRecords.push({ id: `${miqaat.id}-${att.userItsId}`, userName: att.userName, userItsId: att.userItsId, bgkId: userMap.get(att.userItsId)?.bgkId, team: userMap.get(att.userItsId)?.team, miqaatName: miqaat.name, date: att.markedAt, status: att.status, markedByItsId: att.markedByItsId, uniformCompliance: att.uniformCompliance }));
 
-              safarRecords.forEach(safar => allRecords.push({ id: `${miqaat.id}-${safar.userItsId}`, userName: safar.userName, userItsId: safar.userItsId, team: userMap.get(safar.userItsId)?.team, miqaatName: miqaat.name, date: safar.markedAt, status: 'safar', markedByItsId: safar.markedByItsId }));
+              safarRecords.forEach(safar => allRecords.push({ id: `${miqaat.id}-${safar.userItsId}`, userName: safar.userName, userItsId: safar.userItsId, bgkId: userMap.get(safar.userItsId)?.bgkId, team: userMap.get(safar.userItsId)?.team, miqaatName: miqaat.name, date: safar.markedAt, status: 'safar', markedByItsId: safar.markedByItsId }));
           }
           reportResultItems = allRecords;
 
@@ -326,7 +326,7 @@ export default function ReportsPage() {
         }
 
         const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
-        reportResultItems = nonAttendantUsers.map(user => ({ id: user.id, userName: user.name, userItsId: user.itsId, team: user.team, miqaatName: selectedMiqaat.name, date: new Date(selectedMiqaat.startTime).toISOString(), status: "absent", }));
+        reportResultItems = nonAttendantUsers.map(user => ({ id: user.id, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, date: new Date(selectedMiqaat.startTime).toISOString(), status: "absent", }));
       }
 
       // --- APPLY FILTERS ---
@@ -405,12 +405,13 @@ export default function ReportsPage() {
       toast({ title: "No data to export", description: "Please generate a report first.", variant: "destructive" });
       return;
     }
-    const headers = ["User Name", "ITS ID", "Team", "Miqaat", "Date", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti"];
+    const headers = ["User Name", "ITS ID", "BGK ID", "Team", "Miqaat", "Date", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti"];
     const csvRows = [
       headers.join(','),
       ...reportData.map(row => [
         `"${row.userName.replace(/"/g, '""')}"`,
         row.userItsId,
+        row.bgkId || 'N/A',
         row.team || 'N/A',
         `"${row.miqaatName.replace(/"/g, '""')}"`,
         row.date ? format(new Date(row.date), "yyyy-MM-dd HH:mm:ss") : "N/A",
@@ -984,6 +985,7 @@ export default function ReportsPage() {
                                     <div className="flex-grow">
                                         <p className="font-semibold text-card-foreground">{record.userName}</p>
                                         <p className="text-sm text-muted-foreground">ITS: {record.userItsId}</p>
+                                        <p className="text-sm text-muted-foreground">BGK: {record.bgkId || "N/A"}</p>
                                     </div>
                                     <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
                                     record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
@@ -1032,6 +1034,7 @@ export default function ReportsPage() {
                           )}
                         <TableHead>Member Name</TableHead>
                         <TableHead>ITS ID</TableHead>
+                        <TableHead>BGK ID</TableHead>
                         <TableHead>Team</TableHead>
                         <TableHead>Miqaat</TableHead>
                         <TableHead>Date / Time</TableHead>
@@ -1059,6 +1062,7 @@ export default function ReportsPage() {
                             )}
                             <TableCell className="font-medium">{record.userName}</TableCell>
                             <TableCell>{record.userItsId}</TableCell>
+                            <TableCell>{record.bgkId || 'N/A'}</TableCell>
                             <TableCell>{record.team || 'N/A'}</TableCell>
                             <TableCell>{record.miqaatName}</TableCell>
                             <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
