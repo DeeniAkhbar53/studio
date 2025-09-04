@@ -69,6 +69,7 @@ const ALL_ROLES: { value: UserRole, label: string }[] = [
 ];
 
 const ALL_DESIGNATIONS: UserDesignation[] = ["Asst.Grp Leader", "Captain", "Group Leader", "J.Member", "Major", "Member", "Vice Captain"];
+const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader"];
 
 const AVAILABLE_PAGE_RIGHTS: PageRightConfig[] = [
   { id: 'mark-attendance', label: 'Mark Attendance', path: '/dashboard/mark-attendance', description: 'Allows user to mark attendance for others.' },
@@ -124,7 +125,7 @@ export default function ManageMembersPage() {
   const isTeamLeadView = useMemo(() => {
     if (!currentUserRole || !currentUserDesignation) return false;
     const isAdminOrSuper = currentUserRole === 'admin' || currentUserRole === 'superadmin';
-    const isTeamLead = currentUserDesignation === 'Captain' || currentUserDesignation === 'Vice Captain';
+    const isTeamLead = TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation);
     return !isAdminOrSuper && isTeamLead;
   }, [currentUserRole, currentUserDesignation]);
   
@@ -142,7 +143,7 @@ export default function ManageMembersPage() {
       if (navItem) {
         const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
         const hasPageRight = pageRights.includes(navItem.href);
-        const isDesignatedTeamLead = designation === 'Captain' || designation === 'Vice Captain';
+        const isDesignatedTeamLead = TEAM_LEAD_DESIGNATIONS.includes(designation || 'Member');
         
         if (hasRoleAccess || hasPageRight || isDesignatedTeamLead) {
           setIsAuthorized(true);
@@ -1323,3 +1324,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    

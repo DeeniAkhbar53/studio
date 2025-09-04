@@ -1,16 +1,17 @@
 
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText } from "lucide-react";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX } from "lucide-react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import type { UserRole, Miqaat, MiqaatAttendanceEntryItem, Form as FormType } from "@/types";
+import type { UserRole, UserDesignation, Miqaat, MiqaatAttendanceEntryItem, Form as FormType, User } from "@/types";
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
-import { getUsersCount } from "@/lib/firebase/userService";
+import { getUsers, getUsersCount } from "@/lib/firebase/userService";
 import { getMohallahsCount } from "@/lib/firebase/mohallahService";
 import { getForms } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
@@ -33,13 +34,16 @@ interface ScanDisplayMessage {
   status?: 'present' | 'late' | 'early';
 }
 
+const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader"];
 const qrReaderElementId = "qr-reader-dashboard";
 
 export default function DashboardOverviewPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>("Valued Member");
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
+  const [currentUserTeam, setCurrentUserTeam] = useState<string | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const router = useRouter();
 
@@ -53,6 +57,12 @@ export default function DashboardOverviewPage() {
 
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
+  // Absentee Notification State
+  const [absenteeData, setAbsenteeData] = useState<{ miqaatName: string; absentees: User[] } | null>(null);
+  const [isAbsenteeDialogOpen, setIsAbsenteeDialogOpen] = useState(false);
+  const [isLoadingAbsentees, setIsLoadingAbsentees] = useState(false);
+
+
   const [isScannerDialogOpen, setIsScannerDialogOpen] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const [isScannerActive, setIsScannerActive] = useState(false);
@@ -61,16 +71,27 @@ export default function DashboardOverviewPage() {
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
 
+  const isTeamLead = useMemo(() => {
+    if (!currentUserRole || !currentUserDesignation) return false;
+    const isAdminOrSuper = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+    return !isAdminOrSuper && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation);
+  }, [currentUserRole, currentUserDesignation]);
+
+
   useEffect(() => {
     const storedRole = localStorage.getItem('userRole') as UserRole | null;
+    const storedDesignation = localStorage.getItem('userDesignation') as UserDesignation | null;
     const storedName = localStorage.getItem('userName');
     const storedItsId = localStorage.getItem('userItsId');
     const storedMohallahId = localStorage.getItem('userMohallahId');
+    const storedTeam = localStorage.getItem('userTeam');
 
     if (storedItsId && storedRole) {
       setCurrentUserRole(storedRole);
+      setCurrentUserDesignation(storedDesignation);
       setCurrentUserItsId(storedItsId);
       setCurrentUserMohallahId(storedMohallahId);
+      setCurrentUserTeam(storedTeam);
       if (storedName) {
         setCurrentUserName(storedName);
       }
@@ -157,6 +178,72 @@ export default function DashboardOverviewPage() {
       unsubscribeMiqaats();
     };
   }, [isLoadingUser, currentUserItsId, currentUserRole, currentUserMohallahId]);
+
+   // Effect for Team Lead Absentee Notifications
+  useEffect(() => {
+    if (!isTeamLead || allMiqaatsList.length === 0) {
+      return;
+    }
+
+    const checkAbsentees = async () => {
+      setIsLoadingAbsentees(true);
+      setAbsenteeData(null);
+      try {
+        const now = new Date();
+        const pastMiqaats = allMiqaatsList
+            .filter(m => new Date(m.endTime) < now)
+            .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
+
+        if (pastMiqaats.length === 0) {
+            setIsLoadingAbsentees(false);
+            return; // No past miqaats to check
+        }
+
+        const lastMiqaat = pastMiqaats[0];
+        
+        const allUsers = await getUsers();
+        const teamMembers = allUsers.filter(u => u.team === currentUserTeam);
+
+        if(teamMembers.length === 0) {
+            setIsLoadingAbsentees(false);
+            return; // No members in the leader's team
+        }
+        
+        // Determine eligibility for the last Miqaat
+        const isForEveryone = (!lastMiqaat.mohallahIds || lastMiqaat.mohallahIds.length === 0) && (!lastMiqaat.teams || lastMiqaat.teams.length === 0) && (!lastMiqaat.eligibleItsIds || lastMiqaat.eligibleItsIds.length === 0);
+        
+        const eligibleTeamMembers = teamMembers.filter(member => {
+            if (isForEveryone) return true;
+            if (lastMiqaat.eligibleItsIds && lastMiqaat.eligibleItsIds.length > 0) {
+                return lastMiqaat.eligibleItsIds.includes(member.itsId);
+            }
+            let isEligible = false;
+            if (lastMiqaat.mohallahIds && lastMiqaat.mohallahIds.length > 0) {
+                isEligible = isEligible || (!!member.mohallahId && lastMiqaat.mohallahIds.includes(member.mohallahId));
+            }
+            if (lastMiqaat.teams && lastMiqaat.teams.length > 0) {
+                isEligible = isEligible || (!!member.team && lastMiqaat.teams.includes(member.team));
+            }
+            return isEligible;
+        });
+
+        const attendedItsIds = new Set(lastMiqaat.attendance?.map(a => a.userItsId) || []);
+        
+        const absentMembers = eligibleTeamMembers.filter(member => !attendedItsIds.has(member.itsId));
+
+        if (absentMembers.length > 0) {
+            setAbsenteeData({ miqaatName: lastMiqaat.name, absentees: absentMembers });
+        }
+
+      } catch (error) {
+        console.error("Error checking for team absentees:", error);
+      } finally {
+        setIsLoadingAbsentees(false);
+      }
+    };
+    checkAbsentees();
+
+  }, [isTeamLead, allMiqaatsList, currentUserTeam]);
 
 
   const handleQrCodeScanned = useCallback(async (decodedText: string) => {
@@ -439,12 +526,13 @@ export default function DashboardOverviewPage() {
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-foreground">
               {currentUserRole === 'user' ? `Welcome, ${currentUserName}!` :
+                isTeamLead ? `Team Leader Dashboard: ${currentUserTeam}` :
                 currentUserRole === 'attendance-marker' ? "Attendance Marker Dashboard" : "Admin Dashboard"}
             </CardTitle>
             <Separator className="my-2" />
             <CardDescription className="text-muted-foreground">
               {currentUserRole === 'user' ? "Ready to mark your attendance. Use the scanner icon below for quick check-in." :
-                `Welcome, ${currentUserName}! Role: ${currentUserRole ? currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ') : ''}. ${currentUserRole === 'attendance-marker' ? " Use sidebar for actions." : " Overview of system activity."}`
+                `Welcome, ${currentUserName}! Role: ${currentUserRole ? currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ') : ''}. ${isTeamLead || currentUserRole === 'attendance-marker' ? " Use sidebar for actions." : " Overview of system activity."}`
               }
             </CardDescription>
           </CardHeader>
@@ -454,6 +542,25 @@ export default function DashboardOverviewPage() {
             </CardContent>
           )}
         </Card>
+
+        {isTeamLead && !isLoadingAbsentees && absenteeData && (
+          <Card className="border-destructive/50 bg-destructive/10">
+            <CardHeader>
+              <CardTitle className="flex items-center text-destructive">
+                <UserX className="mr-2 h-6 w-6"/>
+                Team Attendance Alert
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>
+                For Miqaat: <span className="font-semibold">{absenteeData.miqaatName}</span>, you have <span className="font-bold text-lg">{absenteeData.absentees.length}</span> absent member(s) from your team.
+              </p>
+            </CardContent>
+            <CardFooter>
+               <Button variant="destructive" onClick={() => setIsAbsenteeDialogOpen(true)}>View Absentee List</Button>
+            </CardFooter>
+          </Card>
+        )}
 
         {scanDisplayMessage && (
           <Alert variant={scanDisplayMessage.type === 'error' ? 'destructive' : 'default'} className={`mt-4 ${scanDisplayMessage.type === 'success' ? 'border-green-500 bg-green-50 dark:bg-green-900/30' : scanDisplayMessage.type === 'info' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : ''}`}>
@@ -562,6 +669,37 @@ export default function DashboardOverviewPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isAbsenteeDialogOpen} onOpenChange={setIsAbsenteeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Absentee List for {absenteeData?.miqaatName}</DialogTitle>
+            <DialogDescription>
+              The following members from your team were marked absent.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-80 overflow-y-auto my-4">
+            {absenteeData && absenteeData.absentees.length > 0 ? (
+              <ul className="space-y-2">
+                {absenteeData.absentees.map(member => (
+                  <li key={member.id} className="flex justify-between items-center p-2 rounded-md border">
+                    <span>{member.name}</span>
+                    <span className="text-sm text-muted-foreground">{member.itsId}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground text-center">No absentees to display.</p>
+            )}
+          </div>
+          <DialogFooter>
+             <Button onClick={() => setIsAbsenteeDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
+
+    

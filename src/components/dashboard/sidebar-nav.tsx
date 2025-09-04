@@ -17,6 +17,7 @@ interface NavItem {
 }
 
 const ESSENTIAL_PATHS = ["/dashboard", "/dashboard/profile", "/dashboard/notifications"];
+const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader"];
 
 export const allNavItems: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: Home },
@@ -181,10 +182,10 @@ export function SidebarNav() {
         return true;
       }
 
-      // Special check for Manage Members for Captains/Vice Captains
+      // Special check for Manage Members for Team Leads
       if (item.href === '/dashboard/manage-members') {
         if (roleAllowsItem) return true; // Admins/Superadmins can see it
-        const isTeamLead = currentUserDesignation === 'Captain' || currentUserDesignation === 'Vice Captain';
+        const isTeamLead = TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation || 'Member');
         if (isTeamLead) return true; // Team leads can also see it
       }
       
@@ -233,3 +234,5 @@ export function SidebarNav() {
     </nav>
   );
 }
+
+    
