@@ -92,6 +92,15 @@ const reportSchema = z.object({
 type ReportFormValues = z.infer<typeof reportSchema>;
 type ChartDataItem = { name: string; present: number; late: number; totalAttendance: number };
 type ChartType = "vertical_bar" | "horizontal_bar" | "pie";
+type SummaryStats = {
+    totalEligible: number;
+    present: number;
+    late: number;
+    early: number;
+    absent: number;
+    safar: number;
+    attendancePercentage: number;
+};
 
 const ALL_DESIGNATIONS: UserDesignation[] = ["Asst.Grp Leader", "Captain", "Group Leader", "J.Member", "Major", "Member", "Vice Captain"];
 const ALL_STATUSES: AttendanceRecord['status'][] = ["present", "late", "early", "absent", "safar", "not-eligible"];
@@ -101,6 +110,7 @@ export default function ReportsPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [reportData, setReportData] = useState<ReportResultItem[] | null>(null);
+  const [reportSummary, setReportSummary] = useState<SummaryStats | null>(null);
   const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
@@ -198,6 +208,7 @@ export default function ReportsPage() {
     setIsLoading(true);
     setReportData(null); 
     setChartData(null);
+    setReportSummary(null);
     setSelectedIds([]);
     
     let reportResultItems: ReportResultItem[] = [];
@@ -247,6 +258,26 @@ export default function ReportsPage() {
           }
 
           reportResultItems = combinedRecords;
+
+          // --- Calculate Summary Stats BEFORE filtering ---
+          const totalEligible = eligibleUsers.length;
+          const presentCount = combinedRecords.filter(r => r.status === 'present').length;
+          const lateCount = combinedRecords.filter(r => r.status === 'late').length;
+          const earlyCount = combinedRecords.filter(r => r.status === 'early').length;
+          const safarCount = combinedRecords.filter(r => r.status === 'safar').length;
+          const absentCount = totalEligible - (presentCount + lateCount + earlyCount + safarCount);
+          const totalAttended = presentCount + lateCount + earlyCount;
+          const attendancePercentage = totalEligible > 0 ? (totalAttended / totalEligible) * 100 : 0;
+          setReportSummary({
+              totalEligible,
+              present: presentCount,
+              late: lateCount,
+              early: earlyCount,
+              absent: absentCount,
+              safar: safarCount,
+              attendancePercentage,
+          });
+
 
       } else if (values.reportType === "miqaat_safar_list" && selectedMiqaat) {
           const safarList = selectedMiqaat.safarList || [];
@@ -891,6 +922,46 @@ export default function ReportsPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {reportSummary && watchedReportType === 'miqaat_summary' && (
+                <Card className="mb-6 bg-muted/30">
+                    <CardHeader>
+                        <CardTitle className="text-lg">Miqaat Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
+                            <div className="p-2 rounded-lg bg-background">
+                                <p className="text-sm text-muted-foreground">Eligible</p>
+                                <p className="text-2xl font-bold">{reportSummary.totalEligible}</p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
+                                <p className="text-sm text-green-800 dark:text-green-200">Present</p>
+                                <p className="text-2xl font-bold text-green-900 dark:text-green-100">{reportSummary.present}</p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
+                                <p className="text-sm text-yellow-800 dark:text-yellow-200">Late</p>
+                                <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{reportSummary.late}</p>
+                            </div>
+                             <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                                <p className="text-sm text-blue-800 dark:text-blue-200">Early</p>
+                                <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{reportSummary.early}</p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
+                                <p className="text-sm text-red-800 dark:text-red-200">Absent</p>
+                                <p className="text-2xl font-bold text-red-900 dark:text-red-100">{reportSummary.absent}</p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                                <p className="text-sm text-indigo-800 dark:text-indigo-200">Safar</p>
+                                <p className="text-2xl font-bold text-indigo-900 dark:text-indigo-100">{reportSummary.safar}</p>
+                            </div>
+                        </div>
+                         <div className="mt-4 text-center">
+                                <p className="text-lg font-semibold">{reportSummary.attendancePercentage.toFixed(1)}%</p>
+                                <p className="text-sm text-muted-foreground">Attendance Rate (Present+Late+Early / Eligible)</p>
+                            </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {reportData.length > 0 ? (
              <>
                 {/* Mobile View: Cards */}
