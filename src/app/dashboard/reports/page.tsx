@@ -312,21 +312,24 @@ export default function ReportsPage() {
           reportResultItems = allRecords;
 
       } else if (values.reportType === "non_attendance_miqaat" && selectedMiqaat) {
-        const attendedItsIds = new Set(selectedMiqaat.attendedUserItsIds || []);
+          const attendedItsIds = new Set([
+            ...(selectedMiqaat.attendance || []).map(a => a.userItsId),
+            ...(selectedMiqaat.safarList || []).map(s => s.userItsId)
+          ]);
         
-        let eligibleUsers: User[];
-        if (isSpecificMemberMiqaat) {
-          eligibleUsers = allUsers.filter(user => selectedMiqaat.eligibleItsIds!.includes(user.itsId));
-        } else if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
-          eligibleUsers = allUsers.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
-        } else if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
-          eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
-        } else {
-            eligibleUsers = allUsers;
-        }
+          let eligibleUsers: User[];
+          if (isSpecificMemberMiqaat) {
+            eligibleUsers = allUsers.filter(user => selectedMiqaat.eligibleItsIds!.includes(user.itsId));
+          } else if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
+            eligibleUsers = allUsers.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
+          } else if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
+            eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
+          } else {
+              eligibleUsers = allUsers;
+          }
 
-        const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
-        reportResultItems = nonAttendantUsers.map(user => ({ id: user.id, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, date: new Date(selectedMiqaat.startTime).toISOString(), status: "absent", }));
+          const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
+          reportResultItems = nonAttendantUsers.map(user => ({ id: user.id, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, date: new Date(selectedMiqaat.startTime).toISOString(), status: "absent", }));
       }
 
       // --- APPLY FILTERS ---
