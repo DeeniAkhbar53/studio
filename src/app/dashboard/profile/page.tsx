@@ -202,7 +202,7 @@ export default function ProfilePage() {
                 Edit Profile (Soon)
               </Button>
             </div>
-            <p className="text-accent">{user.itsId} {user.bgkId && `/ ${user.bgkId}`}</p>
+            <p className="text-accent">ITS: {user.itsId} {user.bgkId && `/ BGK: ${user.bgkId}`}</p>
             <p className="text-sm text-muted-foreground mt-1">{user.designation || "Member"}</p>
             <div className="mt-2 flex items-center justify-center md:justify-start gap-2 text-sm text-muted-foreground">
               <ShieldCheck className="h-4 w-4 text-primary" />
