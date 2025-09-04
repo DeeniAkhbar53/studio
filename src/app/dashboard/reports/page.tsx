@@ -110,6 +110,7 @@ export default function ReportsPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [reportData, setReportData] = useState<ReportResultItem[] | null>(null);
+  const [reportSearchTerm, setReportSearchTerm] = useState("");
   const [reportSummary, setReportSummary] = useState<SummaryStats | null>(null);
   const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -206,7 +207,8 @@ export default function ReportsPage() {
 
   const onSubmit = async (values: ReportFormValues) => {
     setIsLoading(true);
-    setReportData(null); 
+    setReportData(null);
+    setReportSearchTerm("");
     setChartData(null);
     setReportSummary(null);
     setSelectedIds([]);
@@ -403,15 +405,28 @@ export default function ReportsPage() {
     }
   };
 
+  const filteredReportData = useMemo(() => {
+    if (!reportData) return null;
+    if (!reportSearchTerm.trim()) return reportData;
+
+    const lowercasedTerm = reportSearchTerm.toLowerCase();
+    return reportData.filter(record => 
+        record.userName.toLowerCase().includes(lowercasedTerm) ||
+        record.userItsId.includes(lowercasedTerm) ||
+        (record.bgkId || '').toLowerCase().includes(lowercasedTerm)
+    );
+  }, [reportData, reportSearchTerm]);
+
+
   const handleExport = () => {
-    if (!reportData || reportData.length === 0) {
+    if (!filteredReportData || filteredReportData.length === 0) {
       toast({ title: "No data to export", description: "Please generate a report first.", variant: "destructive" });
       return;
     }
     const headers = ["User Name", "ITS ID", "BGK ID", "Team", "Miqaat", "Date", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti"];
     const csvRows = [
       headers.join(','),
-      ...reportData.map(row => [
+      ...filteredReportData.map(row => [
         `"${row.userName.replace(/"/g, '""')}"`,
         row.userItsId,
         row.bgkId || 'N/A',
@@ -477,7 +492,7 @@ export default function ReportsPage() {
         throw new Error("Could not identify the person marking attendance.");
       }
       
-      const safarEntries: MiqaatSafarEntryItem[] = reportData!
+      const safarEntries: MiqaatSafarEntryItem[] = filteredReportData!
         .filter(record => selectedIds.includes(record.userItsId))
         .map(record => ({
           userItsId: record.userItsId,
@@ -531,8 +546,8 @@ export default function ReportsPage() {
   const isNonAttendanceReport = watchedReportType === 'non_attendance_miqaat';
   
   const handleSelectAllOnPage = (checked: boolean | string) => {
-    if (checked && reportData) {
-      setSelectedIds(reportData.map(r => r.userItsId));
+    if (checked && filteredReportData) {
+      setSelectedIds(filteredReportData.map(r => r.userItsId));
     } else {
       setSelectedIds([]);
     }
@@ -806,7 +821,7 @@ export default function ReportsPage() {
                 <CardTitle>Report Results</CardTitle>
                 <Separator className="my-2" />
                 <CardDescription>
-                    Displaying {reportData.length} record(s) 
+                    Displaying {filteredReportData?.length || 0} of {reportData.length} record(s) 
                     {(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && selectedMiqaatDetails && ` for Miqaat: ${selectedMiqaatDetails.name}`}
                     {watchedReportType === "member_attendance" && form.getValues("itsId") && ` for ITS ID: ${form.getValues("itsId")}`}
                     {form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}
@@ -920,7 +935,7 @@ export default function ReportsPage() {
                     </DialogContent>
                   </Dialog>
                 )}
-                <Button variant="outline" onClick={handleExport} disabled={!reportData || reportData.length === 0 || isLoading} size="sm" className="w-full sm:w-auto">
+                <Button variant="outline" onClick={handleExport} disabled={!filteredReportData || filteredReportData.length === 0 || isLoading} size="sm" className="w-full sm:w-auto">
                   <Download className="mr-2 h-4 w-4" /> Export CSV
                 </Button>
             </div>
@@ -966,11 +981,22 @@ export default function ReportsPage() {
                 </Card>
             )}
 
-            {reportData.length > 0 ? (
+            <div className="relative mb-4">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search report results by name, ITS, or BGK ID..."
+                className="pl-8 w-full md:w-1/2 lg:w-1/3"
+                value={reportSearchTerm}
+                onChange={(e) => setReportSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            {filteredReportData && filteredReportData.length > 0 ? (
              <>
                 {/* Mobile View: Cards */}
                 <div className="md:hidden space-y-4">
-                  {reportData.map((record, index) => (
+                  {filteredReportData.map((record, index) => (
                     <Card key={`${record.id}-${record.date || index}`} className="w-full">
                        <div className="overflow-x-auto">
                             <CardContent className="p-4 flex flex-col gap-2">
@@ -1030,7 +1056,7 @@ export default function ReportsPage() {
                             <TableHead className="w-[50px]">
                               <Checkbox
                                 onCheckedChange={handleSelectAllOnPage}
-                                checked={reportData.length > 0 && selectedIds.length === reportData.length}
+                                checked={filteredReportData.length > 0 && selectedIds.length === filteredReportData.length}
                                 aria-label="Select all"
                               />
                             </TableHead>
@@ -1050,7 +1076,7 @@ export default function ReportsPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {reportData.map((record, index) => (
+                        {filteredReportData.map((record, index) => (
                         <TableRow key={`${record.id}-${record.date || index}`}>
                             {isNonAttendanceReport && (
                                 <TableCell>
@@ -1092,8 +1118,9 @@ export default function ReportsPage() {
                 </div>
              </>
             ) : (
-              <p className="text-center text-muted-foreground py-6">No data found for the selected criteria.</p>
+              <p className="text-center text-muted-foreground py-6">No records found matching your search term.</p>
             )}
+            {!filteredReportData && <p className="text-center text-muted-foreground py-6">No data found for the selected criteria.</p>}
           </CardContent>
         </Card>
       )}
