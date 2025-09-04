@@ -444,7 +444,7 @@ export default function DashboardOverviewPage() {
         console.log("Scanner dialog closed by onOpenChange or external state, stopping scanner.");
         html5QrCodeRef.current.stop()
           .then(() => console.log("Scanner stopped: dialog closed."))
-          .catch(err => console.error("Error stopping scanner (dialog closed):", err));
+          .catch(err => console.error("Error stopping scanner on dialog closed:", err));
       }
       setIsScannerActive(false); // Ensure state reflects scanner is off
       setIsProcessingScan(false); // Reset processing state
@@ -575,7 +575,7 @@ export default function DashboardOverviewPage() {
         )}
 
         {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {statsToDisplay.map((stat) => (
               <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
