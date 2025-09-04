@@ -94,7 +94,7 @@ export default function FormsListPage() {
                             Forms & Surveys
                         </CardTitle>
                         <CardDescription className="mt-1">
-                            Fill out available forms or create new ones if you have permission.
+                            Fill out available forms{canCreateForms && " or create new ones."}
                         </CardDescription>
                     </div>
                     {canCreateForms && (
