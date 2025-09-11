@@ -13,13 +13,20 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form as UIForm, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
-import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save } from "lucide-react";
+import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save, Users, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { addForm } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
+import { useEffect, useState } from "react";
+import type { Mohallah, User } from "@/types";
+import { getMohallahs } from "@/lib/firebase/mohallahService";
+import { getUniqueTeamNames, getUsers } from "@/lib/firebase/userService";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const formQuestionSchema = z.object({
-  id: z.string(), // ID is now required for linking logic
+  id: z.string(),
   label: z.string().min(1, "Question text cannot be empty."),
   type: z.enum(['text', 'textarea', 'checkbox', 'radio', 'select']),
   required: z.boolean(),
@@ -34,6 +41,10 @@ const formBuilderSchema = z.object({
   title: z.string().min(1, "Form title cannot be empty."),
   description: z.string().optional(),
   questions: z.array(formQuestionSchema).min(1, "A form must have at least one question."),
+  eligibilityType: z.enum(['groups', 'specific_members']).default('groups'),
+  mohallahIds: z.array(z.string()).optional().default([]),
+  teams: z.array(z.string()).optional().default([]),
+  eligibleItsIds: z.array(z.string()).optional().default([]),
 });
 
 type FormBuilderValues = z.infer<typeof formBuilderSchema>;
@@ -41,6 +52,12 @@ type FormBuilderValues = z.infer<typeof formBuilderSchema>;
 export default function CreateFormPage() {
     const router = useRouter();
     const { toast } = useToast();
+    
+    const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
+    const [availableTeams, setAvailableTeams] = useState<string[]>([]);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [memberSearchTerm, setMemberSearchTerm] = useState("");
+    const [isLoadingData, setIsLoadingData] = useState(true);
 
     const formBuilder = useForm<FormBuilderValues>({
         resolver: zodResolver(formBuilderSchema),
@@ -48,6 +65,10 @@ export default function CreateFormPage() {
             title: "",
             description: "",
             questions: [{ id: crypto.randomUUID(), label: "", type: 'text', required: false, options: [] }],
+            eligibilityType: "groups",
+            mohallahIds: [],
+            teams: [],
+            eligibleItsIds: [],
         },
     });
 
@@ -56,7 +77,31 @@ export default function CreateFormPage() {
         name: "questions",
     });
 
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoadingData(true);
+            try {
+                const mohallahsPromise = new Promise<Mohallah[]>((resolve, reject) => {
+                    getMohallahs(resolve);
+                });
+                const teamsPromise = getUniqueTeamNames();
+                const usersPromise = getUsers();
+                const [mohallahs, teams, users] = await Promise.all([mohallahsPromise, teamsPromise, usersPromise]);
+                setAvailableMohallahs(mohallahs);
+                setAvailableTeams(teams);
+                setAllUsers(users);
+            } catch (error) {
+                console.error("Failed to fetch form dependency data:", error);
+                toast({ title: "Error", description: "Could not load data for eligibility rules.", variant: "destructive" });
+            } finally {
+                setIsLoadingData(false);
+            }
+        };
+        fetchData();
+    }, [toast]);
+    
     const allQuestions = formBuilder.watch('questions');
+    const eligibilityType = formBuilder.watch("eligibilityType");
 
     const handleCreateFormSubmit = async (values: FormBuilderValues) => {
         const creatorId = typeof window !== "undefined" ? localStorage.getItem('userItsId') : null;
@@ -81,6 +126,9 @@ export default function CreateFormPage() {
                     return questionPayload;
                 }),
                 createdBy: creatorId,
+                mohallahIds: values.eligibilityType === 'groups' ? values.mohallahIds : [],
+                teams: values.eligibilityType === 'groups' ? values.teams : [],
+                eligibleItsIds: values.eligibilityType === 'specific_members' ? values.eligibleItsIds : [],
             };
 
             await addForm(newFormPayload);
@@ -93,6 +141,11 @@ export default function CreateFormPage() {
         }
     };
     
+    const filteredUsers = allUsers.filter(user => {
+      if (!memberSearchTerm) return true;
+      return user.name.toLowerCase().includes(memberSearchTerm.toLowerCase()) || user.itsId.includes(memberSearchTerm);
+    });
+
     return (
         <UIForm {...formBuilder}>
             <form onSubmit={formBuilder.handleSubmit(handleCreateFormSubmit)} className="space-y-6">
@@ -122,6 +175,99 @@ export default function CreateFormPage() {
                         <FormControl>
                              <Textarea placeholder="Form description (optional)" {...formBuilder.register("description")} className="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 p-2" />
                         </FormControl>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Eligibility</CardTitle>
+                        <CardDescription>Define who can see and respond to this form. Leave all options blank to make it available to everyone.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <FormField control={formBuilder.control} name="eligibilityType" render={({ field }) => (
+                            <FormItem className="space-y-3">
+                                <FormControl>
+                                    <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
+                                        <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="groups" /></FormControl><FormLabel className="font-normal">By Group (Mohallah/Team)</FormLabel></FormItem>
+                                        <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="specific_members" /></FormControl><FormLabel className="font-normal">By Specific Members</FormLabel></FormItem>
+                                    </RadioGroup>
+                                </FormControl>
+                            </FormItem>
+                        )}/>
+
+                        {isLoadingData ? <Loader2 className="animate-spin my-4"/> : (
+                           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {eligibilityType === 'groups' && (
+                                <>
+                                 <FormField control={formBuilder.control} name="mohallahIds" render={() => (
+                                    <FormItem><FormLabel>Mohallahs</FormLabel>
+                                        <ScrollArea className="rounded-md border p-3 h-48">
+                                            {availableMohallahs.map((mohallah) => (
+                                            <FormField key={mohallah.id} control={formBuilder.control} name="mohallahIds" render={({ field }) => (
+                                                <FormItem className="flex flex-row items-center space-x-3 space-y-0 mb-2">
+                                                <FormControl><Checkbox checked={field.value?.includes(mohallah.id)} onCheckedChange={(checked) => {
+                                                    return checked ? field.onChange([...(field.value || []), mohallah.id]) : field.onChange(field.value?.filter((value) => value !== mohallah.id));
+                                                }} /></FormControl>
+                                                <FormLabel className="font-normal text-sm">{mohallah.name}</FormLabel>
+                                                </FormItem>
+                                            )}/>
+                                            ))}
+                                        </ScrollArea>
+                                        <FormDescription className="text-xs">Select Mohallahs. Leave empty for all.</FormDescription><FormMessage /></FormItem>
+                                    )}/>
+                                 <FormField control={formBuilder.control} name="teams" render={() => (
+                                    <FormItem><FormLabel>Teams</FormLabel>
+                                        <ScrollArea className="rounded-md border p-3 h-48">
+                                            {availableTeams.map((team) => (
+                                            <FormField key={team} control={formBuilder.control} name="teams" render={({ field }) => (
+                                                <FormItem className="flex flex-row items-center space-x-3 space-y-0 mb-2">
+                                                <FormControl><Checkbox checked={field.value?.includes(team)} onCheckedChange={(checked) => {
+                                                    return checked ? field.onChange([...(field.value || []), team]) : field.onChange(field.value?.filter((value) => value !== team));
+                                                }} /></FormControl>
+                                                <FormLabel className="font-normal text-sm">{team}</FormLabel>
+                                                </FormItem>
+                                            )}/>
+                                            ))}
+                                        </ScrollArea>
+                                        <FormDescription className="text-xs">Select Teams. Leave empty for all.</FormDescription><FormMessage /></FormItem>
+                                    )}/>
+                                </>
+                            )}
+                            {eligibilityType === 'specific_members' && (
+                                <div className="md:col-span-2">
+                                 <FormField control={formBuilder.control} name="eligibleItsIds" render={() => (
+                                    <FormItem>
+                                        <FormLabel>Eligible Members</FormLabel>
+                                         <div className="relative">
+                                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                placeholder="Search by name or ITS ID..."
+                                                value={memberSearchTerm}
+                                                onChange={(e) => setMemberSearchTerm(e.target.value)}
+                                                className="pl-8 mb-2"
+                                            />
+                                        </div>
+                                        <ScrollArea className="rounded-md border p-3 h-60">
+                                        {filteredUsers.map((user) => (
+                                            <FormField key={user.id} control={formBuilder.control} name="eligibleItsIds" render={({ field }) => (
+                                                <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
+                                                <FormControl><Checkbox checked={field.value?.includes(user.itsId)} onCheckedChange={(checked) => {
+                                                    return checked ? field.onChange([...(field.value || []), user.itsId]) : field.onChange(field.value?.filter((value) => value !== user.itsId));
+                                                }} /></FormControl>
+                                                <FormLabel className="font-normal text-sm">{user.name} ({user.itsId})</FormLabel>
+                                                </FormItem>
+                                            )}/>
+                                        ))}
+                                        {filteredUsers.length === 0 && <p className="text-center text-sm text-muted-foreground py-2">No members found.</p>}
+                                        </ScrollArea>
+                                        <FormMessage />
+                                    </FormItem>
+                                 )}/>
+                                </div>
+                            )}
+                           </div>
+                        )}
+
                     </CardContent>
                 </Card>
 
@@ -322,5 +468,3 @@ function ConditionalLogic({ control, watch, setValue, index, allQuestions }: { c
         </div>
     );
 }
-
-    

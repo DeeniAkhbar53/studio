@@ -27,7 +27,7 @@ const formsCollectionRef = collection(db, 'forms');
 // --- Form Management ---
 
 export type FormForAdd = Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'status' | 'updatedAt' | 'updatedBy'>;
-export type FormForUpdate = Pick<Form, 'title' | 'description' | 'questions'> & { updatedBy: string };
+export type FormForUpdate = Partial<Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'status' | 'createdBy'>> & { updatedBy: string };
 
 
 export const addForm = async (formData: FormForAdd): Promise<Form> => {

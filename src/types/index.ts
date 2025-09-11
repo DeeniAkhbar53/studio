@@ -31,6 +31,14 @@ export type MiqaatAttendanceEntryItem = {
   }
 };
 
+export type MiqaatSafarEntryItem = {
+  userItsId: string;
+  userName: string;
+  markedAt: string;
+  markedByItsId: string;
+  status: 'safar';
+}
+
 export type Miqaat = {
   id: string;
   name: string;
@@ -44,6 +52,9 @@ export type Miqaat = {
   location?: string;
   createdAt?: string; // ISO string
   attendance?: MiqaatAttendanceEntryItem[];
+  safarList?: MiqaatSafarEntryItem[];
+  attendedUserItsIds?: string[];
+  uniformRequirements?: { fetaPaghri: boolean, koti: boolean };
 };
 
 export type AttendanceRecord = {
@@ -142,7 +153,10 @@ export interface Form {
   responseCount?: number;
   status: 'open' | 'closed'; // Status for accepting responses
   updatedBy?: string; // ITS ID of user who last updated
-  updatedAt?: string; // ISO string of last update
+  updatedAt?: string; // ISO string
+  mohallahIds?: string[];
+  teams?: string[];
+  eligibleItsIds?: string[];
 }
 
 export interface FormResponse {
