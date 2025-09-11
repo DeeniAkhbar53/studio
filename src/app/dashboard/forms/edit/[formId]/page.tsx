@@ -13,8 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form as UIForm, FormControl, FormMessage, FormItem, FormLabel } from "@/components/ui/form";
-import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save, Link2, Link2Off } from "lucide-react";
+import { Form as UIForm, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
+import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getForm, updateForm } from "@/lib/firebase/formService";
 import type { Form as FormType } from "@/types";
@@ -136,17 +136,26 @@ export default function EditFormPage() {
     return (
         <UIForm {...formBuilder}>
             <form onSubmit={formBuilder.handleSubmit(handleUpdateFormSubmit)} className="space-y-6">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <Button type="button" variant="outline" onClick={() => router.push('/dashboard/forms')} className="w-full sm:w-auto">
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Forms
+                    </Button>
+                    <Button type="submit" disabled={formBuilder.formState.isSubmitting} className="w-full sm:w-auto">
+                        {formBuilder.formState.isSubmitting ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                        ) : (
+                            <Save className="mr-2 h-4 w-4" />
+                        )}
+                        Save Changes
+                    </Button>
+                </div>
+
                 <Card className="shadow-lg">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                             <CardTitle>Edit Form</CardTitle>
-                            <CardDescription className="mt-1">
-                                Modify the title, description, and questions for your form.
-                            </CardDescription>
-                        </div>
-                         <Button type="button" variant="outline" onClick={() => router.push('/dashboard/forms')} className="w-full sm:w-auto mt-2 sm:mt-0">
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Forms
-                        </Button>
+                    <CardHeader>
+                        <CardTitle>Edit Form</CardTitle>
+                        <CardDescription>
+                            Modify the title, description, and questions for your form.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="space-y-2">
@@ -239,16 +248,6 @@ export default function EditFormPage() {
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Question
                         </Button>
                     </CardContent>
-                    <CardFooter className="justify-end">
-                        <Button type="submit" disabled={formBuilder.formState.isSubmitting} className="w-full sm:w-auto">
-                            {formBuilder.formState.isSubmitting ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                            ) : (
-                                <Save className="mr-2 h-4 w-4" />
-                            )}
-                            Save Changes
-                        </Button>
-                    </CardFooter>
                 </Card>
             </form>
         </UIForm>
@@ -293,7 +292,7 @@ function ConditionalLogic({ control, index, allQuestions }: { control: any, inde
 
     const potentialParentQuestions = allQuestions
         .slice(0, index)
-        .filter(q => (q.type === 'radio' || q.type === 'select') && q.options && q.options.length > 0);
+        .filter(q => (q.type === 'radio' || q.type === 'select') && q.options && q.options.length > 0 && q.options.some(opt => opt.value.trim() !== ''));
 
     const selectedParentQuestionId = watch(`questions.${index}.conditional.questionId`);
     const parentQuestion = allQuestions.find(q => q.id === selectedParentQuestionId);
@@ -320,7 +319,7 @@ function ConditionalLogic({ control, index, allQuestions }: { control: any, inde
                     Enable Conditional Logic
                 </Label>
             </div>
-            {potentialParentQuestions.length === 0 && <FormDescription className="text-xs">To use conditional logic, add a 'Radio Button' or 'Dropdown' question before this one.</FormDescription>}
+            {potentialParentQuestions.length === 0 && index > 0 && <FormDescription className="text-xs">To use conditional logic, add a 'Radio Button' or 'Dropdown' question with at least one non-empty option before this one.</FormDescription>}
 
             {isConditional && (
                 <div className="p-4 border rounded-md bg-background space-y-4 animate-in fade-in-0">
@@ -378,4 +377,3 @@ function ConditionalLogic({ control, index, allQuestions }: { control: any, inde
         </div>
     );
 }
-

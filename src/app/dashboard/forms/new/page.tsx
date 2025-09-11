@@ -244,7 +244,7 @@ function ConditionalLogic({ control, index, allQuestions }: { control: any, inde
 
     const potentialParentQuestions = allQuestions
         .slice(0, index)
-        .filter(q => (q.type === 'radio' || q.type === 'select') && q.options && q.options.length > 0);
+        .filter(q => (q.type === 'radio' || q.type === 'select') && q.options && q.options.length > 0 && q.options.some(opt => opt.value.trim() !== ''));
 
     const selectedParentQuestionId = watch(`questions.${index}.conditional.questionId`);
     const parentQuestion = allQuestions.find(q => q.id === selectedParentQuestionId);
@@ -271,7 +271,7 @@ function ConditionalLogic({ control, index, allQuestions }: { control: any, inde
                     Enable Conditional Logic
                 </Label>
             </div>
-            {potentialParentQuestions.length === 0 && index > 0 && <FormDescription className="text-xs">To use conditional logic, add a 'Radio Button' or 'Dropdown' question before this one.</FormDescription>}
+            {potentialParentQuestions.length === 0 && index > 0 && <FormDescription className="text-xs">To use conditional logic, add a 'Radio Button' or 'Dropdown' question with at least one non-empty option before this one.</FormDescription>}
 
             {isConditional && (
                 <div className="p-4 border rounded-md bg-background space-y-4 animate-in fade-in-0">
@@ -329,4 +329,3 @@ function ConditionalLogic({ control, index, allQuestions }: { control: any, inde
         </div>
     );
 }
-
