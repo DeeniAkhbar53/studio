@@ -12,18 +12,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form as UIForm } from "@/components/ui/form";
+import { Form as UIForm, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
 import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { addForm } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 
 const formQuestionSchema = z.object({
-  id: z.string().optional(),
+  id: z.string(), // ID is now required for linking logic
   label: z.string().min(1, "Question text cannot be empty."),
   type: z.enum(['text', 'textarea', 'checkbox', 'radio', 'select']),
   required: z.boolean(),
   options: z.array(z.object({ value: z.string().min(1, "Option cannot be empty.") })).optional(),
+  conditional: z.object({
+    questionId: z.string(),
+    value: z.string(),
+  }).optional(),
 });
 
 const formBuilderSchema = z.object({
@@ -43,14 +47,16 @@ export default function CreateFormPage() {
         defaultValues: {
             title: "",
             description: "",
-            questions: [{ label: "", type: 'text', required: false, options: [] }],
+            questions: [{ id: crypto.randomUUID(), label: "", type: 'text', required: false, options: [] }],
         },
     });
 
-    const { fields, append, remove } = useFieldArray({
+    const { fields, append, remove, move } = useFieldArray({
         control: formBuilder.control,
         name: "questions",
     });
+
+    const allQuestions = formBuilder.watch('questions');
 
     const handleCreateFormSubmit = async (values: FormBuilderValues) => {
         const creatorId = typeof window !== "undefined" ? localStorage.getItem('userItsId') : null;
@@ -64,11 +70,8 @@ export default function CreateFormPage() {
                 title: values.title,
                 description: values.description || "",
                 questions: values.questions.map(q => ({
-                    id: crypto.randomUUID(), // Generate a unique ID for each question
-                    label: q.label,
-                    type: q.type,
-                    required: q.required,
-                    options: q.options?.map(opt => opt.value)
+                    ...q,
+                    options: q.options?.map(opt => opt.value),
                 })),
                 createdBy: creatorId,
             };
@@ -184,6 +187,8 @@ export default function CreateFormPage() {
                                             {(questionType === "radio" || questionType === "checkbox" || questionType === "select") && (
                                                 <OptionsArray control={formBuilder.control} nestIndex={index} />
                                             )}
+
+                                            <ConditionalLogic control={formBuilder.control} index={index} allQuestions={allQuestions} />
                                         </div>
                                     </div>
                                 </Card>
@@ -192,7 +197,7 @@ export default function CreateFormPage() {
                          <Button
                             type="button"
                             variant="outline"
-                            onClick={() => append({ label: "", type: 'text', required: false, options: [] })}>
+                            onClick={() => append({ id: crypto.randomUUID(), label: "", type: 'text', required: false, options: [] })}>
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Question
                         </Button>
                     </CardContent>
@@ -232,3 +237,96 @@ function OptionsArray({ control, nestIndex }: { control: any, nestIndex: number 
         </div>
     );
 }
+
+function ConditionalLogic({ control, index, allQuestions }: { control: any, index: number, allQuestions: any[] }) {
+    const { watch, setValue } = useForm({ control });
+    const isConditional = !!watch(`questions.${index}.conditional`);
+
+    const potentialParentQuestions = allQuestions
+        .slice(0, index)
+        .filter(q => (q.type === 'radio' || q.type === 'select') && q.options && q.options.length > 0);
+
+    const selectedParentQuestionId = watch(`questions.${index}.conditional.questionId`);
+    const parentQuestion = allQuestions.find(q => q.id === selectedParentQuestionId);
+
+    const handleToggleConditional = (checked: boolean) => {
+        if (checked) {
+            setValue(`questions.${index}.conditional`, { questionId: '', value: '' });
+        } else {
+            setValue(`questions.${index}.conditional`, undefined);
+        }
+    };
+    
+    return (
+        <div className="pt-4 space-y-4">
+            <Separator />
+            <div className="flex items-center space-x-2">
+                <Switch
+                    id={`conditional-switch-${index}`}
+                    checked={isConditional}
+                    onCheckedChange={handleToggleConditional}
+                    disabled={potentialParentQuestions.length === 0}
+                />
+                <Label htmlFor={`conditional-switch-${index}`} className={potentialParentQuestions.length === 0 ? "text-muted-foreground" : ""}>
+                    Enable Conditional Logic
+                </Label>
+            </div>
+            {potentialParentQuestions.length === 0 && index > 0 && <FormDescription className="text-xs">To use conditional logic, add a 'Radio Button' or 'Dropdown' question before this one.</FormDescription>}
+
+            {isConditional && (
+                <div className="p-4 border rounded-md bg-background space-y-4 animate-in fade-in-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <Controller
+                            name={`questions.${index}.conditional.questionId`}
+                            control={control}
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Show this question when...</FormLabel>
+                                    <Select onValueChange={(value) => {
+                                        field.onChange(value);
+                                        setValue(`questions.${index}.conditional.value`, ''); // Reset value when parent changes
+                                    }} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select a question..." />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {potentialParentQuestions.map(q => (
+                                                <SelectItem key={q.id} value={q.id}>{q.label}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </FormItem>
+                            )}
+                        />
+                        <Controller
+                            name={`questions.${index}.conditional.value`}
+                            control={control}
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>...equals</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value} disabled={!parentQuestion}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder={!parentQuestion ? "Select question first" : "Select an answer..."} />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {parentQuestion?.options?.map((opt: {value: string}, optIndex: number) => (
+                                                <SelectItem key={`${opt.value}-${optIndex}`} value={opt.value}>
+                                                    {opt.value}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+

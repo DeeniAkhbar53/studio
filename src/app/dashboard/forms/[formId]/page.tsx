@@ -66,6 +66,93 @@ const generateFormSchemaAndDefaults = (form: FormType | null) => {
     };
 };
 
+// Component to render a question, with conditional logic check
+const QuestionRenderer = ({ question, index, control, responseData }: { question: FormType['questions'][0], index: number, control: any, responseData: any }) => {
+    
+    if (question.conditional) {
+        const parentQuestionValue = responseData[question.conditional.questionId];
+        if (parentQuestionValue !== question.conditional.value) {
+            return null; // Don't render this question
+        }
+    }
+
+    return (
+        <FormField
+            key={question.id}
+            control={control}
+            name={question.id}
+            render={({ field }) => (
+                <FormItem className="p-4 md:p-6 rounded-lg border bg-background shadow-sm animate-in fade-in-0 duration-500">
+                    <FormLabel className="text-lg font-semibold flex items-baseline gap-2">
+                        <span>{index + 1}.</span>
+                        {question.label}
+                        {question.required && <span className="text-destructive text-sm font-normal">* required</span>}
+                    </FormLabel>
+                    <FormControl className="pt-4">
+                        <div>
+                            {question.type === 'text' && <Input {...field} value={field.value || ''} />}
+                            {question.type === 'textarea' && <Textarea {...field} value={field.value || ''} rows={4} />}
+                            {question.type === 'radio' && (
+                                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-2">
+                                    {question.options?.map(option => (
+                                        <FormItem key={option} className="flex items-center space-x-3 space-y-0">
+                                            <FormControl>
+                                                <RadioGroupItem value={option} />
+                                            </FormControl>
+                                            <FormLabel className="font-normal">{option}</FormLabel>
+                                        </FormItem>
+                                    ))}
+                                </RadioGroup>
+                            )}
+                            {question.type === 'select' && (
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <SelectTrigger><SelectValue placeholder="Select an option" /></SelectTrigger>
+                                    <SelectContent>
+                                        {question.options?.map(option => (
+                                            <SelectItem key={option} value={option}>{option}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                            {question.type === 'checkbox' && (
+                                <div className="space-y-2">
+                                    {question.options?.map(option => (
+                                        <FormField
+                                            key={option}
+                                            control={control}
+                                            name={question.id}
+                                            render={({ field: checkboxField }) => {
+                                                const currentValues = (checkboxField.value as string[] | undefined) || [];
+                                                return (
+                                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                                        <FormControl>
+                                                            <Checkbox
+                                                                checked={currentValues.includes(option)}
+                                                                onCheckedChange={(checked) => {
+                                                                    return checked
+                                                                        ? checkboxField.onChange([...currentValues, option])
+                                                                        : checkboxField.onChange(currentValues.filter(v => v !== option));
+                                                                }}
+                                                            />
+                                                        </FormControl>
+                                                        <FormLabel className="font-normal">{option}</FormLabel>
+                                                    </FormItem>
+                                                );
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
+    );
+};
+
+
 export default function FillFormPage() {
     const router = useRouter();
     const params = useParams();
@@ -87,6 +174,8 @@ export default function FillFormPage() {
         resolver: zodResolver(formSchema),
         defaultValues: defaultValues,
     });
+
+    const watchedResponses = responseForm.watch();
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -294,78 +383,13 @@ export default function FillFormPage() {
                         )}
 
                         <CardContent className="pt-0 pb-6 px-4 md:px-8 space-y-8">
-                            {form.questions.map((question, index) => (
-                                 <FormField
+                           {form.questions.map((question, index) => (
+                                <QuestionRenderer
                                     key={question.id}
+                                    question={question}
+                                    index={index}
                                     control={responseForm.control}
-                                    name={question.id}
-                                    render={({ field }) => (
-                                        <FormItem className="p-4 md:p-6 rounded-lg border bg-background shadow-sm">
-                                            <FormLabel className="text-lg font-semibold flex items-baseline gap-2">
-                                                <span>{index + 1}.</span>
-                                                {question.label} 
-                                                {question.required && <span className="text-destructive text-sm font-normal">* required</span>}
-                                            </FormLabel>
-                                            <FormControl className="pt-4">
-                                                <div>
-                                                    {question.type === 'text' && <Input {...field} value={field.value || ''} />}
-                                                    {question.type === 'textarea' && <Textarea {...field} value={field.value || ''} rows={4} />}
-                                                    {question.type === 'radio' && (
-                                                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-2">
-                                                            {question.options?.map(option => (
-                                                                <FormItem key={option} className="flex items-center space-x-3 space-y-0">
-                                                                    <FormControl>
-                                                                        <RadioGroupItem value={option} />
-                                                                    </FormControl>
-                                                                    <FormLabel className="font-normal">{option}</FormLabel>
-                                                                </FormItem>
-                                                            ))}
-                                                        </RadioGroup>
-                                                    )}
-                                                    {question.type === 'select' && (
-                                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                            <SelectTrigger><SelectValue placeholder="Select an option" /></SelectTrigger>
-                                                            <SelectContent>
-                                                                {question.options?.map(option => (
-                                                                    <SelectItem key={option} value={option}>{option}</SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    )}
-                                                    {question.type === 'checkbox' && (
-                                                        <div className="space-y-2">
-                                                            {question.options?.map(option => (
-                                                                <FormField
-                                                                    key={option}
-                                                                    control={responseForm.control}
-                                                                    name={question.id}
-                                                                    render={({ field: checkboxField }) => {
-                                                                        const currentValues = (checkboxField.value as string[] | undefined) || [];
-                                                                        return (
-                                                                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                                                <FormControl>
-                                                                                    <Checkbox
-                                                                                        checked={currentValues.includes(option)}
-                                                                                        onCheckedChange={(checked) => {
-                                                                                            return checked
-                                                                                                ? checkboxField.onChange([...currentValues, option])
-                                                                                                : checkboxField.onChange(currentValues.filter(v => v !== option));
-                                                                                        }}
-                                                                                    />
-                                                                                </FormControl>
-                                                                                <FormLabel className="font-normal">{option}</FormLabel>
-                                                                            </FormItem>
-                                                                        );
-                                                                    }}
-                                                                />
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
+                                    responseData={watchedResponses}
                                 />
                             ))}
                         </CardContent>

@@ -1,5 +1,4 @@
 
-
 export type UserRole = 'user' | 'admin' | 'superadmin' | 'attendance-marker';
 export type UserDesignation = 'Captain' | 'Vice Captain' | 'Member' | 'Asst.Grp Leader' | 'Group Leader' | 'J.Member' | 'Major';
 
@@ -143,6 +142,10 @@ export interface FormQuestion {
   type: FormFieldType;
   required: boolean;
   options?: string[]; // For radio, checkbox, select
+  conditional?: {
+    questionId: string; // ID of the question this one depends on
+    value: string; // The answer value that must be selected to show this question
+  };
 }
 
 export interface Form {
