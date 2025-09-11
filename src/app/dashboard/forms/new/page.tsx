@@ -96,18 +96,12 @@ export default function CreateFormPage() {
         <div className="min-h-screen bg-muted flex flex-col items-center py-8 md:py-12 px-4">
             <UIForm {...formBuilder}>
                 <form onSubmit={formBuilder.handleSubmit(handleCreateFormSubmit)} className="w-full max-w-3xl space-y-6">
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 z-10 bg-muted/80 backdrop-blur-sm py-4 rounded-lg">
-                        <Button type="button" variant="outline" onClick={() => router.push('/dashboard/forms')} className="w-full sm:w-auto">
+                    <div className="flex items-center justify-between">
+                         <h2 className="text-2xl font-bold text-foreground">
+                            Create New Form
+                        </h2>
+                        <Button type="button" variant="outline" onClick={() => router.push('/dashboard/forms')} className="w-auto">
                             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Forms
-                        </Button>
-                        <h2 className="text-lg font-semibold hidden md:block">New Form</h2>
-                        <Button type="submit" disabled={formBuilder.formState.isSubmitting} className="w-full sm:w-auto">
-                            {formBuilder.formState.isSubmitting ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                            ) : (
-                                <Save className="mr-2 h-4 w-4" />
-                            )}
-                            Save and Continue
                         </Button>
                     </div>
                     
@@ -196,6 +190,18 @@ export default function CreateFormPage() {
                             <PlusCircle className="mr-2 h-4 w-4" /> Add Question
                         </Button>
                     </div>
+
+                    <div className="flex justify-end pt-4">
+                        <Button type="submit" size="lg" disabled={formBuilder.formState.isSubmitting}>
+                            {formBuilder.formState.isSubmitting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                            ) : (
+                                <Save className="mr-2 h-4 w-4" />
+                            )}
+                            Save and Continue
+                        </Button>
+                    </div>
+
                 </form>
             </UIForm>
         </div>
