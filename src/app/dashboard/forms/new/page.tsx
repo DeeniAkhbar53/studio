@@ -69,10 +69,17 @@ export default function CreateFormPage() {
             const newFormPayload = {
                 title: values.title,
                 description: values.description || "",
-                questions: values.questions.map(q => ({
-                    ...q,
-                    options: q.options?.map(opt => opt.value),
-                })),
+                questions: values.questions.map(q => {
+                    const { conditional, ...restOfQuestion } = q;
+                    const questionPayload: any = {
+                        ...restOfQuestion,
+                        options: restOfQuestion.options?.map(opt => opt.value),
+                    };
+                    if (conditional && conditional.questionId && conditional.value) {
+                        questionPayload.conditional = conditional;
+                    }
+                    return questionPayload;
+                }),
                 createdBy: creatorId,
             };
 
