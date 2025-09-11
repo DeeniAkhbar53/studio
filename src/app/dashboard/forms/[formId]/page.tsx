@@ -19,6 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { Form as FormType, FormResponse } from "@/types";
 import { getForm, addFormResponse, checkIfUserHasResponded } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+
 
 // Helper function to generate schema and defaults
 const generateFormSchemaAndDefaults = (form: FormType | null) => {
@@ -374,15 +376,15 @@ export default function FillFormPage() {
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                             <div>
-                                <FormLabel>Full Name</FormLabel>
+                                <Label>Full Name</Label>
                                 <p className="font-medium text-muted-foreground">{currentUser.name}</p>
                             </div>
                             <div>
-                                <FormLabel>ITS ID</FormLabel>
+                                <Label>ITS ID</Label>
                                 <p className="font-medium text-muted-foreground">{currentUser.itsId}</p>
                             </div>
                             <div>
-                                <FormLabel>BGK ID</FormLabel>
+                                <Label>BGK ID</Label>
                                 <p className="font-medium text-muted-foreground">{currentUser.bgkId || "N/A"}</p>
                             </div>
                         </CardContent>
