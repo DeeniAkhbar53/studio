@@ -256,7 +256,7 @@ function ConditionalLogic({ control, watch, setValue, index, allQuestions }: { c
 
     const potentialParentQuestions = allQuestions
         .slice(0, index)
-        .filter(q => (q.type === 'radio' || q.type === 'select') && q.options && q.options.length > 0 && q.options.some(opt => opt.value.trim() !== ''));
+        .filter(q => (q.type === 'radio' || q.type === 'select') && q.options && q.options.length > 0);
 
     const selectedParentQuestionId = watch(`questions.${index}.conditional.questionId`);
     const parentQuestion = allQuestions.find(q => q.id === selectedParentQuestionId);
