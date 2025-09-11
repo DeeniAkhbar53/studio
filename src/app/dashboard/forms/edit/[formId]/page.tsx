@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form as UIForm, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
+import { Form as UIForm, FormControl, FormMessage, FormItem, FormLabel, FormDescription, FormField } from "@/components/ui/form";
 import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save, Users, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getForm, updateForm } from "@/lib/firebase/formService";
