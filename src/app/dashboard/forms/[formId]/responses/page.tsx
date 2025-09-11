@@ -287,16 +287,16 @@ export default function ViewResponsesPage() {
                                     </p>
                                 </div>
                             ) : (
-                                <div className="border rounded-lg overflow-hidden">
+                                <div className="border rounded-lg overflow-x-auto">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Submitter</TableHead>
-                                            <TableHead>Submitted At</TableHead>
+                                            <TableHead className="whitespace-nowrap">Submitter</TableHead>
+                                            <TableHead className="whitespace-nowrap">Submitted At</TableHead>
                                             {form?.questions.map(q => (
-                                                <TableHead key={q.id}>{q.label}</TableHead>
+                                                <TableHead key={q.id} className="whitespace-nowrap">{q.label}</TableHead>
                                             ))}
-                                            {canManageResponses && <TableHead className="text-right">Actions</TableHead>}
+                                            {canManageResponses && <TableHead className="text-right whitespace-nowrap">Actions</TableHead>}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -367,15 +367,15 @@ export default function ViewResponsesPage() {
                                     <p className="text-lg font-medium text-muted-foreground">All members have responded!</p>
                                 </div>
                             ) : (
-                                <div className="border rounded-lg overflow-hidden">
+                                <div className="border rounded-lg overflow-x-auto">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            <TableHead>Name</TableHead>
-                                            <TableHead>ITS ID</TableHead>
-                                            <TableHead>BGK ID</TableHead>
-                                            <TableHead>Team</TableHead>
-                                            <TableHead>Mohallah</TableHead>
+                                            <TableHead className="whitespace-nowrap">Name</TableHead>
+                                            <TableHead className="whitespace-nowrap">ITS ID</TableHead>
+                                            <TableHead className="whitespace-nowrap">BGK ID</TableHead>
+                                            <TableHead className="whitespace-nowrap">Team</TableHead>
+                                            <TableHead className="whitespace-nowrap">Mohallah</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -399,3 +399,5 @@ export default function ViewResponsesPage() {
         </div>
     );
 }
+
+    
