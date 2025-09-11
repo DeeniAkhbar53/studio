@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form as UIForm, FormControl, FormMessage, FormItem, FormLabel, FormDescription, FormField } from "@/components/ui/form";
+import { Form as UIForm, FormControl, FormMessage, FormItem, FormLabel, FormField, FormDescription } from "@/components/ui/form";
 import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save, Users, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getForm, updateForm } from "@/lib/firebase/formService";
@@ -190,212 +190,211 @@ export default function EditFormPage() {
 
     if (isLoading) {
         return (
-            <div className="flex h-full w-full items-center justify-center p-4">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="ml-2 text-muted-foreground">Loading form builder...</p>
+            <div className="flex h-screen items-center justify-center bg-muted p-4">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
         );
     }
     
     return (
-        <UIForm {...formBuilder}>
-            <form onSubmit={formBuilder.handleSubmit(handleUpdateFormSubmit)} className="space-y-6">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 z-10 bg-background/80 backdrop-blur-sm py-4 -my-4 px-1 -mx-1">
-                    <Button type="button" variant="outline" onClick={() => router.push('/dashboard/forms')} className="w-full sm:w-auto">
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Forms
-                    </Button>
-                    <h2 className="text-lg font-semibold hidden md:block">Form Editor</h2>
-                    <Button type="submit" disabled={formBuilder.formState.isSubmitting} className="w-full sm:w-auto">
-                        {formBuilder.formState.isSubmitting ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                        ) : (
-                            <Save className="mr-2 h-4 w-4" />
-                        )}
-                        Save Changes
-                    </Button>
-                </div>
-
-                <Card>
-                    <CardHeader>
-                        <FormControl>
-                            <Input placeholder="Form Title" {...formBuilder.register("title")} className="text-2xl font-bold h-auto p-2 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
-                        </FormControl>
-                        {formBuilder.formState.errors.title && <p className="text-sm text-destructive">{formBuilder.formState.errors.title.message}</p>}
-                    </CardHeader>
-                    <CardContent>
-                        <FormControl>
-                            <Textarea placeholder="Form description (optional)" {...formBuilder.register("description")} className="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 p-2" />
-                        </FormControl>
-                    </CardContent>
-                </Card>
-                
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Eligibility</CardTitle>
-                        <CardDescription>Define who can see and respond to this form. Leave all options blank to make it available to everyone.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <FormField control={formBuilder.control} name="eligibilityType" render={({ field }) => (
-                            <FormItem className="space-y-3">
-                                <FormControl>
-                                    <RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-4">
-                                        <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="groups" /></FormControl><FormLabel className="font-normal">By Group (Mohallah/Team)</FormLabel></FormItem>
-                                        <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="specific_members" /></FormControl><FormLabel className="font-normal">By Specific Members</FormLabel></FormItem>
-                                    </RadioGroup>
-                                </FormControl>
-                            </FormItem>
-                        )}/>
-
-                        {isLoadingData ? <Loader2 className="animate-spin my-4"/> : (
-                           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {eligibilityType === 'groups' && (
-                                <>
-                                 <FormField control={formBuilder.control} name="mohallahIds" render={() => (
-                                    <FormItem><FormLabel>Mohallahs</FormLabel>
-                                        <ScrollArea className="rounded-md border p-3 h-48">
-                                            {availableMohallahs.map((mohallah) => (
-                                            <FormField key={mohallah.id} control={formBuilder.control} name="mohallahIds" render={({ field }) => (
-                                                <FormItem className="flex flex-row items-center space-x-3 space-y-0 mb-2">
-                                                <FormControl><Checkbox checked={field.value?.includes(mohallah.id)} onCheckedChange={(checked) => {
-                                                    return checked ? field.onChange([...(field.value || []), mohallah.id]) : field.onChange(field.value?.filter((value) => value !== mohallah.id));
-                                                }} /></FormControl>
-                                                <FormLabel className="font-normal text-sm">{mohallah.name}</FormLabel>
-                                                </FormItem>
-                                            )}/>
-                                            ))}
-                                        </ScrollArea>
-                                        <FormDescription className="text-xs">Select Mohallahs. Leave empty for all.</FormDescription><FormMessage /></FormItem>
-                                    )}/>
-                                 <FormField control={formBuilder.control} name="teams" render={() => (
-                                    <FormItem><FormLabel>Teams</FormLabel>
-                                        <ScrollArea className="rounded-md border p-3 h-48">
-                                            {availableTeams.map((team) => (
-                                            <FormField key={team} control={formBuilder.control} name="teams" render={({ field }) => (
-                                                <FormItem className="flex flex-row items-center space-x-3 space-y-0 mb-2">
-                                                <FormControl><Checkbox checked={field.value?.includes(team)} onCheckedChange={(checked) => {
-                                                    return checked ? field.onChange([...(field.value || []), team]) : field.onChange(field.value?.filter((value) => value !== team));
-                                                }} /></FormControl>
-                                                <FormLabel className="font-normal text-sm">{team}</FormLabel>
-                                                </FormItem>
-                                            )}/>
-                                            ))}
-                                        </ScrollArea>
-                                        <FormDescription className="text-xs">Select Teams. Leave empty for all.</FormDescription><FormMessage /></FormItem>
-                                    )}/>
-                                </>
+        <div className="min-h-screen bg-muted flex flex-col items-center py-8 md:py-12 px-4">
+            <UIForm {...formBuilder}>
+                <form onSubmit={formBuilder.handleSubmit(handleUpdateFormSubmit)} className="w-full max-w-3xl space-y-6">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 z-10 bg-muted/80 backdrop-blur-sm py-4 rounded-lg">
+                        <Button type="button" variant="outline" onClick={() => router.push('/dashboard/forms')} className="w-full sm:w-auto">
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+                        </Button>
+                        <h2 className="text-lg font-semibold hidden md:block">Form Editor</h2>
+                        <Button type="submit" disabled={formBuilder.formState.isSubmitting} className="w-full sm:w-auto">
+                            {formBuilder.formState.isSubmitting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                            ) : (
+                                <Save className="mr-2 h-4 w-4" />
                             )}
-                            {eligibilityType === 'specific_members' && (
-                                <div className="md:col-span-2">
-                                 <FormField control={formBuilder.control} name="eligibleItsIds" render={() => (
-                                    <FormItem>
-                                        <FormLabel>Eligible Members</FormLabel>
-                                         <div className="relative">
-                                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                            <Input
-                                                placeholder="Search by name or ITS ID..."
-                                                value={memberSearchTerm}
-                                                onChange={(e) => setMemberSearchTerm(e.target.value)}
-                                                className="pl-8 mb-2"
-                                            />
-                                        </div>
-                                        <ScrollArea className="rounded-md border p-3 h-60">
-                                        {filteredUsers.map((user) => (
-                                            <FormField key={user.id} control={formBuilder.control} name="eligibleItsIds" render={({ field }) => (
-                                                <FormItem className="flex flex-row items-center space-x-3 space-y-0 mb-2">
-                                                <FormControl><Checkbox checked={field.value?.includes(user.itsId)} onCheckedChange={(checked) => {
-                                                    return checked ? field.onChange([...(field.value || []), user.itsId]) : field.onChange(field.value?.filter((value) => value !== user.itsId));
-                                                }} /></FormControl>
-                                                <FormLabel className="font-normal text-sm">{user.name} ({user.itsId})</FormLabel>
-                                                </FormItem>
-                                            )}/>
-                                        ))}
-                                        {filteredUsers.length === 0 && <p className="text-center text-sm text-muted-foreground py-2">No members found.</p>}
-                                        </ScrollArea>
-                                        <FormMessage />
-                                    </FormItem>
-                                 )}/>
-                                </div>
-                            )}
-                           </div>
-                        )}
-                    </CardContent>
-                </Card>
+                            Save Changes
+                        </Button>
+                    </div>
 
-                <div className="space-y-4">
-                    {fields.map((field, index) => {
-                        const questionType = formBuilder.watch(`questions.${index}.type`);
-                        return (
-                            <Card key={field.id} className="p-4 relative">
-                                <div className="flex gap-2 sm:gap-4">
-                                     <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab shrink-0 mt-2" />
-                                    <div className="flex-grow space-y-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <FormControl>
-                                                <Input placeholder={`Question ${index + 1}`} {...formBuilder.register(`questions.${index}.label`)} className="font-semibold text-base h-auto p-2 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
-                                            </FormControl>
-                                            <div className="flex items-center gap-4">
-                                                <Controller
-                                                    control={formBuilder.control}
-                                                    name={`questions.${index}.type`}
-                                                    render={({ field }) => (
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                            <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="text">Text (Single Line)</SelectItem>
-                                                                <SelectItem value="textarea">Text Area (Multi-line)</SelectItem>
-                                                                <SelectItem value="radio">Radio Buttons</SelectItem>
-                                                                <SelectItem value="checkbox">Checkboxes</SelectItem>
-                                                                <SelectItem value="select">Dropdown</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    )}
+                    <Card className="overflow-hidden">
+                         <div className="bg-primary/10 p-6 border-b-4 border-primary">
+                            <FormControl>
+                                <Input placeholder="Form Title" {...formBuilder.register("title")} className="text-3xl font-bold h-auto p-2 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent" />
+                            </FormControl>
+                            {formBuilder.formState.errors.title && <p className="text-sm text-destructive mt-2">{formBuilder.formState.errors.title.message}</p>}
+                            <FormControl>
+                                <Textarea placeholder="Form description (optional)" {...formBuilder.register("description")} className="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 p-2 mt-2 bg-transparent" />
+                            </FormControl>
+                        </div>
+                    </Card>
+                    
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Eligibility</CardTitle>
+                            <CardDescription>Define who can see and respond to this form. Leave all options blank to make it available to everyone.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <FormField control={formBuilder.control} name="eligibilityType" render={({ field }) => (
+                                <FormItem className="space-y-3">
+                                    <FormControl>
+                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-4">
+                                            <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="groups" /></FormControl><Label className="font-normal">By Group (Mohallah/Team)</Label></FormItem>
+                                            <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="specific_members" /></FormControl><Label className="font-normal">By Specific Members</Label></FormItem>
+                                        </RadioGroup>
+                                    </FormControl>
+                                </FormItem>
+                            )}/>
+
+                            {isLoadingData ? <Loader2 className="animate-spin my-4"/> : (
+                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {eligibilityType === 'groups' && (
+                                    <>
+                                    <FormField control={formBuilder.control} name="mohallahIds" render={() => (
+                                        <FormItem><Label>Mohallahs</Label>
+                                            <ScrollArea className="rounded-md border p-3 h-48">
+                                                {availableMohallahs.map((mohallah) => (
+                                                <FormField key={mohallah.id} control={formBuilder.control} name="mohallahIds" render={({ field }) => (
+                                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 mb-2">
+                                                    <FormControl><Checkbox checked={field.value?.includes(mohallah.id)} onCheckedChange={(checked) => {
+                                                        return checked ? field.onChange([...(field.value || []), mohallah.id]) : field.onChange(field.value?.filter((value) => value !== mohallah.id));
+                                                    }} /></FormControl>
+                                                    <Label className="font-normal text-sm">{mohallah.name}</Label>
+                                                    </FormItem>
+                                                )}/>
+                                                ))}
+                                            </ScrollArea>
+                                            <FormDescription className="text-xs">Select Mohallahs. Leave empty for all.</FormDescription><FormMessage /></FormItem>
+                                        )}/>
+                                    <FormField control={formBuilder.control} name="teams" render={() => (
+                                        <FormItem><Label>Teams</Label>
+                                            <ScrollArea className="rounded-md border p-3 h-48">
+                                                {availableTeams.map((team) => (
+                                                <FormField key={team} control={formBuilder.control} name="teams" render={({ field }) => (
+                                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 mb-2">
+                                                    <FormControl><Checkbox checked={field.value?.includes(team)} onCheckedChange={(checked) => {
+                                                        return checked ? field.onChange([...(field.value || []), team]) : field.onChange(field.value?.filter((value) => value !== team));
+                                                    }} /></FormControl>
+                                                    <Label className="font-normal text-sm">{team}</Label>
+                                                    </FormItem>
+                                                )}/>
+                                                ))}
+                                            </ScrollArea>
+                                            <FormDescription className="text-xs">Select Teams. Leave empty for all.</FormDescription><FormMessage /></FormItem>
+                                        )}/>
+                                    </>
+                                )}
+                                {eligibilityType === 'specific_members' && (
+                                    <div className="md:col-span-2">
+                                    <FormField control={formBuilder.control} name="eligibleItsIds" render={() => (
+                                        <FormItem>
+                                            <Label>Eligible Members</Label>
+                                            <div className="relative">
+                                                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                                <Input
+                                                    placeholder="Search by name or ITS ID..."
+                                                    value={memberSearchTerm}
+                                                    onChange={(e) => setMemberSearchTerm(e.target.value)}
+                                                    className="pl-8 mb-2"
                                                 />
-                                                 <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => remove(index)}>
-                                                    <Trash2 className="h-5 w-5" />
-                                                </Button>
                                             </div>
-                                        </div>
-                                         {formBuilder.formState.errors.questions?.[index]?.label && <p className="text-sm text-destructive">{formBuilder.formState.errors.questions?.[index]?.label?.message}</p>}
+                                            <ScrollArea className="rounded-md border p-3 h-60">
+                                            {filteredUsers.map((user) => (
+                                                <FormField key={user.id} control={formBuilder.control} name="eligibleItsIds" render={({ field }) => (
+                                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 mb-2">
+                                                    <FormControl><Checkbox checked={field.value?.includes(user.itsId)} onCheckedChange={(checked) => {
+                                                        return checked ? field.onChange([...(field.value || []), user.itsId]) : field.onChange(field.value?.filter((value) => value !== user.itsId));
+                                                    }} /></FormControl>
+                                                    <Label className="font-normal text-sm">{user.name} ({user.itsId})</Label>
+                                                    </FormItem>
+                                                )}/>
+                                            ))}
+                                            {filteredUsers.length === 0 && <p className="text-center text-sm text-muted-foreground py-2">No members found.</p>}
+                                            </ScrollArea>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}/>
+                                    </div>
+                                )}
+                            </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <div className="space-y-4">
+                        {fields.map((field, index) => {
+                            const questionType = formBuilder.watch(`questions.${index}.type`);
+                            return (
+                                <Card key={field.id} className="p-4 relative bg-card">
+                                    <div className="flex gap-2 sm:gap-4 items-start">
+                                        <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab shrink-0 mt-2" />
+                                        <div className="flex-grow space-y-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <FormControl>
+                                                    <Input placeholder={`Question ${index + 1}`} {...formBuilder.register(`questions.${index}.label`)} className="font-semibold text-base h-auto p-2 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
+                                                </FormControl>
+                                                <div className="flex items-center gap-4">
+                                                    <Controller
+                                                        control={formBuilder.control}
+                                                        name={`questions.${index}.type`}
+                                                        render={({ field }) => (
+                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="text">Text (Single Line)</SelectItem>
+                                                                    <SelectItem value="textarea">Text Area (Multi-line)</SelectItem>
+                                                                    <SelectItem value="radio">Radio Buttons</SelectItem>
+                                                                    <SelectItem value="checkbox">Checkboxes</SelectItem>
+                                                                    <SelectItem value="select">Dropdown</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        )}
+                                                    />
+                                                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => remove(index)}>
+                                                        <Trash2 className="h-5 w-5" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                            {formBuilder.formState.errors.questions?.[index]?.label && <p className="text-sm text-destructive">{formBuilder.formState.errors.questions?.[index]?.label?.message}</p>}
 
 
-                                        {(questionType === "radio" || questionType === "checkbox" || questionType === "select") && (
-                                            <OptionsArray control={formBuilder.control} nestIndex={index} />
-                                        )}
-                                        
-                                        <Separator />
-                                        <div className="flex items-center justify-end gap-4">
-                                            <ConditionalLogic
-                                                control={formBuilder.control}
-                                                watch={formBuilder.watch}
-                                                setValue={formBuilder.setValue}
-                                                index={index}
-                                                allQuestions={allQuestions}
-                                            />
-                                            <div className="flex items-center space-x-2">
-                                                <Label htmlFor={`required-${index}`}>Required</Label>
-                                                 <Controller
+                                            {(questionType === "radio" || questionType === "checkbox" || questionType === "select") && (
+                                                <OptionsArray control={formBuilder.control} nestIndex={index} />
+                                            )}
+                                            
+                                            <Separator />
+                                            <div className="flex items-center justify-end gap-4">
+                                                <ConditionalLogic
                                                     control={formBuilder.control}
-                                                    name={`questions.${index}.required`}
-                                                    render={({ field }) => (
-                                                        <Switch id={`required-${index}`} checked={field.value} onCheckedChange={field.onChange} />
-                                                    )}
+                                                    watch={formBuilder.watch}
+                                                    setValue={formBuilder.setValue}
+                                                    index={index}
+                                                    allQuestions={allQuestions}
                                                 />
+                                                <div className="flex items-center space-x-2">
+                                                    <Label htmlFor={`required-${index}`}>Required</Label>
+                                                    <Controller
+                                                        control={formBuilder.control}
+                                                        name={`questions.${index}.required`}
+                                                        render={({ field }) => (
+                                                            <Switch id={`required-${index}`} checked={field.value} onCheckedChange={field.onChange} />
+                                                        )}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            </Card>
-                        )
-                    })}
-                     <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => append({ id: crypto.randomUUID(), label: "", type: 'text', required: false, options: [] })}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Add Question
-                    </Button>
-                </div>
-            </form>
-        </UIForm>
+                                </Card>
+                            )
+                        })}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => append({ id: crypto.randomUUID(), label: "", type: 'text', required: false, options: [] })}>
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Question
+                        </Button>
+                    </div>
+                </form>
+            </UIForm>
+        </div>
     );
 }
 
@@ -470,7 +469,7 @@ function ConditionalLogic({ control, watch, setValue, index, allQuestions }: { c
                             control={control}
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Show this question when...</FormLabel>
+                                    <Label>Show this question when...</Label>
                                     <Select onValueChange={(value) => {
                                         field.onChange(value);
                                         setValue(`questions.${index}.conditional.value`, ''); // Reset value when parent changes
@@ -494,7 +493,7 @@ function ConditionalLogic({ control, watch, setValue, index, allQuestions }: { c
                             control={control}
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>...equals</FormLabel>
+                                    <Label>...equals</Label>
                                     <Select onValueChange={field.onChange} value={field.value} disabled={!parentQuestion}>
                                         <FormControl>
                                             <SelectTrigger>
