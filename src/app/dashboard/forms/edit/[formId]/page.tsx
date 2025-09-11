@@ -235,7 +235,13 @@ export default function EditFormPage() {
                                                 <OptionsArray control={formBuilder.control} nestIndex={index} />
                                             )}
                                             
-                                            <ConditionalLogic control={formBuilder.control} index={index} allQuestions={allQuestions} />
+                                            <ConditionalLogic
+                                                control={formBuilder.control}
+                                                watch={formBuilder.watch}
+                                                setValue={formBuilder.setValue}
+                                                index={index}
+                                                allQuestions={allQuestions}
+                                            />
                                         </div>
                                     </div>
                                 </Card>
@@ -286,8 +292,7 @@ function OptionsArray({ control, nestIndex }: { control: any, nestIndex: number 
 }
 
 
-function ConditionalLogic({ control, index, allQuestions }: { control: any, index: number, allQuestions: any[] }) {
-    const { watch, setValue } = formBuilder;
+function ConditionalLogic({ control, watch, setValue, index, allQuestions }: { control: any, watch: any, setValue: any, index: number, allQuestions: any[] }) {
     const isConditional = !!watch(`questions.${index}.conditional`);
 
     const potentialParentQuestions = allQuestions
@@ -313,13 +318,11 @@ function ConditionalLogic({ control, index, allQuestions }: { control: any, inde
                     id={`conditional-switch-${index}`}
                     checked={isConditional}
                     onCheckedChange={handleToggleConditional}
-                    disabled={index === 0}
                 />
-                <Label htmlFor={`conditional-switch-${index}`} className={index === 0 ? "text-muted-foreground" : ""}>
+                <Label htmlFor={`conditional-switch-${index}`}>
                     Enable Conditional Logic
                 </Label>
             </div>
-            {index === 0 && <FormDescription className="text-xs">Conditional logic cannot be applied to the first question.</FormDescription>}
             {isConditional && potentialParentQuestions.length === 0 && <FormDescription className="text-xs text-amber-600">To use conditional logic, add a 'Radio Button' or 'Dropdown' question with at least one option *before* this one.</FormDescription>}
 
             {isConditional && (
