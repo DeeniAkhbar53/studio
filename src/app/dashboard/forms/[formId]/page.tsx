@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -67,14 +67,21 @@ const generateFormSchemaAndDefaults = (form: FormType | null) => {
 };
 
 // Component to render a question, with conditional logic check
-const QuestionRenderer = ({ question, index, control, responseData }: { question: FormType['questions'][0], index: number, control: any, responseData: any }) => {
+const QuestionRenderer = ({ question, index, control }: { question: FormType['questions'][0], index: number, control: any }) => {
     
+    // Watch the value of the parent question if this question is conditional
+    const parentQuestionValue = useWatch({
+        control,
+        name: question.conditional ? question.conditional.questionId : '',
+        disabled: !question.conditional,
+    });
+
     if (question.conditional) {
-        const parentQuestionValue = responseData[question.conditional.questionId];
         if (parentQuestionValue !== question.conditional.value) {
             return null; // Don't render this question
         }
     }
+
 
     return (
         <FormField
@@ -174,8 +181,6 @@ export default function FillFormPage() {
         resolver: zodResolver(formSchema),
         defaultValues: defaultValues,
     });
-
-    const watchedResponses = responseForm.watch();
 
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -389,7 +394,6 @@ export default function FillFormPage() {
                                     question={question}
                                     index={index}
                                     control={responseForm.control}
-                                    responseData={watchedResponses}
                                 />
                             ))}
                         </CardContent>
@@ -406,3 +410,5 @@ export default function FillFormPage() {
         </div>
     );
 }
+
+    
