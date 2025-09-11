@@ -287,7 +287,7 @@ function OptionsArray({ control, nestIndex }: { control: any, nestIndex: number 
 
 
 function ConditionalLogic({ control, index, allQuestions }: { control: any, index: number, allQuestions: any[] }) {
-    const { watch, setValue } = useForm({ control });
+    const { watch, setValue } = formBuilder;
     const isConditional = !!watch(`questions.${index}.conditional`);
 
     const potentialParentQuestions = allQuestions
@@ -313,13 +313,14 @@ function ConditionalLogic({ control, index, allQuestions }: { control: any, inde
                     id={`conditional-switch-${index}`}
                     checked={isConditional}
                     onCheckedChange={handleToggleConditional}
-                    disabled={potentialParentQuestions.length === 0}
+                    disabled={index === 0}
                 />
-                <Label htmlFor={`conditional-switch-${index}`} className={potentialParentQuestions.length === 0 ? "text-muted-foreground" : ""}>
+                <Label htmlFor={`conditional-switch-${index}`} className={index === 0 ? "text-muted-foreground" : ""}>
                     Enable Conditional Logic
                 </Label>
             </div>
-            {potentialParentQuestions.length === 0 && index > 0 && <FormDescription className="text-xs">To use conditional logic, add a 'Radio Button' or 'Dropdown' question with at least one non-empty option before this one.</FormDescription>}
+            {index === 0 && <FormDescription className="text-xs">Conditional logic cannot be applied to the first question.</FormDescription>}
+            {isConditional && potentialParentQuestions.length === 0 && <FormDescription className="text-xs text-amber-600">To use conditional logic, add a 'Radio Button' or 'Dropdown' question with at least one option *before* this one.</FormDescription>}
 
             {isConditional && (
                 <div className="p-4 border rounded-md bg-background space-y-4 animate-in fade-in-0">
@@ -333,7 +334,7 @@ function ConditionalLogic({ control, index, allQuestions }: { control: any, inde
                                     <Select onValueChange={(value) => {
                                         field.onChange(value);
                                         setValue(`questions.${index}.conditional.value`, ''); // Reset value when parent changes
-                                    }} value={field.value}>
+                                    }} value={field.value} disabled={potentialParentQuestions.length === 0}>
                                         <FormControl>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Select a question..." />
@@ -377,3 +378,5 @@ function ConditionalLogic({ control, index, allQuestions }: { control: any, inde
         </div>
     );
 }
+
+    
