@@ -287,7 +287,7 @@ export default function ViewResponsesPage() {
                                     </p>
                                 </div>
                             ) : (
-                                <div className="border rounded-lg overflow-x-auto">
+                                <div className="border rounded-lg max-w-full overflow-x-auto">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -367,7 +367,7 @@ export default function ViewResponsesPage() {
                                     <p className="text-lg font-medium text-muted-foreground">All members have responded!</p>
                                 </div>
                             ) : (
-                                <div className="border rounded-lg overflow-x-auto">
+                                <div className="border rounded-lg max-w-full overflow-x-auto">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
