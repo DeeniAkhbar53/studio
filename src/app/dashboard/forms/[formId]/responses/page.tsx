@@ -160,7 +160,7 @@ export default function ViewResponsesPage() {
 
     return (
         <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-            <Card className="shadow-lg">
+            <Card>
                  <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex-1">
                         <CardTitle className="text-2xl md:text-3xl font-bold">{form?.title || "Form Responses"}</CardTitle>
@@ -177,7 +177,7 @@ export default function ViewResponsesPage() {
                 </CardHeader>
                 <CardContent>
                     {responses.length === 0 ? (
-                        <div className="text-center py-10 space-y-2">
+                        <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
                              <Users className="h-12 w-12 text-muted-foreground mx-auto"/>
                             <p className="text-lg font-medium text-muted-foreground">No Responses Yet</p>
                             <p className="text-sm text-muted-foreground">
@@ -240,7 +240,7 @@ export default function ViewResponsesPage() {
                         </div>
 
                         {/* Desktop View */}
-                        <div className="hidden md:block overflow-x-auto">
+                        <div className="hidden md:block border rounded-lg overflow-hidden">
                             <Table>
                                 <TableHeader>
                                     <TableRow>

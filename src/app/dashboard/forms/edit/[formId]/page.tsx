@@ -143,10 +143,11 @@ export default function EditFormPage() {
     return (
         <UIForm {...formBuilder}>
             <form onSubmit={formBuilder.handleSubmit(handleUpdateFormSubmit)} className="space-y-6">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sticky top-0 z-10 bg-background/80 backdrop-blur-sm py-4 -my-4 px-1 -mx-1">
                     <Button type="button" variant="outline" onClick={() => router.push('/dashboard/forms')} className="w-full sm:w-auto">
                         <ArrowLeft className="mr-2 h-4 w-4" /> Back to Forms
                     </Button>
+                    <h2 className="text-lg font-semibold hidden md:block">Form Editor</h2>
                     <Button type="submit" disabled={formBuilder.formState.isSubmitting} className="w-full sm:w-auto">
                         {formBuilder.formState.isSubmitting ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
@@ -157,91 +158,63 @@ export default function EditFormPage() {
                     </Button>
                 </div>
 
-                <Card className="shadow-lg">
+                <Card>
                     <CardHeader>
-                        <CardTitle>Edit Form</CardTitle>
-                        <CardDescription>
-                            Modify the title, description, and questions for your form.
-                        </CardDescription>
+                        <FormControl>
+                            <Input placeholder="Form Title" {...formBuilder.register("title")} className="text-2xl font-bold h-auto p-2 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
+                        </FormControl>
+                        {formBuilder.formState.errors.title && <p className="text-sm text-destructive">{formBuilder.formState.errors.title.message}</p>}
                     </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="form-title">Form Title</Label>
-                            <Input id="form-title" {...formBuilder.register("title")} />
-                            {formBuilder.formState.errors.title && <p className="text-sm text-destructive">{formBuilder.formState.errors.title.message}</p>}
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="form-description">Description</Label>
-                            <Textarea id="form-description" {...formBuilder.register("description")} />
-                        </div>
+                    <CardContent>
+                        <FormControl>
+                            <Textarea placeholder="Form description (optional)" {...formBuilder.register("description")} className="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 p-2" />
+                        </FormControl>
                     </CardContent>
                 </Card>
 
-                <Card className="shadow-lg">
-                     <CardHeader>
-                        <CardTitle>Questions</CardTitle>
-                        <CardDescription>
-                            Add, remove, or edit the questions for your form.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {fields.map((field, index) => {
-                            const questionType = formBuilder.watch(`questions.${index}.type`);
-                            return (
-                                <Card key={field.id} className="p-4 bg-muted/50 relative">
-                                    <div className="flex gap-2 sm:gap-4">
-                                         <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab shrink-0 mt-1" />
-                                        <div className="flex-grow space-y-4">
-                                            <div className="flex justify-between items-center">
-                                                <Label className="font-semibold">Question {index + 1}</Label>
-                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}>
-                                                    <Trash2 className="h-4 w-4" />
+                <div className="space-y-4">
+                    {fields.map((field, index) => {
+                        const questionType = formBuilder.watch(`questions.${index}.type`);
+                        return (
+                            <Card key={field.id} className="p-4 relative">
+                                <div className="flex gap-2 sm:gap-4">
+                                     <GripVertical className="h-5 w-5 text-muted-foreground cursor-grab shrink-0 mt-2" />
+                                    <div className="flex-grow space-y-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <FormControl>
+                                                <Input placeholder={`Question ${index + 1}`} {...formBuilder.register(`questions.${index}.label`)} className="font-semibold text-base h-auto p-2 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
+                                            </FormControl>
+                                            <div className="flex items-center gap-4">
+                                                <Controller
+                                                    control={formBuilder.control}
+                                                    name={`questions.${index}.type`}
+                                                    render={({ field }) => (
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                            <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="text">Text (Single Line)</SelectItem>
+                                                                <SelectItem value="textarea">Text Area (Multi-line)</SelectItem>
+                                                                <SelectItem value="radio">Radio Buttons</SelectItem>
+                                                                <SelectItem value="checkbox">Checkboxes</SelectItem>
+                                                                <SelectItem value="select">Dropdown</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    )}
+                                                />
+                                                 <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => remove(index)}>
+                                                    <Trash2 className="h-5 w-5" />
                                                 </Button>
                                             </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label>Question Type</Label>
-                                                    <Controller
-                                                        control={formBuilder.control}
-                                                        name={`questions.${index}.type`}
-                                                        render={({ field }) => (
-                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                                <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="text">Text (Single Line)</SelectItem>
-                                                                    <SelectItem value="textarea">Text Area (Multi-line)</SelectItem>
-                                                                    <SelectItem value="radio">Radio Buttons</SelectItem>
-                                                                    <SelectItem value="checkbox">Checkboxes</SelectItem>
-                                                                    <SelectItem value="select">Dropdown</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
-                                                        )}
-                                                    />
-                                                </div>
-                                                 <div className="space-y-2 flex flex-col justify-end">
-                                                    <div className="flex items-center space-x-2">
-                                                         <Controller
-                                                            control={formBuilder.control}
-                                                            name={`questions.${index}.required`}
-                                                            render={({ field }) => (
-                                                                 <Switch id={`required-${index}`} checked={field.value} onCheckedChange={field.onChange} />
-                                                            )}
-                                                        />
-                                                        <Label htmlFor={`required-${index}`}>Required</Label>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        </div>
+                                         {formBuilder.formState.errors.questions?.[index]?.label && <p className="text-sm text-destructive">{formBuilder.formState.errors.questions?.[index]?.label?.message}</p>}
 
-                                            <div className="space-y-2">
-                                                <Label>Question Label</Label>
-                                                <Input {...formBuilder.register(`questions.${index}.label`)} />
-                                                {formBuilder.formState.errors.questions?.[index]?.label && <p className="text-sm text-destructive">{formBuilder.formState.errors.questions?.[index]?.label?.message}</p>}
-                                            </div>
 
-                                            {(questionType === "radio" || questionType === "checkbox" || questionType === "select") && (
-                                                <OptionsArray control={formBuilder.control} nestIndex={index} />
-                                            )}
-                                            
+                                        {(questionType === "radio" || questionType === "checkbox" || questionType === "select") && (
+                                            <OptionsArray control={formBuilder.control} nestIndex={index} />
+                                        )}
+                                        
+                                        <Separator />
+                                        <div className="flex items-center justify-end gap-4">
                                             <ConditionalLogic
                                                 control={formBuilder.control}
                                                 watch={formBuilder.watch}
@@ -249,19 +222,29 @@ export default function EditFormPage() {
                                                 index={index}
                                                 allQuestions={allQuestions}
                                             />
+                                            <div className="flex items-center space-x-2">
+                                                <Label htmlFor={`required-${index}`}>Required</Label>
+                                                 <Controller
+                                                    control={formBuilder.control}
+                                                    name={`questions.${index}.required`}
+                                                    render={({ field }) => (
+                                                        <Switch id={`required-${index}`} checked={field.value} onCheckedChange={field.onChange} />
+                                                    )}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                </Card>
-                            )
-                        })}
-                         <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => append({ id: crypto.randomUUID(), label: "", type: 'text', required: false, options: [] })}>
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Question
-                        </Button>
-                    </CardContent>
-                </Card>
+                                </div>
+                            </Card>
+                        )
+                    })}
+                     <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => append({ id: crypto.randomUUID(), label: "", type: 'text', required: false, options: [] })}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Question
+                    </Button>
+                </div>
             </form>
         </UIForm>
     );
@@ -274,15 +257,14 @@ function OptionsArray({ control, nestIndex }: { control: any, nestIndex: number 
     });
 
     return (
-        <div className="space-y-3 pt-2 pl-2 sm:pl-6 border-l-2 ml-2">
-            <Label className="font-semibold">Options</Label>
+        <div className="space-y-3 pt-2">
             {fields.map((item, k) => (
                 <div key={item.id} className="flex items-center gap-2">
                     <Input
                         {...control.register(`questions.${nestIndex}.options.${k}.value`)}
                         placeholder={`Option ${k + 1}`}
                     />
-                    <Button type="button" variant="ghost" size="icon" className="text-destructive shrink-0" onClick={() => remove(k)}>
+                    <Button type="button" variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive shrink-0" onClick={() => remove(k)}>
                         <Trash2 className="h-4 w-4" />
                     </Button>
                 </div>
@@ -304,7 +286,7 @@ function ConditionalLogic({ control, watch, setValue, index, allQuestions }: { c
 
     const potentialParentQuestions = allQuestions
         .slice(0, index)
-        .filter(q => (q.type === 'radio' || q.type === 'select') && q.options && q.options.some(opt => opt.value));
+        .filter(q => (q.type === 'radio' || q.type === 'select') && q.options && q.options.length > 0);
 
     const selectedParentQuestionId = watch(`questions.${index}.conditional.questionId`);
     const parentQuestion = allQuestions.find(q => q.id === selectedParentQuestionId);
@@ -318,19 +300,18 @@ function ConditionalLogic({ control, watch, setValue, index, allQuestions }: { c
     };
     
     return (
-        <div className="pt-4 space-y-4">
-            <Separator />
+        <div className="space-y-4">
             <div className="flex items-center space-x-2">
+                <Label htmlFor={`conditional-switch-${index}`}>
+                    Logic
+                </Label>
                 <Switch
                     id={`conditional-switch-${index}`}
                     checked={isConditional}
                     onCheckedChange={handleToggleConditional}
                 />
-                <Label htmlFor={`conditional-switch-${index}`}>
-                    Enable Conditional Logic
-                </Label>
             </div>
-            {isConditional && potentialParentQuestions.length === 0 && <FormDescription className="text-xs text-amber-600">To use conditional logic, add a 'Radio Button' or 'Dropdown' question with at least one option *before* this one.</FormDescription>}
+            {isConditional && potentialParentQuestions.length === 0 && <FormDescription className="text-xs text-amber-600">Add a 'Radio' or 'Dropdown' question with options *before* this one to use logic.</FormDescription>}
 
             {isConditional && (
                 <div className="p-4 border rounded-md bg-background space-y-4 animate-in fade-in-0">
@@ -388,7 +369,5 @@ function ConditionalLogic({ control, watch, setValue, index, allQuestions }: { c
         </div>
     );
 }
-
-    
 
     

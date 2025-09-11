@@ -86,7 +86,7 @@ export default function FormsListPage() {
 
     return (
         <div className="space-y-6">
-            <Card className="shadow-lg">
+            <Card>
                 <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between">
                     <div>
                         <CardTitle className="flex items-center">
@@ -105,12 +105,12 @@ export default function FormsListPage() {
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
-                         <div className="flex justify-center items-center py-10">
+                         <div className="flex justify-center items-center py-20">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                             <p className="ml-2 text-muted-foreground">Loading forms...</p>
                         </div>
                     ) : forms.length === 0 ? (
-                        <div className="text-center py-10 space-y-2">
+                        <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
                             <FileText className="h-12 w-12 text-muted-foreground mx-auto"/>
                             <p className="text-lg font-medium text-muted-foreground">No Forms Available</p>
                             <p className="text-sm text-muted-foreground">
@@ -203,7 +203,7 @@ export default function FormsListPage() {
                             ))}
                          </div>
                          {/* Desktop View: Table */}
-                         <div className="hidden md:block border rounded-md">
+                         <div className="hidden md:block border rounded-lg overflow-hidden">
                            <Table>
                                <TableHeader>
                                    <TableRow>

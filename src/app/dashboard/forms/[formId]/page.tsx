@@ -84,78 +84,79 @@ const QuestionRenderer = ({ question, index, control }: { question: FormType['qu
 
 
     return (
-        <FormField
-            key={question.id}
-            control={control}
-            name={question.id}
-            render={({ field }) => (
-                <FormItem className="p-4 md:p-6 rounded-lg border bg-background shadow-sm animate-in fade-in-0 duration-500">
-                    <FormLabel className="text-lg font-semibold flex items-baseline gap-2">
-                        <span>{index + 1}.</span>
-                        {question.label}
-                        {question.required && <span className="text-destructive text-sm font-normal">* required</span>}
-                    </FormLabel>
-                    <FormControl className="pt-4">
-                        <div>
-                            {question.type === 'text' && <Input {...field} value={field.value || ''} />}
-                            {question.type === 'textarea' && <Textarea {...field} value={field.value || ''} rows={4} />}
-                            {question.type === 'radio' && (
-                                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-2">
-                                    {question.options?.map(option => (
-                                        <FormItem key={option} className="flex items-center space-x-3 space-y-0">
-                                            <FormControl>
-                                                <RadioGroupItem value={option} />
-                                            </FormControl>
-                                            <FormLabel className="font-normal">{option}</FormLabel>
-                                        </FormItem>
-                                    ))}
-                                </RadioGroup>
-                            )}
-                            {question.type === 'select' && (
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <SelectTrigger><SelectValue placeholder="Select an option" /></SelectTrigger>
-                                    <SelectContent>
+        <Card className="p-4 md:p-6 rounded-lg border bg-background shadow-sm animate-in fade-in-0 duration-500">
+            <FormField
+                key={question.id}
+                control={control}
+                name={question.id}
+                render={({ field }) => (
+                    <FormItem>
+                        <FormLabel className="text-base font-semibold flex items-baseline gap-2">
+                            {question.label}
+                            {question.required && <span className="text-destructive text-sm font-normal">* required</span>}
+                        </FormLabel>
+                        <FormControl className="pt-4">
+                            <div>
+                                {question.type === 'text' && <Input {...field} value={field.value || ''} />}
+                                {question.type === 'textarea' && <Textarea {...field} value={field.value || ''} rows={4} />}
+                                {question.type === 'radio' && (
+                                    <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-2">
                                         {question.options?.map(option => (
-                                            <SelectItem key={option} value={option}>{option}</SelectItem>
+                                            <FormItem key={option} className="flex items-center space-x-3 space-y-0">
+                                                <FormControl>
+                                                    <RadioGroupItem value={option} />
+                                                </FormControl>
+                                                <FormLabel className="font-normal">{option}</FormLabel>
+                                            </FormItem>
                                         ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                            {question.type === 'checkbox' && (
-                                <div className="space-y-2">
-                                    {question.options?.map(option => (
-                                        <FormField
-                                            key={option}
-                                            control={control}
-                                            name={question.id}
-                                            render={({ field: checkboxField }) => {
-                                                const currentValues = (checkboxField.value as string[] | undefined) || [];
-                                                return (
-                                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                        <FormControl>
-                                                            <Checkbox
-                                                                checked={currentValues.includes(option)}
-                                                                onCheckedChange={(checked) => {
-                                                                    return checked
-                                                                        ? checkboxField.onChange([...currentValues, option])
-                                                                        : checkboxField.onChange(currentValues.filter(v => v !== option));
-                                                                }}
-                                                            />
-                                                        </FormControl>
-                                                        <FormLabel className="font-normal">{option}</FormLabel>
-                                                    </FormItem>
-                                                );
-                                            }}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
+                                    </RadioGroup>
+                                )}
+                                {question.type === 'select' && (
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <SelectTrigger><SelectValue placeholder="Select an option" /></SelectTrigger>
+                                        <SelectContent>
+                                            {question.options?.map(option => (
+                                                <SelectItem key={option} value={option}>{option}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                                {question.type === 'checkbox' && (
+                                    <div className="space-y-2">
+                                        {question.options?.map(option => (
+                                            <FormField
+                                                key={option}
+                                                control={control}
+                                                name={question.id}
+                                                render={({ field: checkboxField }) => {
+                                                    const currentValues = (checkboxField.value as string[] | undefined) || [];
+                                                    return (
+                                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={currentValues.includes(option)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        return checked
+                                                                            ? checkboxField.onChange([...currentValues, option])
+                                                                            : checkboxField.onChange(currentValues.filter(v => v !== option));
+                                                                    }}
+                                                                />
+                                                            </FormControl>
+                                                            <FormLabel className="font-normal">{option}</FormLabel>
+                                                        </FormItem>
+                                                    );
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+        </Card>
     );
 };
 
@@ -273,7 +274,7 @@ export default function FillFormPage() {
     
     if (isLoading || hasAlreadyResponded === null) {
         return (
-            <div className="flex h-screen items-center justify-center p-4">
+            <div className="flex h-screen items-center justify-center bg-muted p-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
         );
@@ -281,36 +282,40 @@ export default function FillFormPage() {
     
     if (error) {
          return (
-            <div className="flex flex-col items-center justify-center h-screen p-4 text-center">
-                <FileWarning className="h-16 w-16 text-destructive mb-4" />
-                <h1 className="text-2xl font-bold text-destructive">Form Not Available</h1>
-                <p className="text-muted-foreground mt-2">{error}</p>
-                 <Button variant="outline" onClick={() => router.back()} className="mt-6">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
-                </Button>
+            <div className="flex flex-col items-center justify-center min-h-screen bg-muted p-4 text-center">
+                <Card className="w-full max-w-lg p-8">
+                  <FileWarning className="h-16 w-16 text-destructive mx-auto mb-4" />
+                  <h1 className="text-2xl font-bold text-destructive">Form Not Available</h1>
+                  <p className="text-muted-foreground mt-2">{error}</p>
+                   <Button variant="outline" onClick={() => router.back()} className="mt-6">
+                      <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+                  </Button>
+                </Card>
             </div>
         );
     }
 
     if (!form) {
         return (
-             <div className="flex flex-col items-center justify-center h-screen p-4 text-center">
-                <FileWarning className="h-16 w-16 text-muted-foreground mb-4" />
-                <h1 className="text-2xl font-bold text-muted-foreground">Form Not Loaded</h1>
-                <p className="text-muted-foreground mt-2">The form could not be loaded. Please try again.</p>
-                 <Button variant="outline" onClick={() => router.back()} className="mt-6">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
-                </Button>
+             <div className="flex flex-col items-center justify-center min-h-screen bg-muted p-4 text-center">
+                <Card className="w-full max-w-lg p-8">
+                  <FileWarning className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h1 className="text-2xl font-bold text-muted-foreground">Form Not Loaded</h1>
+                  <p className="text-muted-foreground mt-2">The form could not be loaded. Please try again.</p>
+                   <Button variant="outline" onClick={() => router.back()} className="mt-6">
+                      <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+                  </Button>
+                </Card>
             </div>
         );
     }
 
     if (hasSubmitted || hasAlreadyResponded) {
         return (
-             <div className="flex flex-col h-screen items-center justify-center bg-background p-4">
-                 <Card className="w-full max-w-2xl shadow-lg border-primary/20 bg-gradient-to-br from-card to-muted/20">
-                     <CardContent className="flex flex-col items-center justify-center p-8 sm:p-12 text-center">
-                         <CheckCircle2 className="h-20 w-20 text-green-500 mb-6" />
+             <div className="flex flex-col min-h-screen items-center justify-center bg-muted p-4">
+                 <div className="w-full max-w-2xl">
+                     <Card className="p-8 sm:p-12 text-center">
+                         <CheckCircle2 className="h-20 w-20 text-green-500 mx-auto mb-6" />
                          <h1 className="text-3xl font-bold text-foreground">
                             {hasSubmitted ? "Thank You!" : "Response Recorded"}
                          </h1>
@@ -321,18 +326,18 @@ export default function FillFormPage() {
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Back to All Forms
                         </Button>
-                     </CardContent>
-                 </Card>
+                     </Card>
+                 </div>
              </div>
         );
     }
 
     if (form.status === 'closed') {
         return (
-             <div className="flex flex-col h-screen items-center justify-center bg-background p-4">
-                 <Card className="w-full max-w-2xl shadow-lg border-destructive/20">
-                     <CardContent className="flex flex-col items-center justify-center p-8 sm:p-12 text-center">
-                         <Lock className="h-20 w-20 text-destructive mb-6" />
+             <div className="flex flex-col min-h-screen items-center justify-center bg-muted p-4">
+                 <div className="w-full max-w-2xl">
+                     <Card className="p-8 sm:p-12 text-center">
+                         <Lock className="h-20 w-20 text-destructive mx-auto mb-6" />
                          <h1 className="text-3xl font-bold text-destructive">Form Closed</h1>
                          <p className="text-lg text-muted-foreground mt-2">
                             This form is not accepting new responses at this time.
@@ -341,72 +346,70 @@ export default function FillFormPage() {
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             Back to All Forms
                         </Button>
-                     </CardContent>
-                 </Card>
+                     </Card>
+                 </div>
              </div>
         );
     }
 
 
     return (
-        <div className="max-w-4xl mx-auto p-4 md:p-6">
-            <Card className="shadow-lg border-primary/20 bg-gradient-to-br from-card to-muted/20">
-                <CardHeader className="text-left p-4 md:p-6">
-                    <CardTitle className="text-2xl md:text-3xl font-bold">{form.title}</CardTitle>
-                    {form.description && <CardDescription className="text-md mt-2">{form.description}</CardDescription>}
-                </CardHeader>
-                <Separator />
+        <div className="min-h-screen bg-muted flex flex-col items-center py-8 md:py-12 px-4">
+            <div className="w-full max-w-3xl space-y-6">
+                <Card className="overflow-hidden">
+                    <div className="bg-primary/10 p-6 border-b-4 border-primary">
+                        <CardTitle className="text-3xl font-bold">{form.title}</CardTitle>
+                        {form.description && <CardDescription className="text-md mt-2">{form.description}</CardDescription>}
+                    </div>
+                </Card>
+
+                {currentUser && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-3">
+                                <UserIcon className="h-5 w-5 text-primary" />
+                                Your Information
+                            </CardTitle>
+                            <CardDescription>This information is automatically recorded with your submission.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                                <FormLabel>Full Name</FormLabel>
+                                <p className="font-medium text-muted-foreground">{currentUser.name}</p>
+                            </div>
+                            <div>
+                                <FormLabel>ITS ID</FormLabel>
+                                <p className="font-medium text-muted-foreground">{currentUser.itsId}</p>
+                            </div>
+                            <div>
+                                <FormLabel>BGK ID</FormLabel>
+                                <p className="font-medium text-muted-foreground">{currentUser.bgkId || "N/A"}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
                 
                 <UIForm {...responseForm}>
-                    <form onSubmit={responseForm.handleSubmit(handleResponseSubmit)}>
-                        {currentUser && (
-                            <CardContent className="py-6 px-4 md:px-8">
-                                <Card className="bg-primary/5 border-primary/20">
-                                    <CardHeader>
-                                        <CardTitle className="text-xl flex items-center gap-3">
-                                            <UserIcon className="h-6 w-6 text-primary" />
-                                            Your Information
-                                        </CardTitle>
-                                        <CardDescription>This information is automatically recorded with your submission.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div>
-                                            <FormLabel>Full Name</FormLabel>
-                                            <Input value={currentUser.name} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
-                                        </div>
-                                        <div>
-                                            <FormLabel>ITS ID</FormLabel>
-                                            <Input value={currentUser.itsId} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
-                                        </div>
-                                         <div>
-                                            <FormLabel>BGK ID</FormLabel>
-                                            <Input value={currentUser.bgkId || "N/A"} readOnly disabled className="mt-1 bg-muted/50 cursor-default" />
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </CardContent>
-                        )}
-
-                        <CardContent className="pt-0 pb-6 px-4 md:px-8 space-y-8">
-                           {form.questions.map((question, index) => (
-                                <QuestionRenderer
-                                    key={question.id}
-                                    question={question}
-                                    index={index}
-                                    control={responseForm.control}
-                                />
-                            ))}
-                        </CardContent>
-                        <CardFooter className="p-4 md:p-6">
-                            <Button type="submit" className="w-full md:w-auto" disabled={responseForm.formState.isSubmitting}>
+                    <form onSubmit={responseForm.handleSubmit(handleResponseSubmit)} className="space-y-6">
+                       {form.questions.map((question, index) => (
+                            <QuestionRenderer
+                                key={question.id}
+                                question={question}
+                                index={index}
+                                control={responseForm.control}
+                            />
+                        ))}
+                        
+                        <div className="flex justify-end pt-4">
+                            <Button type="submit" size="lg" className="min-w-[150px]" disabled={responseForm.formState.isSubmitting}>
                                 {responseForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
                                 <Send className="mr-2 h-4 w-4" />
                                 Submit Response
                             </Button>
-                        </CardFooter>
+                        </div>
                     </form>
                 </UIForm>
-            </Card>
+            </div>
         </div>
     );
 }
