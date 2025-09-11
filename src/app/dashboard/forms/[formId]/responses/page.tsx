@@ -102,17 +102,28 @@ export default function ViewResponsesPage() {
 
         const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
 
-        const eligible = allUsers.filter(user => {
-            if (form.eligibleItsIds && form.eligibleItsIds.length > 0) {
-                return form.eligibleItsIds.includes(user.itsId);
-            }
-            if (isForEveryone) return true;
+        let eligible: User[];
 
-            const inMohallah = form.mohallahIds && form.mohallahIds.length > 0 && user.mohallahId && form.mohallahIds.includes(user.mohallahId);
-            const inTeam = form.teams && form.teams.length > 0 && user.team && form.teams.includes(user.team);
-
-            return inMohallah || inTeam;
-        });
+        if (form.eligibleItsIds && form.eligibleItsIds.length > 0) {
+            const eligibleIdSet = new Set(form.eligibleItsIds);
+            eligible = allUsers.filter(user => eligibleIdSet.has(user.itsId));
+        } else {
+            eligible = allUsers.filter(user => {
+                if (isForEveryone) return true;
+                
+                let matchesAllCriteria = true;
+                
+                if (form.mohallahIds && form.mohallahIds.length > 0) {
+                    matchesAllCriteria = matchesAllCriteria && !!user.mohallahId && form.mohallahIds.includes(user.mohallahId);
+                }
+                
+                if (form.teams && form.teams.length > 0) {
+                    matchesAllCriteria = matchesAllCriteria && !!user.team && form.teams.includes(user.team);
+                }
+                
+                return matchesAllCriteria && !isForEveryone;
+            });
+        }
 
         const respondentIds = new Set(responses.map(r => r.submittedBy));
         const nonResponding = eligible.filter(user => !respondentIds.has(user.itsId));
