@@ -24,22 +24,12 @@ export type MiqaatAttendanceEntryItem = {
   userName: string;
   markedAt: string; // ISO string
   markedByItsId: string;
-  status: 'present' | 'late' | 'early'; // Safar is no longer a status here
+  status: 'present' | 'late' | 'early';
   uniformCompliance?: {
       fetaPaghri: 'yes' | 'no' | 'safar';
       koti: 'yes' | 'no' | 'safar';
   }
 };
-
-// New type for entries in the safarList
-export type MiqaatSafarEntryItem = {
-  userItsId: string;
-  userName: string;
-  markedAt: string; // ISO string
-  markedByItsId: string;
-  status: 'safar';
-};
-
 
 export type Miqaat = {
   id: string;
@@ -54,12 +44,6 @@ export type Miqaat = {
   location?: string;
   createdAt?: string; // ISO string
   attendance?: MiqaatAttendanceEntryItem[];
-  safarList?: MiqaatSafarEntryItem[]; // New dedicated list for Safar members
-  attendedUserItsIds?: string[]; // Will now include regular attendees AND safar members
-  uniformRequirements?: {
-      fetaPaghri: boolean;
-      koti: boolean;
-  };
 };
 
 export type AttendanceRecord = {
