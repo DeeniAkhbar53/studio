@@ -26,7 +26,7 @@ const formsCollectionRef = collection(db, 'forms');
 
 // --- Form Management ---
 
-export type FormForAdd = Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'status' | 'updatedAt' | 'updatedBy' | 'mohallahIds' | 'teams' | 'eligibleItsIds'>;
+export type FormForAdd = Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'status' | 'updatedAt' | 'updatedBy'>;
 export type FormForUpdate = Partial<Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'status' | 'createdBy'>> & { updatedBy: string };
 
 
@@ -37,10 +37,9 @@ export const addForm = async (formData: FormForAdd): Promise<Form> => {
       responseCount: 0,
       createdAt: serverTimestamp(),
       status: 'open', // Forms are open by default
-      // Eligibility fields are intentionally omitted on creation
-      mohallahIds: [],
-      teams: [],
-      eligibleItsIds: [],
+      mohallahIds: formData.mohallahIds || [],
+      teams: formData.teams || [],
+      eligibleItsIds: formData.eligibleItsIds || [],
     });
 
     const newForm: Form = {
@@ -49,9 +48,6 @@ export const addForm = async (formData: FormForAdd): Promise<Form> => {
       responseCount: 0,
       createdAt: new Date().toISOString(),
       status: 'open',
-      mohallahIds: [],
-      teams: [],
-      eligibleItsIds: [],
     };
     return newForm;
   } catch (error) {
@@ -258,3 +254,5 @@ export const checkIfUserHasResponded = async (formId: string, userId: string): P
         return false;
     }
 };
+
+    
