@@ -564,26 +564,19 @@ export default function ManageMembersPage() {
 
   const filteredMembers = useMemo(() => {
     let dataToFilter = [...members];
-  
-    // Hierarchical filtering for non-admin team leaders
-    if (currentUserDesignation && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation) && currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
-      if (TOP_LEVEL_LEADERS.includes(currentUserDesignation)) {
-        // Majors and Captains see everyone, so no team-based filtering is applied
-        // dataToFilter remains all members
-      } else if (MID_LEVEL_LEADERS.includes(currentUserDesignation) && currentUserName) {
-        // Vice Captains see members of teams starting with their name
-        dataToFilter = dataToFilter.filter(member => member.team?.startsWith(currentUserName));
-      } else if (GROUP_LEVEL_LEADERS.includes(currentUserDesignation) && currentUserTeam) {
-        // Group Leaders see members of their exact team
-        dataToFilter = dataToFilter.filter(member => member.team === currentUserTeam);
-      }
-    } else if (currentUserRole === 'admin' && currentUserMohallahId) {
-      // Admins see all members within their mohallah
-      dataToFilter = dataToFilter.filter(member => member.mohallahId === currentUserMohallahId);
-    }
-    // Superadmins see everyone, so no filtering is applied by default
 
-    // Then, apply search and dropdown filters to the already-scoped data
+    if (currentUserDesignation && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation)) {
+        if (TOP_LEVEL_LEADERS.includes(currentUserDesignation)) {
+            // Majors and Captains see everyone
+        } else if (MID_LEVEL_LEADERS.includes(currentUserDesignation) && currentUserName) {
+            dataToFilter = dataToFilter.filter(member => member.team?.startsWith(currentUserName));
+        } else if (GROUP_LEVEL_LEADERS.includes(currentUserDesignation) && currentUserTeam) {
+            dataToFilter = dataToFilter.filter(member => member.team === currentUserTeam);
+        }
+    } else if (currentUserRole === 'admin' && currentUserMohallahId) {
+        dataToFilter = dataToFilter.filter(member => member.mohallahId === currentUserMohallahId);
+    }
+
     return dataToFilter.filter(m => {
         const searchTermMatch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 m.itsId.includes(searchTerm) ||
@@ -1311,5 +1304,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
-    
