@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -17,7 +18,10 @@ import { format } from "date-fns";
 import { Unsubscribe } from "firebase/firestore";
 import Papa from "papaparse";
 
-const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader"];
+const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
+const TOP_LEVEL_LEADERS: UserDesignation[] = ["Major", "Captain"];
+const MID_LEVEL_LEADERS: UserDesignation[] = ["Vice Captain"];
+const GROUP_LEVEL_LEADERS: UserDesignation[] = ["Group Leader", "Asst.Grp Leader"];
 
 export default function ViewResponsesPage() {
     const router = useRouter();
@@ -32,12 +36,18 @@ export default function ViewResponsesPage() {
     const [error, setError] = useState<string | null>(null);
     const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
     const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
+    const [currentUserName, setCurrentUserName] = useState<string | null>(null);
+    const [currentUserTeam, setCurrentUserTeam] = useState<string | null>(null);
     
     useEffect(() => {
         const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
         const designation = typeof window !== "undefined" ? localStorage.getItem('userDesignation') as UserDesignation : null;
+        const name = typeof window !== "undefined" ? localStorage.getItem('userName') : null;
+        const team = typeof window !== "undefined" ? localStorage.getItem('userTeam') : null;
         setCurrentUserRole(role);
         setCurrentUserDesignation(designation);
+        setCurrentUserName(name);
+        setCurrentUserTeam(team);
     }, []);
 
     useEffect(() => {
@@ -74,9 +84,10 @@ export default function ViewResponsesPage() {
     }, [formId]);
 
     const canManageResponses = useMemo(() => {
-        if (!currentUserRole || !currentUserDesignation) return false;
-        if (currentUserRole === 'superadmin') return true;
-        return TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation);
+        if (!currentUserRole) return false;
+        if (currentUserRole === 'superadmin' || currentUserRole === 'admin') return true;
+        if(currentUserDesignation && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation)) return true;
+        return false;
     }, [currentUserRole, currentUserDesignation]);
 
 
@@ -99,38 +110,43 @@ export default function ViewResponsesPage() {
         if (!form || allUsers.length === 0) {
             return { eligibleUsers: [], nonRespondents: [] };
         }
-
+    
         const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
-
-        let eligible: User[];
-
+    
+        // Determine the base list of eligible users for the form
+        let baseEligibleUsers: User[];
         if (form.eligibleItsIds && form.eligibleItsIds.length > 0) {
             const eligibleIdSet = new Set(form.eligibleItsIds);
-            eligible = allUsers.filter(user => eligibleIdSet.has(user.itsId));
+            baseEligibleUsers = allUsers.filter(user => eligibleIdSet.has(user.itsId));
         } else {
-            eligible = allUsers.filter(user => {
+            baseEligibleUsers = allUsers.filter(user => {
                 if (isForEveryone) return true;
-                
-                let matchesAllCriteria = true;
-                
-                if (form.mohallahIds && form.mohallahIds.length > 0) {
-                    matchesAllCriteria = matchesAllCriteria && !!user.mohallahId && form.mohallahIds.includes(user.mohallahId);
-                }
-                
-                if (form.teams && form.teams.length > 0) {
-                    matchesAllCriteria = matchesAllCriteria && !!user.team && form.teams.includes(user.team);
-                }
-                
-                return matchesAllCriteria && !isForEveryone;
+                const inMohallah = form.mohallahIds && form.mohallahIds.length > 0 ? (user.mohallahId && form.mohallahIds.includes(user.mohallahId)) : false;
+                const inTeam = form.teams && form.teams.length > 0 ? (user.team && form.teams.includes(user.team)) : false;
+                return inMohallah || inTeam;
             });
         }
-
+    
+        // Filter this list based on the current user's role and designation
+        let visibleEligibleUsers = baseEligibleUsers;
+        if (currentUserDesignation && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation) && currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
+            if (TOP_LEVEL_LEADERS.includes(currentUserDesignation)) {
+                // Majors and Captains see everyone in the eligible list
+            } else if (MID_LEVEL_LEADERS.includes(currentUserDesignation) && currentUserName) {
+                // Vice Captains see their division
+                visibleEligibleUsers = baseEligibleUsers.filter(user => user.team?.startsWith(currentUserName));
+            } else if (GROUP_LEVEL_LEADERS.includes(currentUserDesignation) && currentUserTeam) {
+                // Group Leaders see their specific team
+                visibleEligibleUsers = baseEligibleUsers.filter(user => user.team === currentUserTeam);
+            }
+        }
+    
         const respondentIds = new Set(responses.map(r => r.submittedBy));
-        const nonResponding = eligible.filter(user => !respondentIds.has(user.itsId));
-
-        return { eligibleUsers: eligible, nonRespondents: nonResponding };
-
-    }, [form, allUsers, responses]);
+        const nonResponding = visibleEligibleUsers.filter(user => !respondentIds.has(user.itsId));
+    
+        return { eligibleUsers: visibleEligibleUsers, nonRespondents: nonResponding };
+    
+    }, [form, allUsers, responses, currentUserRole, currentUserDesignation, currentUserName, currentUserTeam]);
     
 
     const renderResponseValue = (questionId: string, value: any) => {
@@ -146,6 +162,9 @@ export default function ViewResponsesPage() {
         }
         return value || "N/A";
     };
+    
+    const getMohallahNameById = (id?: string) => allUsers.find(u => u.mohallahId === id)?.mohallahId || 'N/A';
+
 
     const handleExport = (exportType: 'respondents' | 'non-respondents') => {
         if (!form) return;
@@ -385,7 +404,7 @@ export default function ViewResponsesPage() {
                                                 <TableCell>{user.itsId}</TableCell>
                                                 <TableCell>{user.bgkId || 'N/A'}</TableCell>
                                                 <TableCell>{user.team || 'N/A'}</TableCell>
-                                                <TableCell>{allUsers.find(u => u.id === user.id)?.mohallahId || 'N/A'}</TableCell>
+                                                <TableCell>{getMohallahNameById(user.mohallahId)}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
