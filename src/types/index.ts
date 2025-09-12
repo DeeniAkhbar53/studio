@@ -10,6 +10,7 @@ export type User = {
   email?: string; // Added email field
   password?: string; // For admin/superadmin login
   team?: string;
+  managedTeams?: string[]; // For Vice Captains to manage multiple teams
   phoneNumber?: string;
   mohallahId?: string;
   role: UserRole;

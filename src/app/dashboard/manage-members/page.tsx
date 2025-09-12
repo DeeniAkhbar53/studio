@@ -19,7 +19,7 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
-import { getUsers, addUser, updateUser, deleteUser, getUserByItsOrBgkId } from "@/lib/firebase/userService";
+import { getUsers, addUser, updateUser, deleteUser, getUserByItsOrBgkId, getUniqueTeamNames } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
@@ -29,6 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -37,6 +38,7 @@ const memberSchema = z.object({
   bgkId: z.string().optional().or(z.literal("")),
   password: z.string().optional(),
   team: z.string().optional().or(z.literal("")),
+  managedTeams: z.array(z.string()).optional().default([]),
   phoneNumber: z.string().optional().or(z.literal("")),
   role: z.enum(["user", "admin", "superadmin", "attendance-marker"]),
   mohallahId: z.string().min(1, "Mohallah must be selected"),
@@ -92,6 +94,7 @@ export default function ManageMembersPage() {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
+  const [availableTeams, setAvailableTeams] = useState<string[]>([]);
   const [members, setMembers] = useState<User[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -104,6 +107,7 @@ export default function ManageMembersPage() {
   const [isCsvProcessing, setIsCsvProcessing] = useState(false);
   const { toast } = useToast();
 
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
@@ -123,10 +127,11 @@ export default function ManageMembersPage() {
 
   const memberForm = useForm<MemberFormValues>({
     resolver: zodResolver(memberSchema),
-    defaultValues: { name: "", itsId: "", email: "", bgkId: "", password: "", team: "", phoneNumber: "", role: "user", mohallahId: "", designation: "Member", pageRights: [] },
+    defaultValues: { name: "", itsId: "", email: "", bgkId: "", password: "", team: "", phoneNumber: "", role: "user", mohallahId: "", designation: "Member", pageRights: [], managedTeams: [] },
   });
 
   const watchedRole = memberForm.watch("role");
+  const watchedDesignation = memberForm.watch("designation");
 
   const isTeamLeadView = useMemo(() => {
     if (!currentUserRole || !currentUserDesignation) return false;
@@ -166,23 +171,31 @@ export default function ManageMembersPage() {
 
   useEffect(() => {
     if (!isAuthorized) return;
-    if (typeof window !== "undefined") {
-      const role = localStorage.getItem('userRole') as UserRole | null;
-      const mohallahId = localStorage.getItem('userMohallahId');
-      const team = localStorage.getItem('userTeam');
-      const name = localStorage.getItem('userName');
+    async function loadCurrentUser() {
+      if (typeof window !== "undefined") {
+        const role = localStorage.getItem('userRole') as UserRole | null;
+        const mohallahId = localStorage.getItem('userMohallahId');
+        const team = localStorage.getItem('userTeam');
+        const name = localStorage.getItem('userName');
+        const itsId = localStorage.getItem('userItsId');
 
+        setCurrentUserRole(role);
+        setCurrentUserMohallahId(mohallahId);
+        setCurrentUserTeam(team);
+        setCurrentUserName(name);
 
-      setCurrentUserRole(role);
-      setCurrentUserMohallahId(mohallahId);
-      setCurrentUserTeam(team);
-      setCurrentUserName(name);
+        if (itsId) {
+            const userDetails = await getUserByItsOrBgkId(itsId);
+            setCurrentUser(userDetails);
+        }
 
-      if (role === 'admin' && mohallahId) {
-        setSelectedFilterMohallahId(mohallahId);
-        memberForm.setValue('mohallahId', mohallahId);
+        if (role === 'admin' && mohallahId) {
+          setSelectedFilterMohallahId(mohallahId);
+          memberForm.setValue('mohallahId', mohallahId);
+        }
       }
     }
+    loadCurrentUser();
   }, [isAuthorized, memberForm]);
 
   useEffect(() => {
@@ -192,6 +205,9 @@ export default function ManageMembersPage() {
       setMohallahs(fetchedMohallahs);
       setIsLoadingMohallahs(false);
     });
+
+    getUniqueTeamNames().then(setAvailableTeams);
+
     return () => unsubscribeMohallahs();
   }, [isAuthorized]);
 
@@ -244,6 +260,7 @@ export default function ManageMembersPage() {
         mohallahId: editingMember.mohallahId || (mohallahs.length > 0 ? mohallahs[0].id : ""),
         designation: editingMember.designation || "Member",
         pageRights: editingMember.pageRights || [],
+        managedTeams: editingMember.managedTeams || [],
       });
     } else {
       let defaultMohallahForForm = "";
@@ -259,6 +276,7 @@ export default function ManageMembersPage() {
         mohallahId: defaultMohallahForForm,
         designation: "Member",
         pageRights: [],
+        managedTeams: [],
       });
     }
   }, [editingMember, memberForm, isMemberSheetOpen, mohallahs, selectedFilterMohallahId, currentUserRole, currentUserMohallahId, isAuthorized]);
@@ -272,7 +290,7 @@ export default function ManageMembersPage() {
         return;
     }
 
-    const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string, designation?: UserDesignation, pageRights?: string[], password?: string } = {
+    const memberPayload: Omit<User, 'id' | 'avatarUrl'> & { avatarUrl?: string, designation?: UserDesignation, pageRights?: string[], password?: string, managedTeams?: string[] } = {
       name: values.name,
       itsId: values.itsId,
       email: values.email,
@@ -283,6 +301,7 @@ export default function ManageMembersPage() {
       mohallahId: targetMohallahId, 
       designation: values.designation as UserDesignation || "Member",
       pageRights: values.role === 'user' ? [] : (values.pageRights || []), 
+      managedTeams: values.designation === 'Vice Captain' ? (values.managedTeams || []) : [],
     };
 
     if (values.password && (values.role === 'admin' || values.role === 'superadmin')) {
@@ -437,6 +456,7 @@ export default function ManageMembersPage() {
                       mohallahId: mohallahId, 
                       designation: (trimmedRow.designation as UserDesignation) || "Member", 
                       pageRights: trimmedRow.pageRights ? trimmedRow.pageRights.split(';').map((s: string) => s.trim()).filter(Boolean) : [],
+                      managedTeams: trimmedRow.managedTeams ? trimmedRow.managedTeams.split(';').map((s: string) => s.trim()).filter(Boolean) : [],
                     };
 
                     const validation = memberSchema.safeParse({
@@ -471,6 +491,7 @@ export default function ManageMembersPage() {
                                 role: validatedData.role,
                                 designation: validatedData.designation,
                                 pageRights: validatedData.pageRights,
+                                managedTeams: validatedData.managedTeams,
                                 // Password is intentionally not updated via CSV for security.
                                 // Mohallah ID is not updated as it would require moving documents.
                             };
@@ -541,11 +562,11 @@ export default function ManageMembersPage() {
 
 
   const downloadSampleCsv = () => {
-    const csvHeaders = "name,itsId,email,bgkId,password,team,phoneNumber,role,mohallahName,designation,pageRights\n";
+    const csvHeaders = "name,itsId,email,bgkId,password,team,phoneNumber,role,mohallahName,designation,pageRights,managedTeams\n";
     const csvDummyData = [
-      "Abbas Bhai,10101010,abbas@example.com,BGK001,,Alpha Team,1234567890,user,Houston,Member,",
-      "Fatema Ben,20202020,fatema@example.com,,Bravo Team,0987654321,attendance-marker,Dallas,Vice Captain,/dashboard/reports;/dashboard/mark-attendance",
-      "Yusuf Bhai,30303030,yusuf@example.com,BGK003,strongpassword,Alpha Team,,admin,Houston,Captain,/dashboard/reports;/dashboard/manage-members",
+      "Abbas Bhai,10101010,abbas@example.com,BGK001,,Alpha Team,1234567890,user,Houston,Member,,",
+      "Fatema Ben,20202020,fatema@example.com,,Bravo Team,0987654321,attendance-marker,Dallas,Vice Captain,/dashboard/reports;/dashboard/mark-attendance,Bravo Team;Charlie Team",
+      "Yusuf Bhai,30303030,yusuf@example.com,BGK003,strongpassword,Alpha Team,,admin,Houston,Captain,/dashboard/reports;/dashboard/manage-members,",
     ].join("\n");
     const csvContent = csvHeaders + csvDummyData;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -559,19 +580,20 @@ export default function ManageMembersPage() {
       link.click();
       document.body.removeChild(link);
     }
-     toast({ title: "Sample CSV Downloaded", description: "Replace dummy data. MohallahName must match existing. pageRights are semicolon-separated paths." });
+     toast({ title: "Sample CSV Downloaded", description: "Replace dummy data. MohallahName must match existing. pageRights/managedTeams are semicolon-separated." });
   };
 
   const filteredMembers = useMemo(() => {
     let dataToFilter = [...members];
 
-    if (currentUserDesignation && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation)) {
-        if (TOP_LEVEL_LEADERS.includes(currentUserDesignation)) {
+    if (currentUser?.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) {
+        if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
             // Majors and Captains see everyone
-        } else if (MID_LEVEL_LEADERS.includes(currentUserDesignation) && currentUserName) {
-            dataToFilter = dataToFilter.filter(member => member.team?.startsWith(currentUserName));
-        } else if (GROUP_LEVEL_LEADERS.includes(currentUserDesignation) && currentUserTeam) {
-            dataToFilter = dataToFilter.filter(member => member.team === currentUserTeam);
+        } else if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams && currentUser.managedTeams.length > 0) {
+            const managedTeams = new Set(currentUser.managedTeams);
+            dataToFilter = dataToFilter.filter(member => member.team && managedTeams.has(member.team));
+        } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
+            dataToFilter = dataToFilter.filter(member => member.team === currentUser.team);
         }
     } else if (currentUserRole === 'admin' && currentUserMohallahId) {
         dataToFilter = dataToFilter.filter(member => member.mohallahId === currentUserMohallahId);
@@ -589,7 +611,7 @@ export default function ManageMembersPage() {
 
         return searchTermMatch && roleMatch && designationMatch && mohallahFilterMatch;
     });
-  }, [members, searchTerm, selectedFilterRole, selectedFilterDesignation, selectedFilterMohallahId, currentUserRole, currentUserDesignation, currentUserMohallahId, currentUserTeam, currentUserName]);
+  }, [members, searchTerm, selectedFilterRole, selectedFilterDesignation, selectedFilterMohallahId, currentUserRole, currentUserMohallahId, currentUser]);
 
   const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
   const currentMembersToDisplay = useMemo(() => {
@@ -636,7 +658,7 @@ export default function ManageMembersPage() {
   const displayTitle = useMemo(() => {
     if (currentUserDesignation && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation) && !canManageMembers) {
       if (TOP_LEVEL_LEADERS.includes(currentUserDesignation)) return "All Members";
-      if (MID_LEVEL_LEADERS.includes(currentUserDesignation)) return `Team Members: ${currentUserName}`;
+      if (MID_LEVEL_LEADERS.includes(currentUserDesignation)) return `Team Members`;
       if (GROUP_LEVEL_LEADERS.includes(currentUserDesignation)) return `Team Members: ${currentUserTeam}`;
     }
     if (currentUserRole === 'admin' && currentUserMohallahId) return `Manage Members: ${getMohallahNameById(currentUserMohallahId)}`;
@@ -718,7 +740,7 @@ export default function ManageMembersPage() {
                     <DialogHeader>
                         <DialogTitle>Import Members via CSV</DialogTitle>
                         <DialogDescription>
-                        Select CSV file. Columns: `name`, `itsId`, `email`, `bgkId`, `password`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated paths). MohallahName must exist. Admins can only import to their assigned Mohallah.
+                        Columns: `name`, `itsId`, `email`, `bgkId`, `password`, `team`, `phoneNumber`, `role`, `mohallahName`, `designation`, `pageRights` (semicolon-separated), `managedTeams` (semicolon-separated).
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -825,6 +847,56 @@ export default function ManageMembersPage() {
                                 <FormMessage />
                               </FormItem>
                             )} />
+
+                           {watchedDesignation === 'Vice Captain' && (
+                                <FormField
+                                control={memberForm.control}
+                                name="managedTeams"
+                                render={() => (
+                                    <FormItem>
+                                    <FormLabel>Managed Teams</FormLabel>
+                                    <FormDescription>Select the teams this Vice Captain will manage.</FormDescription>
+                                    <ScrollArea className="rounded-md border p-3 h-32">
+                                    {availableTeams.map((team) => (
+                                        <FormField
+                                        key={team}
+                                        control={memberForm.control}
+                                        name="managedTeams"
+                                        render={({ field }) => {
+                                            return (
+                                            <FormItem
+                                                key={team}
+                                                className="flex flex-row items-start space-x-3 space-y-0"
+                                            >
+                                                <FormControl>
+                                                <Checkbox
+                                                    checked={field.value?.includes(team)}
+                                                    onCheckedChange={(checked) => {
+                                                    return checked
+                                                        ? field.onChange([...(field.value || []), team])
+                                                        : field.onChange(
+                                                            (field.value || []).filter(
+                                                            (value) => value !== team
+                                                            )
+                                                        )
+                                                    }}
+                                                />
+                                                </FormControl>
+                                                <FormLabel className="text-sm font-normal">
+                                                {team}
+                                                </FormLabel>
+                                            </FormItem>
+                                            )
+                                        }}
+                                        />
+                                    ))}
+                                    </ScrollArea>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                            )}
+
                           <FormField control={memberForm.control} name="role" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Role</FormLabel>

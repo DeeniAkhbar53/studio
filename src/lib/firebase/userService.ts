@@ -25,6 +25,7 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
       avatarUrl: userData.avatarUrl || `https://placehold.co/40x40.png?text=${userData.name.substring(0,2).toUpperCase()}`,
       designation: userData.designation || "Member",
       pageRights: userData.pageRights || [],
+      managedTeams: userData.managedTeams || [],
       fcmTokens: [], // Initialize FCM tokens array
     };
     
@@ -83,6 +84,9 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
       if (K === 'fcmTokens' && !Array.isArray(updatePayload[K])) {
         updatePayload[K] = []; // Ensure fcmTokens is always an array or omitted
       }
+      if (K === 'managedTeams' && !Array.isArray(updatePayload[K])) {
+        updatePayload[K] = [];
+      }
     });
 
     if (updatedData.hasOwnProperty('pageRights') && updatedData.pageRights === undefined) {
@@ -90,6 +94,9 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
     }
     if (updatedData.hasOwnProperty('fcmTokens') && updatedData.fcmTokens === undefined) { // Handle fcmTokens
         updatePayload.fcmTokens = [];
+    }
+    if (updatedData.hasOwnProperty('managedTeams') && updatedData.managedTeams === undefined) {
+      updatePayload.managedTeams = [];
     }
 
 
@@ -128,6 +135,7 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
       ...doc.data(), 
       id: doc.id, 
       pageRights: doc.data().pageRights || [],
+      managedTeams: doc.data().managedTeams || [],
       fcmTokens: doc.data().fcmTokens || [], // Ensure fcmTokens is included
     } as User));
   } catch (error) {
@@ -152,6 +160,7 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
         ...userDoc.data(), 
         id: userDoc.id, 
         pageRights: userDoc.data().pageRights || [], 
+        managedTeams: userDoc.data().managedTeams || [],
         mohallahId: userDoc.data().mohallahId, // This is the ID of the Mohallah the user belongs to
         fcmTokens: userDoc.data().fcmTokens || [], // Ensure fcmTokens is included
       } as User;
@@ -164,7 +173,8 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
       return { 
         ...userDoc.data(), 
         id: userDoc.id, 
-        pageRights: userDoc.data().pageRights || [], 
+        pageRights: userDoc.data().pageRights || [],
+        managedTeams: userDoc.data().managedTeams || [],
         mohallahId: userDoc.data().mohallahId,
         fcmTokens: userDoc.data().fcmTokens || [], // Ensure fcmTokens is included
       } as User;
