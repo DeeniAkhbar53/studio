@@ -12,7 +12,7 @@ import type { UserRole, UserDesignation, Miqaat, MiqaatAttendanceEntryItem, Form
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { getUsers, getUsersCount, getUserByItsOrBgkId as fetchUserByItsId } from "@/lib/firebase/userService";
 import { getMohallahsCount } from "@/lib/firebase/mohallahService";
-import { getForms } from "@/lib/firebase/formService";
+import { getForms, getFormResponsesRealtime } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
@@ -280,6 +280,8 @@ export default function DashboardOverviewPage() {
         return;
     }
 
+    let unsubscribe: (() => void) | undefined;
+
     const checkNonRespondents = async () => {
         setIsLoadingNonRespondents(true);
         setNonRespondentData(null);
@@ -289,7 +291,7 @@ export default function DashboardOverviewPage() {
                 setIsLoadingNonRespondents(false);
                 return;
             }
-            
+
             const allUsers = await getUsers();
             let teamMembers: User[] = [];
 
@@ -308,34 +310,32 @@ export default function DashboardOverviewPage() {
                 return;
             }
 
-            // This is a simplified eligibility check. A more robust one might be needed.
-            const respondentIds = new Set((await getForms()).find(f => f.id === latestActiveForm.id)?.questions.map(q => q.id)); // This is not right
-             // Correctly check form responses, not questions
-            const formResponses = await getForms(); // Re-fetch or use existing state
-            const targetForm = formResponses.find(f => f.id === latestActiveForm.id);
-            // This is still incorrect logic for getting respondents. Need to import and use getFormResponsesRealtime or similar
-            // For now, let's assume we can get respondent ITS IDs
-            // This part of the logic will be complex and require fetching form responses.
-            // For this implementation, I will simulate this by assuming a `getFormResponses` function exists.
-            // In reality, this would need a proper implementation.
-            
-            // Simplified: for demo, let's assume no one has responded.
-            const nonRespondents = teamMembers;
+            unsubscribe = getFormResponsesRealtime(latestActiveForm.id, (responses) => {
+                const respondentIds = new Set(responses.map(r => r.submittedBy));
+                const nonRespondents = teamMembers.filter(member => !respondentIds.has(member.itsId));
 
-            if (nonRespondents.length > 0) {
-                setNonRespondentData({ formTitle: latestActiveForm.title, nonRespondents });
-            }
+                if (nonRespondents.length > 0) {
+                    setNonRespondentData({ formTitle: latestActiveForm.title, nonRespondents });
+                } else {
+                    setNonRespondentData(null);
+                }
+                 setIsLoadingNonRespondents(false);
+            });
 
         } catch (error) {
             console.error("Error checking for form non-respondents:", error);
-        } finally {
             setIsLoadingNonRespondents(false);
         }
     };
-    // Temporarily disable this until form response fetching is clarified.
-    // checkNonRespondents();
 
-  }, [isTeamLead, allForms, currentUser]);
+    checkNonRespondents();
+
+    return () => {
+        if (unsubscribe) {
+            unsubscribe();
+        }
+    };
+}, [isTeamLead, allForms, currentUser]);
 
 
   const handleQrCodeScanned = useCallback(async (decodedText: string) => {
@@ -618,7 +618,7 @@ export default function DashboardOverviewPage() {
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-foreground">
               {currentUserRole === 'user' ? `Welcome, ${currentUserName}!` :
-                isTeamLead ? `Team Leader Dashboard: ${currentUser.team || currentUserName}` :
+                isTeamLead ? `Team Leader Dashboard: ${currentUser?.team || currentUserName}` :
                 currentUserRole === 'attendance-marker' ? "Attendance Marker Dashboard" : "Admin Dashboard"}
             </CardTitle>
             <Separator className="my-2" />
@@ -846,5 +846,3 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
-
-    
