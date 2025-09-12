@@ -295,7 +295,9 @@ export default function DashboardOverviewPage() {
             const allUsers = await getUsers();
             let teamMembers: User[] = [];
 
-            if (currentUser.designation && MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
+            if (currentUser.designation && TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
+              teamMembers = allUsers;
+            } else if (currentUser.designation && MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
                 const managedTeamsSet = new Set(currentUser.managedTeams);
                 teamMembers = allUsers.filter(u => u.team && managedTeamsSet.has(u.team));
             } else if (currentUser.designation && GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
@@ -618,7 +620,7 @@ export default function DashboardOverviewPage() {
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-foreground">
               {currentUserRole === 'user' ? `Welcome, ${currentUserName}!` :
-                isTeamLead ? `Team Leader Dashboard: ${currentUser?.team || currentUserName}` :
+                isTeamLead ? `Team Leader Dashboard: ${(currentUser && currentUser.team) || currentUserName}` :
                 currentUserRole === 'attendance-marker' ? "Attendance Marker Dashboard" : "Admin Dashboard"}
             </CardTitle>
             <Separator className="my-2" />
