@@ -89,7 +89,6 @@ export default function DashboardOverviewPage() {
   const isTeamLead = useMemo(() => {
     if (!currentUserRole || !currentUserDesignation) return false;
     const hasLeadershipDesignation = TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation);
-    // Include admins/superadmins in the team lead logic to ensure they see popups, but their data scope is different
     return hasLeadershipDesignation || currentUserRole === 'admin' || currentUserRole === 'superadmin';
   }, [currentUserRole, currentUserDesignation]);
 
@@ -118,13 +117,15 @@ export default function DashboardOverviewPage() {
 
             setIsLoadingUser(false);
         } else {
+            // This prevents a redirect flicker if the component loads before localStorage is ready
             if (!isLoadingUser) {
                 router.push('/');
             }
         }
     };
     fetchCurrentUserData();
-  }, [isLoadingUser, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (isLoadingUser || !currentUserItsId || !currentUserRole) {
@@ -300,28 +301,45 @@ export default function DashboardOverviewPage() {
             }
 
             const allUsers = await getUsers();
-            let teamMembers: User[] = [];
+            
+            let eligibleUsers: User[];
 
-            if (currentUser.designation && TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
-              teamMembers = allUsers;
-            } else if (currentUser.designation && MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
-                const managedTeamsSet = new Set(currentUser.managedTeams);
-                teamMembers = allUsers.filter(u => u.team && managedTeamsSet.has(u.team));
-            } else if (currentUser.designation && GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
-                teamMembers = allUsers.filter(u => u.team === currentUser.team);
+            if (latestActiveForm.eligibleItsIds && latestActiveForm.eligibleItsIds.length > 0) {
+                const eligibleIdSet = new Set(latestActiveForm.eligibleItsIds);
+                eligibleUsers = allUsers.filter(user => eligibleIdSet.has(user.itsId));
             } else {
-                setIsLoadingNonRespondents(false);
-                return;
+                 const isForEveryone = !latestActiveForm.mohallahIds?.length && !latestActiveForm.teams?.length;
+                 eligibleUsers = allUsers.filter(user => {
+                    if (isForEveryone) return true;
+                    const inMohallah = latestActiveForm.mohallahIds?.includes(user.mohallahId || '');
+                    const inTeam = latestActiveForm.teams?.includes(user.team || '');
+                    return inMohallah || inTeam;
+                 });
             }
 
-            if (teamMembers.length === 0) {
+            let visibleEligibleUsers = eligibleUsers;
+            if (currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation) && currentUser.role !== 'admin' && currentUser.role !== 'superadmin') {
+                if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
+                    // Captains see everyone in the eligible list
+                } else if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
+                    // Vice Captains see their division
+                    const managedTeamsSet = new Set(currentUser.managedTeams);
+                    visibleEligibleUsers = eligibleUsers.filter(user => user.team && managedTeamsSet.has(user.team));
+                } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
+                    // Group Leaders see their specific team
+                    visibleEligibleUsers = eligibleUsers.filter(user => user.team === currentUser.team);
+                }
+            }
+
+
+            if (visibleEligibleUsers.length === 0) {
                 setIsLoadingNonRespondents(false);
                 return;
             }
 
             unsubscribe = getFormResponsesRealtime(latestActiveForm.id, (responses) => {
                 const respondentIds = new Set(responses.map(r => r.submittedBy));
-                const nonRespondents = teamMembers.filter(member => !respondentIds.has(member.itsId));
+                const nonRespondents = visibleEligibleUsers.filter(member => !respondentIds.has(member.itsId));
 
                 if (nonRespondents.length > 0) {
                     setNonRespondentData({ formTitle: latestActiveForm.title, nonRespondents });
@@ -929,5 +947,3 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
-
-    
