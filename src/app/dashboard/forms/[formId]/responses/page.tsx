@@ -17,6 +17,8 @@ import { format } from "date-fns";
 import { Unsubscribe } from "firebase/firestore";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Separator } from "@/components/ui/separator";
 
 const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader"];
 
@@ -313,7 +315,59 @@ export default function ViewResponsesPage() {
                                     </p>
                                 </div>
                             ) : (
-                                <div className="border rounded-lg max-w-full overflow-x-auto">
+                                <>
+                                {/* Mobile View: Accordion */}
+                                <div className="md:hidden">
+                                  <Accordion type="single" collapsible className="w-full">
+                                      {responses.map((response) => (
+                                          <AccordionItem value={response.id} key={response.id}>
+                                              <AccordionTrigger>
+                                                  <div className="flex-grow text-left">
+                                                      <p className="font-semibold text-card-foreground">{response.submitterName}</p>
+                                                      <p className="text-xs text-muted-foreground">ITS: {response.submittedBy} &middot; Submitted: {format(new Date(response.submittedAt), "MMM d, yyyy")}</p>
+                                                  </div>
+                                              </AccordionTrigger>
+                                              <AccordionContent className="space-y-4 pt-2">
+                                                <div className="px-2 space-y-3">
+                                                  {form?.questions.map(q => (
+                                                      <div key={q.id}>
+                                                          <p className="font-medium text-sm text-muted-foreground">{q.label}</p>
+                                                          <div className="text-base pl-2">{renderResponseValue(q.id, response.responses[q.id])}</div>
+                                                      </div>
+                                                  ))}
+                                                </div>
+                                                {canManageResponses && (
+                                                  <>
+                                                    <Separator/>
+                                                    <div className="flex justify-end px-2">
+                                                        <AlertDialog>
+                                                            <AlertDialogTrigger asChild>
+                                                                <Button variant="destructive" size="sm">
+                                                                    <Trash2 className="mr-2 h-4 w-4"/> Delete
+                                                                </Button>
+                                                            </AlertDialogTrigger>
+                                                            <AlertDialogContent>
+                                                                <AlertDialogHeader>
+                                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                                    <AlertDialogDescription>This will permanently delete the response from {response.submitterName}.</AlertDialogDescription>
+                                                                </AlertDialogHeader>
+                                                                <AlertDialogFooter>
+                                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                    <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteResponse(response.id)}>Delete</AlertDialogAction>
+                                                                </AlertDialogFooter>
+                                                            </AlertDialogContent>
+                                                        </AlertDialog>
+                                                    </div>
+                                                  </>
+                                                )}
+                                              </AccordionContent>
+                                          </AccordionItem>
+                                      ))}
+                                  </Accordion>
+                                </div>
+
+                                {/* Desktop View: Table */}
+                                <div className="hidden md:block border rounded-lg max-w-full overflow-x-auto">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -371,6 +425,7 @@ export default function ViewResponsesPage() {
                                     </TableBody>
                                 </Table>
                                 </div>
+                                </>
                             )}
                         </CardContent>
                     </Card>
@@ -393,7 +448,20 @@ export default function ViewResponsesPage() {
                                     <p className="text-lg font-medium text-muted-foreground">All members have responded!</p>
                                 </div>
                             ) : (
-                                <div className="border rounded-lg max-w-full overflow-x-auto">
+                                <>
+                                 {/* Mobile View: Simple List */}
+                                <div className="md:hidden space-y-2">
+                                  {nonRespondents.map(user => (
+                                    <div key={user.id} className="p-3 border rounded-lg flex justify-between items-center">
+                                      <div>
+                                        <p className="font-medium">{user.name}</p>
+                                        <p className="text-xs text-muted-foreground">ITS: {user.itsId} &middot; Team: {user.team || 'N/A'}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                {/* Desktop View: Table */}
+                                <div className="hidden md:block border rounded-lg max-w-full overflow-x-auto">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -417,6 +485,7 @@ export default function ViewResponsesPage() {
                                     </TableBody>
                                 </Table>
                                 </div>
+                                </>
                             )}
                         </CardContent>
                     </Card>
