@@ -117,28 +117,27 @@ export default function ViewResponsesPage() {
             return { eligibleUsers: [], nonRespondents: [] };
         }
 
-        const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
-
         let eligible: User[];
 
+        // --- NEW LOGIC: Prioritize specific member list ---
         if (form.eligibleItsIds && form.eligibleItsIds.length > 0) {
             const eligibleIdSet = new Set(form.eligibleItsIds);
             eligible = allUsers.filter(user => eligibleIdSet.has(user.itsId));
         } else {
+            // Fallback to group-based eligibility ONLY if specific list is not used
+            const isForEveryone = !form.mohallahIds?.length && !form.teams?.length;
             eligible = allUsers.filter(user => {
                 if (isForEveryone) return true;
                 
-                let matchesAllCriteria = true;
-                
-                if (form.mohallahIds && form.mohallahIds.length > 0) {
-                    matchesAllCriteria = matchesAllCriteria && !!user.mohallahId && form.mohallahIds.includes(user.mohallahId);
-                }
-                
-                if (form.teams && form.teams.length > 0) {
-                    matchesAllCriteria = matchesAllCriteria && !!user.team && form.teams.includes(user.team);
-                }
-                
-                return matchesAllCriteria && !isForEveryone;
+                const inMohallah = form.mohallahIds && form.mohallahIds.length > 0
+                    ? !!user.mohallahId && form.mohallahIds.includes(user.mohallahId)
+                    : false;
+
+                const inTeam = form.teams && form.teams.length > 0
+                    ? !!user.team && form.teams.includes(user.team)
+                    : false;
+
+                return inMohallah || inTeam;
             });
         }
 
@@ -426,3 +425,5 @@ export default function ViewResponsesPage() {
         </div>
     );
 }
+
+    
