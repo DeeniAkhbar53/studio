@@ -48,7 +48,7 @@ export default function ViewResponsesPage() {
     const { toast } = useToast();
 
     const [form, setForm] = useState<FormType | null>(null);
-    const [responses, setResponses] = useState<FormResponse[]>([]);
+    const [allResponses, setAllResponses] = useState<FormResponse[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -96,7 +96,7 @@ export default function ViewResponsesPage() {
         fetchInitialData();
 
         const unsubscribeResponses = getFormResponsesRealtime(formId, (newResponses) => {
-            setResponses(newResponses);
+            setAllResponses(newResponses);
             setIsLoading(false);
         });
 
@@ -110,7 +110,6 @@ export default function ViewResponsesPage() {
         if (currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) return true;
         return false;
     }, [currentUser]);
-
 
     const handleDeleteResponse = async (responseId: string) => {
         if (!formId) return;
@@ -127,12 +126,13 @@ export default function ViewResponsesPage() {
         }
     };
     
-    const { eligibleUsers, nonRespondents } = useMemo(() => {
+    const { eligibleUsers, nonRespondents, filteredResponses } = useMemo(() => {
         if (!form || allUsers.length === 0 || !currentUser) {
-            return { eligibleUsers: [], nonRespondents: [] };
+            return { eligibleUsers: [], nonRespondents: [], filteredResponses: [] };
         }
 
         let baseEligibleUsers: User[];
+        const userMap = new Map(allUsers.map(user => [user.itsId, user]));
 
         if (form.eligibleItsIds && form.eligibleItsIds.length > 0) {
             const eligibleIdSet = new Set(form.eligibleItsIds);
@@ -148,6 +148,8 @@ export default function ViewResponsesPage() {
         }
 
         let visibleEligibleUsers = baseEligibleUsers;
+        let finalFilteredResponses = allResponses;
+
         if (currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation) && currentUser.role !== 'admin' && currentUser.role !== 'superadmin') {
             if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
                 // Majors and Captains see everyone in the eligible list
@@ -155,18 +157,26 @@ export default function ViewResponsesPage() {
                 // Vice Captains see their managed teams
                 const managedTeamsSet = new Set(currentUser.managedTeams);
                 visibleEligibleUsers = baseEligibleUsers.filter(user => user.team && managedTeamsSet.has(user.team));
+                 finalFilteredResponses = allResponses.filter(res => {
+                    const submitter = userMap.get(res.submittedBy);
+                    return submitter?.team && managedTeamsSet.has(submitter.team);
+                 });
             } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
                 // Group Leaders see their specific team
                 visibleEligibleUsers = baseEligibleUsers.filter(user => user.team === currentUser.team);
+                finalFilteredResponses = allResponses.filter(res => {
+                    const submitter = userMap.get(res.submittedBy);
+                    return submitter?.team === currentUser.team;
+                 });
             }
         }
 
-        const respondentIds = new Set(responses.map(r => r.submittedBy));
+        const respondentIds = new Set(allResponses.map(r => r.submittedBy));
         const nonResponding = visibleEligibleUsers.filter(user => !respondentIds.has(user.itsId));
 
-        return { eligibleUsers: visibleEligibleUsers, nonRespondents: nonResponding };
+        return { eligibleUsers: visibleEligibleUsers, nonRespondents: nonResponding, filteredResponses: finalFilteredResponses };
 
-    }, [form, allUsers, responses, currentUser]);
+    }, [form, allUsers, allResponses, currentUser]);
     
 
     const renderResponseValue = (questionId: string, value: any) => {
@@ -203,12 +213,12 @@ export default function ViewResponsesPage() {
         const safeTitle = form.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
 
         if (exportType === 'respondents') {
-            if (responses.length === 0) {
+            if (filteredResponses.length === 0) {
                 toast({ title: "No data to export", description: "No responses have been submitted yet.", variant: "default" });
                 return;
             }
             headers = ["Submitted At", "ITS ID", "Name", "BGK ID", ...form.questions.map(q => q.label)];
-            dataToExport = responses.map(response => {
+            dataToExport = filteredResponses.map(response => {
                 const row: { [key: string]: any } = {
                     "Submitted At": format(new Date(response.submittedAt), "yyyy-MM-dd HH:mm:ss"),
                     "ITS ID": response.submittedBy,
@@ -288,7 +298,7 @@ export default function ViewResponsesPage() {
                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Card className="p-4 bg-muted/50">
                         <CardTitle className="text-sm font-medium text-muted-foreground">Total Responses</CardTitle>
-                        <p className="text-3xl font-bold">{responses.length}</p>
+                        <p className="text-3xl font-bold">{allResponses.length}</p>
                     </Card>
                     <Card className="p-4 bg-muted/50">
                         <CardTitle className="text-sm font-medium text-muted-foreground">Eligible Members</CardTitle>
@@ -297,7 +307,7 @@ export default function ViewResponsesPage() {
                     <Card className="p-4 bg-muted/50">
                         <CardTitle className="text-sm font-medium text-muted-foreground">Response Rate</CardTitle>
                         <p className="text-3xl font-bold">
-                            {eligibleUsers.length > 0 ? ((responses.length / eligibleUsers.length) * 100).toFixed(1) : 0}%
+                            {eligibleUsers.length > 0 ? ((allResponses.length / eligibleUsers.length) * 100).toFixed(1) : 0}%
                         </p>
                     </Card>
                 </CardContent>
@@ -306,7 +316,7 @@ export default function ViewResponsesPage() {
             <Tabs defaultValue="respondents">
                 <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="respondents">
-                        <UserCheck className="mr-2 h-4 w-4"/>Respondents ({responses.length})
+                        <UserCheck className="mr-2 h-4 w-4"/>Respondents ({filteredResponses.length})
                     </TabsTrigger>
                     <TabsTrigger value="non-respondents" disabled={!canManageResponses}>
                         <UserX className="mr-2 h-4 w-4"/>Non-Respondents ({nonRespondents.length})
@@ -318,18 +328,18 @@ export default function ViewResponsesPage() {
                         <CardHeader>
                             <CardTitle>Submitted Responses</CardTitle>
                             <div className="flex justify-end">
-                                <Button onClick={() => handleExport('respondents')} disabled={responses.length === 0} size="sm">
+                                <Button onClick={() => handleExport('respondents')} disabled={filteredResponses.length === 0} size="sm">
                                     <Download className="mr-2 h-4 w-4" /> Export Respondents
                                 </Button>
                             </div>
                         </CardHeader>
                         <CardContent>
-                             {responses.length === 0 ? (
+                             {filteredResponses.length === 0 ? (
                                 <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
                                      <Users className="h-12 w-12 text-muted-foreground mx-auto"/>
                                     <p className="text-lg font-medium text-muted-foreground">No Responses Yet</p>
                                     <p className="text-sm text-muted-foreground">
-                                        This form has not received any submissions.
+                                        No relevant submissions found for your scope.
                                     </p>
                                 </div>
                             ) : (
@@ -337,7 +347,7 @@ export default function ViewResponsesPage() {
                                 {/* Mobile View: Accordion */}
                                 <div className="md:hidden">
                                   <Accordion type="single" collapsible className="w-full">
-                                      {responses.map((response) => (
+                                      {filteredResponses.map((response) => (
                                           <AccordionItem value={response.id} key={response.id}>
                                               <AccordionTrigger>
                                                   <div className="flex-grow text-left">
@@ -398,7 +408,7 @@ export default function ViewResponsesPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {responses.map(response => (
+                                        {filteredResponses.map(response => (
                                             <TableRow key={response.id}>
                                                 <TableCell>
                                                     <div className="font-medium">{response.submitterName}</div>
@@ -463,7 +473,7 @@ export default function ViewResponsesPage() {
                              {nonRespondents.length === 0 ? (
                                 <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
                                      <Users className="h-12 w-12 text-muted-foreground mx-auto"/>
-                                    <p className="text-lg font-medium text-muted-foreground">All members have responded!</p>
+                                    <p className="text-lg font-medium text-muted-foreground">All relevant members have responded!</p>
                                 </div>
                             ) : (
                                 <>
@@ -512,6 +522,3 @@ export default function ViewResponsesPage() {
         </div>
     );
 }
-
-
-      
