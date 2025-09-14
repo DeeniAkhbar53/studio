@@ -41,6 +41,7 @@ export const addForm = async (formData: FormForAdd): Promise<Form> => {
       mohallahIds: formData.mohallahIds || [],
       teams: formData.teams || [],
       eligibleItsIds: formData.eligibleItsIds || [],
+      endDate: formData.endDate || null,
     });
 
     const newForm: Form = {
@@ -70,11 +71,15 @@ export const getForms = async (): Promise<Form[]> => {
             const updatedAt = data.updatedAt instanceof Timestamp
                               ? data.updatedAt.toDate().toISOString()
                               : data.updatedAt; // Keep as string if already converted
+            const endDate = data.endDate instanceof Timestamp
+                              ? data.endDate.toDate().toISOString()
+                              : data.endDate;
             return { 
                 ...data, 
                 id: docSnapshot.id, 
                 createdAt,
                 updatedAt,
+                endDate,
                 status: data.status || 'open' // Default to open if status is not set
             } as Form;
         });
@@ -104,11 +109,16 @@ export const getForm = async (formId: string): Promise<Form | null> => {
                           ? data.updatedAt.toDate().toISOString()
                           : data.updatedAt;
 
+        const endDate = data.endDate instanceof Timestamp
+                          ? data.endDate.toDate().toISOString()
+                          : data.endDate;
+
         return { 
             ...data, 
             id: formDocSnap.id, 
             createdAt,
             updatedAt,
+            endDate,
             status: data.status || 'open' // Default to open
         } as Form;
     } catch (error) {
@@ -176,8 +186,14 @@ export const addFormResponse = async (formId: string, responseData: FormResponse
             if (!formDoc.exists()) {
                 throw new Error("Form does not exist!");
             }
-            if (formDoc.data().status === 'closed') {
-                throw new Error("This form is currently not accepting new responses.");
+
+            const formData = formDoc.data() as Form;
+            if (formData.status === 'closed') {
+                throw new Error("This form is closed and no longer accepting new responses.");
+            }
+
+            if (formData.endDate && new Date() > new Date(formData.endDate)) {
+                 throw new Error("The deadline for this form has passed.");
             }
 
             const newResponseRef = doc(responsesRef); // Create a new doc ref in the subcollection

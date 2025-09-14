@@ -153,6 +153,7 @@ export interface Form {
   createdAt: string; // ISO string
   responseCount?: number;
   status: 'open' | 'closed'; // Status for accepting responses
+  endDate?: string; // ISO string for form expiration
   updatedBy?: string; // ITS ID of user who last updated
   updatedAt?: string; // ISO string
   mohallahIds?: string[];

@@ -278,7 +278,9 @@ export default function FillFormPage() {
 
                 if (fetchedForm) {
                     setForm(fetchedForm);
-                    if (fetchedForm.status === 'closed' && !userHasResponded) {
+                    if (fetchedForm.endDate && new Date() > new Date(fetchedForm.endDate)) {
+                        setError("This form is now closed as the deadline has passed.");
+                    } else if (fetchedForm.status === 'closed' && !userHasResponded) {
                          setError("This form is currently closed and not accepting new responses.");
                     }
                     setHasAlreadyResponded(userHasResponded);
@@ -315,7 +317,7 @@ export default function FillFormPage() {
             toast({ title: "Submission Failed", description: "Cannot identify the user or form. Please log in again.", variant: "destructive" });
             return;
         }
-        if (form.status === 'closed') {
+        if (form.status === 'closed' || (form.endDate && new Date() > new Date(form.endDate))) {
             toast({ title: "Submission Failed", description: "This form is closed and no longer accepting responses.", variant: "destructive" });
             return;
         }
@@ -406,7 +408,7 @@ export default function FillFormPage() {
         );
     }
 
-    if (form.status === 'closed') {
+    if (form.status === 'closed' || (form.endDate && new Date() > new Date(form.endDate))) {
         return (
              <div className="flex flex-col min-h-screen items-center justify-center bg-muted p-4">
                  <div className="w-full max-w-2xl">
@@ -414,7 +416,10 @@ export default function FillFormPage() {
                          <Lock className="h-20 w-20 text-destructive mx-auto mb-6" />
                          <h1 className="text-3xl font-bold text-destructive">Form Closed</h1>
                          <p className="text-lg text-muted-foreground mt-2">
-                            This form is not accepting new responses at this time.
+                            {form.endDate && new Date() > new Date(form.endDate)
+                                ? "This form is not accepting new responses as the deadline has passed."
+                                : "This form is not accepting new responses at this time."
+                            }
                          </p>
                           <Button variant="outline" onClick={() => router.push('/dashboard/forms')} className="mt-8">
                             <ArrowLeft className="mr-2 h-4 w-4" />

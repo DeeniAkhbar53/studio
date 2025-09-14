@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form as UIForm, FormControl, FormMessage, FormItem, FormField, FormDescription } from "@/components/ui/form";
-import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save, Wrench, Settings, Users, Search } from "lucide-react";
+import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save, Wrench, Settings, Users, Search, CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { addForm } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
@@ -25,6 +25,10 @@ import type { Mohallah, User } from "@/types";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getUniqueTeamNames, getUsers } from "@/lib/firebase/userService";
 import { useEffect, useState } from "react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
 
 const formQuestionSchema = z.object({
@@ -47,6 +51,7 @@ const formBuilderSchema = z.object({
   mohallahIds: z.array(z.string()).optional().default([]),
   teams: z.array(z.string()).optional().default([]),
   eligibleItsIds: z.array(z.string()).optional().default([]),
+  endDate: z.date().optional().nullable(),
 });
 
 type FormBuilderValues = z.infer<typeof formBuilderSchema>;
@@ -71,6 +76,7 @@ export default function CreateFormPage() {
             mohallahIds: [],
             teams: [],
             eligibleItsIds: [],
+            endDate: null,
         },
     });
 
@@ -129,6 +135,7 @@ export default function CreateFormPage() {
                 mohallahIds: values.eligibilityType === 'groups' ? (values.mohallahIds || []) : [],
                 teams: values.eligibilityType === 'groups' ? (values.teams || []) : [],
                 eligibleItsIds: values.eligibilityType === 'specific_members' ? (values.eligibleItsIds || []) : [],
+                endDate: values.endDate ? values.endDate.toISOString() : undefined,
             };
 
             const newForm = await addForm(newFormPayload);
@@ -275,7 +282,28 @@ export default function CreateFormPage() {
                                     <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Eligibility</CardTitle>
                                     <CardDescription>Define who can see and respond to this form. Leave all options blank to make it available to everyone.</CardDescription>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="space-y-6">
+                                     <FormField control={formBuilder.control} name="endDate" render={({ field }) => (
+                                        <FormItem className="flex flex-col">
+                                            <Label>End Date (Optional)</Label>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                <Button
+                                                    variant={"outline"}
+                                                    className={cn("w-full md:w-1/2 justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                                </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value || undefined} onSelect={field.onChange} initialFocus /></PopoverContent>
+                                            </Popover>
+                                            <FormDescription className="text-xs">The form will automatically close and stop accepting responses after this date.</FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                     )}/>
+
+                                    <Separator />
+
                                     <FormField control={formBuilder.control} name="eligibilityType" render={({ field }) => (
                                         <FormItem className="space-y-3">
                                             <FormControl>
