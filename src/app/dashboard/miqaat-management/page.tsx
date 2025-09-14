@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { Miqaat, UserRole, Mohallah, User } from "@/types";
-import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt } from "lucide-react"; 
+import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt, Clock, CheckCircle, XCircle } from "lucide-react"; 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
@@ -30,6 +30,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { QRCodeSVG } from 'qrcode.react';
 import { format } from "date-fns";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { cn } from "@/lib/utils";
 
 
 const miqaatSchema = z.object({
@@ -427,7 +429,92 @@ export default function MiqaatManagementPage() {
                 <p className="ml-2 text-muted-foreground">Loading Miqaats...</p>
             </div>
           ) : filteredMiqaats.length > 0 ? (
-             <div className="border rounded-lg overflow-x-auto">
+            <>
+              {/* Mobile View: Accordion */}
+              <div className="md:hidden">
+                <Accordion type="single" collapsible className="w-full">
+                  {filteredMiqaats.map((miqaat, index) => {
+                    const isSpecific = miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0;
+                    const eligibility = isSpecific ? `${miqaat.eligibleItsIds?.length} members` : "Groups";
+                    const isExpired = new Date(miqaat.endTime) < new Date();
+
+                    return (
+                      <AccordionItem value={miqaat.id} key={miqaat.id}>
+                        <AccordionTrigger className="hover:no-underline">
+                           <div className="flex items-center gap-4 w-full">
+                             <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
+                             <div className="flex-grow text-left">
+                               <p className="font-semibold text-card-foreground">{miqaat.name}</p>
+                               <p className="text-xs text-muted-foreground">{format(new Date(miqaat.startTime), "PP")}</p>
+                             </div>
+                              <Badge variant={isExpired ? 'destructive' : 'default'} className="whitespace-nowrap">
+                               {isExpired ? <XCircle className="mr-1 h-3 w-3" /> : <CheckCircle className="mr-1 h-3 w-3" />}
+                               {isExpired ? 'Expired' : 'Active'}
+                              </Badge>
+                           </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="space-y-4 pt-2">
+                           <div className="grid grid-cols-2 gap-4 text-sm px-2">
+                              <div className="space-y-1">
+                                  <p className="font-medium text-muted-foreground">Location</p>
+                                  <p>{miqaat.location || "N/A"}</p>
+                              </div>
+                               <div className="space-y-1">
+                                  <p className="font-medium text-muted-foreground">Eligibility</p>
+                                  <p>{eligibility}</p>
+                              </div>
+                               <div className="space-y-1">
+                                  <p className="font-medium text-muted-foreground">Attendance</p>
+                                  <p>{miqaat.attendance?.length || 0}</p>
+                              </div>
+                              <div className="space-y-1">
+                                  <p className="font-medium text-muted-foreground">Uniform</p>
+                                  <div className="flex flex-col gap-1">
+                                      {miqaat.uniformRequirements?.fetaPaghri && <Badge variant="secondary" className="text-xs w-fit">Feta/Paghri</Badge>}
+                                      {miqaat.uniformRequirements?.koti && <Badge variant="secondary" className="text-xs w-fit">Koti</Badge>}
+                                      {!miqaat.uniformRequirements?.fetaPaghri && !miqaat.uniformRequirements?.koti && <span className="text-xs">N/A</span>}
+                                  </div>
+                              </div>
+                           </div>
+                           <Separator/>
+                            <div className="flex justify-end gap-2 px-2">
+                                <Button variant="outline" size="sm" onClick={() => { setBarcodeMiqaat(miqaat as Miqaat); setShowBarcodeDialog(true); }}>
+                                    <Barcode className="mr-2 h-4 w-4"/> Barcode
+                                </Button>
+                                {currentUserRole === 'admin' || currentUserRole === 'superadmin' ? (
+                                    <>
+                                        <Button variant="outline" size="sm" onClick={() => handleEdit(miqaat)}>
+                                            <Edit className="mr-2 h-4 w-4"/> Edit
+                                        </Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="destructive" size="sm">
+                                                    <Trash2 className="mr-2 h-4 w-4"/> Delete
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                    <AlertDialogDescription>This will permanently delete "{miqaat.name}" and all its attendance records.</AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDelete(miqaat.id)}>Delete</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </>
+                                ) : null}
+                           </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              </div>
+              
+              {/* Desktop View: Table */}
+              <div className="hidden md:block border rounded-lg overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -512,7 +599,8 @@ export default function MiqaatManagementPage() {
                         })}
                     </TableBody>
                 </Table>
-            </div>
+              </div>
+            </>
           ) : (
             <div className="text-center py-10">
               <p className="text-muted-foreground">
