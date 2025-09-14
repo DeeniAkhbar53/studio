@@ -1,4 +1,5 @@
 
+
 import { db } from './firebase';
 import {
   collection,
@@ -254,5 +255,3 @@ export const checkIfUserHasResponded = async (formId: string, userId: string): P
         return false;
     }
 };
-
-    

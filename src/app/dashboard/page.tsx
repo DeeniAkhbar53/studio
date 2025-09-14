@@ -5,14 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX } from "lucide-react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole, UserDesignation, Miqaat, MiqaatAttendanceEntryItem, Form as FormType, User } from "@/types";
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { getUsers, getUsersCount, getUserByItsOrBgkId as fetchUserByItsId } from "@/lib/firebase/userService";
 import { getMohallahsCount } from "@/lib/firebase/mohallahService";
-import { getForms, getFormResponsesRealtime } from "@/lib/firebase/formService";
+import { getForms, getFormResponsesRealtime, checkIfUserHasResponded } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
@@ -72,6 +72,10 @@ export default function DashboardOverviewPage() {
   const [nonRespondentData, setNonRespondentData] = useState<{ formTitle: string; nonRespondents: User[] } | null>(null);
   const [isNonRespondentDialogOpen, setIsNonRespondentDialogOpen] = useState(false);
   const [isLoadingNonRespondents, setIsLoadingNonRespondents] = useState(false);
+
+  // New Form Notification State
+  const [newFormForUser, setNewFormForUser] = useState<FormType | null>(null);
+  const [isLoadingNewFormCheck, setIsLoadingNewFormCheck] = useState(false);
 
 
   const [isScannerDialogOpen, setIsScannerDialogOpen] = useState(false);
@@ -136,7 +140,7 @@ export default function DashboardOverviewPage() {
 
     setIsLoadingStats(true);
     let miqaatsLoaded = false;
-    const hasElevatedRoles = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker';
+    const hasElevatedRoles = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead;
     let formsLoaded = !hasElevatedRoles;
     let adminCountsLoaded = !(currentUserRole === 'admin' || currentUserRole === 'superadmin');
 
@@ -196,7 +200,7 @@ export default function DashboardOverviewPage() {
     return () => {
       unsubscribeMiqaats();
     };
-  }, [isLoadingUser, currentUserItsId, currentUserRole, currentUserMohallahId]);
+  }, [isLoadingUser, currentUserItsId, currentUserRole, currentUserMohallahId, isTeamLead]);
 
    // Effect for Team Lead Absentee Notifications
   useEffect(() => {
@@ -223,7 +227,9 @@ export default function DashboardOverviewPage() {
         const allUsers = await getUsers();
         let teamMembers: User[] = [];
 
-        if (currentUser.designation && MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
+        if (currentUser.designation && (TOP_LEVEL_LEADERS.includes(currentUser.designation))) {
+            teamMembers = allUsers;
+        } else if (currentUser.designation && MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
             const managedTeamsSet = new Set(currentUser.managedTeams);
             teamMembers = allUsers.filter(u => u.team && managedTeamsSet.has(u.team));
         } else if (currentUser.designation && GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
@@ -337,7 +343,60 @@ export default function DashboardOverviewPage() {
             unsubscribe();
         }
     };
-}, [isTeamLead, allForms, currentUser]);
+  }, [isTeamLead, allForms, currentUser]);
+
+  // Effect for New Form for User Notification
+  useEffect(() => {
+    if (!currentUser || allForms.length === 0) {
+        return;
+    }
+    
+    const checkNewForms = async () => {
+        setIsLoadingNewFormCheck(true);
+        setNewFormForUser(null);
+        try {
+            const latestActiveForm = allForms.find(f => f.status === 'open');
+            if (!latestActiveForm) {
+                setIsLoadingNewFormCheck(false);
+                return;
+            }
+
+            const hasResponded = await checkIfUserHasResponded(latestActiveForm.id, currentUser.itsId);
+            if (hasResponded) {
+                setIsLoadingNewFormCheck(false);
+                return;
+            }
+
+            let isEligible = false;
+            const isForEveryone = !latestActiveForm.mohallahIds?.length && !latestActiveForm.teams?.length && !latestActiveForm.eligibleItsIds?.length;
+
+            if (isForEveryone) {
+                isEligible = true;
+            } else {
+                if (latestActiveForm.eligibleItsIds?.length) {
+                    isEligible = latestActiveForm.eligibleItsIds.includes(currentUser.itsId);
+                }
+                if (!isEligible && latestActiveForm.mohallahIds?.length && currentUser.mohallahId) {
+                    isEligible = latestActiveForm.mohallahIds.includes(currentUser.mohallahId);
+                }
+                if (!isEligible && latestActiveForm.teams?.length && currentUser.team) {
+                    isEligible = latestActiveForm.teams.includes(currentUser.team);
+                }
+            }
+
+            if (isEligible) {
+                setNewFormForUser(latestActiveForm);
+            }
+
+        } catch (error) {
+            console.error("Error checking for new forms for user:", error);
+        } finally {
+            setIsLoadingNewFormCheck(false);
+        }
+    };
+
+    checkNewForms();
+  }, [allForms, currentUser]);
 
 
   const handleQrCodeScanned = useCallback(async (decodedText: string) => {
@@ -537,8 +596,8 @@ export default function DashboardOverviewPage() {
       if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
         console.log("Scanner dialog closed by onOpenChange or external state, stopping scanner.");
         html5QrCodeRef.current.stop()
-          .then(() => console.log("Scanner stopped: dialog closed."))
-          .catch(err => console.error("Error stopping scanner on dialog closed:", err));
+          .then(() => console.log("Scanner stopped: dialog closed via onOpenChange."))
+          .catch(err => console.error("Error stopping scanner on dialog onOpenChange close:", err));
       }
       setIsScannerActive(false); // Ensure state reflects scanner is off
       setIsProcessingScan(false); // Reset processing state
@@ -593,7 +652,7 @@ export default function DashboardOverviewPage() {
     adminOverviewStats.splice(5, 0, { title: "Total Mohallahs", value: totalMohallahsCount, icon: Users, isLoading: isLoadingStats });
   }
 
-  const statsToDisplay = (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') ? adminOverviewStats : [];
+  const statsToDisplay = (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead) ? adminOverviewStats : [];
   
   if (currentUserRole === 'attendance-marker') {
       statsToDisplay.splice(4, 2); // Remove member and mohallah counts for attendance-marker
@@ -620,7 +679,7 @@ export default function DashboardOverviewPage() {
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-foreground">
               {currentUserRole === 'user' ? `Welcome, ${currentUserName}!` :
-                isTeamLead ? `Team Leader Dashboard: ${(currentUser && currentUser.team) || currentUserName}` :
+                isTeamLead ? `Team Leader Dashboard: ${currentUser?.team || currentUserName}` :
                 currentUserRole === 'attendance-marker' ? "Attendance Marker Dashboard" : "Admin Dashboard"}
             </CardTitle>
             <Separator className="my-2" />
@@ -636,6 +695,27 @@ export default function DashboardOverviewPage() {
             </CardContent>
           )}
         </Card>
+
+        {!isLoadingNewFormCheck && newFormForUser && (
+            <Card className="border-blue-500/50 bg-blue-500/10">
+                <CardHeader>
+                    <CardTitle className="flex items-center text-blue-700">
+                        <Edit className="mr-2 h-6 w-6"/>
+                        New Form Available
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p>
+                        A new form, <span className="font-semibold">{newFormForUser.title}</span>, is now available for you to fill out.
+                    </p>
+                </CardContent>
+                <CardFooter>
+                    <Button variant="default" onClick={() => router.push(`/dashboard/forms/${newFormForUser.id}`)}>
+                        Fill Form Now
+                    </Button>
+                </CardFooter>
+            </Card>
+        )}
 
         {isTeamLead && !isLoadingAbsentees && absenteeData && (
           <Card className="border-destructive/50 bg-destructive/10">
@@ -687,7 +767,7 @@ export default function DashboardOverviewPage() {
           </Alert>
         )}
 
-        {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') && (
+        {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead) && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {statsToDisplay.map((stat) => (
               <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
@@ -705,7 +785,7 @@ export default function DashboardOverviewPage() {
             ))}
           </div>
         )}
-        {(isLoadingStats && (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker')) && (
+        {(isLoadingStats && (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead)) && (
           <div className="flex justify-center items-center py-6">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <p className="ml-2 text-muted-foreground">Loading system data...</p>
