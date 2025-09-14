@@ -2,14 +2,14 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { MiqaatCard } from "@/components/dashboard/miqaat-card";
 import type { Miqaat, UserRole, Mohallah, User } from "@/types";
-import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users } from "lucide-react"; 
+import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye } from "lucide-react"; 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
@@ -25,6 +25,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { QRCodeSVG } from 'qrcode.react';
+import { format } from "date-fns";
 
 
 const miqaatSchema = z.object({
@@ -77,6 +83,9 @@ export default function MiqaatManagementPage() {
   const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements"> | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const { toast } = useToast();
+  
+  const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
+  const [barcodeMiqaat, setBarcodeMiqaat] = useState<Miqaat | null>(null);
 
   const form = useForm<MiqaatFormValues>({
     resolver: zodResolver(miqaatSchema),
@@ -125,8 +134,8 @@ export default function MiqaatManagementPage() {
     setCurrentUserRole(role);
 
     const dataFetchPromises = [
-        new Promise<void>(resolve => { setIsLoadingMiqaats(true); const unsub = getMiqaats(data => { setMiqaats(data); setIsLoadingMiqaats(false); resolve(); unsub(); }); }),
-        new Promise<void>(resolve => { setIsLoadingMohallahs(true); const unsub = getMohallahs(data => { setAvailableMohallahs(data); setIsLoadingMohallahs(false); resolve(); unsub(); }); }),
+        new Promise<void>(resolve => { setIsLoadingMiqaats(true); const unsub = getMiqaats(data => { setMiqaats(data); setIsLoadingMiqaats(false); resolve(); }); }),
+        new Promise<void>(resolve => { setIsLoadingMohallahs(true); const unsub = getMohallahs(data => { setAvailableMohallahs(data); setIsLoadingMohallahs(false); resolve(); }); }),
         getUniqueTeamNames().then(setAvailableTeams).catch(err => console.error("Failed to fetch teams", err)).finally(() => setIsLoadingTeams(false)),
         getUsers().then(setAllUsers).catch(err => console.error("Failed to fetch users", err)).finally(() => setIsLoadingUsers(false)),
     ];
@@ -419,19 +428,108 @@ export default function MiqaatManagementPage() {
                 <p className="ml-2 text-muted-foreground">Loading Miqaats...</p>
             </div>
           ) : filteredMiqaats.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredMiqaats.map((miqaat, index) => (
-                <MiqaatCard 
-                  key={miqaat.id} 
-                  miqaat={miqaat as Miqaat} 
-                  onEdit={handleEdit} 
-                  onDelete={handleDelete} 
-                  currentUserRole={currentUserRole} 
-                  allMohallahs={availableMohallahs}
-                  serialNumber={index + 1}
-                />
-              ))}
+            <>
+            {/* Mobile View: Cards */}
+            <div className="md:hidden space-y-4">
+                {filteredMiqaats.map((miqaat, index) => (
+                    <MiqaatCard
+                        key={miqaat.id}
+                        miqaat={miqaat as Miqaat}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        currentUserRole={currentUserRole}
+                        allMohallahs={availableMohallahs}
+                        serialNumber={index + 1}
+                    />
+                ))}
             </div>
+
+            {/* Desktop View: Table */}
+            <div className="hidden md:block border rounded-lg overflow-hidden">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Miqaat Title</TableHead>
+                            <TableHead>Dates</TableHead>
+                            <TableHead>Eligibility</TableHead>
+                            <TableHead>Attendance</TableHead>
+                            <TableHead>Uniform</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filteredMiqaats.map((miqaat) => {
+                            const isSpecific = miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0;
+                            const eligibility = isSpecific
+                                ? `${miqaat.eligibleItsIds?.length} members`
+                                : "Groups (Mohallah/Team)";
+
+                            return (
+                                <TableRow key={miqaat.id}>
+                                    <TableCell className="font-medium">
+                                        {miqaat.name}
+                                        <p className="text-sm text-muted-foreground">{miqaat.location || "No location"}</p>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="text-xs">Start: {format(new Date(miqaat.startTime), "PPp")}</div>
+                                        <div className="text-xs">End: {format(new Date(miqaat.endTime), "PPp")}</div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant={isSpecific ? "secondary" : "outline"}>{eligibility}</Badge>
+                                    </TableCell>
+                                    <TableCell className="text-center">{miqaat.attendance?.length || 0}</TableCell>
+                                    <TableCell>
+                                        <div className="flex gap-2">
+                                          {miqaat.uniformRequirements?.fetaPaghri && <Badge variant="default">Feta/Paghri</Badge>}
+                                          {miqaat.uniformRequirements?.koti && <Badge variant="default">Koti</Badge>}
+                                          {!miqaat.uniformRequirements?.fetaPaghri && !miqaat.uniformRequirements?.koti && <Badge variant="secondary">N/A</Badge>}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right space-x-1">
+                                        <Button variant="ghost" size="icon" onClick={() => { setBarcodeMiqaat(miqaat as Miqaat); setShowBarcodeDialog(true); }}>
+                                            <Barcode className="h-4 w-4"/>
+                                            <span className="sr-only">View Barcode</span>
+                                        </Button>
+                                        {currentUserRole === 'admin' || currentUserRole === 'superadmin' ? (
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon">
+                                                        <MoreHorizontal className="h-4 w-4"/>
+                                                        <span className="sr-only">More actions</span>
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => handleEdit(miqaat)}>
+                                                        <Edit className="mr-2 h-4 w-4" /> Edit
+                                                    </DropdownMenuItem>
+                                                     <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                            </DropdownMenuItem>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader>
+                                                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                                <AlertDialogDescription>This will permanently delete "{miqaat.name}" and all its attendance records.</AlertDialogDescription>
+                                                            </AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDelete(miqaat.id)}>Delete</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        ) : null }
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                </Table>
+            </div>
+            </>
           ) : (
             <div className="text-center py-10">
               <p className="text-muted-foreground">
@@ -441,6 +539,40 @@ export default function MiqaatManagementPage() {
           )}
         </CardContent>
       </Card>
+      
+       <AlertDialog open={showBarcodeDialog} onOpenChange={setShowBarcodeDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Barcode for {barcodeMiqaat?.name}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Scan this barcode for attendance marking.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex justify-center items-center my-4 p-4 bg-white rounded-lg shadow-inner">
+            {(barcodeMiqaat?.barcodeData || barcodeMiqaat?.id) ? (
+              <QRCodeSVG
+                value={barcodeMiqaat.barcodeData || barcodeMiqaat.id}
+                size={250}
+                bgColor={"#ffffff"}
+                fgColor={"#000000"}
+                level={"Q"}
+                includeMargin={true}
+              />
+            ) : (
+              <p className="text-muted-foreground">Barcode data not available.</p>
+            )}
+          </div>
+          <p className="text-center text-sm text-muted-foreground">Data: {barcodeMiqaat?.barcodeData || barcodeMiqaat?.id || 'N/A'}</p>
+          <AlertDialogFooter>
+            <Button variant="outline" disabled> 
+              <Download className="mr-2 h-4 w-4" />
+              Download (Coming Soon)
+            </Button>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

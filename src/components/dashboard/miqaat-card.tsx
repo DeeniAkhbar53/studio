@@ -191,7 +191,7 @@ export function MiqaatCard({ miqaat, onEdit, onDelete, currentUserRole, allMohal
 
   return (
     <>
-      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full relative">
+      <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col h-full relative">
         <div className="absolute top-2 right-2 bg-primary/20 text-primary-foreground font-bold rounded-full h-8 w-8 flex items-center justify-center text-sm">
             {serialNumber}
         </div>
