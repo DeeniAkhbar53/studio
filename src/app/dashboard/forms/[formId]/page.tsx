@@ -14,10 +14,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form as UIForm, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2, Lock, Star, Calendar as CalendarIcon } from "lucide-react";
+import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2, Lock, Star, Calendar as CalendarIcon, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Form as FormType, FormResponse } from "@/types";
+import type { Form as FormType, FormResponse, User } from "@/types";
 import { getForm, addFormResponse, checkIfUserHasResponded } from "@/lib/firebase/formService";
+import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -235,10 +236,11 @@ export default function FillFormPage() {
     const [form, setForm] = useState<FormType | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [currentUser, setCurrentUser] = useState<{name: string, itsId: string, bgkId?: string} | null>(null);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     
     const [hasAlreadyResponded, setHasAlreadyResponded] = useState<boolean | null>(null);
     const [hasSubmitted, setHasSubmitted] = useState(false);
+    const [isEligible, setIsEligible] = useState<boolean | null>(null);
 
     // Generate schema and defaults based on the current form state
     const { formSchema, defaultValues } = useMemo(() => generateFormSchemaAndDefaults(form), [form]);
@@ -250,21 +252,31 @@ export default function FillFormPage() {
     });
 
     useEffect(() => {
-        if (typeof window !== "undefined") {
-            const userName = localStorage.getItem('userName');
-            const userItsId = localStorage.getItem('userItsId');
-            const userBgkId = localStorage.getItem('userBgkId');
-            if (userName && userItsId) {
-                setCurrentUser({ name: userName, itsId: userItsId, bgkId: userBgkId || undefined });
-            } else {
-                setError("Cannot verify user identity. Please log in again.");
-                setIsLoading(false);
+        const fetchCurrentUser = async () => {
+            if (typeof window !== "undefined") {
+                const userItsId = localStorage.getItem('userItsId');
+                if (userItsId) {
+                    try {
+                        const user = await getUserByItsOrBgkId(userItsId);
+                        setCurrentUser(user);
+                    } catch (e) {
+                         setError("Could not verify your user details. Please log in again.");
+                         setIsLoading(false);
+                    }
+                } else {
+                    setError("Cannot verify user identity. Please log in again.");
+                    setIsLoading(false);
+                }
             }
-        }
+        };
+        fetchCurrentUser();
     }, []);
     
     useEffect(() => {
         if (!formId || !currentUser) {
+            if(!currentUser && !isLoading) { // If user loading is done and no user found
+                setError("Cannot verify user identity. Please log in again.");
+            }
             return;
         }
 
@@ -278,6 +290,25 @@ export default function FillFormPage() {
 
                 if (fetchedForm) {
                     setForm(fetchedForm);
+
+                    // --- NEW ELIGIBILITY CHECK ---
+                    const isForEveryone = !fetchedForm.mohallahIds?.length && !fetchedForm.teams?.length && !fetchedForm.eligibleItsIds?.length;
+                    
+                    if (isForEveryone) {
+                        setIsEligible(true);
+                    } else {
+                        const eligibleById = !!fetchedForm.eligibleItsIds?.includes(currentUser.itsId);
+                        const eligibleByTeam = !!currentUser.team && !!fetchedForm.teams?.includes(currentUser.team);
+                        const eligibleByMohallah = !!currentUser.mohallahId && !!fetchedForm.mohallahIds?.includes(currentUser.mohallahId);
+                        
+                        if (eligibleById || eligibleByTeam || eligibleByMohallah) {
+                            setIsEligible(true);
+                        } else {
+                            setIsEligible(false);
+                        }
+                    }
+                    // --- END ELIGIBILITY CHECK ---
+
                     if (fetchedForm.endDate && new Date() > new Date(fetchedForm.endDate)) {
                         setError("This form is now closed as the deadline has passed.");
                     } else if (fetchedForm.status === 'closed' && !userHasResponded) {
@@ -348,7 +379,7 @@ export default function FillFormPage() {
         }
     };
     
-    if (isLoading || hasAlreadyResponded === null) {
+    if (isLoading || hasAlreadyResponded === null || !currentUser || isEligible === null) {
         return (
             <div className="flex h-screen items-center justify-center bg-muted p-4">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -363,6 +394,21 @@ export default function FillFormPage() {
                   <FileWarning className="h-16 w-16 text-destructive mx-auto mb-4" />
                   <h1 className="text-2xl font-bold text-destructive">Form Not Available</h1>
                   <p className="text-muted-foreground mt-2">{error}</p>
+                   <Button variant="outline" onClick={() => router.back()} className="mt-6">
+                      <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+                  </Button>
+                </Card>
+            </div>
+        );
+    }
+    
+    if (!isEligible) {
+         return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-muted p-4 text-center">
+                <Card className="w-full max-w-lg p-8">
+                  <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
+                  <h1 className="text-2xl font-bold text-destructive">Not Eligible</h1>
+                  <p className="text-muted-foreground mt-2">You are not eligible to fill out this form.</p>
                    <Button variant="outline" onClick={() => router.back()} className="mt-6">
                       <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
                   </Button>
@@ -493,3 +539,5 @@ export default function FillFormPage() {
         </div>
     );
 }
+
+    
