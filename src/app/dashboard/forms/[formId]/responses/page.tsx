@@ -9,15 +9,32 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX } from "lucide-react";
+import { Loader2, ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX, Star } from "lucide-react";
 import type { FormResponse, UserRole, UserDesignation, User, Form as FormType } from "@/types";
 import { getFormResponsesRealtime, deleteFormResponse, getForm } from "@/lib/firebase/formService";
 import { getUsers } from "@/lib/firebase/userService";
 import { format } from "date-fns";
 import { Unsubscribe } from "firebase/firestore";
 import Papa from "papaparse";
+import { cn } from "@/lib/utils";
 
 const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader"];
+
+const StarRatingDisplay = ({ rating, max = 5 }: { rating: number; max?: number }) => {
+    return (
+        <div className="flex items-center gap-1">
+            {[...Array(max)].map((_, i) => (
+                <Star
+                    key={i}
+                    className={cn(
+                        "h-4 w-4",
+                        i < rating ? "text-primary fill-primary" : "text-muted-foreground/30"
+                    )}
+                />
+            ))}
+        </div>
+    );
+};
 
 export default function ViewResponsesPage() {
     const router = useRouter();
@@ -138,7 +155,17 @@ export default function ViewResponsesPage() {
         if (question?.type === 'checkbox' && Array.isArray(value)) {
             return value.join(', ');
         }
-        if (typeof value === 'string') {
+        if (question?.type === 'rating' && typeof value === 'number') {
+            return <StarRatingDisplay rating={value} />;
+        }
+        if (question?.type === 'date' && typeof value === 'string' && value) {
+            try {
+                return format(new Date(value), "PPP");
+            } catch (e) {
+                return value; // fallback for invalid date
+            }
+        }
+        if (typeof value === 'string' || typeof value === 'number') {
             return value;
         }
         if (typeof value === 'object' && value !== null) {
@@ -399,5 +426,3 @@ export default function ViewResponsesPage() {
         </div>
     );
 }
-
-    

@@ -14,13 +14,16 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form as UIForm, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2, Lock } from "lucide-react";
+import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2, Lock, Star, Calendar as CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Form as FormType, FormResponse } from "@/types";
 import { getForm, addFormResponse, checkIfUserHasResponded } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
-
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 // Helper function to generate schema and defaults
 const generateFormSchemaAndDefaults = (form: FormType | null) => {
@@ -39,6 +42,7 @@ const generateFormSchemaAndDefaults = (form: FormType | null) => {
             case 'textarea':
             case 'radio':
             case 'select':
+            case 'date':
                 fieldSchema = z.string();
                 if (q.required) {
                     fieldSchema = fieldSchema.min(1, `${q.label} is required.`);
@@ -46,6 +50,18 @@ const generateFormSchemaAndDefaults = (form: FormType | null) => {
                     fieldSchema = fieldSchema.optional().default("");
                 }
                 defaults[q.id] = "";
+                break;
+            case 'number':
+                fieldSchema = z.string().refine(val => !q.required || val, { message: `${q.label} is required.` })
+                .refine(val => !val || /^-?\d*\.?\d+$/.test(val), { message: "Must be a valid number." });
+                defaults[q.id] = "";
+                 break;
+            case 'rating':
+                fieldSchema = z.number().min(1, {message: 'Rating is required.'});
+                 if (!q.required) {
+                     fieldSchema = fieldSchema.optional().nullable().default(null) as any;
+                 }
+                defaults[q.id] = q.required ? 1 : null;
                 break;
             case 'checkbox':
                 fieldSchema = z.array(z.string());
@@ -68,8 +84,30 @@ const generateFormSchemaAndDefaults = (form: FormType | null) => {
     };
 };
 
+const StarRating = ({ field, max = 5 }: { field: any, max?: number }) => {
+    return (
+        <div className="flex items-center gap-2">
+            {[...Array(max)].map((_, i) => {
+                const ratingValue = i + 1;
+                return (
+                    <Star
+                        key={ratingValue}
+                        className={cn(
+                            "h-8 w-8 cursor-pointer transition-colors",
+                            ratingValue <= (field.value || 0)
+                                ? "text-primary fill-primary"
+                                : "text-muted-foreground/50"
+                        )}
+                        onClick={() => field.onChange(ratingValue)}
+                    />
+                );
+            })}
+        </div>
+    );
+};
+
 // Component to render a question, with conditional logic check
-const QuestionRenderer = ({ question, index, control }: { question: FormType['questions'][0], index: number, control: any }) => {
+const QuestionRenderer = ({ question, index, control, setValue }: { question: FormType['questions'][0], index: number, control: any, setValue: any }) => {
     
     // Watch the value of the parent question if this question is conditional
     const parentQuestionValue = useWatch({
@@ -101,6 +139,32 @@ const QuestionRenderer = ({ question, index, control }: { question: FormType['qu
                             <div>
                                 {question.type === 'text' && <Input {...field} value={field.value || ''} />}
                                 {question.type === 'textarea' && <Textarea {...field} value={field.value || ''} rows={4} />}
+                                {question.type === 'number' && <Input type="number" {...field} value={field.value || ''} />}
+                                {question.type === 'date' && (
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                            "w-full justify-start text-left font-normal",
+                                            !field.value && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {field.value ? format(new Date(field.value), "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={field.value ? new Date(field.value) : undefined}
+                                            onSelect={(date) => setValue(question.id, date ? format(date, "yyyy-MM-dd") : "")}
+                                            initialFocus
+                                        />
+                                        </PopoverContent>
+                                    </Popover>
+                                )}
+                                {question.type === 'rating' && <StarRating field={field} />}
                                 {question.type === 'radio' && (
                                     <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-col space-y-2">
                                         {question.options?.map(option => (
@@ -256,11 +320,19 @@ export default function FillFormPage() {
             return;
         }
 
+        const processedResponses = { ...values };
+        form.questions.forEach(q => {
+            if (q.type === 'number') {
+                const numValue = parseFloat(processedResponses[q.id] as string);
+                processedResponses[q.id] = isNaN(numValue) ? undefined : numValue;
+            }
+        });
+
         const responsePayload: Omit<FormResponse, 'id' | 'submittedAt'> = {
             formId: form.id,
             submittedBy: currentUser.itsId,
             submitterName: currentUser.name,
-            responses: values,
+            responses: processedResponses,
             submitterBgkId: currentUser.bgkId,
         };
 
@@ -399,6 +471,7 @@ export default function FillFormPage() {
                                 question={question}
                                 index={index}
                                 control={responseForm.control}
+                                setValue={responseForm.setValue}
                             />
                         ))}
                         
@@ -415,5 +488,3 @@ export default function FillFormPage() {
         </div>
     );
 }
-
-    

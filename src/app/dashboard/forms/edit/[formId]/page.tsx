@@ -30,7 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const formQuestionSchema = z.object({
   id: z.string(),
   label: z.string().min(1, "Question text cannot be empty."),
-  type: z.enum(['text', 'textarea', 'checkbox', 'radio', 'select']),
+  type: z.enum(['text', 'textarea', 'checkbox', 'radio', 'select', 'rating', 'number', 'date']),
   required: z.boolean(),
   options: z.array(z.object({ value: z.string().min(1, "Option cannot be empty.") })).optional(),
   conditional: z.object({
@@ -267,6 +267,9 @@ export default function EditFormPage() {
                                                                                 <SelectItem value="radio">Radio Buttons</SelectItem>
                                                                                 <SelectItem value="checkbox">Checkboxes</SelectItem>
                                                                                 <SelectItem value="select">Dropdown</SelectItem>
+                                                                                <SelectItem value="rating">Rating (1-5)</SelectItem>
+                                                                                <SelectItem value="number">Number</SelectItem>
+                                                                                <SelectItem value="date">Date</SelectItem>
                                                                             </SelectContent>
                                                                         </Select>
                                                                     )}

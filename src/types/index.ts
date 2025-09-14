@@ -130,7 +130,7 @@ export interface PageRightConfig {
 }
 
 // Types for the new Forms feature
-export type FormFieldType = 'text' | 'textarea' | 'checkbox' | 'radio' | 'select';
+export type FormFieldType = 'text' | 'textarea' | 'checkbox' | 'radio' | 'select' | 'rating' | 'number' | 'date';
 
 export interface FormQuestion {
   id: string;
@@ -164,11 +164,11 @@ export interface FormResponse {
     id: string;
     formId: string;
     submittedBy: string; // ITS ID of submitter
-    submitterName: string; // Name of submitter for easy reference
+    submitterName: string;
     submitterBgkId?: string | null; // BGK ID of submitter
     submittedAt: string; // ISO string
     responses: {
-        [questionId: string]: string | string[]; // Answer keyed by question ID
+        [questionId: string]: string | string[] | number; // Answer keyed by question ID
     }
 }
 
