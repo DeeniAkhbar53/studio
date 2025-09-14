@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX } from "lucide-react";
 import type { FormResponse, UserRole, UserDesignation, User, Form as FormType } from "@/types";
 import { getFormResponsesRealtime, deleteFormResponse, getForm } from "@/lib/firebase/formService";
-import { getUsers } from "@/lib/firebase/userService";
+import { getUsers, getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { format } from "date-fns";
 import { Unsubscribe } from "firebase/firestore";
 import Papa from "papaparse";
@@ -33,20 +33,23 @@ export default function ViewResponsesPage() {
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
-    const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
-    const [currentUserName, setCurrentUserName] = useState<string | null>(null);
-    const [currentUserTeam, setCurrentUserTeam] = useState<string | null>(null);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     
     useEffect(() => {
-        const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
-        const designation = typeof window !== "undefined" ? localStorage.getItem('userDesignation') as UserDesignation : null;
-        const name = typeof window !== "undefined" ? localStorage.getItem('userName') : null;
-        const team = typeof window !== "undefined" ? localStorage.getItem('userTeam') : null;
-        setCurrentUserRole(role);
-        setCurrentUserDesignation(designation);
-        setCurrentUserName(name);
-        setCurrentUserTeam(team);
+         const fetchCurrentUser = async () => {
+            if (typeof window !== "undefined") {
+                const userItsId = localStorage.getItem('userItsId');
+                if (userItsId) {
+                    try {
+                        const user = await getUserByItsOrBgkId(userItsId);
+                        setCurrentUser(user);
+                    } catch (e) {
+                         console.error("Could not fetch current user details", e);
+                    }
+                }
+            }
+        };
+        fetchCurrentUser();
     }, []);
 
     useEffect(() => {
@@ -83,11 +86,11 @@ export default function ViewResponsesPage() {
     }, [formId]);
 
     const canManageResponses = useMemo(() => {
-        if (!currentUserRole) return false;
-        if (currentUserRole === 'superadmin' || currentUserRole === 'admin') return true;
-        if(currentUserDesignation && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation)) return true;
+        if (!currentUser?.role) return false;
+        if (currentUser.role === 'superadmin' || currentUser.role === 'admin') return true;
+        if(currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) return true;
         return false;
-    }, [currentUserRole, currentUserDesignation]);
+    }, [currentUser]);
 
 
     const handleDeleteResponse = async (responseId: string) => {
@@ -106,37 +109,36 @@ export default function ViewResponsesPage() {
     };
     
     const { eligibleUsers, nonRespondents } = useMemo(() => {
-        if (!form || allUsers.length === 0) {
+        if (!form || allUsers.length === 0 || !currentUser) {
             return { eligibleUsers: [], nonRespondents: [] };
         }
     
-        const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
-    
-        // Determine the base list of eligible users for the form
         let baseEligibleUsers: User[];
         if (form.eligibleItsIds && form.eligibleItsIds.length > 0) {
             const eligibleIdSet = new Set(form.eligibleItsIds);
             baseEligibleUsers = allUsers.filter(user => eligibleIdSet.has(user.itsId));
         } else {
-            baseEligibleUsers = allUsers.filter(user => {
+             const isForEveryone = !form.mohallahIds?.length && !form.teams?.length;
+             baseEligibleUsers = allUsers.filter(user => {
                 if (isForEveryone) return true;
-                const inMohallah = form.mohallahIds && form.mohallahIds.length > 0 ? (user.mohallahId && form.mohallahIds.includes(user.mohallahId)) : false;
-                const inTeam = form.teams && form.teams.length > 0 ? (user.team && form.teams.includes(user.team)) : false;
-                return inMohallah || inTeam;
-            });
+                const inMohallah = form.mohallahIds?.includes(user.mohallahId || '');
+                const inTeam = form.teams?.includes(user.team || '');
+                return !!inMohallah || !!inTeam;
+             });
         }
     
         // Filter this list based on the current user's role and designation
         let visibleEligibleUsers = baseEligibleUsers;
-        if (currentUserDesignation && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation) && currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
-            if (TOP_LEVEL_LEADERS.includes(currentUserDesignation)) {
+        if (currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation) && currentUser.role !== 'admin' && currentUser.role !== 'superadmin') {
+            if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
                 // Majors and Captains see everyone in the eligible list
-            } else if (MID_LEVEL_LEADERS.includes(currentUserDesignation) && currentUserName) {
-                // Vice Captains see their division
-                visibleEligibleUsers = baseEligibleUsers.filter(user => user.team?.startsWith(currentUserName));
-            } else if (GROUP_LEVEL_LEADERS.includes(currentUserDesignation) && currentUserTeam) {
+            } else if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
+                // Vice Captains see their managed teams
+                const managedTeamsSet = new Set(currentUser.managedTeams);
+                visibleEligibleUsers = baseEligibleUsers.filter(user => user.team && managedTeamsSet.has(user.team));
+            } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
                 // Group Leaders see their specific team
-                visibleEligibleUsers = baseEligibleUsers.filter(user => user.team === currentUserTeam);
+                visibleEligibleUsers = baseEligibleUsers.filter(user => user.team === currentUser.team);
             }
         }
     
@@ -145,7 +147,7 @@ export default function ViewResponsesPage() {
     
         return { eligibleUsers: visibleEligibleUsers, nonRespondents: nonResponding };
     
-    }, [form, allUsers, responses, currentUserRole, currentUserDesignation, currentUserName, currentUserTeam]);
+    }, [form, allUsers, responses, currentUser]);
     
 
     const renderResponseValue = (questionId: string, value: any) => {
@@ -224,7 +226,7 @@ export default function ViewResponsesPage() {
         toast({ title: "Export Complete", description: `The ${exportType} data has been downloaded.` });
     };
 
-    if (isLoading) {
+    if (isLoading || !currentUser) {
         return (
             <div className="flex h-screen items-center justify-center">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -418,4 +420,4 @@ export default function ViewResponsesPage() {
     );
 }
 
-    
+      
