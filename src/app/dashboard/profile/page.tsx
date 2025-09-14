@@ -18,7 +18,8 @@ import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 
-const GROUP_LEADER_DESIGNATIONS: UserDesignation[] = ["Group Leader", "Asst.Grp Leader"];
+const GROUP_LEADER_DESIGNATION: UserDesignation = "Group Leader";
+const ASST_GROUP_LEADER_DESIGNATION: UserDesignation = "Asst.Grp Leader";
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -169,13 +170,17 @@ export default function ProfilePage() {
 
   const teamLeaders = useMemo(() => {
     if (!user?.team || allUsers.length === 0) {
-        return { groupLeader: null, viceCaptain: null, captain: null };
+        return { groupLeader: null, asstGroupLeader: null, viceCaptain: null, captain: null };
     }
 
     const myTeam = user.team;
 
     const groupLeader = allUsers.find(
-        u => u.team === myTeam && u.designation && GROUP_LEADER_DESIGNATIONS.includes(u.designation)
+        u => u.team === myTeam && u.designation === GROUP_LEADER_DESIGNATION
+    ) || null;
+    
+    const asstGroupLeader = allUsers.find(
+        u => u.team === myTeam && u.designation === ASST_GROUP_LEADER_DESIGNATION
     ) || null;
 
     const viceCaptain = allUsers.find(
@@ -184,7 +189,7 @@ export default function ProfilePage() {
     
     const captain = allUsers.find(u => u.designation === "Captain") || null;
 
-    return { groupLeader, viceCaptain, captain };
+    return { groupLeader, asstGroupLeader, viceCaptain, captain };
   }, [user, allUsers]);
 
   const getMohallahName = (mohallahId?: string) => {
@@ -262,8 +267,13 @@ export default function ProfilePage() {
                     <ul className="space-y-3 text-sm text-muted-foreground">
                         <li className="flex items-center gap-3">
                             <UserCog className="h-4 w-4 text-primary" />
-                            <span className="w-32 shrink-0">Group/Asst. Leader:</span>
+                            <span className="w-32 shrink-0">Group Leader:</span>
                             <span className="font-medium text-foreground">{teamLeaders.groupLeader?.name || 'N/A'}</span>
+                        </li>
+                        <li className="flex items-center gap-3">
+                            <UserCog className="h-4 w-4 text-primary" />
+                            <span className="w-32 shrink-0">Asst. Group Leader:</span>
+                            <span className="font-medium text-foreground">{teamLeaders.asstGroupLeader?.name || 'N/A'}</span>
                         </li>
                         <li className="flex items-center gap-3">
                             <UserCog className="h-4 w-4 text-primary" />
