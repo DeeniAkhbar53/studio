@@ -169,7 +169,7 @@ export interface FormResponse {
     submitterBgkId?: string | null; // BGK ID of submitter
     submittedAt: string; // ISO string
     responses: {
-        [questionId: string]: string | string[] | number; // Answer keyed by question ID
+        [questionId: string]: string | string[] | number | null; // Answer keyed by question ID
     }
 }
 

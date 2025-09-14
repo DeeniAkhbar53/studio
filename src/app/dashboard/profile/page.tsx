@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -7,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { AttendanceRecord, User, Mohallah, Miqaat } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
-import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
+import type { AttendanceRecord, User, Mohallah, Miqaat, UserDesignation } from "@/types";
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock, UserCog } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getMiqaats } from "@/lib/firebase/miqaatService";
 import { useRouter } from "next/navigation";
@@ -19,9 +18,11 @@ import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 
+const GROUP_LEADER_DESIGNATIONS: UserDesignation[] = ["Group Leader", "Asst.Grp Leader"];
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,20 +45,23 @@ export default function ProfilePage() {
       }
 
       try {
-        const fetchedUser = await getUserByItsOrBgkId(storedItsId);
+        const [fetchedUser, allSystemUsers] = await Promise.all([
+          getUserByItsOrBgkId(storedItsId),
+          getUsers()
+        ]);
+
         if (!isMounted) return;
         setUser(fetchedUser);
+        setAllUsers(allSystemUsers);
 
         if (fetchedUser) {
           setIsLoadingHistory(true);
           setHistoryError(null);
 
-          // Get all mohallahs for name resolution
           unsubscribeMohallahs = getMohallahs((fetchedMohallahs) => {
             if (isMounted) setMohallahs(fetchedMohallahs);
           });
 
-          // Fetch all miqaats and user's attendance to compare
           unsubscribeMiqaats = getMiqaats(async (allMiqaats) => {
             try {
                 if (!isMounted) return;
@@ -163,6 +167,26 @@ export default function ProfilePage() {
     fetchProfileData();
   }, [fetchProfileData]);
 
+  const teamLeaders = useMemo(() => {
+    if (!user?.team || allUsers.length === 0) {
+        return { groupLeader: null, viceCaptain: null, captain: null };
+    }
+
+    const myTeam = user.team;
+
+    const groupLeader = allUsers.find(
+        u => u.team === myTeam && u.designation && GROUP_LEADER_DESIGNATIONS.includes(u.designation)
+    ) || null;
+
+    const viceCaptain = allUsers.find(
+        u => u.designation === "Vice Captain" && u.managedTeams?.includes(myTeam)
+    ) || null;
+    
+    const captain = allUsers.find(u => u.designation === "Captain") || null;
+
+    return { groupLeader, viceCaptain, captain };
+  }, [user, allUsers]);
+
   const getMohallahName = (mohallahId?: string) => {
     if (!mohallahId || mohallahs.length === 0) return "N/A";
     const mohallah = mohallahs.find(m => m.id === mohallahId);
@@ -218,20 +242,40 @@ export default function ProfilePage() {
           </TabsList>
           <TabsContent value="details">
             <CardContent className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
                 <div>
-                  <h3 className="font-semibold text-foreground mb-2">Contact Information</h3>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-center gap-2"><Mail className="h-4 w-4 text-primary" /> {user.email || "No email provided"}</li>
-                    <li className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary" /> {user.phoneNumber || "Not Provided"}</li>
+                  <h3 className="font-semibold text-foreground mb-3">Contact Information</h3>
+                  <ul className="space-y-3 text-sm text-muted-foreground">
+                    <li className="flex items-center gap-3"><Mail className="h-4 w-4 text-primary" /> {user.email || "No email provided"}</li>
+                    <li className="flex items-center gap-3"><Phone className="h-4 w-4 text-primary" /> {user.phoneNumber || "Not Provided"}</li>
                   </ul>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground mb-2">Affiliations</h3>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Team: {user.team || "N/A"}</li>
-                    <li className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Mohallah: {getMohallahName(user.mohallahId)}</li>
+                  <h3 className="font-semibold text-foreground mb-3">Affiliations</h3>
+                  <ul className="space-y-3 text-sm text-muted-foreground">
+                    <li className="flex items-center gap-3"><Users className="h-4 w-4 text-primary" /> Team: {user.team || "N/A"}</li>
+                    <li className="flex items-center gap-3"><MapPin className="h-4 w-4 text-primary" /> Mohallah: {getMohallahName(user.mohallahId)}</li>
                   </ul>
+                </div>
+                 <div className="md:col-span-2">
+                    <h3 className="font-semibold text-foreground mb-3">Team Leadership</h3>
+                    <ul className="space-y-3 text-sm text-muted-foreground">
+                        <li className="flex items-center gap-3">
+                            <UserCog className="h-4 w-4 text-primary" />
+                            <span className="w-24 shrink-0">Group Leader:</span>
+                            <span className="font-medium text-foreground">{teamLeaders.groupLeader?.name || 'N/A'}</span>
+                        </li>
+                        <li className="flex items-center gap-3">
+                            <UserCog className="h-4 w-4 text-primary" />
+                            <span className="w-24 shrink-0">Vice Captain:</span>
+                             <span className="font-medium text-foreground">{teamLeaders.viceCaptain?.name || 'N/A'}</span>
+                        </li>
+                        <li className="flex items-center gap-3">
+                           <UserCog className="h-4 w-4 text-primary" />
+                            <span className="w-24 shrink-0">Captain:</span>
+                             <span className="font-medium text-foreground">{teamLeaders.captain?.name || 'N/A'}</span>
+                        </li>
+                    </ul>
                 </div>
               </div>
             </CardContent>
