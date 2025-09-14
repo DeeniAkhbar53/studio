@@ -7,10 +7,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { MiqaatCard } from "@/components/dashboard/miqaat-card";
 import type { Miqaat, UserRole, Mohallah, User } from "@/types";
-import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye } from "lucide-react"; 
-import { useState, useEffect } from "react";
+import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt } from "lucide-react"; 
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -428,27 +427,11 @@ export default function MiqaatManagementPage() {
                 <p className="ml-2 text-muted-foreground">Loading Miqaats...</p>
             </div>
           ) : filteredMiqaats.length > 0 ? (
-            <>
-            {/* Mobile View: Cards */}
-            <div className="md:hidden space-y-4">
-                {filteredMiqaats.map((miqaat, index) => (
-                    <MiqaatCard
-                        key={miqaat.id}
-                        miqaat={miqaat as Miqaat}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
-                        currentUserRole={currentUserRole}
-                        allMohallahs={availableMohallahs}
-                        serialNumber={index + 1}
-                    />
-                ))}
-            </div>
-
-            {/* Desktop View: Table */}
-            <div className="hidden md:block border rounded-lg overflow-hidden">
+             <div className="border rounded-lg overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="w-[50px]">Sr.No.</TableHead>
                             <TableHead>Miqaat Title</TableHead>
                             <TableHead>Dates</TableHead>
                             <TableHead>Eligibility</TableHead>
@@ -458,17 +441,18 @@ export default function MiqaatManagementPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredMiqaats.map((miqaat) => {
+                        {filteredMiqaats.map((miqaat, index) => {
                             const isSpecific = miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0;
                             const eligibility = isSpecific
                                 ? `${miqaat.eligibleItsIds?.length} members`
-                                : "Groups (Mohallah/Team)";
+                                : "Groups";
 
                             return (
                                 <TableRow key={miqaat.id}>
+                                    <TableCell>{index + 1}</TableCell>
                                     <TableCell className="font-medium">
                                         {miqaat.name}
-                                        <p className="text-sm text-muted-foreground">{miqaat.location || "No location"}</p>
+                                        <p className="text-sm text-muted-foreground line-clamp-1">{miqaat.location || "No location"}</p>
                                     </TableCell>
                                     <TableCell>
                                         <div className="text-xs">Start: {format(new Date(miqaat.startTime), "PPp")}</div>
@@ -479,10 +463,10 @@ export default function MiqaatManagementPage() {
                                     </TableCell>
                                     <TableCell className="text-center">{miqaat.attendance?.length || 0}</TableCell>
                                     <TableCell>
-                                        <div className="flex gap-2">
-                                          {miqaat.uniformRequirements?.fetaPaghri && <Badge variant="default">Feta/Paghri</Badge>}
-                                          {miqaat.uniformRequirements?.koti && <Badge variant="default">Koti</Badge>}
-                                          {!miqaat.uniformRequirements?.fetaPaghri && !miqaat.uniformRequirements?.koti && <Badge variant="secondary">N/A</Badge>}
+                                        <div className="flex flex-col gap-1">
+                                          {miqaat.uniformRequirements?.fetaPaghri && <Badge variant="default" className="text-xs">Feta/Paghri</Badge>}
+                                          {miqaat.uniformRequirements?.koti && <Badge variant="default" className="text-xs">Koti</Badge>}
+                                          {!miqaat.uniformRequirements?.fetaPaghri && !miqaat.uniformRequirements?.koti && <Badge variant="secondary" className="text-xs">N/A</Badge>}
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right space-x-1">
@@ -529,7 +513,6 @@ export default function MiqaatManagementPage() {
                     </TableBody>
                 </Table>
             </div>
-            </>
           ) : (
             <div className="text-center py-10">
               <p className="text-muted-foreground">
