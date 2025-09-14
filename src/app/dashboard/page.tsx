@@ -88,8 +88,9 @@ export default function DashboardOverviewPage() {
 
   const isTeamLead = useMemo(() => {
     if (!currentUserRole || !currentUserDesignation) return false;
-    const isAdminOrSuper = currentUserRole === 'admin' || currentUserRole === 'superadmin';
-    return !isAdminOrSuper && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation);
+    const hasLeadershipDesignation = TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation);
+    // Include admins/superadmins in the team lead logic to ensure they see popups, but their data scope is different
+    return hasLeadershipDesignation || currentUserRole === 'admin' || currentUserRole === 'superadmin';
   }, [currentUserRole, currentUserDesignation]);
 
 
@@ -678,20 +679,20 @@ export default function DashboardOverviewPage() {
         <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardHeader>
             <CardTitle className="text-3xl font-bold text-foreground">
-              {currentUserRole === 'user' ? `Welcome, ${currentUserName}!` :
-                isTeamLead ? `Team Leader Dashboard: ${currentUser?.team || currentUserName}` :
-                currentUserRole === 'attendance-marker' ? "Attendance Marker Dashboard" : "Admin Dashboard"}
+              Welcome, {currentUserName}!
             </CardTitle>
             <Separator className="my-2" />
-            <CardDescription className="text-muted-foreground">
-              {currentUserRole === 'user' ? "Ready to mark your attendance. Use the scanner icon below for quick check-in." :
-                `Welcome, ${currentUserName}! Role: ${currentUserRole ? currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ') : ''}. ${isTeamLead || currentUserRole === 'attendance-marker' ? " Use sidebar for actions." : " Overview of system activity."}`
-              }
+            <CardDescription className="text-muted-foreground text-base">
+              {currentUserDesignation && <span>{currentUserDesignation}</span>}
+              {currentUserRole && <span> ({currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ')})</span>}
+            </CardDescription>
+            <CardDescription className="text-muted-foreground pt-1">
+              Here's your overview. Use the sidebar to navigate to other sections.
             </CardDescription>
           </CardHeader>
           {currentUserRole === 'user' && (
             <CardContent>
-              <p className="text-foreground">Please ensure you are on time for all Miqaats.</p>
+              <p className="text-foreground">Please ensure you are on time for all Miqaats. Use the scanner button for quick check-in.</p>
             </CardContent>
           )}
         </Card>
@@ -928,3 +929,5 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
+
+    
