@@ -17,20 +17,44 @@ import {
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { PlusCircle, FileText, Loader2, Users, MoreHorizontal, Edit, Trash2, Calendar, Eye, CheckCircle, XCircle, Pencil, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { UserRole, Form as FormType } from "@/types";
+import type { UserRole, Form as FormType, User } from "@/types";
 import { getForms, deleteForm, updateFormStatus } from "@/lib/firebase/formService";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 
 export default function FormsListPage() {
     const router = useRouter();
-    const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [forms, setForms] = useState<FormType[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            setIsLoading(true);
+            try {
+                const userItsId = localStorage.getItem('userItsId');
+                if (userItsId) {
+                    const user = await getUserByItsOrBgkId(userItsId);
+                    setCurrentUser(user);
+                }
+                const fetchedForms = await getForms();
+                setForms(fetchedForms);
+            } catch (error) {
+                console.error("Failed to fetch initial data:", error);
+                toast({ title: "Error", description: "Could not load forms or user data.", variant: "destructive" });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [toast]);
+    
     const fetchForms = async () => {
         setIsLoading(true);
         try {
@@ -44,15 +68,9 @@ export default function FormsListPage() {
         }
     };
 
-    useEffect(() => {
-        const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
-        setCurrentUserRole(role);
-        fetchForms();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [toast]);
 
-    const canCreateForms = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker';
-    const canManageForms = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker';
+    const canCreateForms = currentUser?.role === 'admin' || currentUser?.role === 'superadmin' || currentUser?.pageRights?.includes('/dashboard/forms');
+    const canManageForms = currentUser?.role === 'admin' || currentUser?.role === 'superadmin' || currentUser?.pageRights?.includes('/dashboard/forms');
     
     const handleDeleteForm = async (formId: string, formTitle: string) => {
         try {
@@ -88,6 +106,20 @@ export default function FormsListPage() {
         return form.endDate && new Date() > new Date(form.endDate);
     };
 
+    const filteredForms = useMemo(() => {
+        if (!currentUser) return [];
+        return forms.filter(form => {
+            const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
+            if (isForEveryone) return true;
+            
+            const eligibleById = !!form.eligibleItsIds?.includes(currentUser.itsId);
+            const eligibleByTeam = !!currentUser.team && !!form.teams?.includes(currentUser.team);
+            const eligibleByMohallah = !!currentUser.mohallahId && !!form.mohallahIds?.includes(currentUser.mohallahId);
+
+            return eligibleById || eligibleByTeam || eligibleByMohallah;
+        });
+    }, [forms, currentUser]);
+
 
     return (
         <div className="space-y-6">
@@ -114,12 +146,12 @@ export default function FormsListPage() {
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                             <p className="ml-2 text-muted-foreground">Loading forms...</p>
                         </div>
-                    ) : forms.length === 0 ? (
+                    ) : filteredForms.length === 0 ? (
                         <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
                             <FileText className="h-12 w-12 text-muted-foreground mx-auto"/>
                             <p className="text-lg font-medium text-muted-foreground">No Forms Available</p>
                             <p className="text-sm text-muted-foreground">
-                                {canCreateForms ? "Create a new form to get started." : "No forms or surveys have been published yet."}
+                                {canCreateForms ? "Create a new form to get started." : "No relevant forms or surveys have been published for you yet."}
                             </p>
                         </div>
                     ) : (
@@ -127,7 +159,7 @@ export default function FormsListPage() {
                          {/* Mobile View: Accordion */}
                          <div className="md:hidden">
                             <Accordion type="single" collapsible className="w-full">
-                                {forms.map((form) => {
+                                {filteredForms.map((form) => {
                                     const expired = isFormExpired(form);
                                     const currentStatus = expired ? 'closed' : form.status;
                                     
@@ -198,7 +230,7 @@ export default function FormsListPage() {
                                                                         <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
                                                                             <Edit className="mr-2 h-4 w-4" /> Edit
                                                                         </DropdownMenuItem>
-                                                                        {(currentUserRole === 'admin' || currentUserRole === 'superadmin') && (
+                                                                        {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
                                                                             <AlertDialogTrigger asChild>
                                                                                 <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
                                                                                     <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -235,7 +267,7 @@ export default function FormsListPage() {
                                    </TableRow>
                                </TableHeader>
                                <TableBody>
-                                   {forms.map((form) => {
+                                   {filteredForms.map((form) => {
                                         const expired = isFormExpired(form);
                                         const currentStatus = expired ? 'closed' : form.status;
 
@@ -288,7 +320,7 @@ export default function FormsListPage() {
                                                                 <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
                                                                     <Edit className="mr-2 h-4 w-4" /> Edit
                                                                 </DropdownMenuItem>
-                                                                {(currentUserRole === 'admin' || currentUserRole === 'superadmin') && (
+                                                                {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
                                                                     <AlertDialogTrigger asChild>
                                                                         <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
                                                                             <Trash2 className="mr-2 h-4 w-4" /> Delete
@@ -332,5 +364,3 @@ export default function FormsListPage() {
         </div>
     );
 }
-
-    

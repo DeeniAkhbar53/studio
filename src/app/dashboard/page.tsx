@@ -386,23 +386,18 @@ export default function DashboardOverviewPage() {
                 return;
             }
 
-            let isEligible = false;
             const isForEveryone = !latestActiveForm.mohallahIds?.length && !latestActiveForm.teams?.length && !latestActiveForm.eligibleItsIds?.length;
-
+            
             if (isForEveryone) {
-                isEligible = true;
+                setNewFormForUser(latestActiveForm);
             } else {
                 const eligibleById = !!latestActiveForm.eligibleItsIds?.includes(currentUser.itsId);
-                const eligibleByMohallah = !!currentUser.mohallahId && !!latestActiveForm.mohallahIds?.includes(currentUser.mohallahId);
                 const eligibleByTeam = !!currentUser.team && !!latestActiveForm.teams?.includes(currentUser.team);
+                const eligibleByMohallah = !!currentUser.mohallahId && !!latestActiveForm.mohallahIds?.includes(currentUser.mohallahId);
                 
-                if (eligibleById || eligibleByMohallah || eligibleByTeam) {
-                    isEligible = true;
+                if (eligibleById || eligibleByTeam || eligibleByMohallah) {
+                    setNewFormForUser(latestActiveForm);
                 }
-            }
-
-            if (isEligible) {
-                setNewFormForUser(latestActiveForm);
             }
 
         } catch (error) {
