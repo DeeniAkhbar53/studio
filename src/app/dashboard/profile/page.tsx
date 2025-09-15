@@ -283,10 +283,10 @@ export default function ProfilePage() {
         </div>
         <Separator className="my-0"/>
         <Tabs defaultValue="details" className="w-full">
-          <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 rounded-none border-b">
-            <TabsTrigger value="details">Profile Details</TabsTrigger>
-            <TabsTrigger value="attendance_history">Attendance ({!isLoadingHistory && !historyError ? attendanceHistory.length : '...'})</TabsTrigger>
-            <TabsTrigger value="form_history">Forms ({!isLoadingFormHistory && !formHistoryError ? formHistory.length : '...'})</TabsTrigger>
+           <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
+            <TabsTrigger value="details" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Details</TabsTrigger>
+            <TabsTrigger value="attendance_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Attendance ({!isLoadingHistory && !historyError ? attendanceHistory.length : '...'})</TabsTrigger>
+            <TabsTrigger value="form_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Forms ({!isLoadingFormHistory && !formHistoryError ? formHistory.length : '...'})</TabsTrigger>
           </TabsList>
           <TabsContent value="details">
             <CardContent className="p-6 space-y-4">
@@ -504,3 +504,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+
