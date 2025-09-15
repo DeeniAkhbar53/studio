@@ -18,11 +18,12 @@ import { SidebarNav } from "./sidebar-nav";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
-import type { NotificationItem, UserRole } from "@/types";
+import type { NotificationItem, UserRole, Form as FormType, User } from "@/types";
 import Image from "next/image";
-// Removed getNotificationsForUser import as we'll implement listener logic directly
 import { db } from "@/lib/firebase/firebase";
 import { collection, query, where, orderBy, onSnapshot, Timestamp, limit, Unsubscribe } from "firebase/firestore";
+import { getForms, getFormResponsesForUser } from "@/lib/firebase/formService";
+import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 
 const pageTitles: { [key: string]: string } = {
   "/dashboard": "Dashboard",
@@ -35,6 +36,7 @@ const pageTitles: { [key: string]: string } = {
   "/dashboard/mark-attendance": "Mark Attendance",
   "/dashboard/notifications": "Notifications",
   "/dashboard/manage-notifications": "Manage Notifications",
+  "/dashboard/forms": "Forms / Surveys",
 };
 
 export function Header() {
@@ -43,18 +45,25 @@ export function Header() {
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
 
-  // Effect to load user auth data from localStorage
   useEffect(() => {
-    const loadAuthData = () => {
+    const loadAuthData = async () => {
       if (typeof window !== "undefined") {
         const itsId = localStorage.getItem('userItsId');
         const role = localStorage.getItem('userRole') as UserRole | null;
         setCurrentUserItsId(itsId);
         setCurrentUserRole(role);
-        console.log("[Header useEffect loadAuthData] Loaded from localStorage - ITS ID:", itsId, "Role:", role);
+        if (itsId) {
+            try {
+                const user = await getUserByItsOrBgkId(itsId);
+                setCurrentUser(user);
+            } catch (error) {
+                console.error("Header: Failed to fetch user details", error);
+            }
+        }
       }
     };
     loadAuthData();
@@ -62,7 +71,7 @@ export function Header() {
     const handleStorageChange = (event: StorageEvent) => {
       if (typeof window !== "undefined") {
         if (event.key === 'userItsId' || event.key === 'userRole') {
-          loadAuthData(); // Reload auth data if user context changes
+          loadAuthData();
         }
       }
     };
@@ -71,131 +80,92 @@ export function Header() {
   }, []);
 
 
-  // Effect to listen for realtime notification updates
   useEffect(() => {
     if (!currentUserItsId || !currentUserRole) {
-      console.log("[Header Notification Listener] Skipping: No ITS ID or Role.", { currentUserItsId, currentUserRole });
       setHasUnreadNotifications(false);
-      if (typeof window !== "undefined") localStorage.setItem('unreadNotificationCount', '0');
       return;
     }
-
-    console.log(`[Header Notification Listener] Setting up for ITS: ${currentUserItsId}, Role: ${currentUserRole}`);
-
-    const notificationsCollectionRef = collection(db, 'notifications');
-    let unsubAll: Unsubscribe | null = null;
-    let unsubRole: Unsubscribe | null = null;
-    
-    let allNotificationsMap = new Map<string, NotificationItem>();
-    let roleNotificationsMap = new Map<string, NotificationItem>();
-
-    const processAndSetNotifications = () => {
-      const combinedNotificationsMap = new Map([...allNotificationsMap, ...roleNotificationsMap]);
-      const fetchedNotifications = Array.from(combinedNotificationsMap.values());
+  
+    let unsubNotifications: Unsubscribe | null = null;
+    let unsubForms: (() => void) | undefined;
+  
+    const checkNotifications = async () => {
+      // 1. Standard Notifications
+      const notificationsCollectionRef = collection(db, 'notifications');
+      const qAll = query(
+        notificationsCollectionRef,
+        where('targetAudience', '==', 'all'),
+        orderBy('createdAt', 'desc'),
+        limit(50)
+      );
       
-      const unreadCount = fetchedNotifications.filter(n => !n.readBy?.includes(currentUserItsId)).length;
-      setHasUnreadNotifications(unreadCount > 0);
-      if (typeof window !== "undefined") {
+      unsubNotifications = onSnapshot(qAll, async (querySnapshot) => {
+        let unreadCount = 0;
+        const allDocs = querySnapshot.docs;
+
+        for (const doc of allDocs) {
+            const data = doc.data();
+            if (!data.readBy?.includes(currentUserItsId)) {
+                unreadCount++;
+            }
+        }
+
+        // 2. Form Notifications
+        if (currentUser) {
+            try {
+                const allForms = await getForms();
+                const userResponses = await getFormResponsesForUser(currentUser.itsId);
+                const respondedFormIds = new Set(userResponses.map(r => r.formId));
+
+                const unrespondedForms = allForms.filter(form => {
+                    if (form.status !== 'open' || respondedFormIds.has(form.id)) {
+                        return false;
+                    }
+                    if (form.endDate && new Date(form.endDate) < new Date()) {
+                        return false;
+                    }
+                    const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
+                    if (isForEveryone) return true;
+                    
+                    const eligibleById = !!form.eligibleItsIds?.includes(currentUser.itsId);
+                    const eligibleByTeam = !!currentUser.team && !!form.teams?.includes(currentUser.team);
+                    const eligibleByMohallah = !!currentUser.mohallahId && !!form.mohallahIds?.includes(currentUser.mohallahId);
+                    return eligibleById || eligibleByTeam || eligibleByMohallah;
+                });
+                
+                unreadCount += unrespondedForms.length;
+            } catch (error) {
+                console.error("Error checking for new forms:", error);
+            }
+        }
+
+        setHasUnreadNotifications(unreadCount > 0);
         localStorage.setItem('unreadNotificationCount', unreadCount.toString());
-        window.dispatchEvent(new CustomEvent('notificationsUpdated')); // For sidebar
-      }
-      console.log(`[Header Notification Listener] Processed ${fetchedNotifications.length} total notifications. Unread count: ${unreadCount} for ITS: ${currentUserItsId}`);
+        window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+      }, (error) => {
+        console.error("Error in notification snapshot listener:", error);
+      });
     };
 
-    // Listener for 'all' targetAudience
-    const qAll = query(
-      notificationsCollectionRef,
-      where('targetAudience', '==', 'all'),
-      orderBy('createdAt', 'desc'),
-      limit(50) // Limit to keep it manageable
-    );
-    unsubAll = onSnapshot(qAll, (querySnapshot) => {
-      console.log(`[Header Notification Listener] 'all' audience snapshot received: ${querySnapshot.docs.length} docs.`);
-      allNotificationsMap.clear();
-      querySnapshot.forEach((docSnapshot) => {
-        const data = docSnapshot.data();
-        const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString());
-        allNotificationsMap.set(docSnapshot.id, {
-          id: docSnapshot.id,
-          title: data.title,
-          content: data.content,
-          createdAt: createdAt,
-          targetAudience: data.targetAudience,
-          createdBy: data.createdBy,
-          readBy: Array.isArray(data.readBy) ? data.readBy : [],
-        });
-      });
-      processAndSetNotifications();
-    }, (error) => {
-      console.error("[Header Notification Listener] Error fetching 'all' notifications:", error);
-      if (error.message.includes("index")) {
-        console.error("Firestore Index missing for query: targetAudience ASC, createdAt DESC on 'notifications' collection.");
-      }
-    });
-
-    // Listener for role-specific targetAudience
-    if (currentUserRole !== 'all') { // Avoid duplicate listener if role is somehow 'all'
-      const qRole = query(
-        notificationsCollectionRef,
-        where('targetAudience', '==', currentUserRole),
-        orderBy('createdAt', 'desc'),
-        limit(50) // Limit to keep it manageable
-      );
-      unsubRole = onSnapshot(qRole, (querySnapshot) => {
-        console.log(`[Header Notification Listener] '${currentUserRole}' audience snapshot received: ${querySnapshot.docs.length} docs.`);
-        roleNotificationsMap.clear();
-        querySnapshot.forEach((docSnapshot) => {
-          const data = docSnapshot.data();
-          const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString());
-          roleNotificationsMap.set(docSnapshot.id, {
-            id: docSnapshot.id,
-            title: data.title,
-            content: data.content,
-            createdAt: createdAt,
-            targetAudience: data.targetAudience,
-            createdBy: data.createdBy,
-            readBy: Array.isArray(data.readBy) ? data.readBy : [],
-          });
-        });
-        processAndSetNotifications();
-      }, (error) => {
-        console.error(`[Header Notification Listener] Error fetching '${currentUserRole}' notifications:`, error);
-        if (error.message.includes("index")) {
-          console.error("Firestore Index missing for query: targetAudience ASC, createdAt DESC on 'notifications' collection.");
-        }
-      });
-    } else {
-      // If currentUserRole is 'all', no need for a separate role listener, clear roleNotificationsMap
-      roleNotificationsMap.clear();
-      processAndSetNotifications();
-    }
+    checkNotifications();
 
     return () => {
-      console.log("[Header Notification Listener] Unsubscribing from notification listeners.");
-      if (unsubAll) unsubAll();
-      if (unsubRole) unsubRole();
+      if (unsubNotifications) unsubNotifications();
     };
-  }, [currentUserItsId, currentUserRole]);
+  }, [currentUser, currentUserItsId, currentUserRole]);
 
 
   const handleLogout = () => {
     if (typeof window !== "undefined") {
-      localStorage.removeItem('userRole');
-      localStorage.removeItem('userName');
-      localStorage.removeItem('userItsId');
-      localStorage.removeItem('userMohallahId');
-      localStorage.removeItem('userBgkId');
-      localStorage.removeItem('userTeam');
-      localStorage.removeItem('userDesignation');
-      localStorage.removeItem('userPageRights');
-      localStorage.removeItem('unreadNotificationCount'); // Clear this on logout
+      localStorage.clear();
     }
+    setCurrentUser(null);
     setCurrentUserItsId(null);
     setCurrentUserRole(null);
     setHasUnreadNotifications(false); 
     
     if (typeof window !== "undefined") {
-       window.dispatchEvent(new CustomEvent('notificationsUpdated')); // Notify sidebar
+       window.dispatchEvent(new CustomEvent('notificationsUpdated')); 
     }
     router.push("/");
   };
@@ -204,7 +174,7 @@ export function Header() {
 
   return (
     <header className="flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6">
-      <div className="md:hidden"> {/* Re-added md:hidden to hide on medium screens and up */}
+      <div className="md:hidden">
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="outline" size="icon">
