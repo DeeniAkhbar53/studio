@@ -309,7 +309,7 @@ export default function DashboardOverviewPage() {
                     if (isForEveryone) return true;
                     const inMohallah = latestActiveForm.mohallahIds?.includes(user.mohallahId || '');
                     const inTeam = latestActiveForm.teams?.includes(user.team || '');
-                    return inMohallah || inTeam;
+                    return !!(inMohallah || inTeam);
                  });
             }
 
