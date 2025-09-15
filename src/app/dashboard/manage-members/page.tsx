@@ -30,6 +30,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -1107,53 +1108,45 @@ export default function ManageMembersPage() {
             </div>
           ) : (
             <>
-              {/* Mobile View: List of Cards */}
-              <div className="md:hidden space-y-4">
-                {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member) => (
-                  <Card key={member.id} className="w-full">
-                     <div className="overflow-x-auto">
-                        <CardContent className="p-4 flex flex-col gap-4">
-                          <div className="flex items-center gap-4">
-                            {canManageMembers && (
-                            <Checkbox
-                              id={`mobile-select-${member.id}`}
-                              checked={selectedMemberIds.includes(member.id)}
-                              onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
-                              aria-label={`Select member ${member.name}`}
-                              className="shrink-0"
-                            />
-                            )}
-                            <Avatar className="h-12 w-12">
-                              <AvatarImage src={member.avatarUrl || `https://placehold.co/48x48.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
-                              <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-grow">
-                                <div className="flex items-center gap-2">
-                                    <p className="font-semibold">{member.name}</p>
-                                    {member.fcmTokens && member.fcmTokens.length > 0 && (
-                                        <Tooltip>
-                                            <TooltipTrigger>
-                                                <BellDot className="h-4 w-4 text-green-500" />
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                                <p>Ready to receive Push Notifications</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    )}
-                                </div>
-                              <p className="text-sm text-muted-foreground">ITS: {member.itsId}</p>
-                              <p className="text-sm text-muted-foreground">BGK ID: {member.bgkId || "N/A"}</p>
-                              <p className="text-sm text-muted-foreground">{member.designation || "N/A"}</p>
-                            </div>
+              {/* Mobile View: Accordion */}
+              <div className="md:hidden">
+                {currentMembersToDisplay.length > 0 ? (
+                  <Accordion type="single" collapsible className="w-full">
+                    {currentMembersToDisplay.map((member) => (
+                      <AccordionItem value={member.id} key={member.id}>
+                        <AccordionTrigger>
+                          <div className="flex items-center gap-4 flex-grow text-left">
+                             {canManageMembers && (
+                                <Checkbox
+                                    id={`mobile-select-${member.id}`}
+                                    checked={selectedMemberIds.includes(member.id)}
+                                    onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
+                                    onClick={(e) => e.stopPropagation()} 
+                                    aria-label={`Select member ${member.name}`}
+                                    className="shrink-0"
+                                />
+                             )}
+                             <Avatar className="h-10 w-10 shrink-0">
+                                <AvatarImage src={member.avatarUrl || `https://placehold.co/40x40.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
+                                <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
+                             </Avatar>
+                             <div className="flex-grow">
+                                <p className="font-semibold text-card-foreground">{member.name}</p>
+                                <p className="text-xs text-muted-foreground">ITS: {member.itsId}</p>
+                             </div>
                           </div>
-                          <div className="text-sm text-muted-foreground space-y-1" style={{ paddingLeft: canManageMembers ? '4rem' : '0.5rem' }}>
+                        </AccordionTrigger>
+                        <AccordionContent className="space-y-4 pt-2">
+                           <div className="px-2 space-y-2 text-sm text-muted-foreground">
+                              <p><strong>BGK ID:</strong> {member.bgkId || "N/A"}</p>
+                              <p><strong>Designation:</strong> {member.designation || "N/A"}</p>
                               <p><strong>Email:</strong> {member.email || "N/A"}</p>
                               <p><strong>Mohallah:</strong> {getMohallahNameById(member.mohallahId)}</p>
                               <p><strong>Team:</strong> {member.team || "N/A"}</p>
                               <p><strong>Role:</strong> {member.role.charAt(0).toUpperCase() + member.role.slice(1).replace(/-/g, ' ')}</p>
-                          </div>
-                          {canManageMembers && (
-                            <div className="flex justify-end gap-2 pt-2 border-t mt-2">
+                           </div>
+                           {canManageMembers && (
+                            <div className="flex justify-end gap-2 pt-2 border-t mt-2 px-2">
                               <Button variant="ghost" size="sm" onClick={() => handleEditMember(member)} className="flex-1" aria-label="Edit Member" disabled={currentUserRole === 'attendance-marker'}>
                                   <Edit className="mr-2 h-4 w-4" /> Edit
                               </Button>
@@ -1178,10 +1171,11 @@ export default function ManageMembersPage() {
                               )}
                             </div>
                           )}
-                        </CardContent>
-                     </div>
-                  </Card>
-                )) : (
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                ) : (
                   <div className="text-center py-10">
                     <p className="text-muted-foreground">No members found.</p>
                   </div>
@@ -1376,3 +1370,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    

@@ -20,6 +20,7 @@ import { getUsers } from "@/lib/firebase/userService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const mohallahFormSchema = z.object({
   name: z.string().min(3, "Mohallah name must be at least 3 characters"),
@@ -233,57 +234,103 @@ export default function ManageMohallahsPage() {
           ) : mohallahs.length === 0 ? (
             <p className="text-center text-muted-foreground py-4">No Mohallahs found. Add one to get started.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mohallah Name</TableHead>
-                    {canManage && <TableHead className="text-right">Actions</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <>
+              {/* Mobile View: Accordion */}
+              <div className="md:hidden">
+                <Accordion type="single" collapsible className="w-full">
                   {mohallahs.map((mohallah) => (
-                    <TableRow key={mohallah.id}>
-                      <TableCell className="font-medium">{mohallah.name}</TableCell>
-                      {canManage && (
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => handleEditMohallah(mohallah)} className="mr-2" aria-label="Edit Mohallah">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertTrigger asChild>
-                              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Mohallah">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertTrigger>
-                            <AlertContent>
-                              <AlertHeader>
-                                <AlertTitle>Are you sure?</AlertTitle>
-                                <AlertDesc>
-                                  This action cannot be undone. This will permanently delete the Mohallah "{mohallah.name}".
-                                  Ensure no members are assigned to this Mohallah before deleting.
-                                </AlertDesc>
-                              </AlertHeader>
-                              <AlertFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDeleteMohallah(mohallah)}
-                                  className="bg-destructive hover:bg-destructive/90"
-                                  disabled={isLoadingMembers}
-                                >
-                                  {isLoadingMembers && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertFooter>
-                            </AlertContent>
-                          </AlertDialog>
-                        </TableCell>
-                      )}
-                    </TableRow>
+                    <AccordionItem value={mohallah.id} key={mohallah.id}>
+                      <AccordionTrigger>
+                        <p className="font-semibold text-card-foreground">{mohallah.name}</p>
+                      </AccordionTrigger>
+                      <AccordionContent className="pt-2">
+                        {canManage && (
+                          <div className="flex justify-end gap-2 px-2">
+                            <Button variant="outline" size="sm" onClick={() => handleEditMohallah(mohallah)}>
+                              <Pencil className="mr-2 h-4 w-4" /> Edit
+                            </Button>
+                            <AlertDialog>
+                              <AlertTrigger asChild>
+                                <Button variant="destructive" size="sm">
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </Button>
+                              </AlertTrigger>
+                              <AlertContent>
+                                <AlertHeader>
+                                  <AlertTitle>Are you sure?</AlertTitle>
+                                  <AlertDesc>
+                                    This will permanently delete "{mohallah.name}". Ensure no members are assigned before deleting.
+                                  </AlertDesc>
+                                </AlertHeader>
+                                <AlertFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteMohallah(mohallah)} className="bg-destructive hover:bg-destructive/90" disabled={isLoadingMembers}>
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertFooter>
+                              </AlertContent>
+                            </AlertDialog>
+                          </div>
+                        )}
+                      </AccordionContent>
+                    </AccordionItem>
                   ))}
-                </TableBody>
-              </Table>
-            </div>
+                </Accordion>
+              </div>
+
+              {/* Desktop View: Table */}
+              <div className="hidden md:block overflow-x-auto border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Mohallah Name</TableHead>
+                      {canManage && <TableHead className="text-right">Actions</TableHead>}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mohallahs.map((mohallah) => (
+                      <TableRow key={mohallah.id}>
+                        <TableCell className="font-medium">{mohallah.name}</TableCell>
+                        {canManage && (
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" onClick={() => handleEditMohallah(mohallah)} className="mr-2" aria-label="Edit Mohallah">
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertTrigger asChild>
+                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Mohallah">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertTrigger>
+                              <AlertContent>
+                                <AlertHeader>
+                                  <AlertTitle>Are you sure?</AlertTitle>
+                                  <AlertDesc>
+                                    This action cannot be undone. This will permanently delete the Mohallah "{mohallah.name}".
+                                    Ensure no members are assigned to this Mohallah before deleting.
+                                  </AlertDesc>
+                                </AlertHeader>
+                                <AlertFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteMohallah(mohallah)}
+                                    className="bg-destructive hover:bg-destructive/90"
+                                    disabled={isLoadingMembers}
+                                  >
+                                    {isLoadingMembers && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertFooter>
+                              </AlertContent>
+                            </AlertDialog>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
          <CardFooter>
@@ -293,3 +340,5 @@ export default function ManageMohallahsPage() {
     </div>
   );
 }
+
+    

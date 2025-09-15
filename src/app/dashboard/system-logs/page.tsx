@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export default function SystemLogsPage() {
   const router = useRouter();
@@ -79,13 +80,13 @@ export default function SystemLogsPage() {
   const getLogLevelIcon = (level: 'info' | 'warning' | 'error') => {
     switch (level) {
       case 'info':
-        return <CheckCircle className="h-5 w-5 text-blue-500" />;
+        return <CheckCircle className="h-5 w-5 text-blue-500 shrink-0" />;
       case 'warning':
-        return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
+        return <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0" />;
       case 'error':
-        return <FileWarning className="h-5 w-5 text-red-500" />;
+        return <FileWarning className="h-5 w-5 text-red-500 shrink-0" />;
       default:
-        return <CheckCircle className="h-5 w-5 text-gray-500" />;
+        return <CheckCircle className="h-5 w-5 text-gray-500 shrink-0" />;
     }
   };
 
@@ -157,19 +158,28 @@ export default function SystemLogsPage() {
               <p className="text-sm text-muted-foreground">Everything looks healthy. No errors or events have been logged.</p>
             </div>
           ) : (
-            <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-              {logs.map(log => (
-                <div key={log.id} className={`p-4 rounded-lg border ${getLogLevelClass(log.level)}`}>
-                  <div className="flex items-start gap-4">
-                    <div className="pt-1">{getLogLevelIcon(log.level)}</div>
-                    <div className="flex-grow">
-                      <p className="font-semibold">{log.message}</p>
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">{log.context}</p>
-                      <p className="text-xs text-muted-foreground mt-2">{format(new Date(log.timestamp), "PPpp")}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+                <Accordion type="single" collapsible className="w-full">
+                {logs.map(log => (
+                    <AccordionItem value={log.id} key={log.id} className={`rounded-lg border px-4 mb-2 ${getLogLevelClass(log.level)}`}>
+                        <AccordionTrigger>
+                            <div className="flex items-center gap-4 flex-grow text-left">
+                                {getLogLevelIcon(log.level)}
+                                <div className="flex-grow">
+                                    <p className="font-semibold text-card-foreground">{log.message}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{format(new Date(log.timestamp), "PPpp")}</p>
+                                </div>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-2">
+                            <div className="p-2 bg-background/50 rounded-md">
+                                <p className="text-sm font-semibold text-muted-foreground mb-1">Context Details:</p>
+                                <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">{log.context}</pre>
+                            </div>
+                        </AccordionContent>
+                    </AccordionItem>
+                ))}
+                </Accordion>
             </div>
           )}
         </CardContent>
@@ -180,3 +190,5 @@ export default function SystemLogsPage() {
     </div>
   );
 }
+
+    

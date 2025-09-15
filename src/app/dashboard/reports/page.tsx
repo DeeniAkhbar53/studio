@@ -24,7 +24,6 @@ import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohall
 import { getMiqaats, batchMarkSafarInMiqaat } from "@/lib/firebase/miqaatService";
 import { getUsers, getUniqueTeamNames } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
-import { getAttendanceRecordsByMiqaat } from "@/lib/firebase/attendanceService";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -47,6 +46,7 @@ import {
   Cell,
 } from "@/components/ui/chart";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 
 const reportSchema = z.object({
@@ -994,61 +994,64 @@ export default function ReportsPage() {
             
             {filteredReportData && filteredReportData.length > 0 ? (
              <>
-                {/* Mobile View: Cards */}
-                <div className="md:hidden space-y-4">
-                  {filteredReportData.map((record, index) => (
-                    <Card key={`${record.id}-${record.date || index}`} className="w-full">
-                       <div className="overflow-x-auto">
-                            <CardContent className="p-4 flex flex-col gap-2">
-                                <div className="flex items-center gap-4">
-                                    {isNonAttendanceReport && (
-                                        <Checkbox
-                                            id={`mobile-select-${record.userItsId}`}
-                                            checked={selectedIds.includes(record.userItsId)}
-                                            onCheckedChange={(checked) => {
-                                                setSelectedIds(prev => checked ? [...prev, record.userItsId] : prev.filter(id => id !== record.userItsId));
-                                            }}
-                                            aria-label={`Select member ${record.userName}`}
-                                        />
-                                    )}
-                                    <div className="flex-grow">
-                                        <p className="font-semibold text-card-foreground">{record.userName}</p>
-                                        <p className="text-sm text-muted-foreground">ITS: {record.userItsId}</p>
-                                        <p className="text-sm text-muted-foreground">BGK: {record.bgkId || "N/A"}</p>
+                {/* Mobile View: Accordion */}
+                <div className="md:hidden">
+                    <Accordion type="single" collapsible className="w-full">
+                        {filteredReportData.map((record, index) => (
+                            <AccordionItem value={`${record.id}-${record.date || index}`} key={`${record.id}-${record.date || index}`}>
+                                <AccordionTrigger>
+                                    <div className="flex items-center gap-4 flex-grow text-left">
+                                        {isNonAttendanceReport && (
+                                            <Checkbox
+                                                id={`mobile-select-${record.userItsId}`}
+                                                checked={selectedIds.includes(record.userItsId)}
+                                                onCheckedChange={(checked) => {
+                                                    setSelectedIds(prev => checked ? [...prev, record.userItsId] : prev.filter(id => id !== record.userItsId));
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                                aria-label={`Select member ${record.userName}`}
+                                            />
+                                        )}
+                                        <div className="flex-grow">
+                                            <p className="font-semibold text-card-foreground">{record.userName}</p>
+                                            <p className="text-xs text-muted-foreground">ITS: {record.userItsId}</p>
+                                        </div>
+                                        <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
+                                            record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800' :
+                                            record.status === 'absent' ? 'bg-red-100 text-red-800' :
+                                            record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
+                                            record.status === 'safar' ? 'bg-blue-100 text-blue-800' :
+                                            'bg-gray-100 text-gray-800'
+                                        )}>
+                                            {record.status}
+                                        </span>
                                     </div>
-                                    <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
-                                    record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                    record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                    record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                                    record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                                    )}>
-                                    {record.status}
-                                    </span>
-                                </div>
-                                <Separator className="my-2" />
-                                <div className="text-sm text-muted-foreground space-y-1" style={{paddingLeft: isNonAttendanceReport ? '2.5rem' : '0'}}>
-                                    <p><strong>Team:</strong> {record.team || "N/A"}</p>
-                                    <p><strong>Miqaat:</strong> {record.miqaatName}</p>
-                                    <p><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</p>
-                                    { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
-                                        <p><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</p>
-                                    }
-                                    {record.uniformCompliance && (
-                                        <>
-                                            <p><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri}</p>
-                                            <p><strong>Koti:</strong> {record.uniformCompliance.koti}</p>
-                                        </>
-                                    )}
-                                </div>
-                            </CardContent>
-                       </div>
-                    </Card>
-                  ))}
+                                </AccordionTrigger>
+                                <AccordionContent className="space-y-2 pt-2">
+                                    <div className="px-2 text-sm text-muted-foreground">
+                                        <p><strong>BGK ID:</strong> {record.bgkId || "N/A"}</p>
+                                        <p><strong>Team:</strong> {record.team || "N/A"}</p>
+                                        <p><strong>Miqaat:</strong> {record.miqaatName}</p>
+                                        <p><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</p>
+                                        {(watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
+                                            <p><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</p>
+                                        }
+                                        {record.uniformCompliance && (
+                                            <>
+                                                <p><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri}</p>
+                                                <p><strong>Koti:</strong> {record.uniformCompliance.koti}</p>
+                                            </>
+                                        )}
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
                 </div>
 
+
                 {/* Desktop View: Table */}
-                <div className="hidden md:block overflow-x-auto">
+                <div className="hidden md:block overflow-x-auto border rounded-lg">
                     <Table>
                     <TableHeader>
                         <TableRow>
@@ -1148,3 +1151,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
