@@ -493,7 +493,7 @@ export default function ManageMembersPage() {
                                 designation: validatedData.designation,
                                 pageRights: validatedData.pageRights,
                                 managedTeams: validatedData.managedTeams,
-                                // Password is intentionally not updated via CSV for security.
+                                password: validatedData.password || undefined,
                                 // Mohallah ID is not updated as it would require moving documents.
                             };
                             await updateUser(existingUser.id, existingUser.mohallahId!, updatePayload);
@@ -1112,10 +1112,13 @@ export default function ManageMembersPage() {
               <div className="md:hidden">
                 {currentMembersToDisplay.length > 0 ? (
                   <Accordion type="single" collapsible className="w-full">
-                    {currentMembersToDisplay.map((member) => (
+                    {currentMembersToDisplay.map((member, index) => (
                       <AccordionItem value={member.id} key={member.id}>
                         <AccordionTrigger>
                           <div className="flex items-center gap-4 flex-grow text-left">
+                            <span className="text-sm font-mono text-muted-foreground">
+                              {((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.
+                            </span>
                              {canManageMembers && (
                                 <Checkbox
                                     id={`mobile-select-${member.id}`}
@@ -1197,6 +1200,7 @@ export default function ManageMembersPage() {
                           />
                         </TableHead>
                       )}
+                      <TableHead className="w-[50px]">Sr.No.</TableHead>
                       <TableHead className="w-[60px] sm:w-[80px]">Avatar</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>ITS / Email</TableHead>
@@ -1209,7 +1213,7 @@ export default function ManageMembersPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member) => (
+                    {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member, index) => (
                       <TableRow key={member.id} data-state={canManageMembers ? (selectedMemberIds.includes(member.id) ? "selected" : undefined) : undefined}>
                         {canManageMembers && (
                             <TableCell className="px-2">
@@ -1220,6 +1224,7 @@ export default function ManageMembersPage() {
                             />
                             </TableCell>
                         )}
+                        <TableCell>{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}</TableCell>
                         <TableCell>
                           <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
                             <AvatarImage src={member.avatarUrl || `https://placehold.co/40x40.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
@@ -1283,7 +1288,7 @@ export default function ManageMembersPage() {
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={canManageMembers ? 10 : 9} className="text-center h-24">
+                        <TableCell colSpan={canManageMembers ? 11 : 10} className="text-center h-24">
                           No members found { (searchTerm || (currentUserRole === 'superadmin' && selectedFilterMohallahId !=='all') || (currentUserRole === 'admin' && currentUserMohallahId) && !fetchError ) && "matching criteria"}.
                           {(fetchError && currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' ) && "Select a specific Mohallah."}
                           {(currentUserRole === 'admin' && !currentUserMohallahId && !isLoadingMembers) && "Admin Mohallah not set."}
@@ -1370,5 +1375,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
-    

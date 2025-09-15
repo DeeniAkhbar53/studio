@@ -1001,6 +1001,7 @@ export default function ReportsPage() {
                             <AccordionItem value={`${record.id}-${record.date || index}`} key={`${record.id}-${record.date || index}`}>
                                 <AccordionTrigger>
                                     <div className="flex items-center gap-4 flex-grow text-left">
+                                        <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
                                         {isNonAttendanceReport && (
                                             <Checkbox
                                                 id={`mobile-select-${record.userItsId}`}
@@ -1064,6 +1065,7 @@ export default function ReportsPage() {
                               />
                             </TableHead>
                           )}
+                        <TableHead className="w-[50px]">Sr.No.</TableHead>
                         <TableHead>Member Name</TableHead>
                         <TableHead>ITS ID</TableHead>
                         <TableHead>BGK ID</TableHead>
@@ -1092,6 +1094,7 @@ export default function ReportsPage() {
                                     />
                                 </TableCell>
                             )}
+                            <TableCell>{index + 1}</TableCell>
                             <TableCell className="font-medium">{record.userName}</TableCell>
                             <TableCell>{record.userItsId}</TableCell>
                             <TableCell>{record.bgkId || 'N/A'}</TableCell>
@@ -1151,5 +1154,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
