@@ -254,36 +254,25 @@ export function Header() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-80">
-          <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+          <DropdownMenuLabel>New Forms</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {unrespondedForms.length > 0 ? (
-            <>
-              {unrespondedForms.slice(0, 3).map(form => (
-                <DropdownMenuItem key={form.id} className="flex flex-col items-start gap-1">
-                   <div className="font-semibold">New Form: {form.title}</div>
-                   <p className="text-xs text-muted-foreground line-clamp-1">{form.description}</p>
-                </DropdownMenuItem>
-              ))}
-              {unrespondedForms.length > 3 && (
-                <DropdownMenuItem disabled>
-                    <p className="text-xs text-muted-foreground">...and {unrespondedForms.length - 3} more.</p>
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                 <Button onClick={() => router.push('/dashboard/forms')} className="w-full justify-center" size="sm">
-                    <FileText className="mr-2 h-4 w-4"/> View All Forms
-                 </Button>
+            unrespondedForms.slice(0, 5).map(form => (
+              <DropdownMenuItem key={form.id} asChild>
+                <button
+                  onClick={() => router.push('/dashboard/forms')}
+                  className="w-full text-left cursor-pointer"
+                >
+                  <div className="font-semibold flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" />
+                    {form.title}
+                  </div>
+                </button>
               </DropdownMenuItem>
-            </>
+            ))
           ) : (
-             <DropdownMenuItem disabled>No new notifications or forms.</DropdownMenuItem>
+             <DropdownMenuItem disabled>No new forms at this time.</DropdownMenuItem>
           )}
-
-          <DropdownMenuSeparator />
-           <DropdownMenuItem onClick={() => router.push('/dashboard/notifications')}>
-            View All Notifications
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
