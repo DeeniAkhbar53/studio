@@ -154,19 +154,31 @@ export default function DashboardOverviewPage() {
     };
 
     const unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
-      setTotalMiqaatsCount(fetchedMiqaats.length);
-      setActiveMiqaatsCount(fetchedMiqaats.filter(m => new Date(m.endTime) > new Date()).length);
-      setAllMiqaatsList(fetchedMiqaats);
+      let relevantMiqaats = fetchedMiqaats;
+      if (currentUserRole === 'admin' && currentUserMohallahId) {
+        relevantMiqaats = fetchedMiqaats.filter(m => 
+          !m.mohallahIds?.length || m.mohallahIds.includes(currentUserMohallahId)
+        );
+      }
+      setTotalMiqaatsCount(relevantMiqaats.length);
+      setActiveMiqaatsCount(relevantMiqaats.filter(m => new Date(m.endTime) > new Date()).length);
+      setAllMiqaatsList(relevantMiqaats);
       miqaatsLoaded = true;
       checkAndSetLoadingDone();
     });
 
     const fetchFormsData = async () => {
         try {
-        const forms = await getForms();
-        setTotalFormsCount(forms.length);
-        setActiveFormsCount(forms.filter(f => f.status === 'open').length);
-        setAllForms(forms);
+          const forms = await getForms();
+          let relevantForms = forms;
+          if (currentUserRole === 'admin' && currentUserMohallahId) {
+            relevantForms = forms.filter(f => 
+              !f.mohallahIds?.length || f.mohallahIds.includes(currentUserMohallahId)
+            );
+          }
+          setTotalFormsCount(relevantForms.length);
+          setActiveFormsCount(relevantForms.filter(f => f.status === 'open').length);
+          setAllForms(relevantForms);
         } catch (err) {
             console.error("Failed to fetch forms stats", err);
         } finally {
@@ -697,23 +709,14 @@ export default function DashboardOverviewPage() {
       
         <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardHeader>
-             <div className="flex items-center gap-4">
-               <Image
-                  src="/logo.png"
-                  alt="BGK Attendance Logo"
-                  width={64}
-                  height={64}
-                  className="h-16 w-16"
-                />
-              <div>
-                <CardTitle className="text-3xl font-bold text-foreground">
-                  Welcome, {currentUserName}!
-                </CardTitle>
-                <CardDescription className="text-muted-foreground text-base mt-1">
-                  {currentUserDesignation && <span>{currentUserDesignation}</span>}
-                  {currentUserRole && <span> ({currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ')})</span>}
-                </CardDescription>
-              </div>
+            <div>
+              <CardTitle className="text-3xl font-bold text-foreground">
+                Welcome, {currentUserName}!
+              </CardTitle>
+              <CardDescription className="text-muted-foreground text-base mt-1">
+                {currentUserDesignation && <span>{currentUserDesignation}</span>}
+                {currentUserRole && <span> ({currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ')})</span>}
+              </CardDescription>
             </div>
             <Separator className="my-4" />
             <CardDescription className="text-muted-foreground pt-1">
