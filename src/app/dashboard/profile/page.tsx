@@ -309,7 +309,7 @@ export default function ProfilePage() {
            <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
             <TabsTrigger value="details" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Details</TabsTrigger>
             <TabsTrigger value="attendance_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Attendance ({!isLoadingHistory && !historyError ? attendanceHistory.length : '...'})</TabsTrigger>
-            <TabsTrigger value="form_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Forms ({!isLoadingFormHistory && !formHistoryError ? formHistory.length : '...'})</TabsTrigger>
+            <TabsTrigger value="forms" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Forms ({!isLoadingFormHistory && !formHistoryError ? formHistory.length : '...'})</TabsTrigger>
           </TabsList>
           <TabsContent value="details">
             <CardContent className="p-6 space-y-4">
@@ -394,12 +394,6 @@ export default function ProfilePage() {
                           <div className="px-2 text-sm text-muted-foreground">
                             <p><strong>Marked At:</strong> {format(new Date(record.markedAt), "p")}</p>
                             <p><strong>Marked By:</strong> {record.markedByItsId || 'N/A'}</p>
-                            {record.uniformCompliance && (
-                              <>
-                                <p><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri}</p>
-                                <p><strong>Koti:</strong> {record.uniformCompliance.koti}</p>
-                              </>
-                            )}
                           </div>
                         </AccordionContent>
                       </AccordionItem>
@@ -452,7 +446,7 @@ export default function ProfilePage() {
               )}
             </CardContent>
           </TabsContent>
-           <TabsContent value="form_history">
+           <TabsContent value="forms">
              <CardContent className="p-6">
                 {isLoadingFormHistory ? (
                   <div className="flex items-center justify-center py-10">
@@ -486,11 +480,7 @@ export default function ProfilePage() {
                                 {form.submissionStatus}
                             </span>
                           </AccordionTrigger>
-                           <AccordionContent className="space-y-2 pt-2">
-                             <div className="px-2 text-sm text-muted-foreground">
-                                <p><strong>Form Description:</strong> {form.description || "N/A"}</p>
-                                {form.endDate && <p><strong>End Date:</strong> {format(new Date(form.endDate), "PPp")}</p>}
-                             </div>
+                           <AccordionContent>
                            </AccordionContent>
                         </AccordionItem>
                       ))}
@@ -546,4 +536,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
