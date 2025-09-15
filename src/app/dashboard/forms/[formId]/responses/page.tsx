@@ -233,9 +233,10 @@ export default function ViewResponsesPage() {
                 toast({ title: "No data to export", description: "No responses have been submitted yet.", variant: "default" });
                 return;
             }
-            headers = ["Submitted At", "ITS ID", "Name", "BGK ID", ...form.questions.map(q => q.label)];
-            dataToExport = filteredResponses.map(response => {
+            headers = ["Sr.No.", "Submitted At", "ITS ID", "Name", "BGK ID", ...form.questions.map(q => q.label)];
+            dataToExport = filteredResponses.map((response, index) => {
                 const row: { [key: string]: any } = {
+                    "Sr.No.": index + 1,
                     "Submitted At": format(new Date(response.submittedAt), "yyyy-MM-dd HH:mm:ss"),
                     "ITS ID": response.submittedBy,
                     "Name": response.submitterName,
@@ -254,8 +255,9 @@ export default function ViewResponsesPage() {
                 toast({ title: "No data to export", description: "All eligible members have responded.", variant: "default" });
                 return;
             }
-            headers = ["Name", "ITS ID", "BGK ID", "Team", "Mohallah"];
-            dataToExport = nonRespondents.map(user => ({
+            headers = ["Sr.No.", "Name", "ITS ID", "BGK ID", "Team", "Mohallah"];
+            dataToExport = nonRespondents.map((user, index) => ({
+                "Sr.No.": index + 1,
                 "Name": user.name,
                 "ITS ID": user.itsId,
                 "BGK ID": user.bgkId || 'N/A',
@@ -342,8 +344,8 @@ export default function ViewResponsesPage() {
                 <TabsContent value="respondents">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle>Submitted Responses</CardTitle>
-                            <Button onClick={() => handleExport('respondents')} disabled={filteredResponses.length === 0} size="sm">
+                            <h3 className="text-lg font-semibold">Submitted Responses</h3>
+                            <Button onClick={() => handleExport('respondents')} disabled={filteredResponses.length === 0} size="sm" variant="outline">
                                 <Download className="mr-2 h-4 w-4" /> Export Respondents
                             </Button>
                         </CardHeader>
@@ -361,13 +363,16 @@ export default function ViewResponsesPage() {
                                 {/* Mobile View: Accordion */}
                                 <div className="md:hidden">
                                   <Accordion type="single" collapsible className="w-full">
-                                      {filteredResponses.map((response) => (
+                                      {filteredResponses.map((response, index) => (
                                           <AccordionItem value={response.id} key={response.id}>
                                               <AccordionTrigger>
-                                                  <div className="flex-grow text-left">
-                                                      <p className="font-semibold text-card-foreground">{response.submitterName}</p>
-                                                      <p className="text-xs text-muted-foreground">ITS: {response.submittedBy} &middot; Submitted: {format(new Date(response.submittedAt), "MMM d, yyyy")}</p>
-                                                  </div>
+                                                    <div className="flex items-center gap-4 flex-grow text-left">
+                                                        <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
+                                                        <div className="flex-grow">
+                                                            <p className="font-semibold text-card-foreground">{response.submitterName}</p>
+                                                            <p className="text-xs text-muted-foreground">ITS: {response.submittedBy} &middot; Submitted: {format(new Date(response.submittedAt), "MMM d, yyyy")}</p>
+                                                        </div>
+                                                    </div>
                                               </AccordionTrigger>
                                               <AccordionContent className="space-y-4 pt-2">
                                                 <div className="px-2 space-y-3">
@@ -413,6 +418,7 @@ export default function ViewResponsesPage() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
+                                            <TableHead className="w-[50px]">Sr.No.</TableHead>
                                             <TableHead className="whitespace-nowrap">Submitter</TableHead>
                                             <TableHead className="whitespace-nowrap">Submitted At</TableHead>
                                             {form?.questions.map(q => (
@@ -422,8 +428,9 @@ export default function ViewResponsesPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {filteredResponses.map(response => (
+                                        {filteredResponses.map((response, index) => (
                                             <TableRow key={response.id}>
+                                                <TableCell>{index + 1}</TableCell>
                                                 <TableCell>
                                                     <div className="font-medium">{response.submitterName}</div>
                                                     <div className="text-xs text-muted-foreground">ITS: {response.submittedBy}</div>
@@ -476,8 +483,8 @@ export default function ViewResponsesPage() {
                 <TabsContent value="non-respondents">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
-                            <CardTitle>Non-Respondents</CardTitle>
-                            <Button onClick={() => handleExport('non-respondents')} disabled={nonRespondents.length === 0} size="sm">
+                            <h3 className="text-lg font-semibold">Non-Respondents</h3>
+                            <Button onClick={() => handleExport('non-respondents')} disabled={nonRespondents.length === 0} size="sm" variant="outline">
                                 <Download className="mr-2 h-4 w-4" /> Export Non-Respondents
                             </Button>
                         </CardHeader>
@@ -491,11 +498,14 @@ export default function ViewResponsesPage() {
                                 <>
                                  {/* Mobile View: Simple List */}
                                 <div className="md:hidden space-y-2">
-                                  {nonRespondents.map(user => (
+                                  {nonRespondents.map((user, index) => (
                                     <div key={user.id} className="p-3 border rounded-lg flex justify-between items-center">
-                                      <div>
-                                        <p className="font-medium">{user.name}</p>
-                                        <p className="text-xs text-muted-foreground">ITS: {user.itsId} &middot; Team: {user.team || 'N/A'}</p>
+                                      <div className="flex items-center gap-4">
+                                        <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
+                                        <div>
+                                            <p className="font-medium">{user.name}</p>
+                                            <p className="text-xs text-muted-foreground">ITS: {user.itsId} &middot; Team: {user.team || 'N/A'}</p>
+                                        </div>
                                       </div>
                                     </div>
                                   ))}
@@ -505,6 +515,7 @@ export default function ViewResponsesPage() {
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
+                                            <TableHead className="w-[50px]">Sr.No.</TableHead>
                                             <TableHead className="whitespace-nowrap">Name</TableHead>
                                             <TableHead className="whitespace-nowrap">ITS ID</TableHead>
                                             <TableHead className="whitespace-nowrap">BGK ID</TableHead>
@@ -513,8 +524,9 @@ export default function ViewResponsesPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {nonRespondents.map(user => (
+                                        {nonRespondents.map((user, index) => (
                                             <TableRow key={user.id}>
+                                                <TableCell>{index + 1}</TableCell>
                                                 <TableCell className="font-medium">{user.name}</TableCell>
                                                 <TableCell>{user.itsId}</TableCell>
                                                 <TableCell>{user.bgkId || 'N/A'}</TableCell>
