@@ -588,25 +588,32 @@ export default function ManageMembersPage() {
   const filteredMembers = useMemo(() => {
     let dataToFilter = [...members];
 
-    if (currentUser?.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) {
-        if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
-            // Majors and Captains see everyone
-        } else if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams && currentUser.managedTeams.length > 0) {
+    // First, apply role-based data scoping
+    if (currentUser?.role === 'admin' && currentUser.mohallahId) {
+        dataToFilter = dataToFilter.filter(member => member.mohallahId === currentUser.mohallahId);
+    } else if (currentUser?.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation) && currentUser.role !== 'superadmin') {
+        // Filter by Mohallah first for all team leads
+        dataToFilter = dataToFilter.filter(member => member.mohallahId === currentUser.mohallahId);
+
+        // Then, apply team-based filtering
+        if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams && currentUser.managedTeams.length > 0) {
             const managedTeams = new Set(currentUser.managedTeams);
             dataToFilter = dataToFilter.filter(member => member.team && managedTeams.has(member.team));
         } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
             dataToFilter = dataToFilter.filter(member => member.team === currentUser.team);
         }
-    } else if (currentUserRole === 'admin' && currentUserMohallahId) {
-        dataToFilter = dataToFilter.filter(member => member.mohallahId === currentUserMohallahId);
+        // TOP_LEVEL_LEADERS (Captain/Major) within this block will see everyone in their own Mohallah.
     }
+    // Superadmin sees everyone, so no initial filter is applied.
 
+    // Then, apply UI filters on the already scoped data
     return dataToFilter.filter(m => {
         const searchTermMatch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 m.itsId.includes(searchTerm) ||
                                 (m.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 (m.bgkId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                                 (getMohallahNameById(m.mohallahId) || "").toLowerCase().includes(searchTerm.toLowerCase());
+        
         const roleMatch = selectedFilterRole === 'all' || m.role === selectedFilterRole;
         const designationMatch = selectedFilterDesignation === 'all' || m.designation === selectedFilterDesignation;
         const mohallahFilterMatch = (currentUserRole !== 'admin' && selectedFilterMohallahId === 'all') || !m.mohallahId || m.mohallahId === selectedFilterMohallahId;
@@ -615,7 +622,8 @@ export default function ManageMembersPage() {
 
         return searchTermMatch && roleMatch && designationMatch && mohallahFilterMatch && teamFilterMatch;
     });
-  }, [members, searchTerm, selectedFilterRole, selectedFilterDesignation, selectedFilterMohallahId, selectedFilterTeam, currentUserRole, currentUserMohallahId, currentUser]);
+}, [members, searchTerm, selectedFilterRole, selectedFilterDesignation, selectedFilterMohallahId, selectedFilterTeam, currentUser, currentUserRole]);
+
 
   const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
   const currentMembersToDisplay = useMemo(() => {
@@ -673,7 +681,7 @@ export default function ManageMembersPage() {
   const canManageMembers = currentUserRole === 'admin' || currentUserRole === 'superadmin';
   const displayTitle = useMemo(() => {
     if (currentUserDesignation && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation) && !canManageMembers) {
-      if (TOP_LEVEL_LEADERS.includes(currentUserDesignation)) return "All Members";
+      if (TOP_LEVEL_LEADERS.includes(currentUserDesignation)) return `Members: ${getMohallahNameById(currentUserMohallahId || '')}`;
       if (MID_LEVEL_LEADERS.includes(currentUserDesignation)) return `Team Members`;
       if (GROUP_LEVEL_LEADERS.includes(currentUserDesignation)) return `Team Members: ${currentUserTeam}`;
     }
@@ -1391,3 +1399,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    
