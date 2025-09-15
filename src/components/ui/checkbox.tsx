@@ -18,8 +18,10 @@ const Checkbox = React.forwardRef<
     )}
     {...props}
     onClick={(e) => {
-      e.stopPropagation();
-      props.onClick?.(e);
+      // Stop propagation to prevent parent components (like an accordion trigger)
+      // from capturing the click event.
+      e.stopPropagation()
+      props.onClick?.(e)
     }}
   >
     <CheckboxPrimitive.Indicator
