@@ -637,43 +637,34 @@ export default function DashboardOverviewPage() {
     <div className="flex flex-col h-full">
       <div className="flex-grow space-y-6">
         
-        {isTeamLead && !isLoadingAbsentees && absenteeData && (
-          <Card className="border-destructive/50 bg-destructive/10">
-            <CardHeader>
-              <CardTitle className="flex items-center text-destructive">
-                <UserX className="mr-2 h-6 w-6"/>
-                Miqaat Attendance Alert
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>
-                For Miqaat: <span className="font-semibold">{absenteeData.miqaatName}</span>, you have <span className="font-bold text-lg">{absenteeData.absentees.length}</span> absent member(s) from your team(s).
-              </p>
-            </CardContent>
-            <CardFooter>
-               <Button variant="destructive" onClick={() => setIsAbsenteeDialogOpen(true)}>View Absentee List</Button>
-            </CardFooter>
-          </Card>
-        )}
+        <div className="space-y-4">
+          {isTeamLead && !isLoadingAbsentees && absenteeData && (
+            <Alert variant="destructive">
+              <UserX className="h-4 w-4" />
+              <AlertTitle>Miqaat Attendance Alert</AlertTitle>
+              <AlertDescription className="flex justify-between items-center">
+                <span>
+                  For <span className="font-semibold">{absenteeData.miqaatName}</span>, you have <span className="font-bold">{absenteeData.absentees.length}</span> absent member(s).
+                </span>
+                <Button variant="destructive" size="sm" onClick={() => setIsAbsenteeDialogOpen(true)} className="ml-4">View List</Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {isTeamLead && !isLoadingNonRespondents && nonRespondentData && (
-          <Card className="border-amber-500/50 bg-amber-500/10">
-            <CardHeader>
-              <CardTitle className="flex items-center text-amber-700">
-                <FileText className="mr-2 h-6 w-6"/>
-                Form Response Alert
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>
-                For Form: <span className="font-semibold">{nonRespondentData.formTitle}</span>, you have <span className="font-bold text-lg">{nonRespondentData.nonRespondents.length}</span> member(s) who have not responded.
-              </p>
-            </CardContent>
-            <CardFooter>
-               <Button variant="outline" onClick={() => setIsNonRespondentDialogOpen(true)}>View Non-Respondent List</Button>
-            </CardFooter>
-          </Card>
-        )}
+          {isTeamLead && !isLoadingNonRespondents && nonRespondentData && (
+            <Alert variant="default" className="border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-200 dark:border-amber-500/30">
+                <FileText className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                <AlertTitle className="text-amber-800 dark:text-amber-200">Form Response Alert</AlertTitle>
+                <AlertDescription className="flex justify-between items-center text-amber-700 dark:text-amber-300">
+                    <span>
+                      For <span className="font-semibold">{nonRespondentData.formTitle}</span>, <span className="font-bold">{nonRespondentData.nonRespondents.length}</span> member(s) have not responded.
+                    </span>
+                    <Button variant="outline" size="sm" onClick={() => setIsNonRespondentDialogOpen(true)} className="ml-4 border-amber-500/50 hover:bg-amber-500/20">View List</Button>
+                </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
 
         <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardHeader>
@@ -869,5 +860,3 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
-
-    
