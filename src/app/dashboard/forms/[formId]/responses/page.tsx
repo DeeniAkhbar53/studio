@@ -341,13 +341,11 @@ export default function ViewResponsesPage() {
                 
                 <TabsContent value="respondents">
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle>Submitted Responses</CardTitle>
-                            <div className="flex justify-end">
-                                <Button onClick={() => handleExport('respondents')} disabled={filteredResponses.length === 0} size="sm">
-                                    <Download className="mr-2 h-4 w-4" /> Export Respondents
-                                </Button>
-                            </div>
+                            <Button onClick={() => handleExport('respondents')} disabled={filteredResponses.length === 0} size="sm">
+                                <Download className="mr-2 h-4 w-4" /> Export Respondents
+                            </Button>
                         </CardHeader>
                         <CardContent>
                              {filteredResponses.length === 0 ? (
@@ -477,13 +475,11 @@ export default function ViewResponsesPage() {
                 
                 <TabsContent value="non-respondents">
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle>Non-Respondents</CardTitle>
-                             <div className="flex justify-end">
-                                <Button onClick={() => handleExport('non-respondents')} disabled={nonRespondents.length === 0} size="sm">
-                                    <Download className="mr-2 h-4 w-4" /> Export Non-Respondents
-                                </Button>
-                            </div>
+                            <Button onClick={() => handleExport('non-respondents')} disabled={nonRespondents.length === 0} size="sm">
+                                <Download className="mr-2 h-4 w-4" /> Export Non-Respondents
+                            </Button>
                         </CardHeader>
                         <CardContent>
                              {nonRespondents.length === 0 ? (
