@@ -392,14 +392,12 @@ export default function DashboardOverviewPage() {
             if (isForEveryone) {
                 isEligible = true;
             } else {
-                if (latestActiveForm.eligibleItsIds?.length) {
-                    isEligible = latestActiveForm.eligibleItsIds.includes(currentUser.itsId);
-                }
-                if (!isEligible && latestActiveForm.mohallahIds?.length && currentUser.mohallahId) {
-                    isEligible = latestActiveForm.mohallahIds.includes(currentUser.mohallahId);
-                }
-                if (!isEligible && latestActiveForm.teams?.length && currentUser.team) {
-                    isEligible = latestActiveForm.teams.includes(currentUser.team);
+                const eligibleById = !!latestActiveForm.eligibleItsIds?.includes(currentUser.itsId);
+                const eligibleByMohallah = !!currentUser.mohallahId && !!latestActiveForm.mohallahIds?.includes(currentUser.mohallahId);
+                const eligibleByTeam = !!currentUser.team && !!latestActiveForm.teams?.includes(currentUser.team);
+                
+                if (eligibleById || eligibleByMohallah || eligibleByTeam) {
+                    isEligible = true;
                 }
             }
 
