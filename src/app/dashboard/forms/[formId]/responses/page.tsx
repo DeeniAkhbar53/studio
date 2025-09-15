@@ -507,7 +507,7 @@ export default function ViewResponsesPage() {
                                                 <TableCell>{user.itsId}</TableCell>
                                                 <TableCell>{user.bgkId || 'N/A'}</TableCell>
                                                 <TableCell>{user.team || 'N/A'}</TableCell>
-                                                <TableCell>{allUsers.find(u => u.id === user.id)?.mohallahId || 'N/A'}</TableCell>
+                                                <TableCell>{user.mohallahId || 'N/A'}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
