@@ -204,14 +204,14 @@ export default function DashboardLayout({
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
       <aside className="hidden border-r bg-sidebar md:block">
         <div className="flex h-full max-h-screen flex-col gap-2">
-          <div className="flex h-16 items-center border-b px-4 lg:px-6">
+          <div className="flex h-20 items-center border-b px-4 lg:px-6">
             <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-sidebar-primary">
                <Image
                  src="/logo.png"
                  alt="BGK Attendance Logo"
-                 width={40}
-                 height={40}
-                 className="h-10 w-10"
+                 width={48}
+                 height={48}
+                 className="h-12 w-12"
                />
               <span className="text-sidebar-foreground">BGK Attendance</span>
             </Link>

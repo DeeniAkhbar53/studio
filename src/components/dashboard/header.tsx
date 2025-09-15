@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Bell, LogOut, Menu, UserCircle, Settings, HelpCircle, FileText } from "lucide-react";
+import { Bell, LogOut, Menu, UserCircle, Settings, HelpCircle, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -297,5 +297,3 @@ export function Header() {
     </header>
   );
 }
-
-    
