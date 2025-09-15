@@ -217,11 +217,11 @@ export function Header() {
               <SheetTitle className="sr-only">Main Navigation Menu</SheetTitle>
                <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary">
                 <Image
-                  src="https://app.burhaniguards.org/images/logo.png"
+                  src="/logo.png"
                   alt="BGK Attendance Logo"
-                  width={24}
-                  height={24}
-                  className="h-6 w-6"
+                  width={32}
+                  height={32}
+                  className="h-8 w-8"
                 />
                 <span>BGK Attendance</span>
               </Link>
@@ -306,5 +306,3 @@ export function Header() {
     </header>
   );
 }
-
-    

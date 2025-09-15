@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit } from "lucide-react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole, UserDesignation, Miqaat, MiqaatAttendanceEntryItem, Form as FormType, User } from "@/types";
@@ -67,11 +67,13 @@ export default function DashboardOverviewPage() {
   const [absenteeData, setAbsenteeData] = useState<{ miqaatName: string; absentees: User[] } | null>(null);
   const [isAbsenteeDialogOpen, setIsAbsenteeDialogOpen] = useState(false);
   const [isLoadingAbsentees, setIsLoadingAbsentees] = useState(false);
+  const [isAbsenteeAlertOpen, setIsAbsenteeAlertOpen] = useState(true);
   
   // Form Non-Respondent State
   const [nonRespondentData, setNonRespondentData] = useState<{ formTitle: string; nonRespondents: User[] } | null>(null);
   const [isNonRespondentDialogOpen, setIsNonRespondentDialogOpen] = useState(false);
   const [isLoadingNonRespondents, setIsLoadingNonRespondents] = useState(false);
+  const [isNonRespondentAlertOpen, setIsNonRespondentAlertOpen] = useState(true);
 
 
   const [isScannerDialogOpen, setIsScannerDialogOpen] = useState(false);
@@ -638,30 +640,38 @@ export default function DashboardOverviewPage() {
       <div className="flex-grow space-y-6">
         
         <div className="space-y-4">
-          {isTeamLead && !isLoadingAbsentees && absenteeData && (
-            <Alert variant="destructive">
-              <UserX className="h-4 w-4" />
-              <AlertTitle>Miqaat Attendance Alert</AlertTitle>
-              <AlertDescription className="flex justify-between items-center">
-                <span>
-                  For <span className="font-semibold">{absenteeData.miqaatName}</span>, you have <span className="font-bold">{absenteeData.absentees.length}</span> absent member(s).
-                </span>
-                <Button variant="destructive" size="sm" onClick={() => setIsAbsenteeDialogOpen(true)} className="ml-4">View List</Button>
-              </AlertDescription>
-            </Alert>
+          {isTeamLead && !isLoadingAbsentees && absenteeData && isAbsenteeAlertOpen && (
+              <Alert variant="destructive" className="relative">
+                  <UserX className="h-4 w-4" />
+                  <AlertTitle>Miqaat Attendance Alert</AlertTitle>
+                  <AlertDescription className="flex justify-between items-center pr-8">
+                      <span>
+                          For <span className="font-semibold">{absenteeData.miqaatName}</span>, you have <span className="font-bold">{absenteeData.absentees.length}</span> absent member(s).
+                      </span>
+                      <Button variant="destructive" size="sm" onClick={() => setIsAbsenteeDialogOpen(true)} className="ml-4">View List</Button>
+                  </AlertDescription>
+                  <button onClick={() => setIsAbsenteeAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-destructive/70 hover:text-destructive hover:bg-destructive/10">
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Close</span>
+                  </button>
+              </Alert>
           )}
 
-          {isTeamLead && !isLoadingNonRespondents && nonRespondentData && (
-            <Alert variant="default" className="border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-200 dark:border-amber-500/30">
-                <FileText className="h-4 w-4 text-amber-700 dark:text-amber-300" />
-                <AlertTitle className="text-amber-800 dark:text-amber-200">Form Response Alert</AlertTitle>
-                <AlertDescription className="flex justify-between items-center text-amber-700 dark:text-amber-300">
-                    <span>
-                      For <span className="font-semibold">{nonRespondentData.formTitle}</span>, <span className="font-bold">{nonRespondentData.nonRespondents.length}</span> member(s) have not responded.
-                    </span>
-                    <Button variant="outline" size="sm" onClick={() => setIsNonRespondentDialogOpen(true)} className="ml-4 border-amber-500/50 hover:bg-amber-500/20">View List</Button>
-                </AlertDescription>
-            </Alert>
+          {isTeamLead && !isLoadingNonRespondents && nonRespondentData && isNonRespondentAlertOpen && (
+              <Alert variant="default" className="relative border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-200 dark:border-amber-500/30">
+                  <FileText className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                  <AlertTitle className="text-amber-800 dark:text-amber-200">Form Response Alert</AlertTitle>
+                  <AlertDescription className="flex justify-between items-center pr-8 text-amber-700 dark:text-amber-300">
+                      <span>
+                          For <span className="font-semibold">{nonRespondentData.formTitle}</span>, <span className="font-bold">{nonRespondentData.nonRespondents.length}</span> member(s) have not responded.
+                      </span>
+                      <Button variant="outline" size="sm" onClick={() => setIsNonRespondentDialogOpen(true)} className="ml-4 border-amber-500/50 hover:bg-amber-500/20">View List</Button>
+                  </AlertDescription>
+                   <button onClick={() => setIsNonRespondentAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-amber-700/70 hover:text-amber-700 hover:bg-amber-500/10">
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Close</span>
+                  </button>
+              </Alert>
           )}
         </div>
 

@@ -207,11 +207,11 @@ export default function DashboardLayout({
           <div className="flex h-16 items-center border-b px-4 lg:px-6">
             <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-sidebar-primary">
                <Image
-                 src="https://app.burhaniguards.org/images/logo.png"
+                 src="/logo.png"
                  alt="BGK Attendance Logo"
-                 width={32}
-                 height={32}
-                 className="h-8 w-8"
+                 width={40}
+                 height={40}
+                 className="h-10 w-10"
                />
               <span className="text-sidebar-foreground">BGK Attendance</span>
             </Link>
