@@ -172,12 +172,14 @@ export default function DashboardOverviewPage() {
           const forms = await getForms();
           let relevantForms = forms;
           if (currentUserRole === 'admin' && currentUserMohallahId) {
-            relevantForms = forms.filter(f => 
-              !f.mohallahIds?.length || f.mohallahIds.includes(currentUserMohallahId)
-            );
+            relevantForms = forms.filter(f => {
+              const isForEveryone = !f.mohallahIds?.length && !f.teams?.length && !f.eligibleItsIds?.length;
+              if (isForEveryone) return true; // Admins should see forms for everyone
+              return f.mohallahIds?.includes(currentUserMohallahId) || false;
+            });
           }
           setTotalFormsCount(relevantForms.length);
-          setActiveFormsCount(relevantForms.filter(f => f.status === 'open').length);
+          setActiveFormsCount(relevantForms.filter(f => f.status === 'open' && (!f.endDate || new Date(f.endDate) > new Date())).length);
           setAllForms(relevantForms);
         } catch (err) {
             console.error("Failed to fetch forms stats", err);
@@ -709,15 +711,13 @@ export default function DashboardOverviewPage() {
       
         <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardHeader>
-            <div>
-              <CardTitle className="text-3xl font-bold text-foreground">
+            <CardTitle className="text-3xl font-bold text-foreground">
                 Welcome, {currentUserName}!
-              </CardTitle>
-              <CardDescription className="text-muted-foreground text-base mt-1">
+            </CardTitle>
+            <CardDescription className="text-muted-foreground text-base mt-1">
                 {currentUserDesignation && <span>{currentUserDesignation}</span>}
                 {currentUserRole && <span> ({currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ')})</span>}
-              </CardDescription>
-            </div>
+            </CardDescription>
             <Separator className="my-4" />
             <CardDescription className="text-muted-foreground pt-1">
               Here's your overview. Use the sidebar to navigate to other sections.
