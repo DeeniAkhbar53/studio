@@ -1108,82 +1108,70 @@ export default function ManageMembersPage() {
             </div>
           ) : (
             <>
-              {/* Mobile View: Accordion */}
-              <div className="md:hidden">
-                {currentMembersToDisplay.length > 0 ? (
-                  <Accordion type="single" collapsible className="w-full">
-                    {currentMembersToDisplay.map((member, index) => (
-                      <AccordionItem value={member.id} key={member.id}>
-                        <AccordionTrigger>
-                          <div className="flex items-center gap-4 flex-grow text-left">
-                            <span className="text-sm font-mono text-muted-foreground">
-                              {((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.
-                            </span>
-                             {canManageMembers && (
-                                <Checkbox
-                                    id={`mobile-select-${member.id}`}
-                                    checked={selectedMemberIds.includes(member.id)}
-                                    onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
-                                    onClick={(e) => e.stopPropagation()} 
-                                    aria-label={`Select member ${member.name}`}
-                                    className="shrink-0"
-                                />
-                             )}
-                             <Avatar className="h-10 w-10 shrink-0">
-                                <AvatarImage src={member.avatarUrl || `https://placehold.co/40x40.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
-                                <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
-                             </Avatar>
-                             <div className="flex-grow">
-                                <p className="font-semibold text-card-foreground">{member.name}</p>
-                                <p className="text-xs text-muted-foreground">ITS: {member.itsId}</p>
-                             </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="space-y-4 pt-2">
-                           <div className="px-2 space-y-2 text-sm text-muted-foreground">
-                              <p><strong>BGK ID:</strong> {member.bgkId || "N/A"}</p>
-                              <p><strong>Designation:</strong> {member.designation || "N/A"}</p>
-                              <p><strong>Email:</strong> {member.email || "N/A"}</p>
-                              <p><strong>Mohallah:</strong> {getMohallahNameById(member.mohallahId)}</p>
-                              <p><strong>Team:</strong> {member.team || "N/A"}</p>
-                              <p><strong>Role:</strong> {member.role.charAt(0).toUpperCase() + member.role.slice(1).replace(/-/g, ' ')}</p>
-                           </div>
-                           {canManageMembers && (
-                            <div className="flex justify-end gap-2 pt-2 border-t mt-2 px-2">
-                              <Button variant="ghost" size="sm" onClick={() => handleEditMember(member)} className="flex-1" aria-label="Edit Member" disabled={currentUserRole === 'attendance-marker'}>
-                                  <Edit className="mr-2 h-4 w-4" /> Edit
-                              </Button>
-                              { (currentUserRole === 'admin' || currentUserRole === 'superadmin') && (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( 
-                                  <AlertDialog>
-                                      <AlertTrigger asChild>
-                                        <Button variant="ghost" size="sm" className="flex-1 text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
-                                            <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                        </Button>
-                                      </AlertTrigger>
-                                      <AlertContent>
-                                        <AlertHeader>
-                                            <AlertTitle>Are you sure?</AlertTitle>
-                                            <AlertDesc>This action cannot be undone. This will permanently delete "{member.name}".</AlertDesc>
-                                        </AlertHeader>
-                                        <AlertFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                        </AlertFooter>
-                                      </AlertContent>
-                                  </AlertDialog>
-                              )}
+              {/* Mobile View: Simple List */}
+                <div className="md:hidden space-y-3">
+                    {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member) => (
+                        <Card key={member.id} className="p-4">
+                             <div className="flex items-start gap-4">
+                                {canManageMembers && (
+                                    <Checkbox
+                                        id={`mobile-select-${member.id}`}
+                                        checked={selectedMemberIds.includes(member.id)}
+                                        onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
+                                        aria-label={`Select member ${member.name}`}
+                                        className="mt-1.5"
+                                    />
+                                )}
+                                <Avatar className="h-10 w-10">
+                                    <AvatarImage src={member.avatarUrl || `https://placehold.co/40x40.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
+                                    <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-grow">
+                                    <p className="font-semibold text-card-foreground">{member.name}</p>
+                                    <p className="text-xs text-muted-foreground">ITS: {member.itsId}</p>
+                                    <p className="text-xs text-muted-foreground">BGK: {member.bgkId || "N/A"}</p>
+                                </div>
                             </div>
-                          )}
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                ) : (
-                  <div className="text-center py-10">
-                    <p className="text-muted-foreground">No members found.</p>
-                  </div>
-                )}
-              </div>
+                            <Separator className="my-3"/>
+                            <div className="text-sm text-muted-foreground space-y-1 px-2">
+                                <p><strong>Designation:</strong> {member.designation || "N/A"}</p>
+                                <p><strong>Team:</strong> {member.team || "N/A"}</p>
+                                <p><strong>Mohallah:</strong> {getMohallahNameById(member.mohallahId)}</p>
+                                <p><strong>Role:</strong> {member.role.charAt(0).toUpperCase() + member.role.slice(1).replace(/-/g, ' ')}</p>
+                            </div>
+                            {canManageMembers && (
+                                <div className="flex justify-end gap-2 pt-3 border-t mt-3">
+                                  <Button variant="ghost" size="sm" onClick={()=> handleEditMember(member)} className="flex-1" aria-label="Edit Member" disabled={currentUserRole === 'attendance-marker'}>
+                                      <Edit className="mr-2 h-4 w-4" /> Edit
+                                  </Button>
+                                  { (currentUserRole === 'admin' || currentUserRole === 'superadmin') && (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( 
+                                      <AlertDialog>
+                                          <AlertTrigger asChild>
+                                            <Button variant="ghost" size="sm" className="flex-1 text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
+                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                            </Button>
+                                          </AlertTrigger>
+                                          <AlertContent>
+                                            <AlertHeader>
+                                                <AlertTitle>Are you sure?</AlertTitle>
+                                                <AlertDesc>This action cannot be undone. This will permanently delete "{member.name}".</AlertDesc>
+                                            </AlertHeader>
+                                            <AlertFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                            </AlertFooter>
+                                          </AlertContent>
+                                      </AlertDialog>
+                                  )}
+                                </div>
+                              )}
+                        </Card>
+                    )) : (
+                        <div className="text-center py-10">
+                            <p className="text-muted-foreground">No members found.</p>
+                        </div>
+                    )}
+                </div>
 
               {/* Desktop View: Table */}
               <div className="hidden md:block overflow-x-auto">
