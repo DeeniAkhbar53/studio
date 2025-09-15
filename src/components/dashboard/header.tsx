@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Bell, LogOut, Menu, Search, UserCircle, Settings, HelpCircle } from "lucide-react";
+import { Bell, LogOut, Menu, UserCircle, Settings, HelpCircle, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,7 +42,8 @@ const pageTitles: { [key: string]: string } = {
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [unrespondedForms, setUnrespondedForms] = useState<FormType[]>([]);
   const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -81,13 +82,13 @@ export function Header() {
 
 
   useEffect(() => {
-    if (!currentUserItsId || !currentUserRole) {
-      setHasUnreadNotifications(false);
+    if (!currentUserItsId || !currentUserRole || !currentUser) {
+      setUnreadNotificationCount(0);
+      setUnrespondedForms([]);
       return;
     }
   
     let unsubNotifications: Unsubscribe | null = null;
-    let unsubForms: (() => void) | undefined;
   
     const checkNotifications = async () => {
       // 1. Standard Notifications
@@ -100,47 +101,50 @@ export function Header() {
       );
       
       unsubNotifications = onSnapshot(qAll, async (querySnapshot) => {
-        let unreadCount = 0;
+        let standardUnreadCount = 0;
         const allDocs = querySnapshot.docs;
 
         for (const doc of allDocs) {
             const data = doc.data();
             if (!data.readBy?.includes(currentUserItsId)) {
-                unreadCount++;
+                standardUnreadCount++;
             }
         }
 
         // 2. Form Notifications
-        if (currentUser) {
-            try {
-                const allForms = await getForms();
-                const userResponses = await getFormResponsesForUser(currentUser.itsId);
-                const respondedFormIds = new Set(userResponses.map(r => r.formId));
+        let formsUnreadCount = 0;
+        let newUnrespondedForms: FormType[] = [];
+        try {
+            const allForms = await getForms();
+            const userResponses = await getFormResponsesForUser(currentUser.itsId);
+            const respondedFormIds = new Set(userResponses.map(r => r.formId));
 
-                const unrespondedForms = allForms.filter(form => {
-                    if (form.status !== 'open' || respondedFormIds.has(form.id)) {
-                        return false;
-                    }
-                    if (form.endDate && new Date(form.endDate) < new Date()) {
-                        return false;
-                    }
-                    const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
-                    if (isForEveryone) return true;
-                    
-                    const eligibleById = !!form.eligibleItsIds?.includes(currentUser.itsId);
-                    const eligibleByTeam = !!currentUser.team && !!form.teams?.includes(currentUser.team);
-                    const eligibleByMohallah = !!currentUser.mohallahId && !!form.mohallahIds?.includes(currentUser.mohallahId);
-                    return eligibleById || eligibleByTeam || eligibleByMohallah;
-                });
+            newUnrespondedForms = allForms.filter(form => {
+                if (form.status !== 'open' || respondedFormIds.has(form.id)) {
+                    return false;
+                }
+                if (form.endDate && new Date(form.endDate) < new Date()) {
+                    return false;
+                }
+                const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
+                if (isForEveryone) return true;
                 
-                unreadCount += unrespondedForms.length;
-            } catch (error) {
-                console.error("Error checking for new forms:", error);
-            }
-        }
+                const eligibleById = !!form.eligibleItsIds?.includes(currentUser.itsId);
+                const eligibleByTeam = !!currentUser.team && !!form.teams?.includes(currentUser.team);
+                const eligibleByMohallah = !!currentUser.mohallahId && !!form.mohallahIds?.includes(currentUser.mohallahId);
+                return eligibleById || eligibleByTeam || eligibleByMohallah;
+            });
+            
+            formsUnreadCount = newUnrespondedForms.length;
+            setUnrespondedForms(newUnrespondedForms);
 
-        setHasUnreadNotifications(unreadCount > 0);
-        localStorage.setItem('unreadNotificationCount', unreadCount.toString());
+        } catch (error) {
+            console.error("Error checking for new forms:", error);
+        }
+        
+        const totalUnread = standardUnreadCount + formsUnreadCount;
+        setUnreadNotificationCount(totalUnread);
+        localStorage.setItem('unreadNotificationCount', totalUnread.toString());
         window.dispatchEvent(new CustomEvent('notificationsUpdated'));
       }, (error) => {
         console.error("Error in notification snapshot listener:", error);
@@ -162,7 +166,8 @@ export function Header() {
     setCurrentUser(null);
     setCurrentUserItsId(null);
     setCurrentUserRole(null);
-    setHasUnreadNotifications(false); 
+    setUnreadNotificationCount(0);
+    setUnrespondedForms([]);
     
     if (typeof window !== "undefined") {
        window.dispatchEvent(new CustomEvent('notificationsUpdated')); 
@@ -207,16 +212,9 @@ export function Header() {
         <h1 className="text-xl font-semibold">{currentPageTitle}</h1>
       </div>
 
-      <form className="hidden md:flex flex-1 ml-auto max-w-sm">
-        <div className="relative w-full">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search..."
-            className="pl-8 w-full"
-          />
-        </div>
-      </form>
+      <div className="hidden md:flex flex-1 ml-auto max-w-sm">
+        {/* Search functionality can be added here later */}
+      </div>
 
       <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
         <DialogPrimitiveTrigger asChild>
@@ -245,15 +243,49 @@ export function Header() {
         </DialogContent>
       </Dialog>
 
-      <Button variant="ghost" size="icon" className="rounded-full relative" asChild>
-        <Link href="/dashboard/notifications">
-          <Bell className="h-5 w-5" />
-          {hasUnreadNotifications && (
-            <span className="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-card" />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="rounded-full relative">
+            <Bell className="h-5 w-5" />
+            {unreadNotificationCount > 0 && (
+              <span className="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-card" />
+            )}
+            <span className="sr-only">Toggle notifications</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-80">
+          <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {unrespondedForms.length > 0 ? (
+            <>
+              {unrespondedForms.slice(0, 3).map(form => (
+                <DropdownMenuItem key={form.id} className="flex flex-col items-start gap-1">
+                   <div className="font-semibold">New Form: {form.title}</div>
+                   <p className="text-xs text-muted-foreground line-clamp-1">{form.description}</p>
+                </DropdownMenuItem>
+              ))}
+              {unrespondedForms.length > 3 && (
+                <DropdownMenuItem disabled>
+                    <p className="text-xs text-muted-foreground">...and {unrespondedForms.length - 3} more.</p>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                 <Button onClick={() => router.push('/dashboard/forms')} className="w-full justify-center" size="sm">
+                    <FileText className="mr-2 h-4 w-4"/> View All Forms
+                 </Button>
+              </DropdownMenuItem>
+            </>
+          ) : (
+             <DropdownMenuItem disabled>No new notifications or forms.</DropdownMenuItem>
           )}
-          <span className="sr-only">Toggle notifications</span>
-        </Link>
-      </Button>
+
+          <DropdownMenuSeparator />
+           <DropdownMenuItem onClick={() => router.push('/dashboard/notifications')}>
+            View All Notifications
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
