@@ -19,7 +19,8 @@ import {
   limit,
   writeBatch,
   onSnapshot,
-  Unsubscribe
+  Unsubscribe,
+  collectionGroup
 } from 'firebase/firestore';
 import type { Form, FormQuestion, FormResponse } from '@/types';
 
@@ -235,6 +236,32 @@ export const getFormResponsesRealtime = (formId: string, onUpdate: (responses: F
     return unsubscribe;
 };
 
+export const getFormResponsesForUser = async (userItsId: string): Promise<FormResponse[]> => {
+    try {
+        const responsesCollectionGroup = collectionGroup(db, 'responses');
+        const q = query(responsesCollectionGroup, where('submittedBy', '==', userItsId));
+        const querySnapshot = await getDocs(q);
+        
+        const responses: FormResponse[] = [];
+        querySnapshot.forEach(docSnapshot => {
+            const data = docSnapshot.data();
+            const submittedAt = data.submittedAt instanceof Timestamp
+                              ? data.submittedAt.toDate().toISOString()
+                              : new Date().toISOString();
+            responses.push({ ...data, id: docSnapshot.id, submittedAt } as FormResponse);
+        });
+        
+        return responses;
+    } catch (error) {
+        console.error(`Error fetching form responses for user ${userItsId}:`, error);
+        if (error instanceof Error && error.message.includes("index")) {
+            console.error("This operation requires a Firestore index on 'submittedBy' for the 'responses' collection group.");
+        }
+        throw error;
+    }
+};
+
+
 export const deleteFormResponse = async (formId: string, responseId: string): Promise<void> => {
     const formRef = doc(db, 'forms', formId);
     const responseRef = doc(formRef, 'responses', responseId);
@@ -271,3 +298,5 @@ export const checkIfUserHasResponded = async (formId: string, userId: string): P
         return false;
     }
 };
+
+    
