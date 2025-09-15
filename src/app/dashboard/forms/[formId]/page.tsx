@@ -26,64 +26,96 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
-// Helper function to generate schema and defaults
-const generateFormSchemaAndDefaults = (form: FormType | null) => {
-    if (!form) {
-        return { formSchema: z.object({}), defaultValues: {} };
+// Helper function to generate schema based on current form values for conditional logic
+const generateDynamicFormSchema = (form: FormType, getValues: () => any) => {
+  if (!form) {
+    return z.object({});
+  }
+
+  const shape: { [key: string]: z.ZodType<any, any> } = {};
+
+  form.questions.forEach(q => {
+    let isConditionMet = true;
+    if (q.conditional) {
+      const parentValue = getValues()[q.conditional.questionId];
+      if (parentValue !== q.conditional.value) {
+        isConditionMet = false;
+      }
     }
 
-    const shape: { [key: string]: z.ZodType<any, any> } = {};
+    let fieldSchema: z.ZodType<any, any>;
+
+    switch (q.type) {
+      case 'text':
+      case 'textarea':
+      case 'radio':
+      case 'select':
+      case 'date':
+        fieldSchema = z.string();
+        if (q.required && isConditionMet) {
+          fieldSchema = fieldSchema.min(1, `${q.label} is required.`);
+        } else {
+          fieldSchema = fieldSchema.optional().default("");
+        }
+        break;
+      case 'number':
+        fieldSchema = z.string().refine(val => !(q.required && isConditionMet) || val, { message: `${q.label} is required.` })
+          .refine(val => !val || /^-?\d*\.?\d+$/.test(val), { message: "Must be a valid number." });
+        break;
+      case 'rating':
+        fieldSchema = z.number();
+        if (q.required && isConditionMet) {
+            fieldSchema = fieldSchema.min(1, {message: 'Rating is required.'});
+        } else {
+            fieldSchema = fieldSchema.optional().nullable().default(null) as any;
+        }
+        break;
+      case 'checkbox':
+        fieldSchema = z.array(z.string());
+        if (q.required && isConditionMet) {
+          fieldSchema = fieldSchema.nonempty({ message: `Please select at least one option for ${q.label}.` });
+        } else {
+          fieldSchema = fieldSchema.optional().default([]);
+        }
+        break;
+      default:
+        fieldSchema = z.any().optional();
+    }
+    shape[q.id] = fieldSchema;
+  });
+
+  return z.object(shape);
+};
+
+// Helper to generate default values
+const generateFormDefaults = (form: FormType | null) => {
+    if (!form) {
+        return {};
+    }
     const defaults: { [key: string]: any } = {};
-
     form.questions.forEach(q => {
-        let fieldSchema: z.ZodType<any, any>;
-
         switch (q.type) {
             case 'text':
             case 'textarea':
             case 'radio':
             case 'select':
             case 'date':
-                fieldSchema = z.string();
-                if (q.required) {
-                    fieldSchema = fieldSchema.min(1, `${q.label} is required.`);
-                } else {
-                    fieldSchema = fieldSchema.optional().default("");
-                }
-                defaults[q.id] = "";
-                break;
             case 'number':
-                fieldSchema = z.string().refine(val => !q.required || val, { message: `${q.label} is required.` })
-                .refine(val => !val || /^-?\d*\.?\d+$/.test(val), { message: "Must be a valid number." });
                 defaults[q.id] = "";
-                 break;
-            case 'rating':
-                fieldSchema = z.number().min(1, {message: 'Rating is required.'});
-                 if (!q.required) {
-                     fieldSchema = fieldSchema.optional().nullable().default(null) as any;
-                 }
-                defaults[q.id] = q.required ? 1 : null;
                 break;
+            case 'rating':
+                 defaults[q.id] = q.required ? 1 : null;
+                 break;
             case 'checkbox':
-                fieldSchema = z.array(z.string());
-                if (q.required) {
-                    fieldSchema = fieldSchema.nonempty({ message: `Please select at least one option for ${q.label}.` });
-                } else {
-                    fieldSchema = fieldSchema.optional().default([]);
-                }
                 defaults[q.id] = [];
                 break;
             default:
-                fieldSchema = z.any().optional();
+                defaults[q.id] = undefined;
         }
-        shape[q.id] = fieldSchema;
     });
-
-    return {
-        formSchema: z.object(shape),
-        defaultValues: defaults,
-    };
+    return defaults;
 };
+
 
 const StarRating = ({ field, max = 5 }: { field: any, max?: number }) => {
     return (
@@ -242,14 +274,17 @@ export default function FillFormPage() {
     const [hasSubmitted, setHasSubmitted] = useState(false);
     const [isEligible, setIsEligible] = useState<boolean | null>(null);
 
-    // Generate schema and defaults based on the current form state
-    const { formSchema, defaultValues } = useMemo(() => generateFormSchemaAndDefaults(form), [form]);
+    const defaultValues = useMemo(() => generateFormDefaults(form), [form]);
     
-    // Initialize useForm
     const responseForm = useForm({
-        resolver: zodResolver(formSchema),
-        defaultValues: defaultValues,
+      resolver: (data, context, options) => {
+        const schema = generateDynamicFormSchema(form!, () => responseForm.getValues());
+        return zodResolver(schema)(data, context, options);
+      },
+      defaultValues: defaultValues,
+      mode: 'onChange', // Re-validate on change to handle conditional logic
     });
+
 
     useEffect(() => {
         const fetchCurrentUser = async () => {
@@ -337,13 +372,12 @@ export default function FillFormPage() {
     // This effect now correctly resets the form with new defaults when the form data changes.
     useEffect(() => {
         if (form) {
-            const { defaultValues: newDefaults } = generateFormSchemaAndDefaults(form);
-            responseForm.reset(newDefaults);
+            responseForm.reset(generateFormDefaults(form));
         }
     }, [form, responseForm]);
 
 
-    const handleResponseSubmit = async (values: z.infer<typeof formSchema>) => {
+    const handleResponseSubmit = async (values: z.infer<typeof responseForm.formState.defaultValues>) => {
         if (!currentUser?.itsId || !form) {
             toast({ title: "Submission Failed", description: "Cannot identify the user or form. Please log in again.", variant: "destructive" });
             return;
@@ -539,5 +573,3 @@ export default function FillFormPage() {
         </div>
     );
 }
-
-    
