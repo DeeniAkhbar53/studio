@@ -10,9 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX, Star } from "lucide-react";
-import type { FormResponse, UserRole, UserDesignation, User, Form as FormType } from "@/types";
+import type { FormResponse, UserRole, UserDesignation, User, Form as FormType, Mohallah } from "@/types";
 import { getFormResponsesRealtime, deleteFormResponse, getForm } from "@/lib/firebase/formService";
 import { getUsers, getUserByItsOrBgkId } from "@/lib/firebase/userService";
+import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { format } from "date-fns";
 import { Unsubscribe } from "firebase/firestore";
 import Papa from "papaparse";
@@ -50,6 +51,7 @@ export default function ViewResponsesPage() {
     const [form, setForm] = useState<FormType | null>(null);
     const [allResponses, setAllResponses] = useState<FormResponse[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [allMohallahs, setAllMohallahs] = useState<Mohallah[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -77,9 +79,17 @@ export default function ViewResponsesPage() {
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
+                const mohallahsPromise = new Promise<void>((resolve) => {
+                    getMohallahs((fetchedMohallahs) => {
+                        setAllMohallahs(fetchedMohallahs);
+                        resolve();
+                    });
+                });
+
                 const [fetchedForm, fetchedUsers] = await Promise.all([
                     getForm(formId),
                     getUsers(),
+                    mohallahsPromise
                 ]);
                 
                 if (fetchedForm) setForm(fetchedForm);
@@ -178,6 +188,12 @@ export default function ViewResponsesPage() {
 
     }, [form, allUsers, allResponses, currentUser]);
     
+    const getMohallahNameById = (id?: string) => {
+        if (!id) return 'N/A';
+        const mohallah = allMohallahs.find(m => m.id === id);
+        return mohallah ? mohallah.name : 'Unknown';
+    };
+
 
     const renderResponseValue = (questionId: string, value: any) => {
         const question = form?.questions.find(q => q.id === questionId);
@@ -238,13 +254,13 @@ export default function ViewResponsesPage() {
                 toast({ title: "No data to export", description: "All eligible members have responded.", variant: "default" });
                 return;
             }
-            headers = ["Name", "ITS ID", "BGK ID", "Team", "Mohallah ID"];
+            headers = ["Name", "ITS ID", "BGK ID", "Team", "Mohallah"];
             dataToExport = nonRespondents.map(user => ({
                 "Name": user.name,
                 "ITS ID": user.itsId,
                 "BGK ID": user.bgkId || 'N/A',
                 "Team": user.team || 'N/A',
-                "Mohallah ID": user.mohallahId || 'N/A',
+                "Mohallah": getMohallahNameById(user.mohallahId) || 'N/A',
             }));
             filename = `non_respondents_${safeTitle}.csv`;
         }
@@ -262,7 +278,7 @@ export default function ViewResponsesPage() {
         toast({ title: "Export Complete", description: `The ${exportType} data has been downloaded.` });
     };
 
-    if (isLoading || !currentUser) {
+    if (isLoading || !currentUser || allMohallahs.length === 0) {
         return (
             <div className="flex h-screen items-center justify-center">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -507,7 +523,7 @@ export default function ViewResponsesPage() {
                                                 <TableCell>{user.itsId}</TableCell>
                                                 <TableCell>{user.bgkId || 'N/A'}</TableCell>
                                                 <TableCell>{user.team || 'N/A'}</TableCell>
-                                                <TableCell>{user.mohallahId || 'N/A'}</TableCell>
+                                                <TableCell>{getMohallahNameById(user.mohallahId)}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
