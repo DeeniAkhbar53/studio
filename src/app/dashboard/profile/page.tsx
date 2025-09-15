@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -164,7 +165,11 @@ export default function ProfilePage() {
             }
           } catch(formError: any) {
              console.error("Failed to fetch form history:", formError);
-             if (isMounted) setFormHistoryError("Could not load form submission history.");
+             if (formError instanceof Error && formError.message.includes("index")) {
+                setFormHistoryError("Could not load form submission history. A database index is required. Please contact support.");
+             } else {
+                setFormHistoryError("Could not load form submission history.");
+             }
           } finally {
             if (isMounted) setIsLoadingFormHistory(false);
           }
@@ -499,5 +504,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    

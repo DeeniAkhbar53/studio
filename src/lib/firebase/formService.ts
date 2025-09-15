@@ -255,9 +255,12 @@ export const getFormResponsesForUser = async (userItsId: string): Promise<FormRe
     } catch (error) {
         console.error(`Error fetching form responses for user ${userItsId}:`, error);
         if (error instanceof Error && error.message.includes("index")) {
-            console.error("This operation requires a Firestore index on 'submittedBy' for the 'responses' collection group.");
+            const firestoreConsoleUrl = `https://console.firebase.google.com/project/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/firestore/indexes`;
+            console.error(`This operation requires a Firestore index. Please create a composite index for the 'responses' collection group with 'submittedBy' (ascending). Go to: ${firestoreConsoleUrl}`);
         }
-        throw error;
+        // Instead of throwing, we now return an empty array to prevent a page crash.
+        // The UI will show a message based on the thrown error from the calling component.
+        throw error; 
     }
 };
 
@@ -298,5 +301,3 @@ export const checkIfUserHasResponded = async (formId: string, userId: string): P
         return false;
     }
 };
-
-    
