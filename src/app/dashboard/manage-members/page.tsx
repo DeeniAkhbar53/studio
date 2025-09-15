@@ -119,6 +119,7 @@ export default function ManageMembersPage() {
   const [selectedFilterMohallahId, setSelectedFilterMohallahId] = useState<string>("all");
   const [selectedFilterRole, setSelectedFilterRole] = useState<string>("all");
   const [selectedFilterDesignation, setSelectedFilterDesignation] = useState<string>("all");
+  const [selectedFilterTeam, setSelectedFilterTeam] = useState<string>("all");
 
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -609,10 +610,12 @@ export default function ManageMembersPage() {
         const roleMatch = selectedFilterRole === 'all' || m.role === selectedFilterRole;
         const designationMatch = selectedFilterDesignation === 'all' || m.designation === selectedFilterDesignation;
         const mohallahFilterMatch = (currentUserRole !== 'admin' && selectedFilterMohallahId === 'all') || !m.mohallahId || m.mohallahId === selectedFilterMohallahId;
+        const teamFilterMatch = selectedFilterTeam === 'all' || m.team === selectedFilterTeam;
 
-        return searchTermMatch && roleMatch && designationMatch && mohallahFilterMatch;
+
+        return searchTermMatch && roleMatch && designationMatch && mohallahFilterMatch && teamFilterMatch;
     });
-  }, [members, searchTerm, selectedFilterRole, selectedFilterDesignation, selectedFilterMohallahId, currentUserRole, currentUserMohallahId, currentUser]);
+  }, [members, searchTerm, selectedFilterRole, selectedFilterDesignation, selectedFilterMohallahId, selectedFilterTeam, currentUserRole, currentUserMohallahId, currentUser]);
 
   const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
   const currentMembersToDisplay = useMemo(() => {
@@ -654,6 +657,18 @@ export default function ManageMembersPage() {
     if (currentUserRole === 'superadmin') return true; 
     return false;
   };
+  
+  const canSeeTeamFilter = useMemo(() => {
+    if (!currentUserDesignation) return false;
+    return currentUserDesignation === 'Captain' || currentUserDesignation === 'Vice Captain';
+  }, [currentUserDesignation]);
+
+  const teamFilterOptions = useMemo(() => {
+      if (!currentUser) return [];
+      if (currentUser.designation === 'Captain') return availableTeams;
+      if (currentUser.designation === 'Vice Captain') return currentUser.managedTeams || [];
+      return [];
+  }, [currentUser, availableTeams]);
 
   const canManageMembers = currentUserRole === 'admin' || currentUserRole === 'superadmin';
   const displayTitle = useMemo(() => {
@@ -1040,7 +1055,7 @@ export default function ManageMembersPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full sm:w-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full sm:w-auto">
                 <Select
                     value={selectedFilterRole}
                     onValueChange={(value) => setSelectedFilterRole(value)}
@@ -1069,6 +1084,19 @@ export default function ManageMembersPage() {
                         ))}
                     </SelectContent>
                 </Select>
+                {canSeeTeamFilter && (
+                    <Select value={selectedFilterTeam} onValueChange={setSelectedFilterTeam}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Filter by Team" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Teams</SelectItem>
+                            {teamFilterOptions.map(team => (
+                                <SelectItem key={team} value={team}>{team}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
                 {currentUserRole === 'superadmin' && (
                 <Select
                     value={selectedFilterMohallahId}
