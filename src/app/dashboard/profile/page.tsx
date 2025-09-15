@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AttendanceRecord, User, Mohallah, Miqaat, UserDesignation, FormResponse, Form } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock, UserCog, FileText, Check, X } from "lucide-react";
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
@@ -24,13 +23,17 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 const GROUP_LEADER_DESIGNATION: UserDesignation = "Group Leader";
 const ASST_GROUP_LEADER_DESIGNATION: UserDesignation = "Asst.Grp Leader";
 
+interface FormHistoryStatus extends Form {
+  submissionStatus: 'Filled' | 'Not Filled';
+  submittedAt?: string;
+}
+
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
-  const [formHistory, setFormHistory] = useState<FormResponse[]>([]);
-  const [allForms, setAllForms] = useState<Form[]>([]);
+  const [formHistory, setFormHistory] = useState<FormHistoryStatus[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -56,16 +59,14 @@ export default function ProfilePage() {
       }
 
       try {
-        const [fetchedUser, allSystemUsers, fetchedForms] = await Promise.all([
+        const [fetchedUser, allSystemUsers] = await Promise.all([
           getUserByItsOrBgkId(storedItsId),
           getUsers(),
-          getForms(), // Fetch all forms to map response data later
         ]);
 
         if (!isMounted) return;
         setUser(fetchedUser);
         setAllUsers(allSystemUsers);
-        setAllForms(fetchedForms);
 
         if (fetchedUser) {
           // Fetch Attendance History
@@ -156,23 +157,49 @@ export default function ProfilePage() {
           });
 
           // Fetch Form History
-          setIsLoadingFormHistory(true);
-          setFormHistoryError(null);
-          try {
-            const responses = await getFormResponsesForUser(fetchedUser.itsId);
-            if (isMounted) {
-              setFormHistory(responses.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()));
+            setIsLoadingFormHistory(true);
+            setFormHistoryError(null);
+            try {
+                const [allForms, userResponses] = await Promise.all([
+                    getForms(),
+                    getFormResponsesForUser(fetchedUser.itsId)
+                ]);
+
+                if (!isMounted) return;
+
+                const userResponseMap = new Map(userResponses.map(res => [res.formId, res]));
+
+                const processedFormHistory: FormHistoryStatus[] = allForms
+                    .filter(form => {
+                        const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
+                        if (isForEveryone) return true;
+                        const eligibleById = !!form.eligibleItsIds?.includes(fetchedUser.itsId);
+                        const eligibleByTeam = !!fetchedUser.team && !!form.teams?.includes(fetchedUser.team);
+                        const eligibleByMohallah = !!fetchedUser.mohallahId && !!form.mohallahIds?.includes(fetchedUser.mohallahId);
+                        return eligibleById || eligibleByTeam || eligibleByMohallah;
+                    })
+                    .map(form => {
+                        const userResponse = userResponseMap.get(form.id);
+                        return {
+                            ...form,
+                            submissionStatus: userResponse ? 'Filled' : 'Not Filled',
+                            submittedAt: userResponse?.submittedAt
+                        };
+                    });
+
+                setFormHistory(processedFormHistory.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+
+            } catch (formError: any) {
+                console.error("Failed to fetch form history:", formError);
+                if (formError instanceof Error && formError.message.includes("index")) {
+                    setFormHistoryError("Could not load form submission history. A database index is required. Please contact support.");
+                } else {
+                    setFormHistoryError("Could not load form submission history.");
+                }
+            } finally {
+                if (isMounted) setIsLoadingFormHistory(false);
             }
-          } catch(formError: any) {
-             console.error("Failed to fetch form history:", formError);
-             if (formError instanceof Error && formError.message.includes("index")) {
-                setFormHistoryError("Could not load form submission history. A database index is required. Please contact support.");
-             } else {
-                setFormHistoryError("Could not load form submission history.");
-             }
-          } finally {
-            if (isMounted) setIsLoadingFormHistory(false);
-          }
+
 
         } else {
             if (isMounted) {
@@ -235,10 +262,6 @@ export default function ProfilePage() {
     return mohallah ? mohallah.name : "Unknown Mohallah";
   };
   
-  const getFormTitle = (formId: string): string => {
-    const form = allForms.find(f => f.id === formId);
-    return form ? form.title : "Unknown Form";
-  };
 
   if (isLoading && !user) {
     return (
@@ -283,7 +306,7 @@ export default function ProfilePage() {
         </div>
         <Separator className="my-0"/>
         <Tabs defaultValue="details" className="w-full">
-           <TabsList className="w-full justify-center md:justify-start rounded-none border-b bg-transparent p-0">
+           <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
             <TabsTrigger value="details" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Details</TabsTrigger>
             <TabsTrigger value="attendance_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Attendance ({!isLoadingHistory && !historyError ? attendanceHistory.length : '...'})</TabsTrigger>
             <TabsTrigger value="form_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Forms ({!isLoadingFormHistory && !formHistoryError ? formHistory.length : '...'})</TabsTrigger>
@@ -446,19 +469,27 @@ export default function ProfilePage() {
                   {/* Mobile Accordion View */}
                   <div className="md:hidden">
                     <Accordion type="single" collapsible className="w-full">
-                      {formHistory.map((response) => (
-                        <AccordionItem value={response.id} key={response.id}>
+                      {formHistory.map((form) => (
+                        <AccordionItem value={form.id} key={form.id}>
                           <AccordionTrigger>
                             <div className="flex-grow text-left">
-                              <p className="font-semibold text-card-foreground">{getFormTitle(response.formId)}</p>
-                              <p className="text-xs text-muted-foreground">{format(new Date(response.submittedAt), "PPp")}</p>
+                              <p className="font-semibold text-card-foreground">{form.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {form.submissionStatus === 'Filled' && form.submittedAt 
+                                    ? `Filled: ${format(new Date(form.submittedAt), "PP")}`
+                                    : `Created: ${format(new Date(form.createdAt), "PP")}`
+                                }
+                              </p>
                             </div>
-                             <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/forms/${response.formId}`); }}>View</Button>
+                            <span className={cn("flex items-center gap-1.5 text-xs font-semibold", form.submissionStatus === 'Filled' ? 'text-green-600' : 'text-red-600')}>
+                                {form.submissionStatus === 'Filled' ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                                {form.submissionStatus}
+                            </span>
                           </AccordionTrigger>
                            <AccordionContent className="space-y-2 pt-2">
                              <div className="px-2 text-sm text-muted-foreground">
-                                <p><strong>Form ID:</strong> {response.formId}</p>
-                                <p><strong>Response ID:</strong> {response.id}</p>
+                                <p><strong>Form Description:</strong> {form.description || "N/A"}</p>
+                                {form.endDate && <p><strong>End Date:</strong> {format(new Date(form.endDate), "PPp")}</p>}
                              </div>
                            </AccordionContent>
                         </AccordionItem>
@@ -472,17 +503,28 @@ export default function ProfilePage() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Form Title</TableHead>
-                          <TableHead>Date Submitted</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Status</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {formHistory.map((response) => (
-                          <TableRow key={response.id}>
-                            <TableCell className="font-medium">{getFormTitle(response.formId)}</TableCell>
-                            <TableCell>{format(new Date(response.submittedAt), "PP p")}</TableCell>
-                            <TableCell className="text-right">
-                               <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${response.formId}`)}>View Submission</Button>
+                        {formHistory.map((form) => (
+                          <TableRow key={form.id}>
+                            <TableCell className="font-medium">
+                                {form.title}
+                                <p className="text-xs text-muted-foreground line-clamp-1">{form.description}</p>
+                            </TableCell>
+                            <TableCell>
+                                {form.submissionStatus === 'Filled' && form.submittedAt
+                                ? `Filled: ${format(new Date(form.submittedAt), "PPp")}`
+                                : `Created: ${format(new Date(form.createdAt), "PPp")}`
+                                }
+                            </TableCell>
+                            <TableCell>
+                               <span className={cn("flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full w-fit", form.submissionStatus === 'Filled' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')}>
+                                  {form.submissionStatus === 'Filled' ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                                  {form.submissionStatus}
+                               </span>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -493,8 +535,8 @@ export default function ProfilePage() {
                 ) : (
                   <div className="text-center py-10">
                     <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-lg text-muted-foreground">No forms found.</p>
-                    <p className="text-sm text-muted-foreground">Your submitted forms will appear here.</p>
+                    <p className="mt-4 text-lg text-muted-foreground">No Forms Found</p>
+                    <p className="text-sm text-muted-foreground">Your assigned forms will appear here.</p>
                   </div>
                 )}
              </CardContent>
