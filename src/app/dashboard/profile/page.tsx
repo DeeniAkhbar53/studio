@@ -283,10 +283,10 @@ export default function ProfilePage() {
         </div>
         <Separator className="my-0"/>
         <Tabs defaultValue="details" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 rounded-none border-b">
+          <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 rounded-none border-b">
             <TabsTrigger value="details">Profile Details</TabsTrigger>
             <TabsTrigger value="attendance_history">Attendance ({!isLoadingHistory && !historyError ? attendanceHistory.length : '...'})</TabsTrigger>
-            <TabsTrigger value="form_history">Form Submissions ({!isLoadingFormHistory && !formHistoryError ? formHistory.length : '...'})</TabsTrigger>
+            <TabsTrigger value="form_history">Forms ({!isLoadingFormHistory && !formHistoryError ? formHistory.length : '...'})</TabsTrigger>
           </TabsList>
           <TabsContent value="details">
             <CardContent className="p-6 space-y-4">
@@ -434,7 +434,7 @@ export default function ProfilePage() {
                 {isLoadingFormHistory ? (
                   <div className="flex items-center justify-center py-10">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    <p className="ml-2 text-muted-foreground">Loading form submission history...</p>
+                    <p className="ml-2 text-muted-foreground">Loading form history...</p>
                   </div>
                 ) : formHistoryError ? (
                   <div className="text-center py-10">
@@ -493,7 +493,7 @@ export default function ProfilePage() {
                 ) : (
                   <div className="text-center py-10">
                     <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-lg text-muted-foreground">No form submissions found.</p>
+                    <p className="mt-4 text-lg text-muted-foreground">No forms found.</p>
                     <p className="text-sm text-muted-foreground">Your submitted forms will appear here.</p>
                   </div>
                 )}
