@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
 import { DialogFooter } from "@/components/ui/dialog";
+import Image from "next/image";
 
 interface AdminStat {
   title: string;
@@ -86,8 +87,10 @@ export default function DashboardOverviewPage() {
 
   const isTeamLead = useMemo(() => {
     if (!currentUserRole || !currentUserDesignation) return false;
+    const isAdmin = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+    if (isAdmin) return true; // Treat admins as team leads for alert purposes
     const hasLeadershipDesignation = TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation);
-    return hasLeadershipDesignation || currentUserRole === 'admin' || currentUserRole === 'superadmin';
+    return hasLeadershipDesignation;
   }, [currentUserRole, currentUserDesignation]);
 
 
@@ -225,29 +228,34 @@ export default function DashboardOverviewPage() {
         const lastMiqaat = pastMiqaats[0];
         
         const allUsers = await getUsers();
-        let teamMembers: User[] = [];
+        let baseVisibleUsers: User[];
 
-        if (currentUser.designation && (TOP_LEVEL_LEADERS.includes(currentUser.designation))) {
-            teamMembers = allUsers;
+        // Admin role is the highest priority for data filtering
+        if (currentUser.role === 'admin' && currentUser.mohallahId) {
+            baseVisibleUsers = allUsers.filter(u => u.mohallahId === currentUser.mohallahId);
+        } else if (currentUser.role === 'superadmin') {
+            baseVisibleUsers = allUsers; // Superadmin sees everyone
+        } else if (currentUser.designation && (TOP_LEVEL_LEADERS.includes(currentUser.designation))) {
+            baseVisibleUsers = allUsers; // Captains see everyone
         } else if (currentUser.designation && MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
             const managedTeamsSet = new Set(currentUser.managedTeams);
-            teamMembers = allUsers.filter(u => u.team && managedTeamsSet.has(u.team));
+            baseVisibleUsers = allUsers.filter(u => u.team && managedTeamsSet.has(u.team));
         } else if (currentUser.designation && GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
-            teamMembers = allUsers.filter(u => u.team === currentUser.team);
+            baseVisibleUsers = allUsers.filter(u => u.team === currentUser.team);
         } else {
             setIsLoadingAbsentees(false);
-            return;
+            return; // Not a role that should see this alert
         }
 
 
-        if(teamMembers.length === 0) {
+        if(baseVisibleUsers.length === 0) {
             setIsLoadingAbsentees(false);
             return;
         }
         
         const isForEveryone = (!lastMiqaat.mohallahIds || lastMiqaat.mohallahIds.length === 0) && (!lastMiqaat.teams || lastMiqaat.teams.length === 0) && (!lastMiqaat.eligibleItsIds || lastMiqaat.eligibleItsIds.length === 0);
         
-        const eligibleTeamMembers = teamMembers.filter(member => {
+        const eligibleTeamMembers = baseVisibleUsers.filter(member => {
             if (lastMiqaat.eligibleItsIds && lastMiqaat.eligibleItsIds.length > 0) {
                 return lastMiqaat.eligibleItsIds.includes(member.itsId);
             }
@@ -259,7 +267,12 @@ export default function DashboardOverviewPage() {
             if (lastMiqaat.teams && lastMiqaat.teams.length > 0) {
                 isEligible = isEligible || (!!member.team && lastMiqaat.teams.includes(member.team));
             }
-            return isEligible;
+            // If no specific group is targeted, but it's not "for everyone", a member is not eligible unless explicitly listed.
+            // This case should be handled by checking if any eligibility criteria are set. If so, and none match, return false.
+            if ((lastMiqaat.mohallahIds?.length || 0) + (lastMiqaat.teams?.length || 0) > 0) {
+              return isEligible;
+            }
+            return isForEveryone; // Fallback to isForEveryone if no specific groups are set
         });
 
         const attendedItsIds = new Set(lastMiqaat.attendance?.map(a => a.userItsId) || []);
@@ -302,6 +315,7 @@ export default function DashboardOverviewPage() {
             
             let eligibleUsers: User[];
 
+            // Determine users eligible for the form
             if (latestActiveForm.eligibleItsIds && latestActiveForm.eligibleItsIds.length > 0) {
                 const eligibleIdSet = new Set(latestActiveForm.eligibleItsIds);
                 eligibleUsers = allUsers.filter(user => eligibleIdSet.has(user.itsId));
@@ -315,8 +329,11 @@ export default function DashboardOverviewPage() {
                  });
             }
 
+            // Filter the eligible users based on the current viewer's permissions
             let visibleEligibleUsers = eligibleUsers;
-            if (currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation) && currentUser.role !== 'admin' && currentUser.role !== 'superadmin') {
+             if (currentUser.role === 'admin' && currentUser.mohallahId) {
+                visibleEligibleUsers = eligibleUsers.filter(user => user.mohallahId === currentUser.mohallahId);
+            } else if (currentUser.role !== 'superadmin' && currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) {
                 if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
                     // Captains see everyone in the eligible list
                 } else if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
@@ -639,57 +656,66 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-grow space-y-6">
-        
+       <div className="flex-grow space-y-6">
         {shouldRenderAlerts && (
-            <div className="space-y-4">
+          <div className="space-y-4">
             {absenteeData && isAbsenteeAlertOpen && (
-                <Alert variant="destructive" className="relative">
-                    <UserX className="h-4 w-4" />
-                    <AlertTitle>Miqaat Attendance Alert</AlertTitle>
-                    <AlertDescription className="flex justify-between items-center pr-8">
-                        <span>
-                            For <span className="font-semibold">{absenteeData.miqaatName}</span>, you have <span className="font-bold">{absenteeData.absentees.length}</span> absent member(s).
-                        </span>
-                        <Button variant="destructive" size="sm" onClick={() => setIsAbsenteeDialogOpen(true)} className="ml-4">View List</Button>
-                    </AlertDescription>
-                    <button onClick={() => setIsAbsenteeAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-destructive/70 hover:text-destructive hover:bg-destructive/10">
-                        <X className="h-4 w-4" />
-                        <span className="sr-only">Close</span>
-                    </button>
-                </Alert>
+              <Alert variant="destructive" className="relative">
+                <UserX className="h-4 w-4" />
+                <AlertTitle>Miqaat Attendance Alert</AlertTitle>
+                <AlertDescription className="flex justify-between items-center pr-8">
+                  <span>
+                    For <span className="font-semibold">{absenteeData.miqaatName}</span>, you have <span className="font-bold">{absenteeData.absentees.length}</span> absent member(s).
+                  </span>
+                  <Button variant="destructive" size="sm" onClick={() => setIsAbsenteeDialogOpen(true)} className="ml-4">View List</Button>
+                </AlertDescription>
+                <button onClick={() => setIsAbsenteeAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-destructive/70 hover:text-destructive hover:bg-destructive/10">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </button>
+              </Alert>
             )}
 
             {nonRespondentData && isNonRespondentAlertOpen && (
-                <Alert variant="default" className="relative border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-200 dark:border-amber-500/30">
-                    <FileText className="h-4 w-4 text-amber-700 dark:text-amber-300" />
-                    <AlertTitle className="text-amber-800 dark:text-amber-200">Form Response Alert</AlertTitle>
-                    <AlertDescription className="flex justify-between items-center pr-8 text-amber-700 dark:text-amber-300">
-                        <span>
-                            For <span className="font-semibold">{nonRespondentData.formTitle}</span>, <span className="font-bold">{nonRespondentData.nonRespondents.length}</span> member(s) have not responded.
-                        </span>
-                        <Button variant="outline" size="sm" onClick={() => setIsNonRespondentDialogOpen(true)} className="ml-4 border-amber-500/50 hover:bg-amber-500/20">View List</Button>
-                    </AlertDescription>
-                    <button onClick={() => setIsNonRespondentAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-amber-700/70 hover:text-amber-700 hover:bg-amber-500/10">
-                        <X className="h-4 w-4" />
-                        <span className="sr-only">Close</span>
-                    </button>
-                </Alert>
+              <Alert variant="default" className="relative border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-200 dark:border-amber-500/30">
+                <FileText className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+                <AlertTitle className="text-amber-800 dark:text-amber-200">Form Response Alert</AlertTitle>
+                <AlertDescription className="flex justify-between items-center pr-8 text-amber-700 dark:text-amber-300">
+                  <span>
+                    For <span className="font-semibold">{nonRespondentData.formTitle}</span>, <span className="font-bold">{nonRespondentData.nonRespondents.length}</span> member(s) have not responded.
+                  </span>
+                  <Button variant="outline" size="sm" onClick={() => setIsNonRespondentDialogOpen(true)} className="ml-4 border-amber-500/50 hover:bg-amber-500/20">View List</Button>
+                </AlertDescription>
+                <button onClick={() => setIsNonRespondentAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-amber-700/70 hover:text-amber-700 hover:bg-amber-500/10">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </button>
+              </Alert>
             )}
-            </div>
+          </div>
         )}
-
-
+      
         <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardHeader>
-            <CardTitle className="text-3xl font-bold text-foreground">
-              Welcome, {currentUserName}!
-            </CardTitle>
-            <Separator className="my-2" />
-            <CardDescription className="text-muted-foreground text-base">
-              {currentUserDesignation && <span>{currentUserDesignation}</span>}
-              {currentUserRole && <span> ({currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ')})</span>}
-            </CardDescription>
+             <div className="flex items-center gap-4">
+               <Image
+                  src="/logo.png"
+                  alt="BGK Attendance Logo"
+                  width={64}
+                  height={64}
+                  className="h-16 w-16"
+                />
+              <div>
+                <CardTitle className="text-3xl font-bold text-foreground">
+                  Welcome, {currentUserName}!
+                </CardTitle>
+                <CardDescription className="text-muted-foreground text-base mt-1">
+                  {currentUserDesignation && <span>{currentUserDesignation}</span>}
+                  {currentUserRole && <span> ({currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ')})</span>}
+                </CardDescription>
+              </div>
+            </div>
+            <Separator className="my-4" />
             <CardDescription className="text-muted-foreground pt-1">
               Here's your overview. Use the sidebar to navigate to other sections.
             </CardDescription>

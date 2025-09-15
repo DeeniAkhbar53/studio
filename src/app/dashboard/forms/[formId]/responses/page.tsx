@@ -144,6 +144,7 @@ export default function ViewResponsesPage() {
         let baseEligibleUsers: User[];
         const userMap = new Map(allUsers.map(user => [user.itsId, user]));
 
+        // Determine the pool of users eligible for the form itself
         if (form.eligibleItsIds && form.eligibleItsIds.length > 0) {
             const eligibleIdSet = new Set(form.eligibleItsIds);
             baseEligibleUsers = allUsers.filter(user => eligibleIdSet.has(user.itsId));
@@ -160,9 +161,18 @@ export default function ViewResponsesPage() {
         let visibleEligibleUsers = baseEligibleUsers;
         let finalFilteredResponses = allResponses;
 
-        if (currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation) && currentUser.role !== 'admin' && currentUser.role !== 'superadmin') {
+        // Now, filter what the *current user* is allowed to see from that eligible pool
+        if (currentUser.role === 'admin' && currentUser.mohallahId) {
+            // Admin sees only their Mohallah's data, this is the highest priority filter
+            visibleEligibleUsers = baseEligibleUsers.filter(user => user.mohallahId === currentUser.mohallahId);
+            finalFilteredResponses = allResponses.filter(res => {
+                const submitter = userMap.get(res.submittedBy);
+                return submitter?.mohallahId === currentUser.mohallahId;
+            });
+        } else if (currentUser.role !== 'superadmin' && currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) {
+             // For team leads who are not admins/superadmins
             if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
-                // Majors and Captains see everyone in the eligible list
+                // Majors and Captains see everyone in the eligible list (no change)
             } else if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
                 // Vice Captains see their managed teams
                 const managedTeamsSet = new Set(currentUser.managedTeams);
@@ -180,8 +190,9 @@ export default function ViewResponsesPage() {
                  });
             }
         }
+        // Superadmin sees everything, so no filter is applied to baseEligibleUsers or allResponses.
 
-        const respondentIds = new Set(allResponses.map(r => r.submittedBy));
+        const respondentIds = new Set(finalFilteredResponses.map(r => r.submittedBy));
         const nonResponding = visibleEligibleUsers.filter(user => !respondentIds.has(user.itsId));
 
         return { eligibleUsers: visibleEligibleUsers, nonRespondents: nonResponding, filteredResponses: finalFilteredResponses };
@@ -316,7 +327,7 @@ export default function ViewResponsesPage() {
                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Card className="p-4 bg-muted/50">
                         <CardTitle className="text-sm font-medium text-muted-foreground">Total Responses</CardTitle>
-                        <p className="text-3xl font-bold">{allResponses.length}</p>
+                        <p className="text-3xl font-bold">{filteredResponses.length}</p>
                     </Card>
                     <Card className="p-4 bg-muted/50">
                         <CardTitle className="text-sm font-medium text-muted-foreground">Eligible Members</CardTitle>
@@ -325,7 +336,7 @@ export default function ViewResponsesPage() {
                     <Card className="p-4 bg-muted/50">
                         <CardTitle className="text-sm font-medium text-muted-foreground">Response Rate</CardTitle>
                         <p className="text-3xl font-bold">
-                            {eligibleUsers.length > 0 ? ((allResponses.length / eligibleUsers.length) * 100).toFixed(1) : 0}%
+                            {eligibleUsers.length > 0 ? ((filteredResponses.length / eligibleUsers.length) * 100).toFixed(1) : 0}%
                         </p>
                     </Card>
                 </CardContent>
