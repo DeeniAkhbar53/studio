@@ -73,10 +73,6 @@ export default function DashboardOverviewPage() {
   const [isNonRespondentDialogOpen, setIsNonRespondentDialogOpen] = useState(false);
   const [isLoadingNonRespondents, setIsLoadingNonRespondents] = useState(false);
 
-  // New Form Notification State
-  const [newFormForUser, setNewFormForUser] = useState<FormType | null>(null);
-  const [isLoadingNewFormCheck, setIsLoadingNewFormCheck] = useState(false);
-
 
   const [isScannerDialogOpen, setIsScannerDialogOpen] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
@@ -364,53 +360,6 @@ export default function DashboardOverviewPage() {
     };
   }, [isTeamLead, allForms, currentUser]);
 
-  // Effect for New Form for User Notification
-  useEffect(() => {
-    if (!currentUser || allForms.length === 0) {
-        return;
-    }
-    
-    const checkNewForms = async () => {
-        setIsLoadingNewFormCheck(true);
-        setNewFormForUser(null);
-        try {
-            const latestActiveForm = allForms.find(f => f.status === 'open');
-            if (!latestActiveForm) {
-                setIsLoadingNewFormCheck(false);
-                return;
-            }
-
-            const hasResponded = await checkIfUserHasResponded(latestActiveForm.id, currentUser.itsId);
-            if (hasResponded) {
-                setIsLoadingNewFormCheck(false);
-                return;
-            }
-
-            const isForEveryone = !latestActiveForm.mohallahIds?.length && !latestActiveForm.teams?.length && !latestActiveForm.eligibleItsIds?.length;
-            
-            if (isForEveryone) {
-                setNewFormForUser(latestActiveForm);
-            } else {
-                const eligibleById = !!latestActiveForm.eligibleItsIds?.includes(currentUser.itsId);
-                const eligibleByTeam = !!currentUser.team && !!latestActiveForm.teams?.includes(currentUser.team);
-                const eligibleByMohallah = !!currentUser.mohallahId && !!latestActiveForm.mohallahIds?.includes(currentUser.mohallahId);
-                
-                if (eligibleById || eligibleByTeam || eligibleByMohallah) {
-                    setNewFormForUser(latestActiveForm);
-                }
-            }
-
-        } catch (error) {
-            console.error("Error checking for new forms for user:", error);
-        } finally {
-            setIsLoadingNewFormCheck(false);
-        }
-    };
-
-    checkNewForms();
-  }, [allForms, currentUser]);
-
-
   const handleQrCodeScanned = useCallback(async (decodedText: string) => {
     if (!currentUserItsId || !currentUserName) {
       console.error("User details not found for QR scan processing.");
@@ -687,48 +636,7 @@ export default function DashboardOverviewPage() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-grow space-y-6">
-        <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold text-foreground">
-              Welcome, {currentUserName}!
-            </CardTitle>
-            <Separator className="my-2" />
-            <CardDescription className="text-muted-foreground text-base">
-              {currentUserDesignation && <span>{currentUserDesignation}</span>}
-              {currentUserRole && <span> ({currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ')})</span>}
-            </CardDescription>
-            <CardDescription className="text-muted-foreground pt-1">
-              Here's your overview. Use the sidebar to navigate to other sections.
-            </CardDescription>
-          </CardHeader>
-          {currentUserRole === 'user' && (
-            <CardContent>
-              <p className="text-foreground">Please ensure you are on time for all Miqaats. Use the scanner button for quick check-in.</p>
-            </CardContent>
-          )}
-        </Card>
-
-        {!isLoadingNewFormCheck && newFormForUser && (
-            <Card className="border-blue-500/50 bg-blue-500/10">
-                <CardHeader>
-                    <CardTitle className="flex items-center text-blue-700">
-                        <Edit className="mr-2 h-6 w-6"/>
-                        New Form Available
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p>
-                        A new form, <span className="font-semibold">{newFormForUser.title}</span>, is now available for you to fill out.
-                    </p>
-                </CardContent>
-                <CardFooter>
-                    <Button variant="default" onClick={() => router.push(`/dashboard/forms/${newFormForUser.id}`)}>
-                        Fill Form Now
-                    </Button>
-                </CardFooter>
-            </Card>
-        )}
-
+        
         {isTeamLead && !isLoadingAbsentees && absenteeData && (
           <Card className="border-destructive/50 bg-destructive/10">
             <CardHeader>
@@ -766,6 +674,27 @@ export default function DashboardOverviewPage() {
             </CardFooter>
           </Card>
         )}
+
+        <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
+          <CardHeader>
+            <CardTitle className="text-3xl font-bold text-foreground">
+              Welcome, {currentUserName}!
+            </CardTitle>
+            <Separator className="my-2" />
+            <CardDescription className="text-muted-foreground text-base">
+              {currentUserDesignation && <span>{currentUserDesignation}</span>}
+              {currentUserRole && <span> ({currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ')})</span>}
+            </CardDescription>
+            <CardDescription className="text-muted-foreground pt-1">
+              Here's your overview. Use the sidebar to navigate to other sections.
+            </CardDescription>
+          </CardHeader>
+          {currentUserRole === 'user' && (
+            <CardContent>
+              <p className="text-foreground">Please ensure you are on time for all Miqaats. Use the scanner button for quick check-in.</p>
+            </CardContent>
+          )}
+        </Card>
 
         {scanDisplayMessage && (
           <Alert variant={scanDisplayMessage.type === 'error' ? 'destructive' : 'default'} className={`mt-4 ${scanDisplayMessage.type === 'success' ? 'border-green-500 bg-green-50 dark:bg-green-900/30' : scanDisplayMessage.type === 'info' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : ''}`}>
@@ -940,3 +869,5 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
+
+    
