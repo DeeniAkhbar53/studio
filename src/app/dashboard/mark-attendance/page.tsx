@@ -14,7 +14,7 @@ import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, Us
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { savePendingAttendance, getPendingAttendance, clearPendingAttendance, cacheAllUsers, getCachedUserByItsOrBgkId } from "@/lib/offlineService";
-import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare, UserX } from "lucide-react";
+import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare, UserX, HandCoins } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
@@ -25,6 +25,10 @@ import { allNavItems } from "@/components/dashboard/sidebar-nav";
 type UniformComplianceState = {
     fetaPaghri: 'yes' | 'no' | 'safar';
     koti: 'yes' | 'no' | 'safar';
+    nazrulMaqam?: {
+      amount: number;
+      currency: string;
+    }
 };
 
 export default function MarkAttendancePage() {
@@ -33,7 +37,7 @@ export default function MarkAttendancePage() {
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
   const [memberIdInput, setMemberIdInput] = useState("");
   const [markedAttendanceThisSession, setMarkedAttendanceThisSession] = useState<MarkedAttendanceEntry[]>([]);
-  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "attendance" | "uniformRequirements">[]>([]);
+  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "attendance" | "safarList" | "attendanceRequirements">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [markerItsId, setMarkerItsId] = useState<string | null>(null);
@@ -41,9 +45,12 @@ export default function MarkAttendancePage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
 
   // State for uniform check dialog
-  const [isUniformDialogOpen, setIsUniformDialogOpen] = useState(false);
-  const [memberForUniformCheck, setMemberForUniformCheck] = useState<User | null>(null);
-  const [uniformCompliance, setUniformCompliance] = useState<UniformComplianceState>({ fetaPaghri: 'no', koti: 'no' });
+  const [isComplianceDialogOpen, setIsComplianceDialogOpen] = useState(false);
+  const [memberForComplianceCheck, setMemberForComplianceCheck] = useState<User | null>(null);
+  const [complianceState, setComplianceState] = useState<UniformComplianceState>({ fetaPaghri: 'no', koti: 'no' });
+  const [nazrulMaqamAmount, setNazrulMaqamAmount] = useState("");
+  const [nazrulMaqamCurrency, setNazrulMaqamCurrency] = useState("USD");
+
 
   // Offline state management
   const [isOffline, setIsOffline] = useState(false);
@@ -172,7 +179,8 @@ export default function MarkAttendancePage() {
         teams: m.teams || [],
         eligibleItsIds: m.eligibleItsIds || [],
         attendance: m.attendance || [],
-        uniformRequirements: m.uniformRequirements || { fetaPaghri: false, koti: false },
+        safarList: m.safarList || [],
+        attendanceRequirements: m.attendanceRequirements || { fetaPaghri: false, koti: false, nazrulMaqam: false },
       })));
       setIsLoadingMiqaats(false);
     });
@@ -287,16 +295,18 @@ export default function MarkAttendancePage() {
       return;
     }
     
-    const uniformReqs = selectedMiqaatDetails.uniformRequirements;
-    if (uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti)) {
-      setUniformCompliance({ fetaPaghri: 'no', koti: 'no' }); // Reset before opening
-      setMemberForUniformCheck(member);
-      setIsUniformDialogOpen(true);
+    const reqs = selectedMiqaatDetails.attendanceRequirements;
+    if (reqs && (reqs.fetaPaghri || reqs.koti || reqs.nazrulMaqam)) {
+      setComplianceState({ fetaPaghri: 'no', koti: 'no' });
+      setNazrulMaqamAmount("");
+      setNazrulMaqamCurrency("USD");
+      setMemberForComplianceCheck(member);
+      setIsComplianceDialogOpen(true);
     } else {
-      finalizeAttendance(member, undefined);
+      finalizeAttendance(member);
     }
 
-    setIsProcessing(false); // Processing is done after member is found
+    setIsProcessing(false);
   };
   
   const finalizeAttendance = async (member: User, compliance?: UniformComplianceState) => {
@@ -327,7 +337,7 @@ export default function MarkAttendancePage() {
         markedAt: now.toISOString(),
         markedByItsId: markerItsId,
         status: attendanceStatus,
-        ...(compliance && { uniformCompliance: compliance }),
+        uniformCompliance: compliance,
     };
     
     const newSessionEntry: MarkedAttendanceEntry = {
@@ -339,22 +349,9 @@ export default function MarkAttendancePage() {
         status: attendanceStatus,
     };
     
-     const uniformReqs = selectedMiqaatDetails.uniformRequirements;
-    const isUniformRequired = uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti);
-    
-    const attendanceEntryForSave: MiqaatAttendanceEntryItem = {
-        userItsId: member.itsId,
-        userName: member.name,
-        markedAt: new Date().toISOString(),
-        markedByItsId: markerItsId,
-        status: attendanceStatus,
-        ...(isUniformRequired && compliance ? { uniformCompliance: compliance } : {}),
-    };
-
-
     try {
         if (isOffline) {
-            await savePendingAttendance(selectedMiqaatDetails.id, attendanceEntryForSave);
+            await savePendingAttendance(selectedMiqaatDetails.id, attendanceEntryPayload);
             await checkPendingRecords();
              setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
             toast({
@@ -362,7 +359,7 @@ export default function MarkAttendancePage() {
                 description: `Attendance for ${attendanceEntryPayload.userName} for ${selectedMiqaatDetails.name} saved locally. Sync when online.`,
             });
         } else {
-            await markAttendanceInMiqaat(selectedMiqaatDetails.id, attendanceEntryForSave);
+            await markAttendanceInMiqaat(selectedMiqaatDetails.id, attendanceEntryPayload);
             setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
             toast({
               title: `Attendance Marked (${attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)})`,
@@ -378,11 +375,10 @@ export default function MarkAttendancePage() {
             description: "Failed to save attendance record. Please try again.",
             variant: "destructive",
         });
-        // Remove from session log if db save failed
         setMarkedAttendanceThisSession(prev => prev.filter(p => p.timestamp !== newSessionEntry.timestamp));
     } finally {
-        setIsUniformDialogOpen(false); // Close dialog
-        setMemberForUniformCheck(null);
+        setIsComplianceDialogOpen(false);
+        setMemberForComplianceCheck(null);
     }
   };
 
@@ -410,8 +406,6 @@ export default function MarkAttendancePage() {
         return acc;
       }, {} as { [key: string]: MiqaatAttendanceEntryItem[] });
 
-      // This part requires a batch update function. For now, let's process one by one.
-      // In a real scenario, a `batchMarkAttendanceInMiqaat` would be more efficient.
       for (const miqaatId in recordsByMiqaat) {
          for (const entry of recordsByMiqaat[miqaatId]) {
             await markAttendanceInMiqaat(miqaatId, entry);
@@ -439,12 +433,12 @@ export default function MarkAttendancePage() {
     ? format(new Date(currentMiqaatDetails.endTime), "PPp")
     : null;
 
-  const miqaatHasUniformRequirements = useMemo(() => {
-    if (!currentMiqaatDetails || !currentMiqaatDetails.uniformRequirements) {
+  const miqaatHasAttendanceRequirements = useMemo(() => {
+    if (!currentMiqaatDetails || !currentMiqaatDetails.attendanceRequirements) {
       return false;
     }
-    const { fetaPaghri, koti } = currentMiqaatDetails.uniformRequirements;
-    return fetaPaghri || koti;
+    const { fetaPaghri, koti, nazrulMaqam } = currentMiqaatDetails.attendanceRequirements;
+    return fetaPaghri || koti || nazrulMaqam;
   }, [currentMiqaatDetails]);
 
 
@@ -599,12 +593,12 @@ export default function MarkAttendancePage() {
             >
               {isProcessing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : miqaatHasUniformRequirements ? (
+              ) : miqaatHasAttendanceRequirements ? (
                 <CheckCircle className="mr-2 h-4 w-4" />
               ) : (
                 <CheckSquare className="mr-2 h-4 w-4" />
               )}
-              {miqaatHasUniformRequirements ? "Find Member & Check Uniform" : "Mark Attendance"}
+              {miqaatHasAttendanceRequirements ? "Find Member & Check Compliance" : "Mark Attendance"}
             </Button>
           </form>
 
@@ -675,22 +669,22 @@ export default function MarkAttendancePage() {
         )}
       </Card>
       
-      {/* Uniform Check Dialog */}
-      <Dialog open={isUniformDialogOpen} onOpenChange={setIsUniformDialogOpen}>
+      {/* Compliance Check Dialog */}
+      <Dialog open={isComplianceDialogOpen} onOpenChange={setIsComplianceDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Compliance Check for {memberForUniformCheck?.name}</DialogTitle>
+            <DialogTitle>Compliance Check for {memberForComplianceCheck?.name}</DialogTitle>
             <DialogDescription>
               Confirm compliance for Miqaat: {currentSelectedMiqaatName}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
-              {currentMiqaatDetails?.uniformRequirements?.fetaPaghri && (
+              {currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
                   <div>
                       <Label className="text-base font-medium">Feta/Paghri?</Label>
                       <RadioGroup
-                          value={uniformCompliance.fetaPaghri}
-                          onValueChange={(value) => setUniformCompliance(prev => ({...prev, fetaPaghri: value as 'yes' | 'no' | 'safar'}))}
+                          value={complianceState.fetaPaghri}
+                          onValueChange={(value) => setComplianceState(prev => ({...prev, fetaPaghri: value as 'yes' | 'no' | 'safar'}))}
                           className="flex gap-4 mt-2"
                       >
                           <div className="flex items-center space-x-2">
@@ -708,12 +702,12 @@ export default function MarkAttendancePage() {
                       </RadioGroup>
                   </div>
               )}
-               {currentMiqaatDetails?.uniformRequirements?.koti && (
+               {currentMiqaatDetails?.attendanceRequirements?.koti && (
                   <div>
                       <Label className="text-base font-medium">Koti?</Label>
                       <RadioGroup
-                          value={uniformCompliance.koti}
-                          onValueChange={(value) => setUniformCompliance(prev => ({...prev, koti: value as 'yes' | 'no' | 'safar'}))}
+                          value={complianceState.koti}
+                          onValueChange={(value) => setComplianceState(prev => ({...prev, koti: value as 'yes' | 'no' | 'safar'}))}
                           className="flex gap-4 mt-2"
                       >
                           <div className="flex items-center space-x-2">
@@ -731,13 +725,48 @@ export default function MarkAttendancePage() {
                       </RadioGroup>
                   </div>
               )}
+              {currentMiqaatDetails?.attendanceRequirements?.nazrulMaqam && (
+                <div className="space-y-2">
+                   <Label htmlFor="nazrul-maqam-amount" className="text-base font-medium flex items-center gap-2"><HandCoins />Nazrul Maqam</Label>
+                   <div className="grid grid-cols-3 gap-2">
+                    <Input
+                        id="nazrul-maqam-amount"
+                        type="number"
+                        placeholder="Amount"
+                        value={nazrulMaqamAmount}
+                        onChange={(e) => setNazrulMaqamAmount(e.target.value)}
+                        className="col-span-2"
+                    />
+                     <Select value={nazrulMaqamCurrency} onValueChange={setNazrulMaqamCurrency}>
+                        <SelectTrigger><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="USD">USD</SelectItem>
+                            <SelectItem value="INR">INR</SelectItem>
+                            <SelectItem value="PKR">PKR</SelectItem>
+                            <SelectItem value="AED">AED</SelectItem>
+                            <SelectItem value="GBP">GBP</SelectItem>
+                            <SelectItem value="EUR">EUR</SelectItem>
+                            <SelectItem value="CAD">CAD</SelectItem>
+                            <SelectItem value="AUD">AUD</SelectItem>
+                        </SelectContent>
+                     </Select>
+                   </div>
+                </div>
+              )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsUniformDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setIsComplianceDialogOpen(false)}>Cancel</Button>
             <Button
               onClick={() => {
-                if (memberForUniformCheck) {
-                  finalizeAttendance(memberForUniformCheck, uniformCompliance);
+                if (memberForComplianceCheck) {
+                  let finalComplianceState: UniformComplianceState = { ...complianceState };
+                   if (currentMiqaatDetails?.attendanceRequirements?.nazrulMaqam && nazrulMaqamAmount) {
+                     finalComplianceState.nazrulMaqam = {
+                       amount: parseFloat(nazrulMaqamAmount),
+                       currency: nazrulMaqamCurrency,
+                     };
+                   }
+                  finalizeAttendance(memberForComplianceCheck, finalComplianceState);
                 }
               }}
             >
@@ -750,3 +779,4 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
+
