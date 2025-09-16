@@ -3,8 +3,8 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
@@ -19,6 +19,9 @@ import { format } from "date-fns";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
 import { DialogFooter } from "@/components/ui/dialog";
 import Image from "next/image";
+import Link from "next/link";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+
 
 interface AdminStat {
   title: string;
@@ -71,11 +74,19 @@ export default function DashboardOverviewPage() {
   const [isLoadingAbsentees, setIsLoadingAbsentees] = useState(false);
   const [isAbsenteeAlertOpen, setIsAbsenteeAlertOpen] = useState(true);
   
-  // Form Non-Respondent State
-  const [nonRespondentData, setNonRespondentData] = useState<{ formTitle: string; nonRespondents: User[] } | null>(null);
+  // Non-Respondent Form State (New logic)
+  const [formsWithNonRespondents, setFormsWithNonRespondents] = useState<FormType[]>([]);
+  const [selectedFormForNonRespondents, setSelectedFormForNonRespondents] = useState<string | null>(null);
+  const [nonRespondentList, setNonRespondentList] = useState<User[]>([]);
   const [isNonRespondentSheetOpen, setIsNonRespondentSheetOpen] = useState(false);
   const [isLoadingNonRespondents, setIsLoadingNonRespondents] = useState(false);
   const [isNonRespondentAlertOpen, setIsNonRespondentAlertOpen] = useState(true);
+
+  // Pending Forms State
+  const [pendingForms, setPendingForms] = useState<FormType[]>([]);
+  const [isPendingFormsSheetOpen, setIsPendingFormsSheetOpen] = useState(false);
+  const [isLoadingPendingForms, setIsLoadingPendingForms] = useState(false);
+  const [isPendingFormsAlertOpen, setIsPendingFormsAlertOpen] = useState(true);
 
 
   const [isScannerDialogOpen, setIsScannerDialogOpen] = useState(false);
@@ -144,8 +155,7 @@ export default function DashboardOverviewPage() {
 
     setIsLoadingStats(true);
     let miqaatsLoaded = false;
-    const hasElevatedRoles = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead;
-    let formsLoaded = !hasElevatedRoles;
+    let formsLoaded = false;
     let adminCountsLoaded = !(currentUserRole === 'admin' || currentUserRole === 'superadmin');
 
     const checkAndSetLoadingDone = () => {
@@ -175,8 +185,7 @@ export default function DashboardOverviewPage() {
           if (currentUserRole === 'admin' && currentUserMohallahId) {
             relevantForms = forms.filter(f => {
               const isForAllAssignedMohallahs = f.mohallahIds?.includes(currentUserMohallahId) || false;
-              const isForAllUsers = !f.mohallahIds?.length && !f.teams?.length && !f.eligibleItsIds?.length;
-              return isForAllAssignedMohallahs && !isForAllUsers; // Admin sees only their mohallah's forms
+              return isForAllAssignedMohallahs;
             });
           }
           setTotalFormsCount(relevantForms.length);
@@ -218,7 +227,7 @@ export default function DashboardOverviewPage() {
     return () => {
       unsubscribeMiqaats();
     };
-  }, [isLoadingUser, currentUserItsId, currentUserRole, currentUserMohallahId, isTeamLead]);
+  }, [isLoadingUser, currentUserItsId, currentUserRole, currentUserMohallahId]);
 
    // Effect for Team Lead Absentee Notifications
   useEffect(() => {
@@ -282,12 +291,10 @@ export default function DashboardOverviewPage() {
             if (lastMiqaat.teams && lastMiqaat.teams.length > 0) {
                 isEligible = isEligible || (!!member.team && lastMiqaat.teams.includes(member.team));
             }
-            // If no specific group is targeted, but it's not "for everyone", a member is not eligible unless explicitly listed.
-            // This case should be handled by checking if any eligibility criteria are set. If so, and none match, return false.
             if ((lastMiqaat.mohallahIds?.length || 0) + (lastMiqaat.teams?.length || 0) > 0) {
               return isEligible;
             }
-            return isForEveryone; // Fallback to isForEveryone if no specific groups are set
+            return isForEveryone;
         });
 
         const attendedItsIds = new Set(lastMiqaat.attendance?.map(a => a.userItsId) || []);
@@ -308,92 +315,155 @@ export default function DashboardOverviewPage() {
 
   }, [isTeamLead, allMiqaatsList, currentUser]);
 
-  // Effect for Form Non-Respondents
-  useEffect(() => {
+  const fetchAndSetNonRespondents = useCallback(async () => {
     if (!isTeamLead || allForms.length === 0 || !currentUser) {
         return;
     }
+    setIsLoadingNonRespondents(true);
+    setFormsWithNonRespondents([]);
 
-    let unsubscribe: (() => void) | undefined;
+    try {
+        const allUsers = await getUsers();
+        const userResponses = await getFormResponsesForUser(currentUser.itsId);
+        const respondedFormIds = new Set(userResponses.map(r => r.formId));
+        
+        const activeForms = allForms.filter(f => f.status === 'open' && (!f.endDate || new Date(f.endDate) > new Date()));
+        
+        let visibleUsers: User[] = [];
+        if (currentUser.role === 'admin' && currentUser.mohallahId) {
+            visibleUsers = allUsers.filter(u => u.mohallahId === currentUser.mohallahId);
+        } else if (currentUser.role === 'superadmin') {
+            visibleUsers = allUsers;
+        } else if (currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) {
+            if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
+                visibleUsers = allUsers.filter(u => u.mohallahId === currentUser.mohallahId);
+            } else if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
+                const managedTeamsSet = new Set(currentUser.managedTeams);
+                visibleUsers = allUsers.filter(u => u.team && managedTeamsSet.has(u.team) && u.mohallahId === currentUser.mohallahId);
+            } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
+                visibleUsers = allUsers.filter(u => u.team === currentUser.team && u.mohallahId === currentUser.mohallahId);
+            }
+        }
 
-    const checkNonRespondents = async () => {
-        setIsLoadingNonRespondents(true);
-        setNonRespondentData(null);
+        const formsWithMissing = activeForms.filter(form => {
+            const eligibleUsersForForm = visibleUsers.filter(user => {
+                const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
+                if (isForEveryone) return true;
+                const inMohallah = form.mohallahIds?.includes(user.mohallahId || '');
+                const inTeam = form.teams?.includes(user.team || '');
+                const inItsId = form.eligibleItsIds?.includes(user.itsId);
+                return !!(inMohallah || inTeam || inItsId);
+            });
+
+            if (eligibleUsersForForm.length === 0) return false;
+
+            const respondedItsIds = new Set();
+            (form as any).responses?.forEach((resp: any) => respondedItsIds.add(resp.submittedBy));
+            const hasNonRespondents = eligibleUsersForForm.some(user => !respondedItsIds.has(user.itsId));
+
+            return hasNonRespondents;
+        });
+
+        setFormsWithNonRespondents(formsWithMissing);
+
+    } catch (error) {
+        console.error("Error checking for form non-respondents:", error);
+    } finally {
+        setIsLoadingNonRespondents(false);
+    }
+  }, [isTeamLead, allForms, currentUser]);
+
+  useEffect(() => {
+    fetchAndSetNonRespondents();
+  }, [fetchAndSetNonRespondents]);
+
+  const handleNonRespondentFormSelect = async (formId: string) => {
+    setSelectedFormForNonRespondents(formId);
+    setNonRespondentList([]);
+    if (!formId) return;
+
+    try {
+        const selectedForm = allForms.find(f => f.id === formId);
+        if (!selectedForm) return;
+
+        const allUsers = await getUsers();
+        const userResponses = await getFormResponsesForUser(currentUser.itsId); // This may not be correct
+        const allFormResponses = await getFormResponsesForUser(formId); // Need a way to get all responses for a form
+        const respondedItsIds = new Set(allFormResponses.map(r => r.submittedBy));
+        
+        let visibleUsers: User[] = [];
+         if (currentUser.role === 'admin' && currentUser.mohallahId) {
+            visibleUsers = allUsers.filter(u => u.mohallahId === currentUser.mohallahId);
+        } else if (currentUser.role === 'superadmin') {
+            visibleUsers = allUsers;
+        } else if (currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) {
+            if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
+                visibleUsers = allUsers.filter(u => u.mohallahId === currentUser.mohallahId);
+            } else if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
+                const managedTeamsSet = new Set(currentUser.managedTeams);
+                visibleUsers = allUsers.filter(u => u.team && managedTeamsSet.has(u.team) && u.mohallahId === currentUser.mohallahId);
+            } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
+                visibleUsers = allUsers.filter(u => u.team === currentUser.team && u.mohallahId === currentUser.mohallahId);
+            }
+        }
+        
+        const nonRespondents = visibleUsers.filter(user => {
+            const isForEveryone = !selectedForm.mohallahIds?.length && !selectedForm.teams?.length && !selectedForm.eligibleItsIds?.length;
+            if (!isForEveryone) {
+                const inMohallah = selectedForm.mohallahIds?.includes(user.mohallahId || '');
+                const inTeam = selectedForm.teams?.includes(user.team || '');
+                const inItsId = selectedForm.eligibleItsIds?.includes(user.itsId);
+                if (!inMohallah && !inTeam && !inItsId) return false;
+            }
+            return !respondedItsIds.has(user.itsId);
+        });
+
+        setNonRespondentList(nonRespondents);
+
+    } catch (e) { console.error("Could not load non-respondents for selected form", e)}
+  };
+  
+  // Effect for User's Pending Forms
+  useEffect(() => {
+    if (isLoadingUser || !currentUser) return;
+    setIsLoadingPendingForms(true);
+
+    const checkPendingForms = async () => {
         try {
-            const latestActiveForm = allForms.find(f => f.status === 'open');
-            if (!latestActiveForm) {
-                setIsLoadingNonRespondents(false);
+            const allActiveForms = allForms.filter(f => f.status === 'open' && (!f.endDate || new Date(f.endDate) > new Date()));
+            if(allActiveForms.length === 0) {
+                setPendingForms([]);
+                setIsLoadingPendingForms(false);
                 return;
             }
-
-            const allUsers = await getUsers();
-            
-            let eligibleUsers: User[];
-
-            // Determine users eligible for the form
-            if (latestActiveForm.eligibleItsIds && latestActiveForm.eligibleItsIds.length > 0) {
-                const eligibleIdSet = new Set(latestActiveForm.eligibleItsIds);
-                eligibleUsers = allUsers.filter(user => eligibleIdSet.has(user.itsId));
-            } else {
-                 const isForEveryone = !latestActiveForm.mohallahIds?.length && !latestActiveForm.teams?.length;
-                 eligibleUsers = allUsers.filter(user => {
-                    if (isForEveryone) return true;
-                    const inMohallah = latestActiveForm.mohallahIds?.includes(user.mohallahId || '');
-                    const inTeam = latestActiveForm.teams?.includes(user.team || '');
-                    return !!(inMohallah || inTeam);
-                 });
-            }
-
-            // Filter the eligible users based on the current viewer's permissions
-            let visibleEligibleUsers = eligibleUsers;
-             if (currentUser.role === 'admin' && currentUser.mohallahId) {
-                visibleEligibleUsers = eligibleUsers.filter(user => user.mohallahId === currentUser.mohallahId);
-            } else if (currentUser.role !== 'superadmin' && currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) {
-                if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
-                    // Captains see everyone in the eligible list within their mohallah
-                    visibleEligibleUsers = eligibleUsers.filter(user => user.mohallahId === currentUser.mohallahId);
-                } else if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
-                    // Vice Captains see their division
-                    const managedTeamsSet = new Set(currentUser.managedTeams);
-                    visibleEligibleUsers = eligibleUsers.filter(user => user.team && managedTeamsSet.has(user.team) && user.mohallahId === currentUser.mohallahId);
-                } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
-                    // Group Leaders see their specific team
-                    visibleEligibleUsers = eligibleUsers.filter(user => user.team === currentUser.team && user.mohallahId === currentUser.mohallahId);
-                }
-            }
-
-
-            if (visibleEligibleUsers.length === 0) {
-                setIsLoadingNonRespondents(false);
-                return;
-            }
-            
             const userResponses = await getFormResponsesForUser(currentUser.itsId);
             const respondedFormIds = new Set(userResponses.map(r => r.formId));
 
-            const nonRespondents = visibleEligibleUsers.filter(member => !respondedFormIds.has(latestActiveForm.id));
+            const formsToFill = allActiveForms.filter(form => {
+                if (respondedFormIds.has(form.id)) return false;
+                
+                const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
+                if (isForEveryone) return true;
 
-            if (nonRespondents.length > 0) {
-                setNonRespondentData({ formTitle: latestActiveForm.title, nonRespondents });
-            } else {
-                setNonRespondentData(null);
-            }
-            setIsLoadingNonRespondents(false);
+                const eligibleById = form.eligibleItsIds?.includes(currentUser.itsId) || false;
+                const eligibleByTeam = !!currentUser.team && (form.teams?.includes(currentUser.team) || false);
+                const eligibleByMohallah = !!currentUser.mohallahId && (form.mohallahIds?.includes(currentUser.mohallahId) || false);
+
+                return eligibleById || eligibleByTeam || eligibleByMohallah;
+            });
+
+            setPendingForms(formsToFill);
 
         } catch (error) {
-            console.error("Error checking for form non-respondents:", error);
-            setIsLoadingNonRespondents(false);
+            console.error("Error fetching user's pending forms:", error);
+        } finally {
+            setIsLoadingPendingForms(false);
         }
     };
+    checkPendingForms();
 
-    checkNonRespondents();
+  }, [isLoadingUser, currentUser, allForms]);
 
-    return () => {
-        if (unsubscribe) {
-            unsubscribe();
-        }
-    };
-  }, [isTeamLead, allForms, currentUser]);
 
   const handleQrCodeScanned = useCallback(async (decodedText: string) => {
     if (!currentUserItsId || !currentUserName) {
@@ -445,10 +515,9 @@ export default function DashboardOverviewPage() {
     }
 
     let isEligible = false;
-    // Check specific eligibility first
     if (targetMiqaat.eligibleItsIds && targetMiqaat.eligibleItsIds.length > 0) {
       isEligible = targetMiqaat.eligibleItsIds.includes(currentUserItsId);
-    } else { // Fallback to group eligibility
+    } else {
       isEligible = !targetMiqaat.mohallahIds || targetMiqaat.mohallahIds.length === 0 || (!!currentUserMohallahId && targetMiqaat.mohallahIds.includes(currentUserMohallahId));
     }
 
@@ -515,7 +584,7 @@ export default function DashboardOverviewPage() {
 
     if (isScannerDialogOpen) {
       setScannerError(null);
-      setIsScannerActive(false); // Initially set to false, will be true once camera starts
+      setIsScannerActive(false);
 
       initDelay = setTimeout(() => {
         const qrReaderDiv = document.getElementById(qrReaderElementId);
@@ -524,7 +593,7 @@ export default function DashboardOverviewPage() {
           setScannerError("Scanner UI element not found. Please refresh.");
           return;
         }
-        qrReaderDiv.innerHTML = ''; // Clear previous content
+        qrReaderDiv.innerHTML = '';
 
         try {
           console.log("Attempting to initialize Html5Qrcode instance...");
@@ -537,20 +606,18 @@ export default function DashboardOverviewPage() {
           scannerInstance.start(
             { facingMode: facingMode },
             config,
-            (decodedText, decodedResult) => { // Success callback
+            (decodedText, decodedResult) => {
               console.log("QR Code Scanned:", decodedText);
               if (html5QrCodeRef.current?.getState() === Html5QrcodeScannerState.SCANNING) {
-                // Stop scanner before processing to prevent multiple scans
                  html5QrCodeRef.current.stop().catch(err => {
-                  console.warn("Scanner stop error on successful scan:", err); // Log but proceed
+                  console.warn("Scanner stop error on successful scan:", err);
                 });
               }
-              setIsScannerActive(false); // Indicate scanning has stopped
+              setIsScannerActive(false);
               handleQrCodeScanned(decodedText);
             },
-            (errorMessageFromLib) => { // Per-frame error/info callback
+            (errorMessageFromLib) => {
                console.debug("QR Scan frame error/info:", errorMessageFromLib);
-               // Typically "QR code not found", can be ignored or handled if specific errors arise
             }
           )
             .then(() => {
@@ -570,7 +637,6 @@ export default function DashboardOverviewPage() {
               console.error("Error starting QR scanner:", err, errorMsg);
               setScannerError(errorMsg);
               setIsScannerActive(false);
-              // Ensure scanner is stopped if start failed but it thinks it's scanning
               if (html5QrCodeRef.current?.getState() === Html5QrcodeScannerState.SCANNING) {
                 html5QrCodeRef.current.stop().catch(stopErr => console.warn("Defensive stop failed after start error:", stopErr));
               }
@@ -586,23 +652,22 @@ export default function DashboardOverviewPage() {
           setScannerError(errorMsg);
           setIsScannerActive(false);
         }
-      }, 100); // Small delay to ensure DOM element is available
+      }, 100);
     } else {
-      // Dialog is not open, ensure scanner is stopped
       if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
         console.log("Scanner dialog closed by onOpenChange or external state, stopping scanner.");
         html5QrCodeRef.current.stop()
           .then(() => console.log("Scanner stopped: dialog closed via onOpenChange."))
           .catch(err => console.error("Error stopping scanner on dialog onOpenChange close:", err));
       }
-      setIsScannerActive(false); // Ensure state reflects scanner is off
-      setIsProcessingScan(false); // Reset processing state
-      setScannerError(null); // Clear any old errors
+      setIsScannerActive(false);
+      setIsProcessingScan(false);
+      setScannerError(null);
     }
 
     return () => {
       clearTimeout(initDelay);
-      const currentScanner = html5QrCodeRef.current; // Capture ref for cleanup
+      const currentScanner = html5QrCodeRef.current;
       if (currentScanner && currentScanner.getState() === Html5QrcodeScannerState.SCANNING) {
         console.log("Scanner effect cleanup: stopping scanner.");
         currentScanner.stop()
@@ -610,11 +675,10 @@ export default function DashboardOverviewPage() {
           .catch(err => console.error("Error stopping scanner in effect cleanup:", err));
       }
     };
-  }, [isScannerDialogOpen, facingMode, handleQrCodeScanned]); // handleQrCodeScanned is now a dependency
+  }, [isScannerDialogOpen, facingMode, handleQrCodeScanned]);
 
-  // Component unmount cleanup
   useEffect(() => {
-    const scannerOnUnmount = html5QrCodeRef.current; // Capture ref for unmount cleanup
+    const scannerOnUnmount = html5QrCodeRef.current;
     return () => {
       if (scannerOnUnmount && scannerOnUnmount.getState() === Html5QrcodeScannerState.SCANNING) {
         console.log("Component unmounting: stopping scanner.");
@@ -626,8 +690,7 @@ export default function DashboardOverviewPage() {
   }, []);
 
   const handleSwitchCamera = () => {
-    if (isProcessingScan || !isScannerDialogOpen) return; // Don't switch if processing or dialog is closed
-    // Changing facingMode will trigger the useEffect to stop and restart the scanner
+    if (isProcessingScan || !isScannerDialogOpen) return;
     setFacingMode(prevMode => (prevMode === 'user' ? 'environment' : 'user'));
   };
 
@@ -651,10 +714,12 @@ export default function DashboardOverviewPage() {
   const statsToDisplay = (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead) ? adminOverviewStats : [];
   
   if (currentUserRole === 'attendance-marker') {
-      statsToDisplay.splice(4, 2); // Remove member and mohallah counts for attendance-marker
+      statsToDisplay.splice(4, 2);
   }
 
-  const shouldRenderAlerts = isTeamLead && !isLoadingAbsentees && ((absenteeData && isAbsenteeAlertOpen) || (nonRespondentData && isNonRespondentAlertOpen));
+  const shouldRenderMiqaatAlert = isTeamLead && !isLoadingAbsentees && (absenteeData && isAbsenteeAlertOpen);
+  const shouldRenderFormAlert = pendingForms.length > 0 && isPendingFormsAlertOpen && !isTeamLead;
+  const shouldRenderNonRespondentAlert = isTeamLead && !isLoadingNonRespondents && formsWithNonRespondents.length > 0 && isNonRespondentAlertOpen;
 
 
   if (isLoadingUser && !currentUserItsId) {
@@ -673,9 +738,9 @@ export default function DashboardOverviewPage() {
   return (
     <div className="flex flex-col h-full">
        <div className="flex-grow space-y-6">
-        {shouldRenderAlerts && (
+          {(shouldRenderMiqaatAlert || shouldRenderFormAlert || shouldRenderNonRespondentAlert) && (
           <div className="space-y-4">
-            {absenteeData && isAbsenteeAlertOpen && (
+            {shouldRenderMiqaatAlert && absenteeData && (
               <Alert variant="destructive" className="relative">
                 <UserX className="h-4 w-4" />
                 <AlertTitle>Miqaat Attendance Alert</AlertTitle>
@@ -692,17 +757,34 @@ export default function DashboardOverviewPage() {
               </Alert>
             )}
 
-            {nonRespondentData && isNonRespondentAlertOpen && (
+            {shouldRenderNonRespondentAlert && (
               <Alert variant="default" className="relative border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-200 dark:border-amber-500/30">
                 <FileText className="h-4 w-4 text-amber-700 dark:text-amber-300" />
-                <AlertTitle className="text-amber-800 dark:text-amber-200">Form Response Alert</AlertTitle>
+                <AlertTitle className="text-amber-800 dark:text-amber-200">Form Non-Respondent Alert</AlertTitle>
                 <AlertDescription className="flex justify-between items-center pr-8 text-amber-700 dark:text-amber-300">
                   <span>
-                    For <span className="font-semibold">{nonRespondentData.formTitle}</span>, <span className="font-bold">{nonRespondentData.nonRespondents.length}</span> member(s) have not responded.
+                    You have non-respondents for <span className="font-bold">{formsWithNonRespondents.length}</span> active form(s).
                   </span>
                   <Button variant="outline" size="sm" onClick={() => setIsNonRespondentSheetOpen(true)} className="ml-4 border-amber-500/50 hover:bg-amber-500/20">View List</Button>
                 </AlertDescription>
                 <button onClick={() => setIsNonRespondentAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-amber-700/70 hover:text-amber-700 hover:bg-amber-500/10">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </button>
+              </Alert>
+            )}
+            
+            {shouldRenderFormAlert && (
+               <Alert variant="default" className="relative border-blue-500/50 bg-blue-500/10 text-blue-800 dark:text-blue-200 dark:border-blue-500/30">
+                <FileText className="h-4 w-4 text-blue-700 dark:text-blue-300" />
+                <AlertTitle className="text-blue-800 dark:text-blue-200">Pending Forms</AlertTitle>
+                <AlertDescription className="flex justify-between items-center pr-8 text-blue-700 dark:text-blue-300">
+                  <span>
+                    You have <span className="font-bold">{pendingForms.length}</span> form(s) that need to be filled out.
+                  </span>
+                  <Button variant="outline" size="sm" onClick={() => setIsPendingFormsSheetOpen(true)} className="ml-4 border-blue-500/50 hover:bg-blue-500/20">View Forms</Button>
+                </AlertDescription>
+                <button onClick={() => setIsPendingFormsAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-blue-700/70 hover:text-blue-700 hover:bg-blue-500/10">
                   <X className="h-4 w-4" />
                   <span className="sr-only">Close</span>
                 </button>
@@ -780,15 +862,15 @@ export default function DashboardOverviewPage() {
 
       <Dialog open={isScannerDialogOpen} onOpenChange={(open) => {
         setIsScannerDialogOpen(open);
-        if (!open) { // Dialog is closing
+        if (!open) {
           if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
             html5QrCodeRef.current.stop()
               .then(() => console.log("Scanner stopped: dialog closed via onOpenChange."))
               .catch(err => console.error("Error stopping scanner on dialog onOpenChange close:", err));
           }
-          setIsScannerActive(false); // Ensure UI reflects scanner is off
-          setIsProcessingScan(false); // Reset processing state
-          setScannerError(null); // Clear any old errors
+          setIsScannerActive(false);
+          setIsProcessingScan(false);
+          setScannerError(null);
         }
       }}>
         <DialogContent className="sm:max-w-md p-0">
@@ -872,35 +954,96 @@ export default function DashboardOverviewPage() {
       </Sheet>
 
       <Sheet open={isNonRespondentSheetOpen} onOpenChange={setIsNonRespondentSheetOpen}>
+          <SheetContent className="w-full sm:max-w-lg">
+              <SheetHeader>
+                  <SheetTitle>Non-Respondent List</SheetTitle>
+                  <SheetDescription>
+                      Select a form to see which members have not yet responded.
+                  </SheetDescription>
+              </SheetHeader>
+              <div className="py-4 space-y-4">
+                  <Select onValueChange={handleNonRespondentFormSelect} value={selectedFormForNonRespondents || ""}>
+                      <SelectTrigger>
+                          <SelectValue placeholder="Select an active form..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {formsWithNonRespondents.map(form => (
+                              <SelectItem key={form.id} value={form.id}>
+                                  {form.title}
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+
+                  <Separator />
+                  
+                  <div className="max-h-[60vh] overflow-y-auto pr-2">
+                      {selectedFormForNonRespondents ? (
+                          nonRespondentList.length > 0 ? (
+                              <ul className="space-y-2">
+                                  {nonRespondentList.map(member => (
+                                      <li key={member.id} className="flex justify-between items-center p-2 rounded-md border">
+                                          <div>
+                                              <p className="font-medium">{member.name}</p>
+                                              <p className="text-xs text-muted-foreground">Team: {member.team || 'N/A'}</p>
+                                          </div>
+                                          <span className="text-sm text-muted-foreground">ITS: {member.itsId}</span>
+                                      </li>
+                                  ))}
+                              </ul>
+                          ) : (
+                              <p className="text-center text-muted-foreground py-4">
+                                  All eligible members in your scope have responded to this form.
+                              </p>
+                          )
+                      ) : (
+                          <p className="text-center text-muted-foreground py-4">Please select a form to view the list.</p>
+                      )}
+                  </div>
+              </div>
+              <SheetFooter>
+                  <Button onClick={() => setIsNonRespondentSheetOpen(false)}>Close</Button>
+              </SheetFooter>
+          </SheetContent>
+      </Sheet>
+      
+      <Sheet open={isPendingFormsSheetOpen} onOpenChange={setIsPendingFormsSheetOpen}>
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>Non-Respondents for {nonRespondentData?.formTitle}</SheetTitle>
+            <SheetTitle>Pending Forms To-Do List</SheetTitle>
             <SheetDescription>
-              The following members from your team(s) have not yet responded to this form.
+              You have {pendingForms.length} form(s) that need to be filled out.
             </SheetDescription>
           </SheetHeader>
           <div className="max-h-[80vh] overflow-y-auto my-4 pr-4">
-            {nonRespondentData && nonRespondentData.nonRespondents.length > 0 ? (
-              <ul className="space-y-2">
-                {nonRespondentData.nonRespondents.map(member => (
-                  <li key={member.id} className="flex justify-between items-center p-2 rounded-md border">
-                    <div>
-                        <p className="font-medium">{member.name}</p>
-                        <p className="text-xs text-muted-foreground">BGK: {member.bgkId || 'N/A'}</p>
-                    </div>
-                    <span className="text-sm text-muted-foreground">ITS: {member.itsId}</span>
+            {isLoadingPendingForms ? (
+              <div className="flex items-center justify-center p-4">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : pendingForms.length > 0 ? (
+              <ul className="space-y-3">
+                {pendingForms.map(form => (
+                  <li key={form.id}>
+                    <Link href={`/dashboard/forms/${form.id}`} onClick={() => setIsPendingFormsSheetOpen(false)} className="block p-3 rounded-md border hover:bg-accent transition-colors">
+                        <p className="font-medium">{form.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                            {form.endDate ? `Due: ${format(new Date(form.endDate), "PP")}` : "No deadline"}
+                        </p>
+                    </Link>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-muted-foreground text-center">No non-respondents to display.</p>
+              <p className="text-muted-foreground text-center">You're all caught up! No pending forms.</p>
             )}
           </div>
           <SheetFooter>
-             <Button onClick={() => setIsNonRespondentSheetOpen(false)}>Close</Button>
+             <Button onClick={() => setIsPendingFormsSheetOpen(false)}>Close</Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
     </div>
   );
 }
+
