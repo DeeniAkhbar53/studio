@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import Link from "next/link";
@@ -17,7 +16,7 @@ interface NavItem {
 }
 
 const ESSENTIAL_PATHS = ["/dashboard", "/dashboard/profile", "/dashboard/notifications"];
-const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader"];
+const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
 
 export const allNavItems: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: Home },
@@ -79,11 +78,11 @@ export const allNavItems: NavItem[] = [
 
 function SidebarNavSkeleton() {
   return (
-    <nav className="flex flex-col gap-2 p-4 text-sm font-medium">
-      {[...Array(5)].map((_, i) => (
-        <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2 bg-muted/30 h-8 animate-pulse">
-          <div className="h-4 w-4 bg-muted rounded-sm shrink-0" />
-          <div className="h-3 bg-muted rounded-sm flex-grow " />
+    <nav className="flex flex-col gap-1 p-2">
+      {[...Array(8)].map((_, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2 bg-sidebar-accent/30 h-8 animate-pulse">
+          <div className="h-4 w-4 bg-sidebar-accent/50 rounded-sm shrink-0" />
+          <div className="h-3 bg-sidebar-accent/50 rounded-sm flex-grow " />
         </div>
       ))}
     </nav>
@@ -234,5 +233,3 @@ export function SidebarNav() {
     </nav>
   );
 }
-
-    
