@@ -41,13 +41,13 @@
     --chart-5: 27 87% 67%;
 
     /* Sidebar specific colors (can be adjusted based on primary theme) */
-    --sidebar-background: 0 0% 0%; /* Black for sidebar */
+    --sidebar-background: 220 20% 20%; /* Dark Blue-Gray for sidebar */
     --sidebar-foreground: 0 0% 95%; /* Off-white/light gray for text */
     --sidebar-primary: 45 100% 51%; /* Golden for active items in sidebar */
-    --sidebar-primary-foreground: 0 0% 100%; /* White text for active sidebar item */
-    --sidebar-accent: 230 30% 25%; /* Hover/accent in sidebar */
+    --sidebar-primary-foreground: 20 100% 15%; /* Dark text for active sidebar item */
+    --sidebar-accent: 220 20% 25%; /* Hover/accent in sidebar */
     --sidebar-accent-foreground: 0 0% 100%; /* White text for sidebar accent hover */
-    --sidebar-border: 230 30% 20%;
+    --sidebar-border: 220 20% 25%;
     --sidebar-ring: 260 47% 63%; /* Soft purple for focus ring in sidebar */
   }
 
@@ -80,13 +80,13 @@
     --input: 220 15% 25%;
     --ring: 45 100% 51%; /* Golden Yellow for focus rings in dark mode */
     
-    --sidebar-background: 220 15% 10%; 
+    --sidebar-background: 220 15% 18%; 
     --sidebar-foreground: 0 0% 95%; /* Off-white/light gray for text */
     --sidebar-primary: 45 100% 51%; 
-    --sidebar-primary-foreground: 0 0% 100%; /* White text for active sidebar item in dark theme */
-    --sidebar-accent: 220 15% 20%; 
+    --sidebar-primary-foreground: 20 100% 15%;
+    --sidebar-accent: 220 15% 22%; 
     --sidebar-accent-foreground: 0 0% 100%; /* White text for dark theme sidebar accent hover */
-    --sidebar-border: 220 15% 18%;
+    --sidebar-border: 220 15% 25%;
     --sidebar-ring: 260 60% 70%;
   }
 }
