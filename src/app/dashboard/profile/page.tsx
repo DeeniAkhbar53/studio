@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AttendanceRecord, User, Mohallah, Miqaat, UserDesignation, FormResponse, Form } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, Loader2, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle } from "lucide-react";
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
@@ -19,6 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import type { Unsubscribe } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FunkyLoader } from "@/components/ui/funky-loader";
 
 const GROUP_LEADER_DESIGNATION: UserDesignation = "Group Leader";
 const ASST_GROUP_LEADER_DESIGNATION: UserDesignation = "Asst.Grp Leader";
@@ -266,8 +267,7 @@ export default function ProfilePage() {
   if (isLoading && !user) {
     return (
       <div className="flex items-center justify-center h-full py-10">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Loading profile...</p>
+        <FunkyLoader size="lg">Loading profile...</FunkyLoader>
       </div>
     );
   }
@@ -360,8 +360,7 @@ export default function ProfilePage() {
             <CardContent className="p-6">
               {isLoadingHistory ? (
                 <div className="flex items-center justify-center py-10">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                  <p className="ml-2 text-muted-foreground">Loading attendance history...</p>
+                  <FunkyLoader>Loading attendance history...</FunkyLoader>
                 </div>
               ) : historyError ? (
                  <div className="text-center py-10">
@@ -450,8 +449,7 @@ export default function ProfilePage() {
              <CardContent className="p-6">
                 {isLoadingFormHistory ? (
                   <div className="flex items-center justify-center py-10">
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    <p className="ml-2 text-muted-foreground">Loading form history...</p>
+                    <FunkyLoader>Loading form history...</FunkyLoader>
                   </div>
                 ) : formHistoryError ? (
                   <div className="text-center py-10">

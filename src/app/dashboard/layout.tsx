@@ -7,8 +7,8 @@ import { Header } from "@/components/dashboard/header";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import Link from "next/link";
 import Image from "next/image";
-import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { FunkyLoader } from "@/components/ui/funky-loader";
 
 // FCM specific imports
 import { getMessaging, getToken, onMessage, MessagePayload } from "firebase/messaging";
@@ -191,7 +191,7 @@ export default function DashboardLayout({
   if (isAuthenticated === null) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <FunkyLoader size="lg">Initializing Session...</FunkyLoader>
       </div>
     );
   }

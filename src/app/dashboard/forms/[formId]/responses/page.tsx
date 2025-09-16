@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX, Star } from "lucide-react";
+import { ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX, Star } from "lucide-react";
 import type { FormResponse, UserRole, UserDesignation, User, Form as FormType, Mohallah } from "@/types";
 import { getFormResponsesRealtime, deleteFormResponse, getForm } from "@/lib/firebase/formService";
 import { getUsers, getUserByItsOrBgkId } from "@/lib/firebase/userService";
@@ -20,6 +20,7 @@ import Papa from "papaparse";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
+import { FunkyLoader } from "@/components/ui/funky-loader";
 
 const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
 const TOP_LEVEL_LEADERS: UserDesignation[] = ["Major", "Captain"];
@@ -294,7 +295,7 @@ export default function ViewResponsesPage() {
     if (isLoading || !currentUser || allMohallahs.length === 0) {
         return (
             <div className="flex h-screen items-center justify-center">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <FunkyLoader size="lg">Loading Responses...</FunkyLoader>
             </div>
         );
     }

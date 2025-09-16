@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, FileText, Loader2, Users, MoreHorizontal, Edit, Trash2, Calendar, Eye, CheckCircle, XCircle, Pencil, Clock } from "lucide-react";
+import { PlusCircle, FileText, Users, MoreHorizontal, Edit, Trash2, Calendar, Eye, CheckCircle, XCircle, Pencil, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Form as FormType, User } from "@/types";
 import { getForms, deleteForm, updateFormStatus } from "@/lib/firebase/formService";
@@ -24,6 +24,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
+import { FunkyLoader } from "@/components/ui/funky-loader";
 
 export default function FormsListPage() {
     const router = useRouter();
@@ -143,8 +144,7 @@ export default function FormsListPage() {
                 <CardContent>
                     {isLoading ? (
                          <div className="flex justify-center items-center py-20">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            <p className="ml-2 text-muted-foreground">Loading forms...</p>
+                            <FunkyLoader>Loading forms...</FunkyLoader>
                         </div>
                     ) : filteredForms.length === 0 ? (
                         <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">

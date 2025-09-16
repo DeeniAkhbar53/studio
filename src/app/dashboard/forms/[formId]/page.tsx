@@ -15,7 +15,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form as UIForm, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2, Lock, Star, Calendar as CalendarIcon, ShieldAlert } from "lucide-react";
+import { FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2, Lock, Star, Calendar as CalendarIcon, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Form as FormType, FormResponse, User } from "@/types";
 import { getForm, addFormResponse, checkIfUserHasResponded } from "@/lib/firebase/formService";
@@ -26,6 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { FunkyLoader } from "@/components/ui/funky-loader";
 
 // Helper function to generate schema based on current form values for conditional logic
 const generateDynamicFormSchema = (form: FormType, getValues: () => any) => {
@@ -417,7 +418,7 @@ export default function FillFormPage() {
     if (isLoading || hasAlreadyResponded === null || !currentUser || isEligible === null) {
         return (
             <div className="flex h-screen items-center justify-center bg-muted p-4">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <FunkyLoader size="lg">Loading Form...</FunkyLoader>
             </div>
         );
     }
@@ -574,7 +575,7 @@ export default function FillFormPage() {
                         
                         <div className="flex justify-end pt-4">
                             <Button type="submit" size="lg" className="min-w-[150px]" disabled={responseForm.formState.isSubmitting}>
-                                {responseForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                                {responseForm.formState.isSubmitting && <FunkyLoader size="sm" />}
                                 <Send className="mr-2 h-4 w-4" />
                                 Submit Response
                             </Button>

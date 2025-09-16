@@ -6,7 +6,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { FunkyLoader } from '@/components/ui/funky-loader';
 
 export default function ScanAttendancePageRemoved() {
   const router = useRouter();
@@ -18,8 +18,7 @@ export default function ScanAttendancePageRemoved() {
 
   return (
     <div className="flex flex-col flex-1 items-center justify-center h-full">
-      <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      <p className="mt-4 text-muted-foreground">This page is no longer available. Redirecting...</p>
+      <FunkyLoader size="lg">Redirecting...</FunkyLoader>
     </div>
   );
 }

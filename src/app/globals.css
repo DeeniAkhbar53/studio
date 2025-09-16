@@ -103,3 +103,36 @@
     font-family: var(--font-geist-sans);
   }
 }
+
+@layer utilities {
+  .bouncing-loader {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .bouncing-loader > div {
+    width: 1rem;
+    height: 1rem;
+    margin: 0.25rem;
+    background: hsl(var(--primary));
+    border-radius: 50%;
+    animation: bouncing-loader 1.4s infinite ease-in-out both;
+  }
+
+  .bouncing-loader .bounce1 {
+    animation-delay: -0.32s;
+  }
+
+  .bouncing-loader .bounce2 {
+    animation-delay: -0.16s;
+  }
+
+  @keyframes bouncing-loader {
+    0%, 80%, 100% {
+      transform: scale(0);
+    } 40% {
+      transform: scale(1.0);
+    }
+  }
+}

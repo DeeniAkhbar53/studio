@@ -4,11 +4,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { NotificationItem, UserRole } from "@/types";
-import { Bell, Info, Loader2 } from "lucide-react";
+import { Bell, Info } from "lucide-react";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 import { getNotificationsForUser, markNotificationAsRead } from "@/lib/firebase/notificationService";
 import { useToast } from "@/hooks/use-toast";
+import { FunkyLoader } from "@/components/ui/funky-loader";
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -77,8 +78,7 @@ export default function NotificationsPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center h-full py-10">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Loading notifications...</p>
+        <FunkyLoader size="lg">Loading notifications...</FunkyLoader>
       </div>
     );
   }
