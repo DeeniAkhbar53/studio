@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { Miqaat, UserRole, Mohallah, User } from "@/types";
-import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt, Clock, CheckCircle, XCircle } from "lucide-react"; 
+import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt, Clock, CheckCircle, XCircle, Copy } from "lucide-react"; 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
@@ -146,7 +146,11 @@ export default function MiqaatManagementPage() {
   }, [isAuthorized]);
 
   useEffect(() => {
-    if (editingMiqaat) {
+    if (!isDialogOpen) {
+      setEditingMiqaat(null);
+    }
+    
+    if (editingMiqaat && isDialogOpen) {
       let type: 'groups' | 'specific_members' = 'groups';
       if (editingMiqaat.eligibleItsIds && editingMiqaat.eligibleItsIds.length > 0) {
         type = 'specific_members';
@@ -165,7 +169,7 @@ export default function MiqaatManagementPage() {
         barcodeData: editingMiqaat.barcodeData || "",
         uniformRequirements: editingMiqaat.uniformRequirements || { fetaPaghri: false, koti: false },
       });
-    } else {
+    } else if (!isDialogOpen) {
       form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", eligibilityType: "groups", mohallahIds: [], teams: [], eligibleItsIds: [], barcodeData: "", uniformRequirements: { fetaPaghri: false, koti: false } });
     }
   }, [editingMiqaat, form, isDialogOpen]);
@@ -203,6 +207,34 @@ export default function MiqaatManagementPage() {
 
   const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements">) => {
     setEditingMiqaat(miqaat);
+    setIsDialogOpen(true);
+  };
+  
+  const handleDuplicate = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements">) => {
+    setEditingMiqaat(null); // Ensure we are in "create" mode
+    
+    let type: 'groups' | 'specific_members' = 'groups';
+    if (miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0) {
+      type = 'specific_members';
+    }
+
+    form.reset({
+      name: `${miqaat.name} - Copy`,
+      location: miqaat.location || "",
+      // Reset dates
+      startTime: "",
+      endTime: "",
+      reportingTime: "",
+      // Copy eligibility
+      eligibilityType: type,
+      mohallahIds: miqaat.mohallahIds || [],
+      teams: miqaat.teams || [],
+      eligibleItsIds: miqaat.eligibleItsIds || [],
+      uniformRequirements: miqaat.uniformRequirements || { fetaPaghri: false, koti: false },
+      // Reset barcode
+      barcodeData: "",
+    });
+    
     setIsDialogOpen(true);
   };
 
@@ -483,6 +515,9 @@ export default function MiqaatManagementPage() {
                                 </Button>
                                 {currentUserRole === 'admin' || currentUserRole === 'superadmin' ? (
                                     <>
+                                        <Button variant="outline" size="sm" onClick={() => handleDuplicate(miqaat)}>
+                                            <Copy className="mr-2 h-4 w-4"/> Duplicate
+                                        </Button>
                                         <Button variant="outline" size="sm" onClick={() => handleEdit(miqaat)}>
                                             <Edit className="mr-2 h-4 w-4"/> Edit
                                         </Button>
@@ -570,6 +605,9 @@ export default function MiqaatManagementPage() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => handleDuplicate(miqaat)}>
+                                                        <Copy className="mr-2 h-4 w-4" /> Duplicate
+                                                    </DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => handleEdit(miqaat)}>
                                                         <Edit className="mr-2 h-4 w-4" /> Edit
                                                     </DropdownMenuItem>
