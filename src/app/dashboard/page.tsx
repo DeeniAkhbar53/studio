@@ -4,6 +4,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
@@ -12,7 +13,7 @@ import type { UserRole, UserDesignation, Miqaat, MiqaatAttendanceEntryItem, Form
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { getUsers, getUsersCount, getUserByItsOrBgkId as fetchUserByItsId } from "@/lib/firebase/userService";
 import { getMohallahsCount } from "@/lib/firebase/mohallahService";
-import { getForms, getFormResponsesRealtime, checkIfUserHasResponded } from "@/lib/firebase/formService";
+import { getForms, getFormResponsesForUser } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
@@ -54,7 +55,7 @@ export default function DashboardOverviewPage() {
 
   const [activeMiqaatsCount, setActiveMiqaatsCount] = useState<number>(0);
   const [totalMiqaatsCount, setTotalMiqaatsCount] = useState<number>(0);
-  const [allMiqaatsList, setAllMiqaatsList] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "uniformRequirements">[]>([]);
+  const [allMiqaatsList, setAllMiqaatsList] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "attendanceRequirements">[]>([]);
   const [totalMembersCount, setTotalMembersCount] = useState<number>(0);
   const [totalMohallahsCount, setTotalMohallahsCount] = useState<number>(0);
   const [totalFormsCount, setTotalFormsCount] = useState<number>(0);
@@ -66,13 +67,13 @@ export default function DashboardOverviewPage() {
 
   // Absentee Notification State
   const [absenteeData, setAbsenteeData] = useState<{ miqaatName: string; absentees: User[] } | null>(null);
-  const [isAbsenteeDialogOpen, setIsAbsenteeDialogOpen] = useState(false);
+  const [isAbsenteeSheetOpen, setIsAbsenteeSheetOpen] = useState(false);
   const [isLoadingAbsentees, setIsLoadingAbsentees] = useState(false);
   const [isAbsenteeAlertOpen, setIsAbsenteeAlertOpen] = useState(true);
   
   // Form Non-Respondent State
   const [nonRespondentData, setNonRespondentData] = useState<{ formTitle: string; nonRespondents: User[] } | null>(null);
-  const [isNonRespondentDialogOpen, setIsNonRespondentDialogOpen] = useState(false);
+  const [isNonRespondentSheetOpen, setIsNonRespondentSheetOpen] = useState(false);
   const [isLoadingNonRespondents, setIsLoadingNonRespondents] = useState(false);
   const [isNonRespondentAlertOpen, setIsNonRespondentAlertOpen] = useState(true);
 
@@ -366,18 +367,18 @@ export default function DashboardOverviewPage() {
                 setIsLoadingNonRespondents(false);
                 return;
             }
+            
+            const userResponses = await getFormResponsesForUser(currentUser.itsId);
+            const respondedFormIds = new Set(userResponses.map(r => r.formId));
 
-            unsubscribe = getFormResponsesRealtime(latestActiveForm.id, (responses) => {
-                const respondentIds = new Set(responses.map(r => r.submittedBy));
-                const nonRespondents = visibleEligibleUsers.filter(member => !respondentIds.has(member.itsId));
+            const nonRespondents = visibleEligibleUsers.filter(member => !respondedFormIds.has(latestActiveForm.id));
 
-                if (nonRespondents.length > 0) {
-                    setNonRespondentData({ formTitle: latestActiveForm.title, nonRespondents });
-                } else {
-                    setNonRespondentData(null);
-                }
-                 setIsLoadingNonRespondents(false);
-            });
+            if (nonRespondents.length > 0) {
+                setNonRespondentData({ formTitle: latestActiveForm.title, nonRespondents });
+            } else {
+                setNonRespondentData(null);
+            }
+            setIsLoadingNonRespondents(false);
 
         } catch (error) {
             console.error("Error checking for form non-respondents:", error);
@@ -433,7 +434,7 @@ export default function DashboardOverviewPage() {
       return;
     }
 
-    const uniformReqs = targetMiqaat.uniformRequirements;
+    const uniformReqs = targetMiqaat.attendanceRequirements;
     const isUniformRequired = uniformReqs && (uniformReqs.fetaPaghri || uniformReqs.koti);
 
     if (isUniformRequired) {
@@ -682,7 +683,7 @@ export default function DashboardOverviewPage() {
                   <span>
                     For <span className="font-semibold">{absenteeData.miqaatName}</span>, you have <span className="font-bold">{absenteeData.absentees.length}</span> absent member(s).
                   </span>
-                  <Button variant="destructive" size="sm" onClick={() => setIsAbsenteeDialogOpen(true)} className="ml-4">View List</Button>
+                  <Button variant="destructive" size="sm" onClick={() => setIsAbsenteeSheetOpen(true)} className="ml-4">View List</Button>
                 </AlertDescription>
                 <button onClick={() => setIsAbsenteeAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-destructive/70 hover:text-destructive hover:bg-destructive/10">
                   <X className="h-4 w-4" />
@@ -699,7 +700,7 @@ export default function DashboardOverviewPage() {
                   <span>
                     For <span className="font-semibold">{nonRespondentData.formTitle}</span>, <span className="font-bold">{nonRespondentData.nonRespondents.length}</span> member(s) have not responded.
                   </span>
-                  <Button variant="outline" size="sm" onClick={() => setIsNonRespondentDialogOpen(true)} className="ml-4 border-amber-500/50 hover:bg-amber-500/20">View List</Button>
+                  <Button variant="outline" size="sm" onClick={() => setIsNonRespondentSheetOpen(true)} className="ml-4 border-amber-500/50 hover:bg-amber-500/20">View List</Button>
                 </AlertDescription>
                 <button onClick={() => setIsNonRespondentAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-amber-700/70 hover:text-amber-700 hover:bg-amber-500/10">
                   <X className="h-4 w-4" />
@@ -839,15 +840,15 @@ export default function DashboardOverviewPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isAbsenteeDialogOpen} onOpenChange={setIsAbsenteeDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Absentee List for {absenteeData?.miqaatName}</DialogTitle>
-            <DialogDescription>
+      <Sheet open={isAbsenteeSheetOpen} onOpenChange={setIsAbsenteeSheetOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Absentee List for {absenteeData?.miqaatName}</SheetTitle>
+            <SheetDescription>
               The following members from your team(s) were marked absent.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-80 overflow-y-auto my-4">
+            </SheetDescription>
+          </SheetHeader>
+          <div className="max-h-[80vh] overflow-y-auto my-4 pr-4">
             {absenteeData && absenteeData.absentees.length > 0 ? (
               <ul className="space-y-2">
                 {absenteeData.absentees.map(member => (
@@ -864,21 +865,21 @@ export default function DashboardOverviewPage() {
               <p className="text-muted-foreground text-center">No absentees to display.</p>
             )}
           </div>
-          <DialogFooter>
-             <Button onClick={() => setIsAbsenteeDialogOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <SheetFooter>
+             <Button onClick={() => setIsAbsenteeSheetOpen(false)}>Close</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
-      <Dialog open={isNonRespondentDialogOpen} onOpenChange={setIsNonRespondentDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Non-Respondents for {nonRespondentData?.formTitle}</DialogTitle>
-            <DialogDescription>
+      <Sheet open={isNonRespondentSheetOpen} onOpenChange={setIsNonRespondentSheetOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Non-Respondents for {nonRespondentData?.formTitle}</SheetTitle>
+            <SheetDescription>
               The following members from your team(s) have not yet responded to this form.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-80 overflow-y-auto my-4">
+            </SheetDescription>
+          </SheetHeader>
+          <div className="max-h-[80vh] overflow-y-auto my-4 pr-4">
             {nonRespondentData && nonRespondentData.nonRespondents.length > 0 ? (
               <ul className="space-y-2">
                 {nonRespondentData.nonRespondents.map(member => (
@@ -895,11 +896,11 @@ export default function DashboardOverviewPage() {
               <p className="text-muted-foreground text-center">No non-respondents to display.</p>
             )}
           </div>
-          <DialogFooter>
-             <Button onClick={() => setIsNonRespondentDialogOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <SheetFooter>
+             <Button onClick={() => setIsNonRespondentSheetOpen(false)}>Close</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
     </div>
   );
