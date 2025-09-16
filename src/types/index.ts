@@ -26,9 +26,13 @@ export type MiqaatAttendanceEntryItem = {
   markedAt: string; // ISO string
   markedByItsId: string;
   status: 'present' | 'late' | 'early';
-  uniformCompliance?: {
-      fetaPaghri: 'yes' | 'no' | 'safar';
-      koti: 'yes' | 'no' | 'safar';
+  attendanceRequirements?: {
+      fetaPaghri?: 'yes' | 'no' | 'safar';
+      koti?: 'yes' | 'no' | 'safar';
+      nazrulMaqam?: {
+          amount: number;
+          currency: string;
+      }
   }
 };
 
@@ -55,7 +59,7 @@ export type Miqaat = {
   attendance?: MiqaatAttendanceEntryItem[];
   safarList?: MiqaatSafarEntryItem[];
   attendedUserItsIds?: string[];
-  uniformRequirements?: { fetaPaghri: boolean, koti: boolean };
+  attendanceRequirements?: { fetaPaghri: boolean, koti: boolean, nazrulMaqam: boolean };
 };
 
 export type AttendanceRecord = {
@@ -67,10 +71,7 @@ export type AttendanceRecord = {
   markedAt: string; // ISO string
   markedByItsId?: string;
   status: 'present' | 'late' | 'early' | 'absent' | 'safar' | 'not-eligible';
-  uniformCompliance?: {
-      fetaPaghri: 'yes' | 'no' | 'safar';
-      koti: 'yes' | 'no' | 'safar';
-  }
+  attendanceRequirements?: MiqaatAttendanceEntryItem['attendanceRequirements'];
 };
 
 export type Team = {
@@ -115,10 +116,7 @@ export interface ReportResultItem {
   date?: string; // ISO string
   status: "present" | "absent" | "late" | "early" | "safar" | "not-eligible"; // Added safar and not-eligible
   markedByItsId?: string;
-  uniformCompliance?: {
-    fetaPaghri: 'yes' | 'no' | 'safar';
-    koti: 'yes' | 'no' | 'safar';
-  };
+  attendanceRequirements?: MiqaatAttendanceEntryItem['attendanceRequirements'];
 }
 
 export interface PageRightConfig {

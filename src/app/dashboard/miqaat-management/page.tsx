@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { Miqaat, UserRole, Mohallah, User } from "@/types";
-import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt, Clock, CheckCircle, XCircle, Copy } from "lucide-react"; 
+import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt, Clock, CheckCircle, XCircle, Copy, HandCoins } from "lucide-react"; 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
@@ -46,10 +46,11 @@ const miqaatSchema = z.object({
   teams: z.array(z.string()).optional().default([]), 
   eligibleItsIds: z.array(z.string()).optional().default([]),
   barcodeData: z.string().optional(),
-  uniformRequirements: z.object({
+  attendanceRequirements: z.object({
     fetaPaghri: z.boolean().default(false),
     koti: z.boolean().default(false),
-  }).default({ fetaPaghri: false, koti: false }),
+    nazrulMaqam: z.boolean().default(false),
+  }).default({ fetaPaghri: false, koti: false, nazrulMaqam: false }),
 });
 
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
@@ -69,7 +70,7 @@ const toLocalISOString = (date: Date) => {
 export default function MiqaatManagementPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements">[]>([]);
+  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
@@ -81,7 +82,7 @@ export default function MiqaatManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements"> | null>(null);
+  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements"> | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const { toast } = useToast();
   
@@ -101,7 +102,7 @@ export default function MiqaatManagementPage() {
       teams: [], 
       eligibleItsIds: [],
       barcodeData: "",
-      uniformRequirements: { fetaPaghri: false, koti: false },
+      attendanceRequirements: { fetaPaghri: false, koti: false, nazrulMaqam: false },
     },
   });
 
@@ -167,10 +168,10 @@ export default function MiqaatManagementPage() {
         teams: editingMiqaat.teams || [], 
         eligibleItsIds: editingMiqaat.eligibleItsIds || [],
         barcodeData: editingMiqaat.barcodeData || "",
-        uniformRequirements: editingMiqaat.uniformRequirements || { fetaPaghri: false, koti: false },
+        attendanceRequirements: editingMiqaat.attendanceRequirements || { fetaPaghri: false, koti: false, nazrulMaqam: false },
       });
     } else if (!isDialogOpen) {
-      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", eligibilityType: "groups", mohallahIds: [], teams: [], eligibleItsIds: [], barcodeData: "", uniformRequirements: { fetaPaghri: false, koti: false } });
+      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", eligibilityType: "groups", mohallahIds: [], teams: [], eligibleItsIds: [], barcodeData: "", attendanceRequirements: { fetaPaghri: false, koti: false, nazrulMaqam: false } });
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
@@ -186,7 +187,7 @@ export default function MiqaatManagementPage() {
       location: values.location, 
       reportingTime: values.reportingTime, 
       barcodeData: values.barcodeData,
-      uniformRequirements: values.uniformRequirements,
+      attendanceRequirements: values.attendanceRequirements,
     };
     
     try {
@@ -205,12 +206,12 @@ export default function MiqaatManagementPage() {
     }
   };
 
-  const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements">) => {
+  const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements">) => {
     setEditingMiqaat(miqaat);
     setIsDialogOpen(true);
   };
   
-  const handleDuplicate = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "uniformRequirements">) => {
+  const handleDuplicate = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements">) => {
     setEditingMiqaat(null); // Ensure we are in "create" mode
     
     let type: 'groups' | 'specific_members' = 'groups';
@@ -230,7 +231,7 @@ export default function MiqaatManagementPage() {
       mohallahIds: miqaat.mohallahIds || [],
       teams: miqaat.teams || [],
       eligibleItsIds: miqaat.eligibleItsIds || [],
-      uniformRequirements: miqaat.uniformRequirements || { fetaPaghri: false, koti: false },
+      attendanceRequirements: miqaat.attendanceRequirements || { fetaPaghri: false, koti: false, nazrulMaqam: false },
       // Reset barcode
       barcodeData: "",
     });
@@ -322,19 +323,22 @@ export default function MiqaatManagementPage() {
                     )} />
                     <FormField
                         control={form.control}
-                        name="uniformRequirements"
+                        name="attendanceRequirements"
                         render={() => (
                           <FormItem className="space-y-2 pt-2">
-                            <ShadFormLabel className="font-semibold">Uniform Requirements</ShadFormLabel>
-                            <div className="flex gap-4">
-                                <FormField control={form.control} name="uniformRequirements.fetaPaghri" render={({ field }) => (
+                            <ShadFormLabel className="font-semibold">Attendance Requirements</ShadFormLabel>
+                            <div className="flex flex-col sm:flex-row gap-4">
+                                <FormField control={form.control} name="attendanceRequirements.fetaPaghri" render={({ field }) => (
                                     <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Feta/Paghri</ShadFormLabel></FormItem>
                                 )}/>
-                                <FormField control={form.control} name="uniformRequirements.koti" render={({ field }) => (
+                                <FormField control={form.control} name="attendanceRequirements.koti" render={({ field }) => (
                                     <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Koti</ShadFormLabel></FormItem>
                                 )}/>
+                                <FormField control={form.control} name="attendanceRequirements.nazrulMaqam" render={({ field }) => (
+                                    <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Nazrul Maqam</ShadFormLabel></FormItem>
+                                )}/>
                             </div>
-                            <FormDescription className="text-xs">If none selected, only attendance will be marked.</FormDescription>
+                            <FormDescription className="text-xs">Select any requirements for attendance marking.</FormDescription>
                           </FormItem>
                         )}
                     />
@@ -500,11 +504,12 @@ export default function MiqaatManagementPage() {
                                   <p>{miqaat.attendance?.length || 0}</p>
                               </div>
                               <div className="space-y-1">
-                                  <p className="font-medium text-muted-foreground">Uniform</p>
+                                  <p className="font-medium text-muted-foreground">Requirements</p>
                                   <div className="flex flex-col gap-1">
-                                      {miqaat.uniformRequirements?.fetaPaghri && <Badge variant="secondary" className="text-xs w-fit">Feta/Paghri</Badge>}
-                                      {miqaat.uniformRequirements?.koti && <Badge variant="secondary" className="text-xs w-fit">Koti</Badge>}
-                                      {!miqaat.uniformRequirements?.fetaPaghri && !miqaat.uniformRequirements?.koti && <span className="text-xs">N/A</span>}
+                                      {miqaat.attendanceRequirements?.fetaPaghri && <Badge variant="secondary" className="text-xs w-fit">Feta/Paghri</Badge>}
+                                      {miqaat.attendanceRequirements?.koti && <Badge variant="secondary" className="text-xs w-fit">Koti</Badge>}
+                                      {miqaat.attendanceRequirements?.nazrulMaqam && <Badge variant="secondary" className="text-xs w-fit">Nazrul Maqam</Badge>}
+                                      {!miqaat.attendanceRequirements?.fetaPaghri && !miqaat.attendanceRequirements?.koti && !miqaat.attendanceRequirements?.nazrulMaqam && <span className="text-xs">N/A</span>}
                                   </div>
                               </div>
                            </div>
@@ -558,7 +563,7 @@ export default function MiqaatManagementPage() {
                             <TableHead>Dates</TableHead>
                             <TableHead>Eligibility</TableHead>
                             <TableHead>Attendance</TableHead>
-                            <TableHead>Uniform</TableHead>
+                            <TableHead>Requirements</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -586,9 +591,10 @@ export default function MiqaatManagementPage() {
                                     <TableCell className="text-center">{miqaat.attendance?.length || 0}</TableCell>
                                     <TableCell>
                                         <div className="flex flex-col gap-1">
-                                          {miqaat.uniformRequirements?.fetaPaghri && <Badge variant="default" className="text-xs">Feta/Paghri</Badge>}
-                                          {miqaat.uniformRequirements?.koti && <Badge variant="default" className="text-xs">Koti</Badge>}
-                                          {!miqaat.uniformRequirements?.fetaPaghri && !miqaat.uniformRequirements?.koti && <Badge variant="secondary" className="text-xs">N/A</Badge>}
+                                          {miqaat.attendanceRequirements?.fetaPaghri && <Badge variant="default" className="text-xs">Feta/Paghri</Badge>}
+                                          {miqaat.attendanceRequirements?.koti && <Badge variant="default" className="text-xs">Koti</Badge>}
+                                          {miqaat.attendanceRequirements?.nazrulMaqam && <Badge variant="default" className="text-xs">Nazrul Maqam</Badge>}
+                                          {!miqaat.attendanceRequirements?.fetaPaghri && !miqaat.attendanceRequirements?.koti && !miqaat.attendanceRequirements?.nazrulMaqam && <Badge variant="secondary" className="text-xs">N/A</Badge>}
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right space-x-1">

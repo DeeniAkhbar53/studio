@@ -5,7 +5,7 @@ import type { Miqaat, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem } from '@/
 
 const miqaatsCollectionRef = collection(db, 'miqaats');
 
-export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendedUserItsIds" | "uniformRequirements">[]) => void): Unsubscribe => {
+export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendedUserItsIds" | "attendanceRequirements">[]) => void): Unsubscribe => {
   const q = query(miqaatsCollectionRef, orderBy('createdAt', 'desc'));
 
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -18,7 +18,7 @@ export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "sta
         return timestampField;
       };
 
-      const miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendedUserItsIds" | "uniformRequirements"> = {
+      const miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendedUserItsIds" | "attendanceRequirements"> = {
         id: docSnapshot.id,
         name: miqaatData.name,
         startTime: convertTimestampToString(miqaatData.startTime)!,
@@ -39,7 +39,7 @@ export const getMiqaats = (onUpdate: (miqaats: Pick<Miqaat, "id" | "name" | "sta
             markedAt: convertTimestampToString(safar.markedAt) || new Date().toISOString()
         })) : [],
         attendedUserItsIds: Array.isArray(miqaatData.attendedUserItsIds) ? miqaatData.attendedUserItsIds : [],
-        uniformRequirements: miqaatData.uniformRequirements || { fetaPaghri: false, koti: false },
+        attendanceRequirements: miqaatData.attendanceRequirements || { fetaPaghri: false, koti: false, nazrulMaqam: false },
       };
       return miqaat;
     });
@@ -66,7 +66,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
         attendance: [],
         safarList: [],
         attendedUserItsIds: [], // Initialize new field
-        uniformRequirements: miqaatData.uniformRequirements || { fetaPaghri: false, koti: false },
+        attendanceRequirements: miqaatData.attendanceRequirements || { fetaPaghri: false, koti: false, nazrulMaqam: false },
         createdAt: serverTimestamp(),
     };
 
@@ -98,7 +98,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
       attendance: firestorePayload.attendance,
       safarList: firestorePayload.safarList,
       attendedUserItsIds: firestorePayload.attendedUserItsIds,
-      uniformRequirements: firestorePayload.uniformRequirements,
+      attendanceRequirements: firestorePayload.attendanceRequirements,
       createdAt: new Date().toISOString(),
       location: firestorePayload.location,
       reportingTime: firestorePayload.reportingTime,
@@ -124,7 +124,7 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
     if (miqaatData.mohallahIds !== undefined) firestorePayload.mohallahIds = Array.isArray(miqaatData.mohallahIds) ? miqaatData.mohallahIds : [];
     if (miqaatData.teams !== undefined) firestorePayload.teams = Array.isArray(miqaatData.teams) ? miqaatData.teams : [];
     if (miqaatData.eligibleItsIds !== undefined) firestorePayload.eligibleItsIds = Array.isArray(miqaatData.eligibleItsIds) ? miqaatData.eligibleItsIds : [];
-    if (miqaatData.uniformRequirements !== undefined) firestorePayload.uniformRequirements = miqaatData.uniformRequirements;
+    if (miqaatData.attendanceRequirements !== undefined) firestorePayload.attendanceRequirements = miqaatData.attendanceRequirements;
 
     if (miqaatData.hasOwnProperty('location')) {
         firestorePayload.location = (typeof miqaatData.location === 'string' && miqaatData.location.trim() !== "") ? miqaatData.location : null;
