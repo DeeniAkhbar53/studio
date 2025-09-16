@@ -423,23 +423,27 @@ export default function ReportsPage() {
       toast({ title: "No data to export", description: "Please generate a report first.", variant: "destructive" });
       return;
     }
-    const headers = ["User Name", "ITS ID", "BGK ID", "Team", "Miqaat", "Date", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti", "NazrulMaqam Amount", "NazrulMaqam Currency"];
+    const headers = ["User Name", "ITS ID", "BGK ID", "Team", "Miqaat", "Marked Date", "Marked Time", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti", "NazrulMaqam Amount", "NazrulMaqam Currency"];
     const csvRows = [
       headers.join(','),
-      ...filteredReportData.map(row => [
-        `"${row.userName.replace(/"/g, '""')}"`,
-        row.userItsId,
-        row.bgkId || 'N/A',
-        row.team || 'N/A',
-        `"${row.miqaatName.replace(/"/g, '""')}"`,
-        row.date ? format(new Date(row.date), "yyyy-MM-dd HH:mm:ss") : "N/A",
-        row.status,
-        row.markedByItsId || "N/A",
-        row.uniformCompliance?.fetaPaghri ?? "N/A",
-        row.uniformCompliance?.koti ?? "N/A",
-        row.uniformCompliance?.nazrulMaqam?.amount ?? "N/A",
-        row.uniformCompliance?.nazrulMaqam?.currency ?? "N/A",
-      ].join(','))
+      ...filteredReportData.map(row => {
+          const date = row.date ? new Date(row.date) : null;
+          return [
+            `"${row.userName.replace(/"/g, '""')}"`,
+            row.userItsId,
+            row.bgkId || 'N/A',
+            row.team || 'N/A',
+            `"${row.miqaatName.replace(/"/g, '""')}"`,
+            date ? format(date, "yyyy-MM-dd") : "N/A",
+            date ? format(date, "HH:mm:ss") : "N/A",
+            row.status,
+            row.markedByItsId || "N/A",
+            row.uniformCompliance?.fetaPaghri ?? "N/A",
+            row.uniformCompliance?.koti ?? "N/A",
+            row.uniformCompliance?.nazrulMaqam?.amount ?? "N/A",
+            row.uniformCompliance?.nazrulMaqam?.currency ?? "N/A",
+        ].join(',');
+      })
     ];
     const csvString = csvRows.join('\n');
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
@@ -1161,5 +1165,6 @@ export default function ReportsPage() {
     </div>
   );
 }
+
 
     
