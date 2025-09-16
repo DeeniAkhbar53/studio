@@ -515,13 +515,15 @@ export default function MiqaatManagementPage() {
                            </div>
                            <Separator/>
                             <div className="flex justify-end gap-2 px-2">
-                                <Button variant="outline" size="sm" onClick={() => { setBarcodeMiqaat(miqaat as Miqaat); setShowBarcodeDialog(true); }}>
-                                    <Barcode className="mr-2 h-4 w-4"/> Barcode
+                                <Button variant="ghost" size="icon" onClick={() => { setBarcodeMiqaat(miqaat as Miqaat); setShowBarcodeDialog(true); }}>
+                                    <Barcode className="h-4 w-4"/>
+                                    <span className="sr-only">Barcode</span>
                                 </Button>
                                 {currentUserRole === 'admin' || currentUserRole === 'superadmin' ? (
                                     <>
-                                        <Button variant="outline" size="sm" onClick={() => handleDuplicate(miqaat)}>
-                                            <Copy className="mr-2 h-4 w-4"/> Duplicate
+                                        <Button variant="ghost" size="icon" onClick={() => handleDuplicate(miqaat)}>
+                                            <Copy className="h-4 w-4"/>
+                                            <span className="sr-only">Duplicate</span>
                                         </Button>
                                         <Button variant="outline" size="sm" onClick={() => handleEdit(miqaat)}>
                                             <Edit className="mr-2 h-4 w-4"/> Edit
