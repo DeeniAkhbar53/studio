@@ -173,9 +173,9 @@ export default function DashboardOverviewPage() {
           let relevantForms = forms;
           if (currentUserRole === 'admin' && currentUserMohallahId) {
             relevantForms = forms.filter(f => {
-              const isForEveryone = !f.mohallahIds?.length && !f.teams?.length && !f.eligibleItsIds?.length;
-              if (isForEveryone) return true; // Admins should see forms for everyone
-              return f.mohallahIds?.includes(currentUserMohallahId) || false;
+              const isForAllAssignedMohallahs = f.mohallahIds?.includes(currentUserMohallahId) || false;
+              const isForAllUsers = !f.mohallahIds?.length && !f.teams?.length && !f.eligibleItsIds?.length;
+              return isForAllAssignedMohallahs && !isForAllUsers; // Admin sees only their mohallah's forms
             });
           }
           setTotalFormsCount(relevantForms.length);
@@ -250,12 +250,12 @@ export default function DashboardOverviewPage() {
         } else if (currentUser.role === 'superadmin') {
             baseVisibleUsers = allUsers; // Superadmin sees everyone
         } else if (currentUser.designation && (TOP_LEVEL_LEADERS.includes(currentUser.designation))) {
-            baseVisibleUsers = allUsers; // Captains see everyone
+             baseVisibleUsers = allUsers.filter(u => u.mohallahId === currentUser.mohallahId);
         } else if (currentUser.designation && MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
             const managedTeamsSet = new Set(currentUser.managedTeams);
-            baseVisibleUsers = allUsers.filter(u => u.team && managedTeamsSet.has(u.team));
+            baseVisibleUsers = allUsers.filter(u => u.team && managedTeamsSet.has(u.team) && u.mohallahId === currentUser.mohallahId);
         } else if (currentUser.designation && GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
-            baseVisibleUsers = allUsers.filter(u => u.team === currentUser.team);
+            baseVisibleUsers = allUsers.filter(u => u.team === currentUser.team && u.mohallahId === currentUser.mohallahId);
         } else {
             setIsLoadingAbsentees(false);
             return; // Not a role that should see this alert
@@ -349,14 +349,15 @@ export default function DashboardOverviewPage() {
                 visibleEligibleUsers = eligibleUsers.filter(user => user.mohallahId === currentUser.mohallahId);
             } else if (currentUser.role !== 'superadmin' && currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) {
                 if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
-                    // Captains see everyone in the eligible list
+                    // Captains see everyone in the eligible list within their mohallah
+                    visibleEligibleUsers = eligibleUsers.filter(user => user.mohallahId === currentUser.mohallahId);
                 } else if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
                     // Vice Captains see their division
                     const managedTeamsSet = new Set(currentUser.managedTeams);
-                    visibleEligibleUsers = eligibleUsers.filter(user => user.team && managedTeamsSet.has(user.team));
+                    visibleEligibleUsers = eligibleUsers.filter(user => user.team && managedTeamsSet.has(user.team) && user.mohallahId === currentUser.mohallahId);
                 } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
                     // Group Leaders see their specific team
-                    visibleEligibleUsers = eligibleUsers.filter(user => user.team === currentUser.team);
+                    visibleEligibleUsers = eligibleUsers.filter(user => user.team === currentUser.team && user.mohallahId === currentUser.mohallahId);
                 }
             }
 
@@ -652,7 +653,7 @@ export default function DashboardOverviewPage() {
       statsToDisplay.splice(4, 2); // Remove member and mohallah counts for attendance-marker
   }
 
-  const shouldRenderAlerts = isTeamLead && !isLoadingAbsentees && (absenteeData || nonRespondentData);
+  const shouldRenderAlerts = isTeamLead && !isLoadingAbsentees && ((absenteeData && isAbsenteeAlertOpen) || (nonRespondentData && isNonRespondentAlertOpen));
 
 
   if (isLoadingUser && !currentUserItsId) {
