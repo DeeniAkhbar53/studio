@@ -598,7 +598,7 @@ export default function MarkAttendancePage() {
               ) : (
                 <CheckSquare className="mr-2 h-4 w-4" />
               )}
-              {miqaatHasAttendanceRequirements ? "Find Member & Check Compliance" : "Mark Attendance"}
+              {miqaatHasAttendanceRequirements ? "Find Member & Mark Attendance" : "Mark Attendance"}
             </Button>
           </form>
 
@@ -780,3 +780,4 @@ export default function MarkAttendancePage() {
   );
 }
 
+    
