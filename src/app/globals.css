@@ -93,7 +93,7 @@
 
 @layer base {
   html {
-    font-size: 15px; /* Adjust base font size */
+    font-size: 14px; /* Adjust base font size */
   }
   * {
     @apply border-border;
