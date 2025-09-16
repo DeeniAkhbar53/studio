@@ -13,7 +13,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader as DialogPrimitiveHeader, DialogTitle as DialogPrimitiveTitle, DialogTrigger as DialogPrimitiveTrigger } from "@/components/ui/dialog";
 import { SidebarNav } from "./sidebar-nav";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -44,7 +43,6 @@ export function Header() {
   const router = useRouter();
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [unrespondedForms, setUnrespondedForms] = useState<FormType[]>([]);
-  const [isHelpDialogOpen, setIsHelpDialogOpen] = useState(false);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
@@ -215,33 +213,6 @@ export function Header() {
       <div className="hidden md:flex flex-1 ml-auto max-w-sm">
         {/* Search functionality can be added here later */}
       </div>
-
-      <Dialog open={isHelpDialogOpen} onOpenChange={setIsHelpDialogOpen}>
-        <DialogPrimitiveTrigger asChild>
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <HelpCircle className="h-5 w-5" />
-            <span className="sr-only">Need Help?</span>
-          </Button>
-        </DialogPrimitiveTrigger>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogPrimitiveHeader>
-            <DialogPrimitiveTitle>Need Assistance?</DialogPrimitiveTitle>
-            <DialogDescription>
-              Here you can find information on how to use the BGK Attendance system or contact support.
-            </DialogDescription>
-          </DialogPrimitiveHeader>
-          <div className="py-4 space-y-2">
-            <h4 className="font-semibold">Contact Support:</h4>
-            <p>If you encounter any issues or have questions, please contact your Mohallah admin or the technical support team at <a href="mailto:support@bgkattendance.example.com" className="text-primary hover:underline">support@bgkattendance.example.com</a>.</p>
-            <h4 className="font-semibold mt-4">FAQs:</h4>
-            <p>Q: How do I mark attendance? <br/> A: Navigate to the specific Miqaat and use the barcode scanner or manual entry (if you are an attendance marker).</p>
-            <p>Q: Where can I see my attendance history? <br/> A: Go to your Profile page.</p>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setIsHelpDialogOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
