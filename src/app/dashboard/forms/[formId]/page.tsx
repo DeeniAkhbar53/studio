@@ -6,6 +6,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -516,6 +517,17 @@ export default function FillFormPage() {
         <div className="min-h-screen bg-muted flex flex-col items-center py-8 md:py-12 px-4">
             <div className="w-full max-w-3xl space-y-6">
                 <Card className="overflow-hidden">
+                    {form.imageUrl && (
+                        <div className="relative w-full h-48 md:h-64">
+                            <Image
+                                src={form.imageUrl}
+                                alt={form.title}
+                                layout="fill"
+                                objectFit="cover"
+                                className="bg-muted"
+                            />
+                        </div>
+                    )}
                     <div className="bg-primary/10 p-6 border-b-4 border-primary">
                         <CardTitle className="text-3xl font-bold">{form.title}</CardTitle>
                         {form.description && <CardDescription className="text-md mt-2">{form.description}</CardDescription>}

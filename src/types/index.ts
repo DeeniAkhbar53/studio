@@ -26,7 +26,7 @@ export type MiqaatAttendanceEntryItem = {
   markedAt: string; // ISO string
   markedByItsId: string;
   status: 'present' | 'late' | 'early';
-  attendanceRequirements?: {
+  uniformCompliance?: {
       fetaPaghri?: 'yes' | 'no' | 'safar';
       koti?: 'yes' | 'no' | 'safar';
       nazrulMaqam?: {
@@ -71,7 +71,7 @@ export type AttendanceRecord = {
   markedAt: string; // ISO string
   markedByItsId?: string;
   status: 'present' | 'late' | 'early' | 'absent' | 'safar' | 'not-eligible';
-  attendanceRequirements?: MiqaatAttendanceEntryItem['attendanceRequirements'];
+  uniformCompliance?: MiqaatAttendanceEntryItem['uniformCompliance'];
 };
 
 export type Team = {
@@ -116,7 +116,7 @@ export interface ReportResultItem {
   date?: string; // ISO string
   status: "present" | "absent" | "late" | "early" | "safar" | "not-eligible"; // Added safar and not-eligible
   markedByItsId?: string;
-  attendanceRequirements?: MiqaatAttendanceEntryItem['attendanceRequirements'];
+  uniformCompliance?: MiqaatAttendanceEntryItem['uniformCompliance'];
 }
 
 export interface PageRightConfig {
@@ -146,6 +146,7 @@ export interface Form {
   id: string;
   title: string;
   description?: string;
+  imageUrl?: string; // For the cover image Data URI
   questions: FormQuestion[];
   createdBy: string; // ITS ID of creator
   createdAt: string; // ISO string

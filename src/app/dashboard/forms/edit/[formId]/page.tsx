@@ -1,11 +1,12 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { useRouter, useParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,8 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form as UIForm, FormControl, FormMessage, FormItem, FormField, FormDescription } from "@/components/ui/form";
-import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save, Users, Search, Settings, Wrench, CalendarIcon } from "lucide-react";
+import { Form as UIForm, FormControl, FormMessage, FormItem, FormField, FormDescription, FormLabel } from "@/components/ui/form";
+import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save, Users, Search, Settings, Wrench, CalendarIcon, Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getForm, updateForm } from "@/lib/firebase/formService";
 import type { Form as FormType, Mohallah, User } from "@/types";
@@ -46,6 +47,7 @@ const formQuestionSchema = z.object({
 const formBuilderSchema = z.object({
   title: z.string().min(1, "Form title cannot be empty."),
   description: z.string().optional(),
+  imageUrl: z.string().optional(),
   questions: z.array(formQuestionSchema).min(1, "A form must have at least one question."),
   eligibilityType: z.enum(['groups', 'specific_members']).default('groups'),
   mohallahIds: z.array(z.string()).optional().default([]),
@@ -62,6 +64,7 @@ export default function EditFormPage() {
     const formId = params.formId as string;
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(true);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     
     const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
     const [availableTeams, setAvailableTeams] = useState<string[]>([]);
@@ -74,6 +77,7 @@ export default function EditFormPage() {
         defaultValues: {
             title: "",
             description: "",
+            imageUrl: "",
             questions: [],
             eligibilityType: "groups",
             mohallahIds: [],
@@ -110,6 +114,7 @@ export default function EditFormPage() {
 
     const allQuestions = formBuilder.watch('questions');
     const eligibilityType = formBuilder.watch("eligibilityType");
+    const imageUrl = formBuilder.watch("imageUrl");
     
     useEffect(() => {
         if (!formId) return;
@@ -126,6 +131,7 @@ export default function EditFormPage() {
                     formBuilder.reset({
                         title: formToEdit.title,
                         description: formToEdit.description || "",
+                        imageUrl: formToEdit.imageUrl || "",
                         questions: formToEdit.questions.map(q => ({
                             id: q.id,
                             label: q.label,
@@ -165,6 +171,7 @@ export default function EditFormPage() {
             const updatedFormPayload = {
                 title: values.title,
                 description: values.description || "",
+                imageUrl: values.imageUrl || "",
                 questions: values.questions.map(q => {
                     const { conditional, ...restOfQuestion } = q;
                     const questionPayload: any = {
@@ -193,6 +200,33 @@ export default function EditFormPage() {
         }
     };
     
+    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 700 * 1024) { // ~700KB limit
+            toast({
+                title: "Image too large",
+                description: "Please upload an image smaller than 700KB.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            formBuilder.setValue("imageUrl", reader.result as string);
+        };
+        reader.onerror = () => {
+             toast({
+                title: "Error reading file",
+                description: "Could not process the selected image.",
+                variant: "destructive",
+            });
+        };
+        reader.readAsDataURL(file);
+    };
+
     const filteredUsers = allUsers.filter(user => {
       if (!memberSearchTerm) return true;
       return user.name.toLowerCase().includes(memberSearchTerm.toLowerCase()) || user.itsId.includes(memberSearchTerm);
@@ -248,6 +282,42 @@ export default function EditFormPage() {
                                             <Textarea placeholder="Form description (optional)" {...formBuilder.register("description")} className="border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 p-2 mt-2 bg-transparent" />
                                         </FormControl>
                                     </div>
+                                     <CardContent className="p-6">
+                                         <FormField
+                                                control={formBuilder.control}
+                                                name="imageUrl"
+                                                render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-sm">Cover Image (Optional)</FormLabel>
+                                                    <FormControl>
+                                                    <div className="flex items-center gap-4">
+                                                        <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                                                            <Upload className="mr-2 h-4 w-4"/>
+                                                            Upload Image
+                                                        </Button>
+                                                        <Input
+                                                            type="file"
+                                                            className="hidden"
+                                                            ref={fileInputRef}
+                                                            onChange={handleImageUpload}
+                                                            accept="image/png, image/jpeg, image/gif, image/webp"
+                                                        />
+                                                        {imageUrl && (
+                                                            <div className="flex items-center gap-2">
+                                                                <Image src={imageUrl} alt="Preview" width={40} height={40} className="rounded-md object-cover h-10 w-10"/>
+                                                                <Button type="button" variant="ghost" size="icon" onClick={() => formBuilder.setValue("imageUrl", "")}>
+                                                                    <X className="h-4 w-4 text-destructive"/>
+                                                                </Button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    </FormControl>
+                                                    <FormDescription className="text-xs">Upload an image to display at the top of your form. Recommended size: under 700KB.</FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                                )}
+                                            />
+                                    </CardContent>
                                 </Card>
 
                                 <div className="space-y-4">

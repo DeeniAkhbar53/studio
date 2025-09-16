@@ -1,5 +1,4 @@
 
-
 import { db } from './firebase';
 import {
   collection,
@@ -43,6 +42,7 @@ export const addForm = async (formData: FormForAdd): Promise<Form> => {
       teams: formData.teams || [],
       eligibleItsIds: formData.eligibleItsIds || [],
       endDate: formData.endDate || null,
+      imageUrl: formData.imageUrl || null,
     });
 
     const newForm: Form = {
