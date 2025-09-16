@@ -201,22 +201,22 @@ export default function FormsListPage() {
                                                     )}
                                                 </div>
                                                 <Separator/>
-                                                <div className="flex flex-wrap justify-end gap-2 px-2">
+                                                <div className="flex items-center justify-end gap-2 px-2">
                                                     {canManageForms && (
-                                                        <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
-                                                            <Eye className="mr-2 h-4 w-4" /> Responses
+                                                        <Button variant="ghost" size="icon" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
+                                                            <Eye className="h-4 w-4" />
+                                                            <span className="sr-only">Responses</span>
                                                         </Button>
                                                     )}
                                                     <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={currentStatus === 'closed'}>
                                                         Fill Form
                                                     </Button>
                                                     {canManageForms && (
-                                                        <div className="flex items-center">
+                                                        <div className="flex items-center gap-1">
                                                             <Switch 
                                                                 checked={currentStatus === 'open'}
                                                                 onCheckedChange={() => handleStatusToggle(form.id, form.status)}
                                                                 aria-label={`Toggle form status for ${form.title}`}
-                                                                className="mr-2"
                                                                 disabled={expired}
                                                             />
                                                             <AlertDialog>
