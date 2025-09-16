@@ -291,66 +291,68 @@ export default function FormsListPage() {
                                                <div className="text-xs">Created: {format(new Date(form.createdAt), "MMM d, yyyy")}</div>
                                                 {form.endDate && <div className={cn("text-xs", expired ? "text-destructive" : "text-muted-foreground")}>Ends: {format(new Date(form.endDate), "MMM d, yyyy")}</div>}
                                            </TableCell>
-                                           <TableCell className="text-right space-x-2">
-                                                {canManageForms && (
-                                                    <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
-                                                       <Eye className="mr-2 h-4 w-4" /> Responses
+                                           <TableCell className="text-right">
+                                               <div className="flex items-center justify-end gap-2">
+                                                    {canManageForms && (
+                                                        <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
+                                                        <Eye className="mr-2 h-4 w-4" /> Responses
+                                                        </Button>
+                                                    )}
+                                                    <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={currentStatus === 'closed'}>
+                                                            Fill
                                                     </Button>
-                                                )}
-                                               <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={currentStatus === 'closed'}>
-                                                    Fill
-                                               </Button>
-                                               {canManageForms && (
-                                                <div className="inline-flex items-center gap-1">
-                                                    <Switch
-                                                        checked={currentStatus === 'open'}
-                                                        onCheckedChange={() => handleStatusToggle(form.id, form.status)}
-                                                        aria-label={`Toggle form status for ${form.title}`}
-                                                        disabled={expired}
-                                                    />
-                                                    <AlertDialog>
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon">
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                    <span className="sr-only">More actions</span>
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
-                                                                    <Edit className="mr-2 h-4 w-4" /> Edit
-                                                                </DropdownMenuItem>
-                                                                {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
-                                                                    <AlertDialogTrigger asChild>
-                                                                        <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                                                                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                    {canManageForms && (
+                                                        <>
+                                                            <Switch
+                                                                checked={currentStatus === 'open'}
+                                                                onCheckedChange={() => handleStatusToggle(form.id, form.status)}
+                                                                aria-label={`Toggle form status for ${form.title}`}
+                                                                disabled={expired}
+                                                            />
+                                                            <AlertDialog>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="icon">
+                                                                            <MoreHorizontal className="h-4 w-4" />
+                                                                            <span className="sr-only">More actions</span>
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
+                                                                            <Edit className="mr-2 h-4 w-4" /> Edit
                                                                         </DropdownMenuItem>
-                                                                    </AlertDialogTrigger>
-                                                                )}
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                        <AlertDialogContent>
-                                                            <AlertDialogHeader>
-                                                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                                                                <AlertDialogDescription>
-                                                                    This action cannot be undone. This will permanently delete the form
-                                                                    <span className="font-semibold"> "{form.title}" </span> 
-                                                                    and all of its responses.
-                                                                </AlertDialogDescription>
-                                                            </AlertDialogHeader>
-                                                            <AlertDialogFooter>
-                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                <AlertDialogAction 
-                                                                    className="bg-destructive hover:bg-destructive/90"
-                                                                    onClick={() => handleDeleteForm(form.id, form.title)}
-                                                                >
-                                                                    Continue
-                                                                </AlertDialogAction>
-                                                            </AlertDialogFooter>
-                                                        </AlertDialogContent>
-                                                    </AlertDialog>
-                                                </div>
-                                               )}
+                                                                        {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
+                                                                            <AlertDialogTrigger asChild>
+                                                                                <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                                                </DropdownMenuItem>
+                                                                            </AlertDialogTrigger>
+                                                                        )}
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            This action cannot be undone. This will permanently delete the form
+                                                                            <span className="font-semibold"> "{form.title}" </span> 
+                                                                            and all of its responses.
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                        <AlertDialogAction 
+                                                                            className="bg-destructive hover:bg-destructive/90"
+                                                                            onClick={() => handleDeleteForm(form.id, form.title)}
+                                                                        >
+                                                                            Continue
+                                                                        </AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        </>
+                                                    )}
+                                               </div>
                                            </TableCell>
                                        </TableRow>
                                    )})}
