@@ -490,7 +490,7 @@ export default function ViewResponsesClientPage() {
     const currentTabLabel = tabOptions.find(t => t.value === activeTab)?.label || "Menu";
 
     return (
-        <div className="mx-auto p-4 md:p-6 space-y-6">
+        <div className="p-4 md:p-6 space-y-6">
             <Card>
                  <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div className="flex-1">
@@ -639,12 +639,12 @@ export default function ViewResponsesClientPage() {
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead className="w-[50px]">Sr.No.</TableHead>
-                                                <TableHead className="whitespace-nowrap">Submitter</TableHead>
-                                                <TableHead className="whitespace-nowrap">Submitted At</TableHead>
+                                                <TableHead>Submitter</TableHead>
+                                                <TableHead>Submitted At</TableHead>
                                                 {form?.questions.map(q => (
-                                                    <TableHead key={q.id} className="whitespace-nowrap">{q.label}</TableHead>
+                                                    <TableHead key={q.id}>{q.label}</TableHead>
                                                 ))}
-                                                {canManageResponses && <TableHead className="text-right whitespace-nowrap">Actions</TableHead>}
+                                                {canManageResponses && <TableHead className="text-right">Actions</TableHead>}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -736,11 +736,11 @@ export default function ViewResponsesClientPage() {
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead className="w-[50px]">Sr.No.</TableHead>
-                                                <TableHead className="whitespace-nowrap">Name</TableHead>
-                                                <TableHead className="whitespace-nowrap">ITS ID</TableHead>
-                                                <TableHead className="whitespace-nowrap">BGK ID</TableHead>
-                                                <TableHead className="whitespace-nowrap">Team</TableHead>
-                                                <TableHead className="whitespace-nowrap">Mohallah</TableHead>
+                                                <TableHead>Name</TableHead>
+                                                <TableHead>ITS ID</TableHead>
+                                                <TableHead>BGK ID</TableHead>
+                                                <TableHead>Team</TableHead>
+                                                <TableHead>Mohallah</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
