@@ -71,10 +71,33 @@ const CHART_COLORS = [
 ];
 
 const FormAnalytics = ({ form, responses }: { form: FormType; responses: FormResponse[] }) => {
+    const chartConfig = useMemo(() => {
+        const config: any = {};
+        form.questions.forEach(q => {
+            if (q.type === 'radio' || q.type === 'select' || q.type === 'checkbox') {
+                q.options?.forEach((opt, index) => {
+                    config[opt] = {
+                        label: opt,
+                        color: CHART_COLORS[index % CHART_COLORS.length],
+                    };
+                });
+            } else if (q.type === 'rating') {
+                 [1,2,3,4,5].forEach((val, index) => {
+                    const label = `${val} Star`;
+                    config[label] = {
+                        label: label,
+                        color: CHART_COLORS[index % CHART_COLORS.length],
+                    }
+                 });
+            }
+        });
+        return config;
+    }, [form]);
+    
     const analyticsData = useMemo(() => {
         if (!form || responses.length === 0) return null;
 
-        const results: { [questionId: string]: { type: FormType['questions'][0]['type'], label: string, data: { name: string, value: number }[] } } = {};
+        const results: { [questionId: string]: { type: FormType['questions'][0]['type'], label: string, data: { name: string, value: number, fill: string }[] } } = {};
 
         form.questions.forEach(question => {
             const counts: { [option: string]: number } = {};
@@ -89,7 +112,7 @@ const FormAnalytics = ({ form, responses }: { form: FormType; responses: FormRes
                             counts[answer]++;
                         }
                     });
-                    results[question.id] = { type: question.type, label: question.label, data: Object.entries(counts).map(([name, value]) => ({ name, value })) };
+                    results[question.id] = { type: question.type, label: question.label, data: Object.entries(counts).map(([name, value], index) => ({ name, value, fill: CHART_COLORS[index % CHART_COLORS.length] })) };
                     break;
                 
                 case 'checkbox':
@@ -104,7 +127,7 @@ const FormAnalytics = ({ form, responses }: { form: FormType; responses: FormRes
                             });
                         }
                     });
-                    results[question.id] = { type: question.type, label: question.label, data: Object.entries(counts).map(([name, value]) => ({ name, value })) };
+                    results[question.id] = { type: question.type, label: question.label, data: Object.entries(counts).map(([name, value], index) => ({ name, value, fill: CHART_COLORS[index % CHART_COLORS.length] })) };
                     break;
 
                 case 'rating':
@@ -115,7 +138,7 @@ const FormAnalytics = ({ form, responses }: { form: FormType; responses: FormRes
                             counts[String(rating)]++;
                         }
                      });
-                     results[question.id] = { type: question.type, label: question.label, data: Object.entries(counts).map(([name, value]) => ({ name: `${name} Star`, value })) };
+                     results[question.id] = { type: question.type, label: question.label, data: Object.entries(counts).map(([name, value], index) => ({ name: `${name} Star`, value, fill: CHART_COLORS[index % CHART_COLORS.length] })) };
                      break;
 
                 default:
@@ -143,13 +166,14 @@ const FormAnalytics = ({ form, responses }: { form: FormType; responses: FormRes
                         <CardTitle className="text-lg">{result.label}</CardTitle>
                     </CardHeader>
                     <CardContent>
+                      <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
                         {result.type === 'radio' || result.type === 'select' ? (
                             <ResponsiveContainer width="100%" height={300}>
                                 <RechartsPieChart>
                                     <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
                                     <Pie data={result.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                                        {result.data.map((entry, index) => (
-                                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                          <Cell key={`cell-${index}`} fill={entry.fill} />
                                        ))}
                                     </Pie>
                                     <ChartLegend content={<ChartLegendContent />} />
@@ -162,10 +186,15 @@ const FormAnalytics = ({ form, responses }: { form: FormType; responses: FormRes
                                <XAxis type="number" />
                                <YAxis dataKey="name" type="category" width={150} />
                                <ChartTooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent />} />
-                               <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                               <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}>
+                                  {result.data.map((entry, index) => (
+                                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                                  ))}
+                               </Bar>
                              </BarChart>
                            </ResponsiveContainer>
                         )}
+                      </ChartContainer>
                     </CardContent>
                 </Card>
             ))}
@@ -698,4 +727,3 @@ export default function ViewResponsesPage() {
         </div>
     );
 }
-
