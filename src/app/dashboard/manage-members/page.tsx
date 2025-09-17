@@ -1093,7 +1093,7 @@ export default function ManageMembersPage() {
                           <SheetFooter className="pt-4">
                             <Button type="button" variant="outline" onClick={() => setIsMemberSheetOpen(false)}>Cancel</Button>
                             <Button type="submit" disabled={memberForm.formState.isSubmitting || !canAddOrImport() || (mohallahs.length === 0 && !isLoadingMohallahs && !memberForm.getValues("mohallahId"))}>
-                              {memberForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                              {(memberForm.formState.isSubmitting || isLoadingMohallahs) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                               {editingMember ? "Save Changes" : "Add Member"}
                             </Button>
                           </SheetFooter>
@@ -1222,8 +1222,8 @@ export default function ManageMembersPage() {
                     )}
                     <Accordion type="single" collapsible className="w-full">
                         {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member, index) => (
-                        <AccordionItem value={member.id} key={member.id} className="border-b data-[state=selected]:bg-muted/50" data-state={selectedMemberIds.includes(member.id) ? "selected" : undefined}>
-                            <div className="flex items-center w-full px-4">
+                        <AccordionItem value={member.id} key={member.id} className="border-b" data-state={selectedMemberIds.includes(member.id) ? "selected" : undefined}>
+                            <div className={cn("flex items-center w-full px-4", selectedMemberIds.includes(member.id) && "bg-muted/50")}>
                                 {canManageMembers && (
                                     <div className="py-4 pr-4">
                                         <Checkbox
@@ -1234,15 +1234,17 @@ export default function ManageMembersPage() {
                                         />
                                     </div>
                                 )}
-                                <div className="flex-grow flex items-center">
-                                    <span className="text-sm font-mono text-muted-foreground mr-4">{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.</span>
-                                    <AccordionTrigger className="w-full p-0 py-4 hover:no-underline flex-1 text-left">
-                                        <div className="flex-grow">
-                                            <p className="font-semibold text-card-foreground">{member.name}</p>
-                                            <p className="text-xs text-muted-foreground">ITS: {member.itsId}</p>
-                                        </div>
-                                    </AccordionTrigger>
-                                </div>
+                                <AccordionTrigger className="w-full p-0 py-4 hover:no-underline flex-1 text-left">
+                                  <div className="flex items-center justify-between w-full">
+                                    <div className="flex items-center gap-4">
+                                      <span className="text-sm font-mono text-muted-foreground">{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.</span>
+                                      <div>
+                                          <p className="font-semibold text-card-foreground">{member.name}</p>
+                                          <p className="text-xs text-muted-foreground">ITS: {member.itsId}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </AccordionTrigger>
                             </div>
                             <AccordionContent className="space-y-4 pt-0">
                                 <div className="text-sm text-muted-foreground space-y-1 px-4 pb-4">
@@ -1478,3 +1480,4 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
