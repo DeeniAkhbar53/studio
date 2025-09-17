@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormField, FormItem, FormControl, FormMessage, FormLabel as ShadFormLabel, FormDescription } from "@/components/ui/form";
 import { getMiqaats, addMiqaat, updateMiqaat, deleteMiqaat as fbDeleteMiqaat, MiqaatDataForAdd, MiqaatDataForUpdate } from "@/lib/firebase/miqaatService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
-import { getUniqueTeamNames, getUsers } from "@/lib/firebase/userService"; 
+import { getUsers } from "@/lib/firebase/userService"; 
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -138,8 +138,14 @@ export default function MiqaatManagementPage() {
     const dataFetchPromises = [
         new Promise<void>(resolve => { setIsLoadingMiqaats(true); const unsub = getMiqaats(data => { setMiqaats(data); setIsLoadingMiqaats(false); resolve(); }); }),
         new Promise<void>(resolve => { setIsLoadingMohallahs(true); const unsub = getMohallahs(data => { setAvailableMohallahs(data); setIsLoadingMohallahs(false); resolve(); }); }),
-        getUniqueTeamNames().then(setAvailableTeams).catch(err => console.error("Failed to fetch teams", err)).finally(() => setIsLoadingTeams(false)),
-        getUsers().then(setAllUsers).catch(err => console.error("Failed to fetch users", err)).finally(() => setIsLoadingUsers(false)),
+        getUsers().then(users => {
+          setAllUsers(users);
+          const teams = [...new Set(users.map(u => u.team).filter(Boolean))].sort() as string[];
+          setAvailableTeams(teams);
+        }).catch(err => console.error("Failed to fetch users and teams", err)).finally(() => {
+          setIsLoadingUsers(false);
+          setIsLoadingTeams(false);
+        }),
     ];
 
     Promise.all(dataFetchPromises);
@@ -693,3 +699,4 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
+
