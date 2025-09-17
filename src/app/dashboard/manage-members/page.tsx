@@ -331,7 +331,15 @@ export default function ManageMembersPage() {
             delete memberPayload.password;
         }
         const updatePayload = { ...memberPayload };
-        await updateUser(editingMember.id, editingMember.mohallahId, updatePayload);
+
+        if (editingMember.mohallahId !== targetMohallahId) {
+            // Mohallah change logic: delete from old, add to new
+            await deleteUser(editingMember.id, editingMember.mohallahId);
+            await addUser(updatePayload as UserDataForAdd, targetMohallahId);
+        } else {
+            // Standard update
+            await updateUser(editingMember.id, editingMember.mohallahId, updatePayload);
+        }
         toast({ title: "Member Updated", description: `"${values.name}" has been updated.` });
       } else {
         await addUser(memberPayload, targetMohallahId);
@@ -509,9 +517,16 @@ export default function ManageMembersPage() {
                                 pageRights: validatedData.pageRights,
                                 managedTeams: validatedData.managedTeams,
                                 password: validatedData.password || undefined,
-                                // Mohallah ID is not updated as it would require moving documents.
+                                mohallahId: validatedData.mohallahId,
                             };
-                            await updateUser(existingUser.id, existingUser.mohallahId!, updatePayload);
+                            
+                            // Mohallah change logic
+                            if (existingUser.mohallahId !== validatedData.mohallahId) {
+                                await deleteUser(existingUser.id, existingUser.mohallahId!);
+                                await addUser(updatePayload as UserDataForAdd, validatedData.mohallahId);
+                            } else {
+                                await updateUser(existingUser.id, existingUser.mohallahId!, updatePayload);
+                            }
                             updatedCount++;
                         } else {
                             // ADD new user
@@ -664,6 +679,12 @@ export default function ManageMembersPage() {
       setSelectedMemberIds(prev => prev.filter(id => !pageIds.includes(id)));
     }
   };
+  
+   const handleSelectAllFiltered = () => {
+    const allFilteredIds = filteredMembers.map(member => member.id);
+    setSelectedMemberIds(allFilteredIds);
+  };
+
 
   const handleSelectMember = (memberId: string, checked: boolean | string) => {
     if (checked) {
@@ -883,7 +904,7 @@ export default function ManageMembersPage() {
                                     memberForm.setValue('team', ''); // Reset team when mohallah changes
                                 }}
                                 value={field.value}
-                                disabled={isLoadingMohallahs || mohallahs.length === 0 || !!editingMember || currentUserRole === 'admin'}
+                                disabled={isLoadingMohallahs || mohallahs.length === 0 || !(currentUserRole === 'admin' || currentUserRole === 'superadmin')}
                               >
                                 <FormControl><SelectTrigger><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
                                 <SelectContent>
@@ -892,7 +913,7 @@ export default function ManageMembersPage() {
                                   mohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                                 </SelectContent>
                               </Select>
-                              {(!!editingMember || currentUserRole === 'admin') && <FormDescription className="text-xs">Mohallah cannot be changed for existing members or by admins.</FormDescription>}
+                              {!(currentUserRole === 'admin' || currentUserRole === 'superadmin') && <FormDescription className="text-xs">Mohallah can only be changed by Admins.</FormDescription>}
                               <FormMessage />
                             </FormItem>
                           )} />
@@ -1177,6 +1198,28 @@ export default function ManageMembersPage() {
             <>
               {/* Mobile View: Accordion */}
                 <div className="md:hidden">
+                    {canManageMembers && filteredMembers.length > 0 && (
+                        <div className="flex items-center gap-4 px-4 py-2 border-b">
+                            <Checkbox
+                                id="selectAllMobile"
+                                checked={currentMembersToDisplay.length > 0 && currentMembersToDisplay.every(m => selectedMemberIds.includes(m.id))}
+                                onCheckedChange={(checked) => {
+                                    if (checked) {
+                                        setSelectedMemberIds(prev => [...new Set([...prev, ...currentMembersToDisplay.map(m => m.id)])]);
+                                    } else {
+                                        const pageIds = new Set(currentMembersToDisplay.map(m => m.id));
+                                        setSelectedMemberIds(prev => prev.filter(id => !pageIds.has(id)));
+                                    }
+                                }}
+                            />
+                            <label htmlFor="selectAllMobile" className="text-sm font-medium">
+                                Select all on this page ({selectedMemberIds.filter(id => currentMembersToDisplay.some(m => m.id === id)).length} / {currentMembersToDisplay.length})
+                            </label>
+                             <Button variant="link" size="sm" className="p-0 h-auto" onClick={handleSelectAllFiltered} disabled={filteredMembers.length === 0}>
+                                Select all ({filteredMembers.length})?
+                            </Button>
+                        </div>
+                    )}
                     <Accordion type="single" collapsible className="w-full">
                         {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member, index) => (
                         <AccordionItem value={member.id} key={member.id} className="border-b data-[state=selected]:bg-muted/50" data-state={selectedMemberIds.includes(member.id) ? "selected" : undefined}>
@@ -1191,15 +1234,15 @@ export default function ManageMembersPage() {
                                         />
                                     </div>
                                 )}
-                                <AccordionTrigger className="w-full p-0 py-4 hover:no-underline flex-1">
-                                    <div className="flex items-center gap-4 w-full">
-                                        <span className="text-sm font-mono text-muted-foreground">{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.</span>
-                                        <div className="flex-grow text-left">
+                                <div className="flex-grow flex items-center">
+                                    <span className="text-sm font-mono text-muted-foreground mr-4">{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.</span>
+                                    <AccordionTrigger className="w-full p-0 py-4 hover:no-underline flex-1 text-left">
+                                        <div className="flex-grow">
                                             <p className="font-semibold text-card-foreground">{member.name}</p>
                                             <p className="text-xs text-muted-foreground">ITS: {member.itsId}</p>
                                         </div>
-                                    </div>
-                                </AccordionTrigger>
+                                    </AccordionTrigger>
+                                </div>
                             </div>
                             <AccordionContent className="space-y-4 pt-0">
                                 <div className="text-sm text-muted-foreground space-y-1 px-4 pb-4">
@@ -1253,7 +1296,7 @@ export default function ManageMembersPage() {
                       {canManageMembers && (
                         <TableHead className="w-[40px] px-2">
                           <Checkbox
-                            checked={selectedMemberIds.length > 0 && currentMembersToDisplay.length > 0 && currentMembersToDisplay.every(m => selectedMemberIds.includes(m.id))}
+                            checked={currentMembersToDisplay.length > 0 && currentMembersToDisplay.every(m => selectedMemberIds.includes(m.id))}
                             onCheckedChange={handleSelectAllOnPage}
                             aria-label="Select all members on current page"
                             disabled={currentMembersToDisplay.length === 0}
@@ -1435,7 +1478,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
-    
-
-    
