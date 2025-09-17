@@ -2,14 +2,17 @@
 import type { MiqaatAttendanceEntryItem, User } from '@/types';
 
 const DB_NAME = 'MAttendanceDB';
-const DB_VERSION = 2; // Increment version for schema change
+const DB_VERSION = 2; // Version remains 2 as schema for users is the same
 const PENDING_STORE_NAME = 'pending-attendance';
 const USER_CACHE_STORE_NAME = 'cached-users';
 
-interface OfflineAttendanceRecord {
-  id: number;
+export interface OfflineAttendanceRecord {
+  // id will be the auto-incrementing primary key from IndexedDB
+  id?: number; 
   miqaatId: string;
   entry: MiqaatAttendanceEntryItem;
+  // Add a unique identifier that we can control for tracking retries
+  syncAttemptId: string; 
 }
 
 let db: IDBDatabase | null = null;
@@ -41,7 +44,7 @@ function openDB(): Promise<IDBDatabase> {
       if (!dbInstance.objectStoreNames.contains(USER_CACHE_STORE_NAME)) {
         const userStore = dbInstance.createObjectStore(USER_CACHE_STORE_NAME, { keyPath: 'id' });
         userStore.createIndex('itsId', 'itsId', { unique: true });
-        userStore.createIndex('bgkId', 'bgkId', { unique: false }); // BGK ID is optional, so not unique
+        userStore.createIndex('bgkId', 'bgkId', { unique: false });
       }
     };
   });
@@ -55,7 +58,12 @@ export async function savePendingAttendance(miqaatId: string, entry: MiqaatAtten
   const store = transaction.objectStore(PENDING_STORE_NAME);
   
   return new Promise((resolve, reject) => {
-    const record = { miqaatId, entry };
+    // Add a unique ID for tracking this specific attempt
+    const record: Omit<OfflineAttendanceRecord, 'id'> = { 
+        miqaatId, 
+        entry,
+        syncAttemptId: `${entry.userItsId}-${Date.now()}`
+    };
     const request = store.add(record);
     request.onsuccess = () => resolve();
     request.onerror = () => {
@@ -79,6 +87,22 @@ export async function getPendingAttendance(): Promise<OfflineAttendanceRecord[]>
     };
   });
 }
+
+export async function removePendingAttendanceRecord(recordId: number): Promise<void> {
+    const dbInstance = await openDB();
+    const transaction = dbInstance.transaction(PENDING_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(PENDING_STORE_NAME);
+
+    return new Promise((resolve, reject) => {
+        const request = store.delete(recordId);
+        request.onsuccess = () => resolve();
+        request.onerror = () => {
+            console.error('Failed to delete pending record:', request.error);
+            reject(new Error('Could not delete the offline record.'));
+        };
+    });
+}
+
 
 export async function clearPendingAttendance(): Promise<void> {
   const dbInstance = await openDB();

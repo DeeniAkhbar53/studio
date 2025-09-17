@@ -13,14 +13,15 @@ import { useToast } from "@/hooks/use-toast";
 import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, UserRole } from "@/types";
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
-import { savePendingAttendance, getPendingAttendance, clearPendingAttendance, cacheAllUsers, getCachedUserByItsOrBgkId } from "@/lib/offlineService";
-import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare, UserX, HandCoins } from "lucide-react";
+import { savePendingAttendance, getPendingAttendance, removePendingAttendanceRecord, cacheAllUsers, getCachedUserByItsOrBgkId, OfflineAttendanceRecord } from "@/lib/offlineService";
+import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare, UserX, HandCoins, Trash2, RefreshCw } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle } from "@/components/ui/alert-dialog";
 
 type UniformComplianceState = {
     fetaPaghri: 'yes' | 'no' | 'safar';
@@ -30,6 +31,12 @@ type UniformComplianceState = {
       currency: string;
     }
 };
+
+interface FailedSyncRecord {
+    record: OfflineAttendanceRecord;
+    reason: 'conflict' | 'error';
+    errorMessage?: string;
+}
 
 export default function MarkAttendancePage() {
   const router = useRouter();
@@ -52,11 +59,15 @@ export default function MarkAttendancePage() {
   const [nazrulMaqamCurrency, setNazrulMaqamCurrency] = useState("USD");
 
 
-  // Offline state management
+  // Offline and Sync state management
   const [isOffline, setIsOffline] = useState(false);
   const [pendingRecordsCount, setPendingRecordsCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isCachingUsers, setIsCachingUsers] = useState(false);
+  const [failedSyncs, setFailedSyncs] = useState<FailedSyncRecord[]>([]);
+  const [isSyncReportOpen, setIsSyncReportOpen] = useState(false);
+  const [lastSyncReport, setLastSyncReport] = useState<{ success: number; skipped: number; failed: number } | null>(null);
+
 
   const { toast } = useToast();
 
@@ -382,46 +393,86 @@ export default function MarkAttendancePage() {
     }
   };
 
-
-  const handleSync = async () => {
-    if (isOffline || pendingRecordsCount === 0) {
-      toast({ title: "Sync Not Needed", description: isOffline ? "You are offline." : "No pending records to sync." });
+  const handleSync = async (retryingRecord?: FailedSyncRecord) => {
+    if (isOffline) {
+      toast({ title: "Sync Not Possible", description: "You are offline. Cannot connect to the server." });
       return;
     }
+    if (pendingRecordsCount === 0 && !retryingRecord) {
+      toast({ title: "Sync Not Needed", description: "No pending records to sync." });
+      return;
+    }
+
     setIsSyncing(true);
-    try {
-      const recordsToSync = await getPendingAttendance();
-      if (recordsToSync.length === 0) {
-        toast({ title: "Nothing to Sync", description: "No pending records were found." });
-        setPendingRecordsCount(0);
+    let recordsToProcess: OfflineAttendanceRecord[];
+
+    if (retryingRecord) {
+        recordsToProcess = [retryingRecord.record];
+    } else {
+        recordsToProcess = await getPendingAttendance();
+    }
+
+    if (recordsToProcess.length === 0) {
+        toast({ title: "Nothing to Sync", description: "No records found to sync." });
         setIsSyncing(false);
         return;
-      }
-      
-      const recordsByMiqaat = recordsToSync.reduce((acc, record) => {
-        if (!acc[record.miqaatId]) {
-          acc[record.miqaatId] = [];
-        }
-        acc[record.miqaatId].push(record.entry);
-        return acc;
-      }, {} as { [key: string]: MiqaatAttendanceEntryItem[] });
-
-      for (const miqaatId in recordsByMiqaat) {
-         for (const entry of recordsByMiqaat[miqaatId]) {
-            await markAttendanceInMiqaat(miqaatId, entry);
-         }
-      }
-
-      await clearPendingAttendance();
-      await checkPendingRecords();
-      toast({ title: "Sync Complete", description: `${recordsToSync.length} offline record(s) have been synced successfully.` });
-    } catch (error) {
-      console.error("Sync failed:", error);
-      toast({ title: "Sync Failed", description: "Could not sync all records. Please try again. See console for details.", variant: "destructive" });
-    } finally {
-      setIsSyncing(false);
     }
+    
+    let successCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+    const newlyFailedSyncs: FailedSyncRecord[] = [];
+
+    for (const record of recordsToProcess) {
+        try {
+            await markAttendanceInMiqaat(record.miqaatId, record.entry);
+            // If successful, remove it from local DB
+            if (record.id) {
+                await removePendingAttendanceRecord(record.id);
+            }
+            successCount++;
+        } catch (error: any) {
+             if (error.message.includes("already marked")) {
+                skippedCount++;
+                 if (record.id) {
+                    await removePendingAttendanceRecord(record.id);
+                }
+            } else {
+                failedCount++;
+                newlyFailedSyncs.push({ record, reason: 'error', errorMessage: error.message });
+            }
+        }
+    }
+
+    // Update state
+    setLastSyncReport({ success: successCount, skipped: skippedCount, failed: failedCount });
+    setIsSyncReportOpen(true);
+    
+    // For retries, remove the successful one from the failed list
+    if (retryingRecord) {
+      setFailedSyncs(prev => prev.filter(f => f.record.syncAttemptId !== retryingRecord.record.syncAttemptId));
+    } else {
+      // For a full sync, replace the failed list with the new failures
+      setFailedSyncs(newlyFailedSyncs);
+    }
+
+    await checkPendingRecords();
+    setIsSyncing(false);
   };
+
+   const handleDiscardFailedRecord = async (recordId: number, syncAttemptId: string) => {
+        try {
+            await removePendingAttendanceRecord(recordId);
+            setFailedSyncs(prev => prev.filter(f => f.record.syncAttemptId !== syncAttemptId));
+            toast({
+                title: "Record Discarded",
+                description: "The failed sync record has been removed from the queue.",
+                variant: "destructive"
+            });
+        } catch (error) {
+            toast({ title: "Error", description: "Could not discard the record.", variant: "destructive" });
+        }
+    };
   
   const currentMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
   const currentMiqaatAttendanceCount = currentMiqaatDetails?.attendance?.length || 0;
@@ -479,7 +530,7 @@ export default function MarkAttendancePage() {
                 }
               </span>
               <Button
-                  onClick={handleSync}
+                  onClick={() => handleSync()}
                   disabled={isOffline || isSyncing || pendingRecordsCount === 0}
                   size="sm"
                   variant="secondary"
@@ -669,6 +720,72 @@ export default function MarkAttendancePage() {
         )}
       </Card>
       
+      {failedSyncs.length > 0 && (
+          <Card className="shadow-lg border-destructive">
+              <CardHeader>
+                  <CardTitle className="flex items-center text-destructive"><AlertCircle className="mr-2" />Requires Attention: {failedSyncs.length} Failed Syncs</CardTitle>
+                  <CardDescription>These records failed to sync to the server. You can retry them individually or discard them.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <div className="max-h-80 overflow-y-auto rounded-md border">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead>Member</TableHead>
+                                  <TableHead>Miqaat</TableHead>
+                                  <TableHead>Reason</TableHead>
+                                  <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {failedSyncs.map(({ record, reason, errorMessage }) => (
+                                  <TableRow key={record.id}>
+                                      <TableCell>
+                                          <div className="font-medium">{record.entry.userName}</div>
+                                          <div className="text-xs text-muted-foreground">{record.entry.userItsId}</div>
+                                      </TableCell>
+                                      <TableCell>{allMiqaats.find(m => m.id === record.miqaatId)?.name || 'Unknown Miqaat'}</TableCell>
+                                      <TableCell className="text-xs">
+                                          {reason === 'conflict' ? 'Conflict: Already marked.' : `Error: ${errorMessage || 'Unknown'}`}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                           <Button variant="outline" size="sm" onClick={() => handleSync({ record } as FailedSyncRecord)} className="mr-2" disabled={isSyncing || isOffline}>
+                                              <RefreshCw className="mr-2 h-4 w-4" /> Retry
+                                          </Button>
+                                          <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="destructive" size="sm" disabled={isSyncing}>
+                                                        <Trash2 className="mr-2 h-4 w-4" /> Discard
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertHeader>
+                                                        <AlertTitle>Are you sure?</AlertTitle>
+                                                        <AlertDesc>
+                                                            This will permanently discard the offline attendance record for {record.entry.userName}. This action cannot be undone.
+                                                        </AlertDesc>
+                                                    </AlertHeader>
+                                                    <AlertFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction
+                                                            className="bg-destructive hover:bg-destructive/90"
+                                                            onClick={() => handleDiscardFailedRecord(record.id!, record.syncAttemptId)}
+                                                        >
+                                                            Discard Record
+                                                        </AlertDialogAction>
+                                                    </AlertFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                      </TableCell>
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  </div>
+              </CardContent>
+          </Card>
+      )}
+
       {/* Compliance Check Dialog */}
       <Dialog open={isComplianceDialogOpen} onOpenChange={setIsComplianceDialogOpen}>
         <DialogContent>
@@ -776,8 +893,49 @@ export default function MarkAttendancePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+       {/* Sync Report Dialog */}
+      <Dialog open={isSyncReportOpen} onOpenChange={setIsSyncReportOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Synchronization Report</DialogTitle>
+                <DialogDescription>
+                    Summary of the offline records synchronization process.
+                </DialogDescription>
+            </DialogHeader>
+            {lastSyncReport && (
+                <div className="space-y-4 py-4">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-green-100 dark:bg-green-900/30">
+                        <div className="flex items-center gap-3">
+                            <CheckCircle className="h-5 w-5 text-green-600"/>
+                            <span className="font-medium text-green-800 dark:text-green-200">Synced Successfully</span>
+                        </div>
+                        <span className="font-bold text-lg text-green-900 dark:text-green-100">{lastSyncReport.success}</span>
+                    </div>
+                     <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
+                        <div className="flex items-center gap-3">
+                            <AlertCircle className="h-5 w-5 text-yellow-600"/>
+                            <span className="font-medium text-yellow-800 dark:text-yellow-200">Skipped (Conflicts)</span>
+                        </div>
+                        <span className="font-bold text-lg text-yellow-900 dark:text-yellow-100">{lastSyncReport.skipped}</span>
+                    </div>
+                     <div className="flex items-center justify-between p-3 rounded-lg bg-red-100 dark:bg-red-900/30">
+                        <div className="flex items-center gap-3">
+                            <XCircle className="h-5 w-5 text-red-600"/>
+                            <span className="font-medium text-red-800 dark:text-red-200">Failed to Sync</span>
+                        </div>
+                        <span className="font-bold text-lg text-red-900 dark:text-red-100">{lastSyncReport.failed}</span>
+                    </div>
+                </div>
+            )}
+             <DialogFooter>
+                <DialogClose asChild>
+                    <Button>Close</Button>
+                </DialogClose>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
-
-    
