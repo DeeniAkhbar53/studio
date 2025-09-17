@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX, Star } from "lucide-react";
+import { ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX, Star, PieChart, BarChart2 } from "lucide-react";
 import type { FormResponse, UserRole, UserDesignation, User, Form as FormType, Mohallah } from "@/types";
 import { getFormResponsesRealtime, deleteFormResponse, getForm } from "@/lib/firebase/formService";
 import { getUsers, getUserByItsOrBgkId } from "@/lib/firebase/userService";
@@ -21,6 +21,22 @@ import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
 import { FunkyLoader } from "@/components/ui/funky-loader";
+import {
+  ChartContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ChartTooltip,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltipContent,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+} from "@/components/ui/chart";
 
 const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
 const TOP_LEVEL_LEADERS: UserDesignation[] = ["Major", "Captain"];
@@ -38,6 +54,120 @@ const StarRatingDisplay = ({ rating, max = 5 }: { rating: number; max?: number }
                         i < rating ? "text-primary fill-primary" : "text-muted-foreground/30"
                     )}
                 />
+            ))}
+        </div>
+    );
+};
+
+const CHART_COLORS = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+  "hsl(var(--chart-1) / 0.7)",
+  "hsl(var(--chart-2) / 0.7)",
+  "hsl(var(--chart-3) / 0.7)",
+];
+
+const FormAnalytics = ({ form, responses }: { form: FormType; responses: FormResponse[] }) => {
+    const analyticsData = useMemo(() => {
+        if (!form || responses.length === 0) return null;
+
+        const results: { [questionId: string]: { type: FormType['questions'][0]['type'], label: string, data: { name: string, value: number }[] } } = {};
+
+        form.questions.forEach(question => {
+            const counts: { [option: string]: number } = {};
+            
+            switch (question.type) {
+                case 'radio':
+                case 'select':
+                    question.options?.forEach(opt => counts[opt] = 0);
+                    responses.forEach(res => {
+                        const answer = res.responses[question.id] as string;
+                        if (answer && question.options?.includes(answer)) {
+                            counts[answer]++;
+                        }
+                    });
+                    results[question.id] = { type: question.type, label: question.label, data: Object.entries(counts).map(([name, value]) => ({ name, value })) };
+                    break;
+                
+                case 'checkbox':
+                    question.options?.forEach(opt => counts[opt] = 0);
+                    responses.forEach(res => {
+                        const answers = res.responses[question.id] as string[];
+                        if (Array.isArray(answers)) {
+                            answers.forEach(answer => {
+                                if (question.options?.includes(answer)) {
+                                    counts[answer]++;
+                                }
+                            });
+                        }
+                    });
+                    results[question.id] = { type: question.type, label: question.label, data: Object.entries(counts).map(([name, value]) => ({ name, value })) };
+                    break;
+
+                case 'rating':
+                     [1,2,3,4,5].forEach(val => counts[String(val)] = 0);
+                     responses.forEach(res => {
+                        const rating = res.responses[question.id] as number;
+                        if (rating >= 1 && rating <= 5) {
+                            counts[String(rating)]++;
+                        }
+                     });
+                     results[question.id] = { type: question.type, label: question.label, data: Object.entries(counts).map(([name, value]) => ({ name: `${name} Star`, value })) };
+                     break;
+
+                default:
+                    break; // Skip non-visualizable question types
+            }
+        });
+
+        return results;
+
+    }, [form, responses]);
+
+    if (responses.length === 0) {
+        return <div className="text-center py-20 text-muted-foreground">No responses yet to generate analytics.</div>;
+    }
+
+    if (!analyticsData || Object.keys(analyticsData).length === 0) {
+        return <div className="text-center py-20 text-muted-foreground">No questions in this form can be visualized.</div>;
+    }
+
+    return (
+        <div className="space-y-8">
+            {Object.entries(analyticsData).map(([questionId, result]) => (
+                <Card key={questionId} className="shadow-sm">
+                    <CardHeader>
+                        <CardTitle className="text-lg">{result.label}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {result.type === 'radio' || result.type === 'select' ? (
+                            <ResponsiveContainer width="100%" height={300}>
+                                <RechartsPieChart>
+                                    <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                                    <Pie data={result.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                                       {result.data.map((entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                       ))}
+                                    </Pie>
+                                    <ChartLegend content={<ChartLegendContent />} />
+                                </RechartsPieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                           <ResponsiveContainer width="100%" height={300}>
+                             <BarChart data={result.data} layout="vertical">
+                               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                               <XAxis type="number" />
+                               <YAxis dataKey="name" type="category" width={150} />
+                               <ChartTooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent />} />
+                               <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                             </BarChart>
+                           </ResponsiveContainer>
+                        )}
+                    </CardContent>
+                </Card>
             ))}
         </div>
     );
@@ -344,12 +474,15 @@ export default function ViewResponsesPage() {
             </Card>
             
             <Tabs defaultValue="respondents">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="respondents">
                         <UserCheck className="mr-2 h-4 w-4"/>Respondents ({filteredResponses.length})
                     </TabsTrigger>
                     <TabsTrigger value="non-respondents" disabled={!canManageResponses}>
                         <UserX className="mr-2 h-4 w-4"/>Non-Respondents ({nonRespondents.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="analytics">
+                        <PieChart className="mr-2 h-4 w-4" />Analytics
                     </TabsTrigger>
                 </TabsList>
                 
@@ -554,7 +687,15 @@ export default function ViewResponsesPage() {
                         </CardContent>
                     </Card>
                 </TabsContent>
+                <TabsContent value="analytics">
+                    {form ? (
+                        <FormAnalytics form={form} responses={filteredResponses} />
+                    ) : (
+                        <div className="text-center py-20 text-muted-foreground">Loading form data for analytics...</div>
+                    )}
+                </TabsContent>
             </Tabs>
         </div>
     );
 }
+
