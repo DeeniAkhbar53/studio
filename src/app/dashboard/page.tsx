@@ -29,7 +29,7 @@ interface AdminStat {
   value: string | number;
   icon: React.ElementType;
   trend?: string;
-  isLoading?: boolean;
+  isLoading: boolean;
 }
 
 interface ScanDisplayMessage {
@@ -57,17 +57,25 @@ export default function DashboardOverviewPage() {
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const router = useRouter();
 
-  const [activeMiqaatsCount, setActiveMiqaatsCount] = useState<number>(0);
-  const [totalMiqaatsCount, setTotalMiqaatsCount] = useState<number>(0);
+  const [stats, setStats] = useState({
+    activeMiqaatsCount: 0,
+    totalMiqaatsCount: 0,
+    totalMembersCount: 0,
+    totalMohallahsCount: 0,
+    activeFormsCount: 0,
+    totalFormsCount: 0,
+  });
+
+  const [loadingStats, setLoadingStats] = useState({
+    miqaats: true,
+    members: true,
+    mohallahs: true,
+    forms: true,
+  });
+
   const [allMiqaatsList, setAllMiqaatsList] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "attendanceRequirements">[]>([]);
-  const [totalMembersCount, setTotalMembersCount] = useState<number>(0);
-  const [totalMohallahsCount, setTotalMohallahsCount] = useState<number>(0);
-  const [totalFormsCount, setTotalFormsCount] = useState<number>(0);
-  const [activeFormsCount, setActiveFormsCount] = useState<number>(0);
   const [allForms, setAllForms] = useState<FormType[]>([]);
 
-
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   // Absentee Notification State
   const [absenteeData, setAbsenteeData] = useState<{ miqaatName: string; absentees: User[] } | null>(null);
@@ -81,7 +89,7 @@ export default function DashboardOverviewPage() {
   const [nonRespondentList, setNonRespondentList] = useState<User[]>([]);
   const [isNonRespondentSheetOpen, setIsNonRespondentSheetOpen] = useState(false);
   const [isLoadingNonRespondents, setIsLoadingNonRespondents] = useState(false);
-  const [isNonRespondentAlertOpen, setIsNonRespondentAlertOpen] useState(true);
+  const [isNonRespondentAlertOpen, setIsNonRespondentAlertOpen] = useState(true);
 
   // Pending Forms State
   const [pendingForms, setPendingForms] = useState<FormType[]>([]);
@@ -142,29 +150,9 @@ export default function DashboardOverviewPage() {
   }, []);
 
   useEffect(() => {
-    if (isLoadingUser || !currentUserItsId || !currentUserRole) {
-      setIsLoadingStats(false);
-      setAllMiqaatsList([]);
-      setActiveMiqaatsCount(0);
-      setTotalMembersCount(0);
-      setTotalMohallahsCount(0);
-      setTotalFormsCount(0);
-      setActiveFormsCount(0);
-      setAllForms([]);
-      return;
-    }
+    if (isLoadingUser || !currentUserItsId || !currentUserRole) return;
 
-    setIsLoadingStats(true);
-    let miqaatsLoaded = false;
-    let formsLoaded = false;
-    let adminCountsLoaded = !(currentUserRole === 'admin' || currentUserRole === 'superadmin');
-
-    const checkAndSetLoadingDone = () => {
-      if (miqaatsLoaded && adminCountsLoaded && formsLoaded) {
-        setIsLoadingStats(false);
-      }
-    };
-
+    // Fetch Miqaats
     const unsubscribeMiqaats = getMiqaats((fetchedMiqaats) => {
       let relevantMiqaats = fetchedMiqaats;
       if (currentUserRole === 'admin' && currentUserMohallahId) {
@@ -172,63 +160,67 @@ export default function DashboardOverviewPage() {
           !m.mohallahIds?.length || m.mohallahIds.includes(currentUserMohallahId)
         );
       }
-      setTotalMiqaatsCount(relevantMiqaats.length);
-      setActiveMiqaatsCount(relevantMiqaats.filter(m => new Date(m.endTime) > new Date()).length);
+      setStats(prev => ({
+        ...prev,
+        totalMiqaatsCount: relevantMiqaats.length,
+        activeMiqaatsCount: relevantMiqaats.filter(m => new Date(m.endTime) > new Date()).length
+      }));
       setAllMiqaatsList(relevantMiqaats);
-      miqaatsLoaded = true;
-      checkAndSetLoadingDone();
+      setLoadingStats(prev => ({...prev, miqaats: false}));
     });
 
-    const fetchFormsData = async () => {
-        try {
-          const forms = await getForms();
-          let relevantForms = forms;
-          if (currentUserRole === 'admin' && currentUserMohallahId) {
-            relevantForms = forms.filter(f => {
-              const isForAllAssignedMohallahs = f.mohallahIds?.includes(currentUserMohallahId) || false;
-              return isForAllAssignedMohallahs;
-            });
-          }
-          setTotalFormsCount(relevantForms.length);
-          setActiveFormsCount(relevantForms.filter(f => f.status === 'open' && (!f.endDate || new Date(f.endDate) > new Date())).length);
-          setAllForms(relevantForms);
-        } catch (err) {
-            console.error("Failed to fetch forms stats", err);
-        } finally {
-            formsLoaded = true;
-            checkAndSetLoadingDone();
-        }
-    };
-    fetchFormsData();
-    
+    // Fetch Forms
+    getForms().then(forms => {
+      let relevantForms = forms;
+      if (currentUserRole === 'admin' && currentUserMohallahId) {
+        relevantForms = forms.filter(f => {
+          const isForAllAssignedMohallahs = f.mohallahIds?.includes(currentUserMohallahId) || false;
+          return isForAllAssignedMohallahs;
+        });
+      }
+      setStats(prev => ({
+        ...prev,
+        totalFormsCount: relevantForms.length,
+        activeFormsCount: relevantForms.filter(f => f.status === 'open' && (!f.endDate || new Date(f.endDate) > new Date())).length
+      }));
+      setAllForms(relevantForms);
+      setLoadingStats(prev => ({...prev, forms: false}));
+    }).catch(err => {
+      console.error("Failed to fetch forms stats", err);
+      setLoadingStats(prev => ({...prev, forms: false}));
+    });
 
+    // Fetch Admin-specific counts
     if (currentUserRole === 'admin' || currentUserRole === 'superadmin') {
-      const fetchAdminData = async () => {
-        try {
-          const membersCountPromise = getUsersCount(currentUserRole === 'admin' ? currentUserMohallahId || undefined : undefined);
-          const mohallahsCountPromise = currentUserRole === 'superadmin' ? getMohallahsCount() : Promise.resolve(0);
-          const [membersCount, mohallahsCountValue] = await Promise.all([membersCountPromise, mohallahsCountPromise]);
-          setTotalMembersCount(membersCount);
-          if (currentUserRole === 'superadmin') {
-            setTotalMohallahsCount(mohallahsCountValue);
-          }
-        } catch (err) {
-          console.error("Failed to fetch admin dashboard counts", err);
-        } finally {
-          adminCountsLoaded = true;
-          checkAndSetLoadingDone();
-        }
-      };
-      fetchAdminData();
+      getUsersCount(currentUserRole === 'admin' ? currentUserMohallahId || undefined : undefined)
+        .then(count => {
+          setStats(prev => ({...prev, totalMembersCount: count}));
+          setLoadingStats(prev => ({...prev, members: false}));
+        }).catch(err => {
+          console.error("Failed to fetch member count", err);
+          setLoadingStats(prev => ({...prev, members: false}));
+        });
+      
+      if (currentUserRole === 'superadmin') {
+        getMohallahsCount().then(count => {
+          setStats(prev => ({...prev, totalMohallahsCount: count}));
+          setLoadingStats(prev => ({...prev, mohallahs: false}));
+        }).catch(err => {
+          console.error("Failed to fetch mohallah count", err);
+          setLoadingStats(prev => ({...prev, mohallahs: false}));
+        });
+      } else {
+        setLoadingStats(prev => ({...prev, mohallahs: false}));
+      }
     } else {
-      adminCountsLoaded = true; // For non-admin roles, counts are considered loaded
-      checkAndSetLoadingDone();
+        setLoadingStats(prev => ({...prev, members: false, mohallahs: false}));
     }
 
     return () => {
       unsubscribeMiqaats();
     };
-  }, [isLoadingUser, currentUserItsId, currentUserRole, currentUserMohallahId]);
+}, [isLoadingUser, currentUserItsId, currentUserRole, currentUserMohallahId]);
+
 
    // Effect for Team Lead Absentee Notifications
   useEffect(() => {
@@ -564,7 +556,7 @@ export default function DashboardOverviewPage() {
       setAllMiqaatsList(prev => prev.map(m => m.id === targetMiqaat.id ? { ...m, attendance: [...(m.attendance || []), attendanceEntry] } : m));
       setScanDisplayMessage({
         type: 'success',
-        text: `Attendance marked ${attendanceStatus === 'late' ? '(Late)' : ''} successfully for ${targetMiqaat.name} at ${format(now, "p")}.`,
+        text: `Attendance marked ${attendanceStatus === 'late' ? '(Late)' : (attendanceStatus === 'early' ? '(Early)' : '')} successfully for ${targetMiqaat.name} at ${format(now, "p")}.`,
         miqaatName: targetMiqaat.name,
         time: format(now, "PPp"),
         status: attendanceStatus,
@@ -696,20 +688,16 @@ export default function DashboardOverviewPage() {
   };
 
 
-  const attendanceMarkerStats: AdminStat[] = [
-    { title: "Active Miqaats", value: activeMiqaatsCount, icon: CalendarClock, isLoading: isLoadingStats },
-    { title: "Total Miqaats", value: totalMiqaatsCount, icon: CalendarDays, isLoading: isLoadingStats },
-    { title: "Active Forms", value: activeFormsCount, icon: FilePenLine, isLoading: isLoadingStats },
-    { title: "Total Forms", value: totalFormsCount, icon: Files, isLoading: isLoadingStats },
-  ];
-
   const adminOverviewStats: AdminStat[] = [
-    ...attendanceMarkerStats,
-    { title: "Total Members", value: totalMembersCount, icon: Users, isLoading: isLoadingStats, trend: currentUserRole === 'admin' ? "In your Mohallah" : "System-wide" },
+    { title: "Active Miqaats", value: stats.activeMiqaatsCount, icon: CalendarClock, isLoading: loadingStats.miqaats },
+    { title: "Total Miqaats", value: stats.totalMiqaatsCount, icon: CalendarDays, isLoading: loadingStats.miqaats },
+    { title: "Active Forms", value: stats.activeFormsCount, icon: FilePenLine, isLoading: loadingStats.forms },
+    { title: "Total Forms", value: stats.totalFormsCount, icon: Files, isLoading: loadingStats.forms },
+    { title: "Total Members", value: stats.totalMembersCount, icon: Users, isLoading: loadingStats.members, trend: currentUserRole === 'admin' ? "In your Mohallah" : "System-wide" },
   ];
 
   if (currentUserRole === 'superadmin') {
-    adminOverviewStats.splice(5, 0, { title: "Total Mohallahs", value: totalMohallahsCount, icon: Building, isLoading: isLoadingStats });
+    adminOverviewStats.push({ title: "Total Mohallahs", value: stats.totalMohallahsCount, icon: Building, isLoading: loadingStats.mohallahs });
   }
 
   const statsToDisplay = (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead) ? adminOverviewStats : [];
@@ -842,11 +830,6 @@ export default function DashboardOverviewPage() {
                 </CardContent>
               </Card>
             ))}
-          </div>
-        )}
-        {(isLoadingStats && (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead)) && (
-          <div className="flex justify-center items-center py-6">
-            <FunkyLoader>Loading system data...</FunkyLoader>
           </div>
         )}
       </div>
@@ -1043,5 +1026,3 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
-
-    
