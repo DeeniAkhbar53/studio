@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX, Star, PieChart, BarChart2 } from "lucide-react";
+import { ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX, Star, PieChart, BarChart2, ChevronDown } from "lucide-react";
 import type { FormResponse, UserRole, UserDesignation, User, Form as FormType, Mohallah } from "@/types";
 import { getFormResponsesRealtime, deleteFormResponse, getForm } from "@/lib/firebase/formService";
 import { getUsers, getUserByItsOrBgkId } from "@/lib/firebase/userService";
@@ -37,6 +37,13 @@ import {
   Cell,
   ResponsiveContainer,
 } from "@/components/ui/chart";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
 const TOP_LEVEL_LEADERS: UserDesignation[] = ["Major", "Captain"];
@@ -215,6 +222,14 @@ export default function ViewResponsesClientPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [activeTab, setActiveTab] = useState("respondents");
+
+    const tabOptions = [
+        { value: "respondents", label: "Respondents", icon: UserCheck },
+        { value: "non-respondents", label: "Non-Respondents", icon: UserX },
+        { value: "analytics", label: "Analytics", icon: PieChart },
+    ];
+
 
     useEffect(() => {
         const fetchCurrentUser = async () => {
@@ -472,6 +487,8 @@ export default function ViewResponsesClientPage() {
        );
    }
 
+    const currentTabLabel = tabOptions.find(t => t.value === activeTab)?.label || "Menu";
+
     return (
         <div className="mx-auto p-4 md:p-6 space-y-6">
             <Card>
@@ -502,228 +519,260 @@ export default function ViewResponsesClientPage() {
                 </CardContent>
             </Card>
             
-            <Tabs defaultValue="respondents">
-                <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="respondents">
-                        <UserCheck className="mr-2 h-4 w-4"/>Respondents ({filteredResponses.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="non-respondents" disabled={!canManageResponses}>
-                        <UserX className="mr-2 h-4 w-4"/>Non-Respondents ({nonRespondents.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="analytics">
-                        <PieChart className="mr-2 h-4 w-4" />Analytics
-                    </TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="respondents">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <h3 className="text-lg font-semibold">Submitted Responses</h3>
-                            <Button onClick={() => handleExport('respondents')} disabled={filteredResponses.length === 0} size="sm" variant="outline">
-                                <Download className="mr-2 h-4 w-4" /> Export Respondents
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                {/* Desktop Tabs */}
+                <div className="hidden md:block">
+                    <TabsList>
+                        <TabsTrigger value="respondents">
+                            <UserCheck className="mr-2 h-4 w-4"/>Respondents ({filteredResponses.length})
+                        </TabsTrigger>
+                        <TabsTrigger value="non-respondents" disabled={!canManageResponses}>
+                            <UserX className="mr-2 h-4 w-4"/>Non-Respondents ({nonRespondents.length})
+                        </TabsTrigger>
+                        <TabsTrigger value="analytics">
+                            <PieChart className="mr-2 h-4 w-4" />Analytics
+                        </TabsTrigger>
+                    </TabsList>
+                </div>
+                 {/* Mobile Dropdown */}
+                <div className="md:hidden">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between">
+                                Viewing: {currentTabLabel}
+                                <ChevronDown className="h-4 w-4" />
                             </Button>
-                        </CardHeader>
-                        <CardContent>
-                             {filteredResponses.length === 0 ? (
-                                <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
-                                     <Users className="h-12 w-12 text-muted-foreground mx-auto"/>
-                                    <p className="text-lg font-medium text-muted-foreground">No Responses Yet</p>
-                                    <p className="text-sm text-muted-foreground">
-                                        No relevant submissions found for your scope.
-                                    </p>
-                                </div>
-                            ) : (
-                                <>
-                                {/* Mobile View: Accordion */}
-                                <div className="md:hidden">
-                                  <Accordion type="single" collapsible className="w-full">
-                                      {filteredResponses.map((response, index) => (
-                                          <AccordionItem value={response.id} key={response.id}>
-                                              <AccordionTrigger>
-                                                    <div className="flex items-center gap-4 flex-grow text-left">
-                                                        <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
-                                                        <div className="flex-grow">
-                                                            <p className="font-semibold text-card-foreground">{response.submitterName}</p>
-                                                            <p className="text-xs text-muted-foreground">ITS: {response.submittedBy} &middot; Submitted: {format(new Date(response.submittedAt), "MMM d, yyyy")}</p>
-                                                        </div>
-                                                    </div>
-                                              </AccordionTrigger>
-                                              <AccordionContent className="space-y-4 pt-2">
-                                                <div className="px-2 space-y-3">
-                                                  {form?.questions.map(q => (
-                                                      <div key={q.id}>
-                                                          <p className="font-medium text-sm text-muted-foreground">{q.label}</p>
-                                                          <div className="text-base pl-2">{renderResponseValue(q.id, response.responses[q.id])}</div>
-                                                      </div>
-                                                  ))}
-                                                </div>
-                                                {canManageResponses && (
-                                                  <>
-                                                    <Separator/>
-                                                    <div className="flex justify-end px-2">
-                                                        <AlertDialog>
-                                                            <AlertDialogTrigger asChild>
-                                                                <Button variant="destructive" size="sm">
-                                                                    <Trash2 className="mr-2 h-4 w-4"/> Delete
-                                                                </Button>
-                                                            </AlertDialogTrigger>
-                                                            <AlertDialogContent>
-                                                                <AlertDialogHeader>
-                                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                                    <AlertDialogDescription>This will permanently delete the response from {response.submitterName}.</AlertDialogDescription>
-                                                                </AlertDialogHeader>
-                                                                <AlertDialogFooter>
-                                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                    <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteResponse(response.id)}>Delete</AlertDialogAction>
-                                                                </AlertDialogFooter>
-                                                            </AlertDialogContent>
-                                                        </AlertDialog>
-                                                    </div>
-                                                  </>
-                                                )}
-                                              </AccordionContent>
-                                          </AccordionItem>
-                                      ))}
-                                  </Accordion>
-                                </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]">
+                             <DropdownMenuItem onSelect={() => setActiveTab('respondents')}>
+                                <UserCheck className="mr-2 h-4 w-4"/>
+                                Respondents ({filteredResponses.length})
+                             </DropdownMenuItem>
+                             <DropdownMenuItem onSelect={() => setActiveTab('non-respondents')} disabled={!canManageResponses}>
+                                <UserX className="mr-2 h-4 w-4"/>
+                                Non-Respondents ({nonRespondents.length})
+                            </DropdownMenuItem>
+                             <DropdownMenuItem onSelect={() => setActiveTab('analytics')}>
+                                <PieChart className="mr-2 h-4 w-4" />
+                                Analytics
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
 
-                                {/* Desktop View: Table */}
-                                <div className="hidden md:block border rounded-lg max-w-full overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-[50px]">Sr.No.</TableHead>
-                                            <TableHead className="whitespace-nowrap">Submitter</TableHead>
-                                            <TableHead className="whitespace-nowrap">Submitted At</TableHead>
-                                            {form?.questions.map(q => (
-                                                <TableHead key={q.id} className="whitespace-nowrap">{q.label}</TableHead>
-                                            ))}
-                                            {canManageResponses && <TableHead className="text-right whitespace-nowrap">Actions</TableHead>}
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredResponses.map((response, index) => (
-                                            <TableRow key={response.id}>
-                                                <TableCell>{index + 1}</TableCell>
-                                                <TableCell>
-                                                    <div className="font-medium">{response.submitterName}</div>
-                                                    <div className="text-xs text-muted-foreground">ITS: {response.submittedBy}</div>
-                                                    <div className="text-xs text-muted-foreground">BGK: {response.submitterBgkId || 'N/A'}</div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    {format(new Date(response.submittedAt), "MMM d, yyyy p")}
-                                                </TableCell>
-                                                {form?.questions.map(q => (
-                                                    <TableCell key={q.id}>
-                                                        {renderResponseValue(q.id, response.responses[q.id])}
-                                                    </TableCell>
-                                                ))}
-                                                {canManageResponses && (
-                                                    <TableCell className="text-right">
-                                                        <AlertDialog>
-                                                            <AlertDialogTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </AlertDialogTrigger>
-                                                            <AlertDialogContent>
-                                                                <AlertDialogHeader>
-                                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                                    <AlertDialogDescription>
-                                                                        This will permanently delete the response from {response.submitterName}. This action cannot be undone.
-                                                                    </AlertDialogDescription>
-                                                                </AlertDialogHeader>
-                                                                <AlertDialogFooter>
-                                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                    <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteResponse(response.id)}>
-                                                                        Delete
-                                                                    </AlertDialogAction>
-                                                                </AlertDialogFooter>
-                                                            </AlertDialogContent>
-                                                        </AlertDialog>
-                                                    </TableCell>
-                                                )}
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                                </div>
-                                </>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-                
-                <TabsContent value="non-respondents">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <h3 className="text-lg font-semibold">Non-Respondents</h3>
-                            <Button onClick={() => handleExport('non-respondents')} disabled={nonRespondents.length === 0} size="sm" variant="outline">
-                                <Download className="mr-2 h-4 w-4" /> Export Non-Respondents
-                            </Button>
-                        </CardHeader>
-                        <CardContent>
-                             {nonRespondents.length === 0 ? (
-                                <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
-                                     <Users className="h-12 w-12 text-muted-foreground mx-auto"/>
-                                    <p className="text-lg font-medium text-muted-foreground">All relevant members have responded!</p>
-                                </div>
-                            ) : (
-                                <>
-                                 {/* Mobile View: Simple List */}
-                                <div className="md:hidden space-y-2">
-                                  {nonRespondents.map((user, index) => (
-                                    <div key={user.id} className="p-3 border rounded-lg flex justify-between items-center">
-                                      <div className="flex items-center gap-4">
-                                        <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
-                                        <div>
-                                            <p className="font-medium">{user.name}</p>
-                                            <p className="text-xs text-muted-foreground">ITS: {user.itsId} &middot; Team: {user.team || 'N/A'}</p>
-                                        </div>
-                                      </div>
+                <div className="mt-4">
+                    <TabsContent value="respondents">
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <h3 className="text-lg font-semibold">Submitted Responses</h3>
+                                <Button onClick={() => handleExport('respondents')} disabled={filteredResponses.length === 0} size="sm" variant="outline">
+                                    <Download className="mr-2 h-4 w-4" /> Export
+                                </Button>
+                            </CardHeader>
+                            <CardContent>
+                                {filteredResponses.length === 0 ? (
+                                    <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
+                                        <Users className="h-12 w-12 text-muted-foreground mx-auto"/>
+                                        <p className="text-lg font-medium text-muted-foreground">No Responses Yet</p>
+                                        <p className="text-sm text-muted-foreground">
+                                            No relevant submissions found for your scope.
+                                        </p>
                                     </div>
-                                  ))}
-                                </div>
-                                {/* Desktop View: Table */}
-                                <div className="hidden md:block border rounded-lg max-w-full overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-[50px]">Sr.No.</TableHead>
-                                            <TableHead className="whitespace-nowrap">Name</TableHead>
-                                            <TableHead className="whitespace-nowrap">ITS ID</TableHead>
-                                            <TableHead className="whitespace-nowrap">BGK ID</TableHead>
-                                            <TableHead className="whitespace-nowrap">Team</TableHead>
-                                            <TableHead className="whitespace-nowrap">Mohallah</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {nonRespondents.map((user, index) => (
-                                            <TableRow key={user.id}>
-                                                <TableCell>{index + 1}</TableCell>
-                                                <TableCell className="font-medium">{user.name}</TableCell>
-                                                <TableCell>{user.itsId}</TableCell>
-                                                <TableCell>{user.bgkId || 'N/A'}</TableCell>
-                                                <TableCell>{user.team || 'N/A'}</TableCell>
-                                                <TableCell>{getMohallahNameById(user.mohallahId)}</TableCell>
-                                            </TableRow>
+                                ) : (
+                                    <>
+                                    {/* Mobile View: Accordion */}
+                                    <div className="md:hidden">
+                                    <Accordion type="single" collapsible className="w-full">
+                                        {filteredResponses.map((response, index) => (
+                                            <AccordionItem value={response.id} key={response.id}>
+                                                <AccordionTrigger>
+                                                        <div className="flex items-center gap-4 flex-grow text-left">
+                                                            <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
+                                                            <div className="flex-grow">
+                                                                <p className="font-semibold text-card-foreground">{response.submitterName}</p>
+                                                                <p className="text-xs text-muted-foreground">ITS: {response.submittedBy} &middot; Submitted: {format(new Date(response.submittedAt), "MMM d, yyyy")}</p>
+                                                            </div>
+                                                        </div>
+                                                </AccordionTrigger>
+                                                <AccordionContent className="space-y-4 pt-2">
+                                                    <div className="px-2 space-y-3">
+                                                    {form?.questions.map(q => (
+                                                        <div key={q.id}>
+                                                            <p className="font-medium text-sm text-muted-foreground">{q.label}</p>
+                                                            <div className="text-base pl-2">{renderResponseValue(q.id, response.responses[q.id])}</div>
+                                                        </div>
+                                                    ))}
+                                                    </div>
+                                                    {canManageResponses && (
+                                                    <>
+                                                        <Separator/>
+                                                        <div className="flex justify-end px-2">
+                                                            <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <Button variant="destructive" size="sm">
+                                                                        <Trash2 className="mr-2 h-4 w-4"/> Delete
+                                                                    </Button>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>This will permanently delete the response from {response.submitterName}.</AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteResponse(response.id)}>Delete</AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        </div>
+                                                    </>
+                                                    )}
+                                                </AccordionContent>
+                                            </AccordionItem>
                                         ))}
-                                    </TableBody>
-                                </Table>
-                                </div>
-                                </>
-                            )}
-                        </CardContent>
-                    </Card>
-                </TabsContent>
-                <TabsContent value="analytics">
-                    {form ? (
-                        <FormAnalytics form={form} responses={filteredResponses} />
-                    ) : (
-                        <div className="text-center py-20 text-muted-foreground">Loading form data for analytics...</div>
-                    )}
-                </TabsContent>
+                                    </Accordion>
+                                    </div>
+
+                                    {/* Desktop View: Table */}
+                                    <div className="hidden md:block border rounded-lg max-w-full overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="w-[50px]">Sr.No.</TableHead>
+                                                <TableHead className="whitespace-nowrap">Submitter</TableHead>
+                                                <TableHead className="whitespace-nowrap">Submitted At</TableHead>
+                                                {form?.questions.map(q => (
+                                                    <TableHead key={q.id} className="whitespace-nowrap">{q.label}</TableHead>
+                                                ))}
+                                                {canManageResponses && <TableHead className="text-right whitespace-nowrap">Actions</TableHead>}
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredResponses.map((response, index) => (
+                                                <TableRow key={response.id}>
+                                                    <TableCell>{index + 1}</TableCell>
+                                                    <TableCell>
+                                                        <div className="font-medium">{response.submitterName}</div>
+                                                        <div className="text-xs text-muted-foreground">ITS: {response.submittedBy}</div>
+                                                        <div className="text-xs text-muted-foreground">BGK: {response.submitterBgkId || 'N/A'}</div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {format(new Date(response.submittedAt), "MMM d, yyyy p")}
+                                                    </TableCell>
+                                                    {form?.questions.map(q => (
+                                                        <TableCell key={q.id}>
+                                                            {renderResponseValue(q.id, response.responses[q.id])}
+                                                        </TableCell>
+                                                    ))}
+                                                    {canManageResponses && (
+                                                        <TableCell className="text-right">
+                                                            <AlertDialog>
+                                                                <AlertDialogTrigger asChild>
+                                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </AlertDialogTrigger>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            This will permanently delete the response from {response.submitterName}. This action cannot be undone.
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteResponse(response.id)}>
+                                                                            Delete
+                                                                        </AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        </TableCell>
+                                                    )}
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                    </div>
+                                    </>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                    
+                    <TabsContent value="non-respondents">
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <h3 className="text-lg font-semibold">Non-Respondents</h3>
+                                <Button onClick={() => handleExport('non-respondents')} disabled={nonRespondents.length === 0} size="sm" variant="outline">
+                                    <Download className="mr-2 h-4 w-4" /> Export
+                                </Button>
+                            </CardHeader>
+                            <CardContent>
+                                {nonRespondents.length === 0 ? (
+                                    <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
+                                        <Users className="h-12 w-12 text-muted-foreground mx-auto"/>
+                                        <p className="text-lg font-medium text-muted-foreground">All relevant members have responded!</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                    {/* Mobile View: Simple List */}
+                                    <div className="md:hidden space-y-2">
+                                    {nonRespondents.map((user, index) => (
+                                        <div key={user.id} className="p-3 border rounded-lg flex justify-between items-center">
+                                        <div className="flex items-center gap-4">
+                                            <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
+                                            <div>
+                                                <p className="font-medium">{user.name}</p>
+                                                <p className="text-xs text-muted-foreground">ITS: {user.itsId} &middot; Team: {user.team || 'N/A'}</p>
+                                            </div>
+                                        </div>
+                                        </div>
+                                    ))}
+                                    </div>
+                                    {/* Desktop View: Table */}
+                                    <div className="hidden md:block border rounded-lg max-w-full overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="w-[50px]">Sr.No.</TableHead>
+                                                <TableHead className="whitespace-nowrap">Name</TableHead>
+                                                <TableHead className="whitespace-nowrap">ITS ID</TableHead>
+                                                <TableHead className="whitespace-nowrap">BGK ID</TableHead>
+                                                <TableHead className="whitespace-nowrap">Team</TableHead>
+                                                <TableHead className="whitespace-nowrap">Mohallah</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {nonRespondents.map((user, index) => (
+                                                <TableRow key={user.id}>
+                                                    <TableCell>{index + 1}</TableCell>
+                                                    <TableCell className="font-medium">{user.name}</TableCell>
+                                                    <TableCell>{user.itsId}</TableCell>
+                                                    <TableCell>{user.bgkId || 'N/A'}</TableCell>
+                                                    <TableCell>{user.team || 'N/A'}</TableCell>
+                                                    <TableCell>{getMohallahNameById(user.mohallahId)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                    </div>
+                                    </>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                    <TabsContent value="analytics">
+                        {form ? (
+                            <FormAnalytics form={form} responses={filteredResponses} />
+                        ) : (
+                            <div className="text-center py-20 text-muted-foreground">Loading form data for analytics...</div>
+                        )}
+                    </TabsContent>
+                </div>
             </Tabs>
         </div>
     );
 }
+
+    
