@@ -19,7 +19,7 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
-import { getUsers, addUser, updateUser, deleteUser, getUserByItsOrBgkId, getUniqueTeamNames } from "@/lib/firebase/userService";
+import { getUsers, addUser, updateUser, deleteUser, getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
@@ -96,7 +96,7 @@ export default function ManageMembersPage() {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
-  const [availableTeams, setAvailableTeams] = useState<string[]>([]);
+  const [availableTeamsInForm, setAvailableTeamsInForm] = useState<string[]>([]);
   const [members, setMembers] = useState<User[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -135,6 +135,7 @@ export default function ManageMembersPage() {
 
   const watchedRole = memberForm.watch("role");
   const watchedDesignation = memberForm.watch("designation");
+  const watchedMohallahInForm = memberForm.watch("mohallahId");
 
   const isTeamLeadView = useMemo(() => {
     if (!currentUserRole || !currentUserDesignation) return false;
@@ -209,8 +210,6 @@ export default function ManageMembersPage() {
       setIsLoadingMohallahs(false);
     });
 
-    getUniqueTeamNames().then(setAvailableTeams);
-
     return () => unsubscribeMohallahs();
   }, [isAuthorized]);
 
@@ -246,6 +245,19 @@ export default function ManageMembersPage() {
     }
     fetchAndSetMembers(); // Fetch all members initially for all roles with access
   }, [isAuthorized, fetchAndSetMembers]);
+  
+  useEffect(() => {
+    if (watchedMohallahInForm && members.length > 0) {
+      const teams = new Set(
+        members
+          .filter(m => m.mohallahId === watchedMohallahInForm && m.team)
+          .map(m => m.team!)
+      );
+      setAvailableTeamsInForm(Array.from(teams).sort());
+    } else {
+      setAvailableTeamsInForm([]);
+    }
+  }, [watchedMohallahInForm, members]);
 
 
   useEffect(() => {
@@ -673,11 +685,18 @@ export default function ManageMembersPage() {
   }, [currentUserDesignation]);
 
   const teamFilterOptions = useMemo(() => {
-      if (!currentUser) return [];
-      if (currentUser.designation === 'Captain') return availableTeams;
-      if (currentUser.designation === 'Vice Captain') return currentUser.managedTeams || [];
-      return [];
-  }, [currentUser, availableTeams]);
+    if (!currentUser) return [];
+    
+    // Get all teams from all mohallahs
+    const allTeams = new Set<string>();
+    members.forEach(member => {
+        if(member.team) allTeams.add(member.team);
+    });
+
+    if (currentUser.designation === 'Captain') return Array.from(allTeams).sort();
+    if (currentUser.designation === 'Vice Captain') return currentUser.managedTeams || [];
+    return [];
+}, [currentUser, members]);
 
   const canManageMembers = currentUserRole === 'admin' || currentUserRole === 'superadmin';
   const displayTitle = useMemo(() => {
@@ -846,13 +865,7 @@ export default function ManageMembersPage() {
                               <FormMessage />
                             </FormItem>
                           )} />
-                          <FormField control={memberForm.control} name="team" render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Team</FormLabel>
-                              <FormControl><Input placeholder="Optional" {...field} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )} />
+                          
                           <FormField control={memberForm.control} name="phoneNumber" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Phone Number</FormLabel>
@@ -860,6 +873,41 @@ export default function ManageMembersPage() {
                               <FormMessage />
                             </FormItem>
                           )} />
+                           <FormField control={memberForm.control} name="mohallahId" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Mohallah</FormLabel>
+                              <Select
+                                onValueChange={(value) => {
+                                    field.onChange(value);
+                                    memberForm.setValue('team', ''); // Reset team when mohallah changes
+                                }}
+                                value={field.value}
+                                disabled={isLoadingMohallahs || mohallahs.length === 0 || !!editingMember || currentUserRole === 'admin'}
+                              >
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                  {isLoadingMohallahs ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                                  mohallahs.length === 0 ? <SelectItem value="no-mohallah" disabled>No Mohallahs available</SelectItem> :
+                                  mohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                              {(!!editingMember || currentUserRole === 'admin') && <FormDescription className="text-xs">Mohallah cannot be changed for existing members or by admins.</FormDescription>}
+                              <FormMessage />
+                            </FormItem>
+                          )} />
+                          <FormField control={memberForm.control} name="team" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Team</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedMohallahInForm || availableTeamsInForm.length === 0}>
+                                <FormControl><SelectTrigger><SelectValue placeholder={!watchedMohallahInForm ? "Select a Mohallah first" : (availableTeamsInForm.length === 0 ? "No teams in this Mohallah" : "Select a team")} /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    {availableTeamsInForm.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )} />
+
                           <FormField control={memberForm.control} name="designation" render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Designation</FormLabel>
@@ -882,7 +930,7 @@ export default function ManageMembersPage() {
                                     <FormLabel>Managed Teams</FormLabel>
                                     <FormDescription>Select the teams this Vice Captain will manage.</FormDescription>
                                     <ScrollArea className="rounded-md border p-3 h-32">
-                                    {availableTeams.map((team) => (
+                                    {teamFilterOptions.map((team) => (
                                         <FormField
                                         key={team}
                                         control={memberForm.control}
@@ -965,25 +1013,7 @@ export default function ManageMembersPage() {
                               )}
                             />
                           )}
-                          <FormField control={memberForm.control} name="mohallahId" render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Mohallah</FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                value={field.value}
-                                disabled={isLoadingMohallahs || mohallahs.length === 0 || !!editingMember || currentUserRole === 'admin'}
-                              >
-                                <FormControl><SelectTrigger><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                  {isLoadingMohallahs ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
-                                  mohallahs.length === 0 ? <SelectItem value="no-mohallah" disabled>No Mohallahs available</SelectItem> :
-                                  mohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                              {(!!editingMember || currentUserRole === 'admin') && <FormDescription className="text-xs">Mohallah cannot be changed for existing members or by admins.</FormDescription>}
-                              <FormMessage />
-                            </FormItem>
-                          )} />
+                          
 
                           {watchedRole && watchedRole !== 'user' && (
                             <FormField
@@ -1144,32 +1174,32 @@ export default function ManageMembersPage() {
             </div>
           ) : (
             <>
-              {/* Mobile View: Simple List */}
-                <div className="md:hidden space-y-3">
-                    {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member) => (
-                        <Card key={member.id} className="p-4">
-                             <div className="flex items-start gap-4">
-                                {canManageMembers && (
-                                    <Checkbox
-                                        id={`mobile-select-${member.id}`}
-                                        checked={selectedMemberIds.includes(member.id)}
-                                        onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
-                                        aria-label={`Select member ${member.name}`}
-                                        className="mt-1.5"
-                                    />
-                                )}
-                                <Avatar className="h-10 w-10">
-                                    <AvatarImage src={member.avatarUrl || `https://placehold.co/40x40.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
-                                    <AvatarFallback>{member.name.substring(0,2).toUpperCase()}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-grow">
-                                    <p className="font-semibold text-card-foreground">{member.name}</p>
-                                    <p className="text-xs text-muted-foreground">ITS: {member.itsId}</p>
-                                    <p className="text-xs text-muted-foreground">BGK: {member.bgkId || "N/A"}</p>
-                                </div>
+              {/* Mobile View: Accordion */}
+                <div className="md:hidden">
+                  <Accordion type="single" collapsible className="w-full">
+                    {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member, index) => (
+                      <AccordionItem value={member.id} key={member.id}>
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center gap-4 w-full">
+                            <span className="text-sm font-mono text-muted-foreground">{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.</span>
+                            <div className="flex-grow text-left">
+                                <p className="font-semibold text-card-foreground">{member.name}</p>
+                                <p className="text-xs text-muted-foreground">ITS: {member.itsId}</p>
                             </div>
-                            <Separator className="my-3"/>
-                            <div className="text-sm text-muted-foreground space-y-1 px-2">
+                            {canManageMembers && (
+                                <Checkbox
+                                    checked={selectedMemberIds.includes(member.id)}
+                                    onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    aria-label={`Select member ${member.name}`}
+                                    className="ml-auto mr-2"
+                                />
+                            )}
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="space-y-4 pt-2">
+                           <div className="text-sm text-muted-foreground space-y-1 px-2">
+                                <p><strong>BGK ID:</strong> {member.bgkId || "N/A"}</p>
                                 <p><strong>Designation:</strong> {member.designation || "N/A"}</p>
                                 <p><strong>Team:</strong> {member.team || "N/A"}</p>
                                 <p><strong>Mohallah:</strong> {getMohallahNameById(member.mohallahId)}</p>
@@ -1201,12 +1231,14 @@ export default function ManageMembersPage() {
                                   )}
                                 </div>
                               )}
-                        </Card>
+                        </AccordionContent>
+                      </AccordionItem>
                     )) : (
                         <div className="text-center py-10">
                             <p className="text-muted-foreground">No members found.</p>
                         </div>
                     )}
+                  </Accordion>
                 </div>
 
               {/* Desktop View: Table */}

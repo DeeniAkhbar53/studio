@@ -190,25 +190,6 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
   }
 };
 
-export const getUniqueTeamNames = async (): Promise<string[]> => {
-  try {
-    const usersSnapshot = await getDocs(collectionGroup(db, 'members'));
-    const teamNames = new Set<string>();
-    usersSnapshot.forEach(doc => {
-      const userData = doc.data() as User;
-      if (userData.team && userData.team.trim() !== "") {
-        teamNames.add(userData.team.trim());
-      }
-    });
-    return Array.from(teamNames).sort();
-  } catch (error) {
-    console.error("Error fetching unique team names using collection group query: ", error);
-     if (error instanceof Error && error.message.includes("index")) {
-        console.error("This operation may require a Firestore index on 'team' for the 'members' collection group if you plan to query/filter by it broadly. For now, it scans all members.");
-    }
-    throw error;
-  }
-};
 
 export const getUsersCount = async (mohallahId?: string): Promise<number> => {
   try {
