@@ -31,6 +31,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FunkyLoader } from "@/components/ui/funky-loader";
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -584,6 +585,8 @@ export default function ManageMembersPage() {
     }
      toast({ title: "Sample CSV Downloaded", description: "Replace dummy data. MohallahName must match existing. pageRights/managedTeams are semicolon-separated." });
   };
+  
+  const getMohallahNameById = (id?: string) => mohallahs.find(m => m.id === id)?.name || "N/A";
 
   const filteredMembers = useMemo(() => {
     let dataToFilter = [...members];
@@ -657,8 +660,6 @@ export default function ManageMembersPage() {
     }
   };
 
-  const getMohallahNameById = (id?: string) => mohallahs.find(m => m.id === id)?.name || "N/A";
-
   const canAddOrImport = () => {
     if (isLoadingMohallahs) return false; 
     if (currentUserRole === 'admin') return !!currentUserMohallahId; 
@@ -693,7 +694,7 @@ export default function ManageMembersPage() {
   if (isAuthorized === null) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <FunkyLoader size="lg" />
       </div>
     );
   }
@@ -1139,8 +1140,7 @@ export default function ManageMembersPage() {
         <CardContent className="pt-6 flex-1 overflow-y-auto">
           {isLoadingMembers ? (
             <div className="flex justify-center items-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="ml-2 text-muted-foreground">Loading members...</p>
+              <FunkyLoader>Loading members...</FunkyLoader>
             </div>
           ) : (
             <>
@@ -1399,5 +1399,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
-    
