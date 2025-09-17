@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X } from "lucide-react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building } from "lucide-react";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole, UserDesignation, Miqaat, MiqaatAttendanceEntryItem, Form as FormType, User } from "@/types";
@@ -21,6 +21,7 @@ import { DialogFooter } from "@/components/ui/dialog";
 import Image from "next/image";
 import Link from "next/link";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { FunkyLoader } from "@/components/ui/funky-loader";
 
 
 interface AdminStat {
@@ -80,7 +81,7 @@ export default function DashboardOverviewPage() {
   const [nonRespondentList, setNonRespondentList] = useState<User[]>([]);
   const [isNonRespondentSheetOpen, setIsNonRespondentSheetOpen] = useState(false);
   const [isLoadingNonRespondents, setIsLoadingNonRespondents] = useState(false);
-  const [isNonRespondentAlertOpen, setIsNonRespondentAlertOpen] = useState(true);
+  const [isNonRespondentAlertOpen, setIsNonRespondentAlertOpen] useState(true);
 
   // Pending Forms State
   const [pendingForms, setPendingForms] = useState<FormType[]>([]);
@@ -696,10 +697,10 @@ export default function DashboardOverviewPage() {
 
 
   const attendanceMarkerStats: AdminStat[] = [
-    { title: "Active Miqaats", value: activeMiqaatsCount, icon: CalendarCheck, isLoading: isLoadingStats },
-    { title: "Total Miqaats", value: totalMiqaatsCount, icon: CalendarCheck, isLoading: isLoadingStats },
-    { title: "Active Forms", value: activeFormsCount, icon: FileText, isLoading: isLoadingStats },
-    { title: "Total Forms", value: totalFormsCount, icon: FileText, isLoading: isLoadingStats },
+    { title: "Active Miqaats", value: activeMiqaatsCount, icon: CalendarClock, isLoading: isLoadingStats },
+    { title: "Total Miqaats", value: totalMiqaatsCount, icon: CalendarDays, isLoading: isLoadingStats },
+    { title: "Active Forms", value: activeFormsCount, icon: FilePenLine, isLoading: isLoadingStats },
+    { title: "Total Forms", value: totalFormsCount, icon: Files, isLoading: isLoadingStats },
   ];
 
   const adminOverviewStats: AdminStat[] = [
@@ -708,7 +709,7 @@ export default function DashboardOverviewPage() {
   ];
 
   if (currentUserRole === 'superadmin') {
-    adminOverviewStats.splice(5, 0, { title: "Total Mohallahs", value: totalMohallahsCount, icon: Users, isLoading: isLoadingStats });
+    adminOverviewStats.splice(5, 0, { title: "Total Mohallahs", value: totalMohallahsCount, icon: Building, isLoading: isLoadingStats });
   }
 
   const statsToDisplay = (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead) ? adminOverviewStats : [];
@@ -725,8 +726,7 @@ export default function DashboardOverviewPage() {
   if (isLoadingUser && !currentUserItsId) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center h-full">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Loading user data...</p>
+        <FunkyLoader size="lg">Loading user data...</FunkyLoader>
       </div>
     );
   }
@@ -836,7 +836,7 @@ export default function DashboardOverviewPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-foreground break-all">
-                    {stat.isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : stat.value}
+                    {stat.isLoading ? <FunkyLoader size="sm" /> : stat.value}
                   </div>
                   {stat.trend && <p className="text-xs text-muted-foreground break-words">{stat.trend}</p>}
                 </CardContent>
@@ -846,8 +846,7 @@ export default function DashboardOverviewPage() {
         )}
         {(isLoadingStats && (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead)) && (
           <div className="flex justify-center items-center py-6">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <p className="ml-2 text-muted-foreground">Loading system data...</p>
+            <FunkyLoader>Loading system data...</FunkyLoader>
           </div>
         )}
       </div>
@@ -893,8 +892,7 @@ export default function DashboardOverviewPage() {
             )}
             {!isScannerActive && !scannerError && !isProcessingScan && isScannerDialogOpen && (
               <div className="text-center text-muted-foreground py-2">
-                <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-2" />
-                <p>Initializing Camera...</p>
+                <FunkyLoader>Initializing Camera...</FunkyLoader>
               </div>
             )}
             {isScannerActive && !isProcessingScan && (
@@ -904,8 +902,7 @@ export default function DashboardOverviewPage() {
             )}
             {isProcessingScan && (
               <div className="text-center text-blue-600 py-2">
-                <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-2" />
-                <p>Processing Scan...</p>
+                <FunkyLoader>Processing Scan...</FunkyLoader>
               </div>
             )}
           </div>
@@ -1018,7 +1015,7 @@ export default function DashboardOverviewPage() {
           <div className="max-h-[80vh] overflow-y-auto my-4 pr-4">
             {isLoadingPendingForms ? (
               <div className="flex items-center justify-center p-4">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <FunkyLoader>Loading forms...</FunkyLoader>
               </div>
             ) : pendingForms.length > 0 ? (
               <ul className="space-y-3">
@@ -1047,3 +1044,4 @@ export default function DashboardOverviewPage() {
   );
 }
 
+    
