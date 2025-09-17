@@ -271,21 +271,39 @@ export default function MarkAttendancePage() {
       return;
     }
 
-    // Check eligibility
-    const eligibleItsIds = selectedMiqaatDetails.eligibleItsIds;
-    if (eligibleItsIds && eligibleItsIds.length > 0) {
-      if (!eligibleItsIds.includes(member.itsId)) {
-        toast({
-            title: "Not Eligible",
-            description: `${member.name} (${member.itsId}) is not on the specific eligibility list for this Miqaat.`,
-            variant: "destructive",
-            duration: 7000,
-        });
-        setMemberIdInput("");
-        setIsProcessing(false);
-        return;
-      }
+    // --- NEW ELIGIBILITY CHECK ---
+    const isMiqaatForEveryone = 
+        (!selectedMiqaatDetails.mohallahIds || selectedMiqaatDetails.mohallahIds.length === 0) &&
+        (!selectedMiqaatDetails.teams || selectedMiqaatDetails.teams.length === 0) &&
+        (!selectedMiqaatDetails.eligibleItsIds || selectedMiqaatDetails.eligibleItsIds.length === 0);
+
+    if (!isMiqaatForEveryone) {
+        let isEligible = false;
+        const eligibleById = !!selectedMiqaatDetails.eligibleItsIds?.includes(member.itsId);
+        const eligibleByTeam = !!member.team && !!selectedMiqaatDetails.teams?.includes(member.team);
+        const eligibleByMohallah = !!member.mohallahId && !!selectedMiqaatDetails.mohallahIds?.includes(member.mohallahId);
+
+        if (selectedMiqaatDetails.eligibleItsIds && selectedMiqaatDetails.eligibleItsIds.length > 0) {
+            // If specific IDs are listed, only they are eligible.
+            isEligible = eligibleById;
+        } else {
+            // Otherwise, check against groups.
+            isEligible = eligibleByMohallah || eligibleByTeam;
+        }
+        
+        if (!isEligible) {
+            toast({
+                title: "Not Eligible",
+                description: `${member.name} (${member.itsId}) is not eligible for this Miqaat based on its Mohallah, Team, or specific member list.`,
+                variant: "destructive",
+                duration: 7000,
+            });
+            setMemberIdInput("");
+            setIsProcessing(false);
+            return;
+        }
     }
+    // --- END ELIGIBILITY CHECK ---
     
     const alreadyMarkedInSession = markedAttendanceThisSession.some(
         (entry) => entry.memberItsId === member!.itsId && entry.miqaatId === selectedMiqaatId
@@ -939,3 +957,4 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
+
