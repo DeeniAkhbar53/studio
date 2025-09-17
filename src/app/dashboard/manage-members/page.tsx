@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FunkyLoader } from "@/components/ui/funky-loader";
+import { cn } from "@/lib/utils";
 
 const memberSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -1177,18 +1179,19 @@ export default function ManageMembersPage() {
                 <div className="md:hidden">
                     <Accordion type="single" collapsible className="w-full">
                         {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member, index) => (
-                        <AccordionItem value={member.id} key={member.id} className="border-b">
-                            <div className="flex items-center w-full px-4 py-2">
+                        <AccordionItem value={member.id} key={member.id} className="border-b data-[state=selected]:bg-muted/50" data-state={selectedMemberIds.includes(member.id) ? "selected" : undefined}>
+                            <div className="flex items-center w-full px-4">
                                 {canManageMembers && (
-                                    <Checkbox
-                                        checked={selectedMemberIds.includes(member.id)}
-                                        onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
-                                        onClick={(e) => e.stopPropagation()}
-                                        aria-label={`Select member ${member.name}`}
-                                        className="mr-4"
-                                    />
+                                    <div className="py-4 pr-4">
+                                        <Checkbox
+                                            checked={selectedMemberIds.includes(member.id)}
+                                            onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            aria-label={`Select member ${member.name}`}
+                                        />
+                                    </div>
                                 )}
-                                <AccordionTrigger className="w-full p-0 hover:no-underline">
+                                <AccordionTrigger className="w-full p-0 py-4 hover:no-underline flex-1">
                                     <div className="flex items-center gap-4 w-full">
                                         <span className="text-sm font-mono text-muted-foreground">{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.</span>
                                         <div className="flex-grow text-left">
@@ -1198,8 +1201,8 @@ export default function ManageMembersPage() {
                                     </div>
                                 </AccordionTrigger>
                             </div>
-                            <AccordionContent className="space-y-4 pt-2">
-                                <div className="text-sm text-muted-foreground space-y-1 px-4">
+                            <AccordionContent className="space-y-4 pt-0">
+                                <div className="text-sm text-muted-foreground space-y-1 px-4 pb-4">
                                     <p><strong>BGK ID:</strong> {member.bgkId || "N/A"}</p>
                                     <p><strong>Designation:</strong> {member.designation || "N/A"}</p>
                                     <p><strong>Team:</strong> {member.team || "N/A"}</p>
@@ -1432,5 +1435,7 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    
 
     
