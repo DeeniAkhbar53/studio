@@ -492,30 +492,35 @@ export default function ViewResponsesClientPage() {
     return (
         <div className="p-4 md:p-6 space-y-6">
             <Card>
-                 <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="flex-1">
-                        <CardTitle className="text-2xl md:text-3xl font-bold">{form?.title || "Form Responses"}</CardTitle>
-                        <CardDescription>{form?.description || "Viewing all submitted responses."}</CardDescription>
+                <CardHeader>
+                    <div className="flex justify-between items-start gap-4">
+                        <div className="flex-1">
+                            <CardTitle className="text-2xl md:text-3xl font-bold">{form?.title || "Form Responses"}</CardTitle>
+                            <CardDescription>{form?.description || "Viewing all submitted responses."}</CardDescription>
+                        </div>
+                        <Button variant="outline" onClick={() => router.push('/dashboard/forms')} className="shrink-0">
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            <span className="hidden sm:inline">Back to Forms</span>
+                        </Button>
                     </div>
-                     <Button variant="outline" onClick={() => router.push('/dashboard/forms')} className="w-full sm:w-auto">
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Forms
-                    </Button>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="p-4 bg-muted/50">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Total Responses</CardTitle>
-                        <p className="text-3xl font-bold">{filteredResponses.length}</p>
-                    </Card>
-                    <Card className="p-4 bg-muted/50">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Eligible Members</CardTitle>
-                        <p className="text-3xl font-bold">{eligibleUsers.length}</p>
-                    </Card>
-                    <Card className="p-4 bg-muted/50">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Response Rate</CardTitle>
-                        <p className="text-3xl font-bold">
-                            {eligibleUsers.length > 0 ? ((filteredResponses.length / eligibleUsers.length) * 100).toFixed(1) : 0}%
-                        </p>
-                    </Card>
+                <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center sm:text-left">
+                        <div className="p-4 rounded-lg bg-muted/50">
+                            <p className="text-sm font-medium text-muted-foreground">Total Responses</p>
+                            <p className="text-3xl font-bold">{filteredResponses.length}</p>
+                        </div>
+                        <div className="p-4 rounded-lg bg-muted/50">
+                            <p className="text-sm font-medium text-muted-foreground">Eligible Members</p>
+                            <p className="text-3xl font-bold">{eligibleUsers.length}</p>
+                        </div>
+                        <div className="p-4 rounded-lg bg-muted/50">
+                            <p className="text-sm font-medium text-muted-foreground">Response Rate</p>
+                            <p className="text-3xl font-bold">
+                                {eligibleUsers.length > 0 ? ((filteredResponses.length / eligibleUsers.length) * 100).toFixed(1) : 0}%
+                            </p>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
             
