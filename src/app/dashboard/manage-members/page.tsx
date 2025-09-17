@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -1176,69 +1175,71 @@ export default function ManageMembersPage() {
             <>
               {/* Mobile View: Accordion */}
                 <div className="md:hidden">
-                  <Accordion type="single" collapsible className="w-full">
-                    {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member, index) => (
-                      <AccordionItem value={member.id} key={member.id}>
-                        <AccordionTrigger className="hover:no-underline">
-                          <div className="flex items-center gap-4 w-full">
-                            <span className="text-sm font-mono text-muted-foreground">{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.</span>
-                            <div className="flex-grow text-left">
-                                <p className="font-semibold text-card-foreground">{member.name}</p>
-                                <p className="text-xs text-muted-foreground">ITS: {member.itsId}</p>
+                    <Accordion type="single" collapsible className="w-full">
+                        {currentMembersToDisplay.length > 0 ? currentMembersToDisplay.map((member, index) => (
+                        <AccordionItem value={member.id} key={member.id} className="border-b">
+                            <div className="flex items-center w-full px-4 py-2">
+                                {canManageMembers && (
+                                    <Checkbox
+                                        checked={selectedMemberIds.includes(member.id)}
+                                        onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        aria-label={`Select member ${member.name}`}
+                                        className="mr-4"
+                                    />
+                                )}
+                                <AccordionTrigger className="w-full p-0 hover:no-underline">
+                                    <div className="flex items-center gap-4 w-full">
+                                        <span className="text-sm font-mono text-muted-foreground">{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.</span>
+                                        <div className="flex-grow text-left">
+                                            <p className="font-semibold text-card-foreground">{member.name}</p>
+                                            <p className="text-xs text-muted-foreground">ITS: {member.itsId}</p>
+                                        </div>
+                                    </div>
+                                </AccordionTrigger>
                             </div>
-                            {canManageMembers && (
-                                <Checkbox
-                                    checked={selectedMemberIds.includes(member.id)}
-                                    onCheckedChange={(checked) => handleSelectMember(member.id, checked)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    aria-label={`Select member ${member.name}`}
-                                    className="ml-auto mr-2"
-                                />
-                            )}
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="space-y-4 pt-2">
-                           <div className="text-sm text-muted-foreground space-y-1 px-2">
-                                <p><strong>BGK ID:</strong> {member.bgkId || "N/A"}</p>
-                                <p><strong>Designation:</strong> {member.designation || "N/A"}</p>
-                                <p><strong>Team:</strong> {member.team || "N/A"}</p>
-                                <p><strong>Mohallah:</strong> {getMohallahNameById(member.mohallahId)}</p>
-                                <p><strong>Role:</strong> {member.role.charAt(0).toUpperCase() + member.role.slice(1).replace(/-/g, ' ')}</p>
-                            </div>
-                            {canManageMembers && (
-                                <div className="flex justify-end gap-2 pt-3 border-t mt-3">
-                                  <Button variant="ghost" size="sm" onClick={()=> handleEditMember(member)} className="flex-1" aria-label="Edit Member" disabled={currentUserRole === 'attendance-marker'}>
-                                      <Edit className="mr-2 h-4 w-4" /> Edit
-                                  </Button>
-                                  { (currentUserRole === 'admin' || currentUserRole === 'superadmin') && (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( 
-                                      <AlertDialog>
-                                          <AlertTrigger asChild>
-                                            <Button variant="ghost" size="sm" className="flex-1 text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
-                                                <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                            </Button>
-                                          </AlertTrigger>
-                                          <AlertContent>
-                                            <AlertHeader>
-                                                <AlertTitle>Are you sure?</AlertTitle>
-                                                <AlertDesc>This action cannot be undone. This will permanently delete "{member.name}".</AlertDesc>
-                                            </AlertHeader>
-                                            <AlertFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
-                                            </AlertFooter>
-                                          </AlertContent>
-                                      </AlertDialog>
-                                  )}
+                            <AccordionContent className="space-y-4 pt-2">
+                                <div className="text-sm text-muted-foreground space-y-1 px-4">
+                                    <p><strong>BGK ID:</strong> {member.bgkId || "N/A"}</p>
+                                    <p><strong>Designation:</strong> {member.designation || "N/A"}</p>
+                                    <p><strong>Team:</strong> {member.team || "N/A"}</p>
+                                    <p><strong>Mohallah:</strong> {getMohallahNameById(member.mohallahId)}</p>
+                                    <p><strong>Role:</strong> {member.role.charAt(0).toUpperCase() + member.role.slice(1).replace(/-/g, ' ')}</p>
                                 </div>
-                              )}
-                        </AccordionContent>
-                      </AccordionItem>
-                    )) : (
-                        <div className="text-center py-10">
-                            <p className="text-muted-foreground">No members found.</p>
-                        </div>
-                    )}
-                  </Accordion>
+                                {canManageMembers && (
+                                    <div className="flex justify-end gap-2 pt-3 border-t mt-3 px-4">
+                                    <Button variant="ghost" size="sm" onClick={()=> handleEditMember(member)} className="flex-1" aria-label="Edit Member" disabled={currentUserRole === 'attendance-marker'}>
+                                        <Edit className="mr-2 h-4 w-4" /> Edit
+                                    </Button>
+                                    { (currentUserRole === 'admin' || currentUserRole === 'superadmin') && (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( 
+                                        <AlertDialog>
+                                            <AlertTrigger asChild>
+                                                <Button variant="ghost" size="sm" className="flex-1 text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
+                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                </Button>
+                                            </AlertTrigger>
+                                            <AlertContent>
+                                                <AlertHeader>
+                                                    <AlertTitle>Are you sure?</AlertTitle>
+                                                    <AlertDesc>This action cannot be undone. This will permanently delete "{member.name}".</AlertDesc>
+                                                </AlertHeader>
+                                                <AlertFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteMember(member)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                                </AlertFooter>
+                                            </AlertContent>
+                                        </AlertDialog>
+                                    )}
+                                    </div>
+                                )}
+                            </AccordionContent>
+                        </AccordionItem>
+                        )) : (
+                            <div className="text-center py-10">
+                                <p className="text-muted-foreground">No members found.</p>
+                            </div>
+                        )}
+                    </Accordion>
                 </div>
 
               {/* Desktop View: Table */}
@@ -1431,3 +1432,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    
