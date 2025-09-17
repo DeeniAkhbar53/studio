@@ -6,7 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building } from "lucide-react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import {
+  ChartContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ChartTooltip,
+  ChartLegendContent,
+  ChartLegend,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole, UserDesignation, Miqaat, MiqaatAttendanceEntryItem, Form as FormType, User } from "@/types";
@@ -45,6 +59,19 @@ const TOP_LEVEL_LEADERS: UserDesignation[] = ["Major", "Captain"];
 const MID_LEVEL_LEADERS: UserDesignation[] = ["Vice Captain"];
 const GROUP_LEVEL_LEADERS: UserDesignation[] = ["Group Leader", "Asst.Grp Leader"];
 const qrReaderElementId = "qr-reader-dashboard";
+
+type ChartDataItem = {
+  name: string;
+  present: number;
+  late: number;
+  absent: number;
+};
+const chartConfig = {
+  present: { label: "Present", color: "hsl(var(--chart-2))" },
+  late: { label: "Late", color: "hsl(var(--chart-3))" },
+  absent: { label: "Absent", color: "hsl(var(--chart-5))" },
+};
+
 
 export default function DashboardOverviewPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
@@ -105,6 +132,13 @@ export default function DashboardOverviewPage() {
   const [scanDisplayMessage, setScanDisplayMessage] = useState<ScanDisplayMessage | null>(null);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+
+  const [attendanceChartData, setAttendanceChartData] = useState<ChartDataItem[] | null>(null);
+  const [isLoadingChartData, setIsLoadingChartData] = useState(true);
+
+  const [activeFormsWithResponses, setActiveFormsWithResponses] = useState< (FormType & { responseRate: number })[] | null >(null);
+  const [isLoadingFormsData, setIsLoadingFormsData] = useState(true);
+
 
   const isTeamLead = useMemo(() => {
     if (!currentUserRole || !currentUserDesignation) return false;
@@ -687,6 +721,94 @@ export default function DashboardOverviewPage() {
     setFacingMode(prevMode => (prevMode === 'user' ? 'environment' : 'user'));
   };
 
+  useEffect(() => {
+    if (!isTeamLead || allMiqaatsList.length === 0) {
+      setIsLoadingChartData(false);
+      return;
+    }
+    setIsLoadingChartData(true);
+    const processChartData = async () => {
+        try {
+            const allUsers = await getUsers();
+            const pastMiqaats = allMiqaatsList
+                .filter(m => new Date(m.endTime) < new Date())
+                .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+                .slice(0, 5); // Take the 5 most recent
+            
+            const data: ChartDataItem[] = [];
+
+            for (const miqaat of pastMiqaats) {
+                const attendedItsIds = new Set(miqaat.attendance?.map(a => a.userItsId));
+                const presentCount = miqaat.attendance?.filter(a => a.status === 'present' || a.status === 'early').length || 0;
+                const lateCount = miqaat.attendance?.filter(a => a.status === 'late').length || 0;
+                
+                const isMiqaatForEveryone = !miqaat.mohallahIds?.length && !miqaat.teams?.length && !miqaat.eligibleItsIds?.length;
+                
+                const eligibleUsers = allUsers.filter(u => {
+                    if (miqaat.eligibleItsIds?.length) return miqaat.eligibleItsIds.includes(u.itsId);
+                    if (isMiqaatForEveryone) return true;
+                    return (miqaat.mohallahIds?.includes(u.mohallahId || '')) || (miqaat.teams?.includes(u.team || ''));
+                });
+
+                const absentCount = eligibleUsers.length - attendedItsIds.size;
+
+                data.unshift({ // unshift to keep chronological order
+                    name: miqaat.name,
+                    present: presentCount,
+                    late: lateCount,
+                    absent: absentCount > 0 ? absentCount : 0,
+                });
+            }
+            setAttendanceChartData(data);
+        } catch (e) {
+            console.error("Failed to process chart data", e);
+            setAttendanceChartData(null);
+        } finally {
+            setIsLoadingChartData(false);
+        }
+    };
+    processChartData();
+  }, [isTeamLead, allMiqaatsList]);
+
+  useEffect(() => {
+    if (!isTeamLead || allForms.length === 0) {
+      setIsLoadingFormsData(false);
+      return;
+    }
+    setIsLoadingFormsData(true);
+    const processFormsData = async () => {
+        try {
+            const allUsers = await getUsers();
+            const activeForms = allForms.filter(f => f.status === 'open' && (!f.endDate || new Date(f.endDate) > new Date()));
+            
+            const formsWithRates: (FormType & { responseRate: number })[] = [];
+
+            for (const form of activeForms) {
+                const isFormForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
+                
+                const eligibleUsers = allUsers.filter(u => {
+                    if (form.eligibleItsIds?.length) return form.eligibleItsIds.includes(u.itsId);
+                    if (isFormForEveryone) return true;
+                    return (form.mohallahIds?.includes(u.mohallahId || '')) || (form.teams?.includes(u.team || ''));
+                });
+                
+                const responseCount = form.responseCount || 0;
+                const responseRate = eligibleUsers.length > 0 ? (responseCount / eligibleUsers.length) * 100 : 0;
+                
+                formsWithRates.push({ ...form, responseRate });
+            }
+            setActiveFormsWithResponses(formsWithRates);
+        } catch (e) {
+            console.error("Failed to process forms response rates", e);
+            setActiveFormsWithResponses(null);
+        } finally {
+            setIsLoadingFormsData(false);
+        }
+    };
+    processFormsData();
+  }, [isTeamLead, allForms]);
+
+
 
   const adminOverviewStats: AdminStat[] = [
     { title: "Active Miqaats", value: stats.activeMiqaatsCount, icon: CalendarClock, isLoading: loadingStats.miqaats },
@@ -831,6 +953,76 @@ export default function DashboardOverviewPage() {
               </Card>
             ))}
           </div>
+        )}
+
+        {isTeamLead && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="shadow-lg col-span-1 lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center"><BarChart2 className="mr-2 h-5 w-5 text-primary"/>Recent Miqaat Attendance</CardTitle>
+                        <CardDescription>Attendance summary for the last 5 completed Miqaats.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {isLoadingChartData ? (
+                           <div className="flex items-center justify-center h-[350px]">
+                            <FunkyLoader>Loading Chart Data...</FunkyLoader>
+                           </div>
+                        ) : attendanceChartData && attendanceChartData.length > 0 ? (
+                            <ChartContainer config={chartConfig} className="w-full h-[350px]">
+                                <BarChart accessibilityLayer data={attendanceChartData}>
+                                    <CartesianGrid vertical={false} />
+                                    <XAxis
+                                        dataKey="name"
+                                        tickLine={false}
+                                        tickMargin={10}
+                                        axisLine={false}
+                                        tickFormatter={(value) => value.slice(0, 15) + (value.length > 15 ? '...' : '')}
+                                    />
+                                    <YAxis />
+                                    <ChartTooltip content={<ChartTooltipContent />} />
+                                    <ChartLegend content={<ChartLegendContent />} />
+                                    <Bar dataKey="present" fill="var(--color-present)" radius={4} stackId="a" />
+                                    <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
+                                    <Bar dataKey="absent" fill="var(--color-absent)" radius={4} stackId="a" />
+                                </BarChart>
+                            </ChartContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+                                No completed Miqaat data available to display.
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card className="shadow-lg col-span-1 lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center"><FilePenLine className="mr-2 h-5 w-5 text-primary"/>Active Form Response Rates</CardTitle>
+                        <CardDescription>Overview of current form completion status.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {isLoadingFormsData ? (
+                             <div className="flex items-center justify-center py-10">
+                               <FunkyLoader>Loading Form Data...</FunkyLoader>
+                             </div>
+                        ) : activeFormsWithResponses && activeFormsWithResponses.length > 0 ? (
+                            activeFormsWithResponses.map(form => (
+                                <div key={form.id}>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <Link href={`/dashboard/forms/${form.id}/responses`} className="font-medium text-sm hover:underline">{form.title}</Link>
+                                        <span className="text-sm font-semibold">{form.responseRate.toFixed(0)}%</span>
+                                    </div>
+                                    <Progress value={form.responseRate} />
+                                    <p className="text-xs text-muted-foreground mt-1">{form.responseCount || 0} responses</p>
+                                </div>
+                            ))
+                        ) : (
+                             <div className="text-center py-10 text-muted-foreground">
+                                No active forms to display.
+                             </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
         )}
       </div>
       <Button
@@ -1003,7 +1195,7 @@ export default function DashboardOverviewPage() {
             ) : pendingForms.length > 0 ? (
               <ul className="space-y-3">
                 {pendingForms.map(form => (
-                  <li key={form.id}>
+                   <li key={form.id}>
                     <Link href={`/dashboard/forms/${form.id}`} onClick={() => setIsPendingFormsSheetOpen(false)} className="block p-3 rounded-md border hover:bg-accent transition-colors">
                         <p className="font-medium">{form.title}</p>
                         <p className="text-xs text-muted-foreground">
