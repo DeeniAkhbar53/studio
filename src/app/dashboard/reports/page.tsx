@@ -22,7 +22,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohallah, UserDesignation, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem } from "@/types";
 import { getMiqaats, batchMarkSafarInMiqaat } from "@/lib/firebase/miqaatService";
-import { getUsers, getUniqueTeamNames } from "@/lib/firebase/userService";
+import { getUsers } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -186,13 +186,14 @@ export default function ReportsPage() {
     setIsLoadingOptions(true);
     const unsubMiqaats = getMiqaats(setAvailableMiqaats);
     const unsubMohallahs = getMohallahs(setAvailableMohallahs);
-    getUniqueTeamNames().then(setAvailableTeams);
     
-    Promise.all([
-        new Promise(resolve => getMiqaats(data => { setAvailableMiqaats(data); resolve(true); })),
-        new Promise(resolve => getMohallahs(data => { setAvailableMohallahs(data); resolve(true); })),
-        getUniqueTeamNames().then(setAvailableTeams)
-    ]).finally(() => {
+    getUsers().then(users => {
+        const teams = [...new Set(users.map(u => u.team).filter(Boolean) as string[])].sort();
+        setAvailableTeams(teams);
+    }).catch(err => {
+        console.error("Failed to fetch teams for reports page", err);
+        setAvailableTeams([]);
+    }).finally(() => {
         setIsLoadingOptions(false);
     });
 
@@ -572,9 +573,7 @@ export default function ReportsPage() {
        <div className="flex flex-col items-center justify-center h-full p-8 text-center">
         <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
         <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
-        <p className="text-muted-foreground mt-2">
-          You do not have the required permissions to view this page.
-        </p>
+        <p className="text-muted-foreground mt-2">You do not have the required permissions to view this page.</p>
         <p className="text-sm text-muted-foreground mt-1">Redirecting to dashboard...</p>
       </div>
     );
@@ -1165,6 +1164,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-
-    
