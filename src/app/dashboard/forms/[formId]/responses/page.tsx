@@ -503,7 +503,7 @@ export default function ViewResponsesPage() {
             </Card>
             
             <Tabs defaultValue="respondents">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList>
                     <TabsTrigger value="respondents">
                         <UserCheck className="mr-2 h-4 w-4"/>Respondents ({filteredResponses.length})
                     </TabsTrigger>
@@ -727,3 +727,5 @@ export default function ViewResponsesPage() {
         </div>
     );
 }
+
+    
