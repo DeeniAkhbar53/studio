@@ -172,12 +172,18 @@ export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAtte
 
           if (alreadyExists) {
               console.log(`User ${entry.userItsId} already marked for miqaat ${miqaatId}. Skipping.`);
-              return;
+              return; // Return early to avoid error
+          }
+          
+          const cleanEntry: any = { ...entry };
+          // Ensure uniformCompliance is not undefined before adding
+          if (entry.uniformCompliance === undefined) {
+              delete cleanEntry.uniformCompliance;
           }
 
           transaction.update(miqaatDocRef, {
-              attendance: arrayUnion(entry),
-              attendedUserItsIds: arrayUnion(entry.userItsId)
+              attendance: arrayUnion(cleanEntry),
+              attendedUserItsIds: arrayUnion(cleanEntry.userItsId)
           });
       });
   } catch (error) {
@@ -185,6 +191,7 @@ export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAtte
     throw error;
   }
 };
+
 
 export const batchMarkSafarInMiqaat = async (miqaatId: string, entries: MiqaatSafarEntryItem[]): Promise<void> => {
     if (entries.length === 0) {
