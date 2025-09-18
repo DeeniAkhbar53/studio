@@ -45,9 +45,7 @@ export function LoginForm() {
 
   const proceedToLogin = async (user: User) => {
     // This will trigger the onUserLogin cloud function
-    if (user.id && user.mohallahId) {
-        await updateUserLastLogin(user.id, user.mohallahId);
-    }
+    await updateUserLastLogin(user);
 
     if (typeof window !== "undefined") {
       localStorage.setItem('userRole', user.role);

@@ -244,18 +244,40 @@ export const updateUserFcmToken = async (userItsId: string, userMohallahId: stri
     }
 };
 
-// New function to update the lastLogin timestamp
-export const updateUserLastLogin = async (userId: string, mohallahId: string): Promise<void> => {
+// New function to update the lastLogin timestamp and create a log entry
+export const updateUserLastLogin = async (user: User): Promise<void> => {
     try {
-        if (!userId || !mohallahId) {
+        if (!user.id || !user.mohallahId) {
             throw new Error("User ID and Mohallah ID are required to update last login.");
         }
-        const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
-        await updateDoc(userDocRef, {
+        
+        const batch = writeBatch(db);
+
+        // 1. Update the user's lastLogin field
+        const userDocRef = doc(db, 'mohallahs', user.mohallahId, 'members', user.id);
+        batch.update(userDocRef, {
             lastLogin: serverTimestamp()
         });
+
+        // 2. Create a new document in the login_logs collection
+        const logDocRef = doc(collection(db, 'login_logs'));
+        const logContext = {
+            itsId: user.itsId,
+            name: user.name,
+            role: user.role,
+            mohallahId: user.mohallahId,
+        };
+        batch.set(logDocRef, {
+            level: 'info',
+            message: `${user.name} (${user.itsId}) logged in.`,
+            context: JSON.stringify(logContext, null, 2),
+            timestamp: serverTimestamp(),
+        });
+        
+        await batch.commit();
+
     } catch (error) {
-        console.error(`Error updating last login for user ${userId}:`, error);
+        console.error(`Error updating last login for user ${user.itsId}:`, error);
         // We don't re-throw here because failing to log a login should not prevent the user from logging in.
     }
 };
