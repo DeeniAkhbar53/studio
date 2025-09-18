@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp, Timestamp } from 'firebase/firestore';
 import type { User, UserRole, UserDesignation } from '@/types';
 
 export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'fcmTokens' > & { avatarUrl?: string };
@@ -130,13 +130,21 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
       usersQuery = query(collectionGroup(db, 'members'));
     }
     const data = await getDocs(usersQuery);
-    return data.docs.map((doc) => ({ 
-      ...doc.data(), 
-      id: doc.id, 
-      pageRights: doc.data().pageRights || [],
-      managedTeams: doc.data().managedTeams || [],
-      fcmTokens: doc.data().fcmTokens || [], // Ensure fcmTokens is included
-    } as User));
+    return data.docs.map((doc) => {
+        const docData = doc.data();
+        const lastLogin = docData.lastLogin instanceof Timestamp 
+                        ? docData.lastLogin.toDate().toISOString() 
+                        : docData.lastLogin;
+
+        return { 
+            ...docData, 
+            id: doc.id,
+            lastLogin, 
+            pageRights: docData.pageRights || [],
+            managedTeams: docData.managedTeams || [],
+            fcmTokens: docData.fcmTokens || [],
+        } as User
+    });
   } catch (error) {
     console.error("Error fetching users: ", error);
     if (error instanceof Error && error.message.includes("index")) {
@@ -155,13 +163,16 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
     const itsSnapshot = await getDocs(itsQuery);
     if (!itsSnapshot.empty) {
       const userDoc = itsSnapshot.docs[0];
+      const userData = userDoc.data();
+      const lastLogin = userData.lastLogin instanceof Timestamp ? userData.lastLogin.toDate().toISOString() : userData.lastLogin;
       return { 
-        ...userDoc.data(), 
-        id: userDoc.id, 
-        pageRights: userDoc.data().pageRights || [], 
-        managedTeams: userDoc.data().managedTeams || [],
-        mohallahId: userDoc.data().mohallahId, // This is the ID of the Mohallah the user belongs to
-        fcmTokens: userDoc.data().fcmTokens || [], // Ensure fcmTokens is included
+        ...userData, 
+        id: userDoc.id,
+        lastLogin,
+        pageRights: userData.pageRights || [], 
+        managedTeams: userData.managedTeams || [],
+        mohallahId: userData.mohallahId, // This is the ID of the Mohallah the user belongs to
+        fcmTokens: userData.fcmTokens || [], // Ensure fcmTokens is included
       } as User;
     }
 
@@ -169,13 +180,16 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
     const bgkSnapshot = await getDocs(bgkQuery);
     if (!bgkSnapshot.empty) {
       const userDoc = bgkSnapshot.docs[0];
+      const userData = userDoc.data();
+      const lastLogin = userData.lastLogin instanceof Timestamp ? userData.lastLogin.toDate().toISOString() : userData.lastLogin;
       return { 
-        ...userDoc.data(), 
-        id: userDoc.id, 
-        pageRights: userDoc.data().pageRights || [],
-        managedTeams: userDoc.data().managedTeams || [],
-        mohallahId: userDoc.data().mohallahId,
-        fcmTokens: userDoc.data().fcmTokens || [], // Ensure fcmTokens is included
+        ...userData, 
+        id: userDoc.id,
+        lastLogin,
+        pageRights: userData.pageRights || [],
+        managedTeams: userData.managedTeams || [],
+        mohallahId: userData.mohallahId,
+        fcmTokens: userData.fcmTokens || [], // Ensure fcmTokens is included
       } as User;
     }
     
