@@ -14,7 +14,6 @@ import {
 } from 'firebase/firestore';
 import type { SystemLog } from '@/types';
 
-// This file is now repurposed for Login Logs, but we keep the name for now to avoid breaking imports.
 const logsCollectionRef = collection(db, 'login_logs');
 
 // This function is for server-side use only now, called from a Cloud Function.
@@ -38,8 +37,7 @@ export const addLoginLog = async (
   }
 };
 
-// Renamed getSystemLogs to getLoginLogs (kept old name for compatibility)
-export const getSystemLogs = (
+export const getLoginLogs = (
   onUpdate: (logs: SystemLog[]) => void,
   onError: (error: Error) => void
 ): Unsubscribe => {
@@ -62,8 +60,7 @@ export const getSystemLogs = (
   return unsubscribe;
 };
 
-// Renamed clearSystemLogs to clearLoginLogs (kept old name for compatibility)
-export const clearSystemLogs = async (): Promise<void> => {
+export const clearLoginLogs = async (): Promise<void> => {
     try {
         const querySnapshot = await getDocs(logsCollectionRef);
         const batch = writeBatch(db);

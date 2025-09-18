@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { SystemLog, UserRole } from "@/types";
-import { getSystemLogs as getLoginLogs, clearSystemLogs as clearLoginLogs } from "@/lib/firebase/logService";
+import { getLoginLogs, clearLoginLogs } from "@/lib/firebase/logService";
 import { Loader2, ShieldAlert, ScrollText, Trash2, AlertTriangle, FileWarning, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
