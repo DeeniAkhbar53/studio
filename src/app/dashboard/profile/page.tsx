@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { AttendanceRecord, User, Mohallah, Miqaat, UserDesignation, FormResponse, Form } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle } from "lucide-react";
+import type { AttendanceRecord, User, Mohallah, Miqaat, UserDesignation, FormResponse, Form, SystemLog } from "@/types";
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle, Clock } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getMiqaats } from "@/lib/firebase/miqaatService";
 import { getFormResponsesForUser, getForms } from "@/lib/firebase/formService";
+import { getLoginLogsForUser } from "@/lib/firebase/logService";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
@@ -35,6 +36,7 @@ export default function ProfilePage() {
   const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [formHistory, setFormHistory] = useState<FormHistoryStatus[]>([]);
+  const [loginHistory, setLoginHistory] = useState<SystemLog[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -42,6 +44,9 @@ export default function ProfilePage() {
   
   const [isLoadingFormHistory, setIsLoadingFormHistory] = useState(false);
   const [formHistoryError, setFormHistoryError] = useState<string | null>(null);
+  
+  const [isLoadingLoginHistory, setIsLoadingLoginHistory] = useState(false);
+  const [loginHistoryError, setLoginHistoryError] = useState<string | null>(null);
 
   const router = useRouter();
 
@@ -200,12 +205,32 @@ export default function ProfilePage() {
             } finally {
                 if (isMounted) setIsLoadingFormHistory(false);
             }
+            
+            // Fetch Login History
+            setIsLoadingLoginHistory(true);
+            setLoginHistoryError(null);
+            try {
+                const fetchedLoginLogs = await getLoginLogsForUser(fetchedUser.itsId);
+                if (isMounted) {
+                    setLoginHistory(fetchedLoginLogs);
+                }
+            } catch (loginError: any) {
+                 console.error("Failed to fetch login history:", loginError);
+                 if (loginError instanceof Error && loginError.message.includes("index")) {
+                    setLoginHistoryError("Could not load login history due to a database configuration issue.");
+                 } else {
+                    setLoginHistoryError("Could not load login history.");
+                 }
+            } finally {
+                if (isMounted) setIsLoadingLoginHistory(false);
+            }
 
 
         } else {
             if (isMounted) {
               setIsLoadingHistory(false);
               setIsLoadingFormHistory(false);
+              setIsLoadingLoginHistory(false);
             }
         }
       } catch (error) {
@@ -214,6 +239,7 @@ export default function ProfilePage() {
             setUser(null);
             setHistoryError("Could not load user profile.");
             setFormHistoryError("Could not load user profile.");
+            setLoginHistoryError("Could not load user profile.");
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -310,6 +336,7 @@ export default function ProfilePage() {
             <TabsTrigger value="details" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Details</TabsTrigger>
             <TabsTrigger value="attendance_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Attendance ({!isLoadingHistory && !historyError ? attendanceHistory.length : '...'})</TabsTrigger>
             <TabsTrigger value="forms" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Forms ({!isLoadingFormHistory && !formHistoryError ? formHistory.length : '...'})</TabsTrigger>
+            <TabsTrigger value="login_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Logins ({!isLoadingLoginHistory && !loginHistoryError ? loginHistory.length : '...'})</TabsTrigger>
           </TabsList>
           <TabsContent value="details">
             <CardContent className="p-6 space-y-4">
@@ -525,6 +552,45 @@ export default function ProfilePage() {
                     <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
                     <p className="mt-4 text-lg text-muted-foreground">No Forms Found</p>
                     <p className="text-sm text-muted-foreground">Your assigned forms will appear here.</p>
+                  </div>
+                )}
+             </CardContent>
+           </TabsContent>
+            <TabsContent value="login_history">
+             <CardContent className="p-6">
+                {isLoadingLoginHistory ? (
+                  <div className="flex items-center justify-center py-10">
+                    <FunkyLoader>Loading login history...</FunkyLoader>
+                  </div>
+                ) : loginHistoryError ? (
+                  <div className="text-center py-10">
+                    <Clock className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <p className="mt-4 text-lg text-destructive">{loginHistoryError}</p>
+                  </div>
+                ) : loginHistory.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Event</TableHead>
+                          <TableHead className="text-right">Date & Time</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {loginHistory.map((log) => (
+                          <TableRow key={log.id}>
+                            <TableCell className="font-medium">{log.message}</TableCell>
+                            <TableCell className="text-right">{format(new Date(log.timestamp), "PP p")}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-10">
+                    <Clock className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <p className="mt-4 text-lg text-muted-foreground">No Login History</p>
+                    <p className="text-sm text-muted-foreground">This user's login events will appear here.</p>
                   </div>
                 )}
              </CardContent>

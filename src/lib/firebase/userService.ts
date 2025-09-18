@@ -261,16 +261,10 @@ export const updateUserLastLogin = async (user: User): Promise<void> => {
 
         // 2. Create a new document in the login_logs collection
         const logDocRef = doc(collection(db, 'login_logs'));
-        const logContext = {
-            itsId: user.itsId,
-            name: user.name,
-            role: user.role,
-            mohallahId: user.mohallahId,
-        };
         batch.set(logDocRef, {
             level: 'info',
             message: `${user.name} (${user.itsId}) logged in.`,
-            context: JSON.stringify(logContext, null, 2),
+            userItsId: user.itsId, // Direct field for querying
             timestamp: serverTimestamp(),
         });
         
