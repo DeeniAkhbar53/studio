@@ -17,6 +17,7 @@ export const onUserLogin = functions.firestore
     const beforeLogin = beforeData.lastLogin as admin.firestore.Timestamp | undefined;
     const afterLogin = afterData.lastLogin as admin.firestore.Timestamp | undefined;
 
+    // The login is considered "new" if the afterLogin timestamp exists and is different from the beforeLogin timestamp.
     if (afterLogin && (!beforeLogin || !beforeLogin.isEqual(afterLogin))) {
       const user = afterData;
       const logMessage = `${user.name} (${user.itsId}) logged in.`;
