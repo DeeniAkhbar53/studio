@@ -15,7 +15,7 @@ import { getFormResponsesRealtime, deleteFormResponse, getForm } from "@/lib/fir
 import { getUsers, getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { format } from "date-fns";
-import { Unsubscribe } from "firebase/firestore";
+import type { Unsubscribe } from "firebase/firestore";
 import Papa from "papaparse";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -43,12 +43,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
 const TOP_LEVEL_LEADERS: UserDesignation[] = ["Major", "Captain"];
 const MID_LEVEL_LEADERS: UserDesignation[] = ["Vice Captain"];
 const GROUP_LEVEL_LEADERS: UserDesignation[] = ["Group Leader", "Asst.Grp Leader"];
+const ALL_DESIGNATIONS: UserDesignation[] = ["Asst.Grp Leader", "Captain", "Group Leader", "J.Member", "Major", "Member", "Vice Captain"];
+
 
 const StarRatingDisplay = ({ rating, max = 5 }: { rating: number; max?: number }) => {
     return (
@@ -224,6 +227,14 @@ export default function ViewResponsesClientPage() {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [activeTab, setActiveTab] = useState("respondents");
 
+    // New filters for non-respondents tab
+    const [nonRespondentFilters, setNonRespondentFilters] = useState({
+        team: "all",
+        designation: "all",
+        mohallahId: "all"
+    });
+    const [availableTeams, setAvailableTeams] = useState<string[]>([]);
+
     const tabOptions = [
         { value: "respondents", label: "Respondents", icon: UserCheck },
         { value: "non-respondents", label: "Non-Respondents", icon: UserX },
@@ -250,11 +261,12 @@ export default function ViewResponsesClientPage() {
 
     useEffect(() => {
         if (!formId) return;
+        let unsubscribe: Unsubscribe | undefined;
 
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
-                const mohallahsPromise = new Promise<void>((resolve) => {
+                 const mohallahsPromise = new Promise<void>((resolve) => {
                     getMohallahs((fetchedMohallahs) => {
                         setAllMohallahs(fetchedMohallahs);
                         resolve();
@@ -271,22 +283,32 @@ export default function ViewResponsesClientPage() {
                 else setError("Form not found.");
 
                 setAllUsers(fetchedUsers);
+                 const teams = [...new Set(fetchedUsers.map(u => u.team).filter(Boolean) as string[])].sort();
+                setAvailableTeams(teams);
 
             } catch (err) {
                 console.error("Error fetching initial details:", err);
                 setError("Could not load form or user details.");
+            } finally {
+                 // The realtime listener will set loading to false
             }
         };
 
+        const setupRealtimeListener = async () => {
+            unsubscribe = await getFormResponsesRealtime(formId, (newResponses) => {
+                setAllResponses(newResponses);
+                setIsLoading(false);
+            });
+        };
+        
         fetchInitialData();
+        setupRealtimeListener();
 
-        const unsubscribeResponses = getFormResponsesRealtime(formId, (newResponses) => {
-            setAllResponses(newResponses);
-            setIsLoading(false);
-        });
-
-        return () => unsubscribeResponses();
-
+        return () => {
+            if (unsubscribe) {
+                unsubscribe();
+            }
+        };
     }, [formId]);
 
     const canManageResponses = useMemo(() => {
@@ -311,45 +333,45 @@ export default function ViewResponsesClientPage() {
         }
     };
     
-    const { eligibleUsers, nonRespondents, filteredResponses } = useMemo(() => {
+    const { eligibleUsers, filteredNonRespondents, filteredResponses } = useMemo(() => {
         if (!form || allUsers.length === 0 || !currentUser) {
-            return { eligibleUsers: [], nonRespondents: [], filteredResponses: [] };
+            return { eligibleUsers: [], filteredNonRespondents: [], filteredResponses: [] };
         }
 
         let baseEligibleUsers: User[];
         const userMap = new Map(allUsers.map(user => [user.itsId, user]));
 
         // Determine the pool of users eligible for the form itself
-        if (form.eligibleItsIds && form.eligibleItsIds.length > 0) {
-            const eligibleIdSet = new Set(form.eligibleItsIds);
-            baseEligibleUsers = allUsers.filter(user => eligibleIdSet.has(user.itsId));
-        } else {
-            const isForEveryone = !form.mohallahIds?.length && !form.teams?.length;
-            baseEligibleUsers = allUsers.filter(user => {
-                if (isForEveryone) return true;
-                const inMohallah = form.mohallahIds?.includes(user.mohallahId || '');
-                const inTeam = form.teams?.includes(user.team || '');
-                return !!inMohallah || !!inTeam;
-            });
-        }
+        const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
+        
+        baseEligibleUsers = allUsers.filter(user => {
+            if (form.eligibleItsIds?.length) {
+                return form.eligibleItsIds.includes(user.itsId);
+            }
+            if (isForEveryone) return true;
+            const inMohallah = form.mohallahIds?.includes(user.mohallahId || '');
+            const inTeam = form.teams?.includes(user.team || '');
+            return !!(inMohallah || inTeam);
+        });
 
         let visibleEligibleUsers = baseEligibleUsers;
         let finalFilteredResponses = allResponses;
 
         // Now, filter what the *current user* is allowed to see from that eligible pool
         if (currentUser.role === 'admin' && currentUser.mohallahId) {
-            // Admin sees only their Mohallah's data, this is the highest priority filter
             visibleEligibleUsers = baseEligibleUsers.filter(user => user.mohallahId === currentUser.mohallahId);
             finalFilteredResponses = allResponses.filter(res => {
                 const submitter = userMap.get(res.submittedBy);
                 return submitter?.mohallahId === currentUser.mohallahId;
             });
         } else if (currentUser.role !== 'superadmin' && currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) {
-             // For team leads who are not admins/superadmins
-            if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
-                // Majors and Captains see everyone in the eligible list (no change)
+             if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
+                visibleEligibleUsers = baseEligibleUsers.filter(user => user.mohallahId === currentUser.mohallahId);
+                 finalFilteredResponses = allResponses.filter(res => {
+                    const submitter = userMap.get(res.submittedBy);
+                    return submitter?.mohallahId === currentUser.mohallahId;
+                 });
             } else if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
-                // Vice Captains see their managed teams
                 const managedTeamsSet = new Set(currentUser.managedTeams);
                 visibleEligibleUsers = baseEligibleUsers.filter(user => user.team && managedTeamsSet.has(user.team));
                  finalFilteredResponses = allResponses.filter(res => {
@@ -357,7 +379,6 @@ export default function ViewResponsesClientPage() {
                     return submitter?.team && managedTeamsSet.has(submitter.team);
                  });
             } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
-                // Group Leaders see their specific team
                 visibleEligibleUsers = baseEligibleUsers.filter(user => user.team === currentUser.team);
                 finalFilteredResponses = allResponses.filter(res => {
                     const submitter = userMap.get(res.submittedBy);
@@ -370,9 +391,17 @@ export default function ViewResponsesClientPage() {
         const respondentIds = new Set(finalFilteredResponses.map(r => r.submittedBy));
         const nonResponding = visibleEligibleUsers.filter(user => !respondentIds.has(user.itsId));
 
-        return { eligibleUsers: visibleEligibleUsers, nonRespondents: nonResponding, filteredResponses: finalFilteredResponses };
+        // Apply advanced filters for non-respondents tab
+        const finalFilteredNonRespondents = nonResponding.filter(user => {
+            const teamMatch = nonRespondentFilters.team === 'all' || user.team === nonRespondentFilters.team;
+            const designationMatch = nonRespondentFilters.designation === 'all' || user.designation === nonRespondentFilters.designation;
+            const mohallahMatch = nonRespondentFilters.mohallahId === 'all' || user.mohallahId === nonRespondentFilters.mohallahId;
+            return teamMatch && designationMatch && mohallahMatch;
+        });
 
-    }, [form, allUsers, allResponses, currentUser]);
+        return { eligibleUsers: visibleEligibleUsers, filteredNonRespondents: finalFilteredNonRespondents, filteredResponses: finalFilteredResponses };
+
+    }, [form, allUsers, allResponses, currentUser, nonRespondentFilters]);
     
     const getMohallahNameById = (id?: string) => {
         if (!id) return 'N/A';
@@ -437,12 +466,12 @@ export default function ViewResponsesClientPage() {
             filename = `respondents_${safeTitle}.csv`;
 
         } else { // Non-respondents
-             if (nonRespondents.length === 0) {
+             if (filteredNonRespondents.length === 0) {
                 toast({ title: "No data to export", description: "All eligible members have responded.", variant: "default" });
                 return;
             }
             headers = ["Sr.No.", "Name", "ITS ID", "BGK ID", "Team", "Mohallah"];
-            dataToExport = nonRespondents.map((user, index) => ({
+            dataToExport = filteredNonRespondents.map((user, index) => ({
                 "Sr.No.": index + 1,
                 "Name": user.name,
                 "ITS ID": user.itsId,
@@ -488,6 +517,7 @@ export default function ViewResponsesClientPage() {
    }
 
     const currentTabLabel = tabOptions.find(t => t.value === activeTab)?.label || "Menu";
+    const canManageNonRespondents = currentUser.role === 'admin' || currentUser.role === 'superadmin';
 
     return (
         <div className="p-4 md:p-6 space-y-6">
@@ -532,7 +562,7 @@ export default function ViewResponsesClientPage() {
                             <UserCheck className="mr-2 h-4 w-4"/>Respondents ({filteredResponses.length})
                         </TabsTrigger>
                         <TabsTrigger value="non-respondents" disabled={!canManageResponses}>
-                            <UserX className="mr-2 h-4 w-4"/>Non-Respondents ({nonRespondents.length})
+                            <UserX className="mr-2 h-4 w-4"/>Non-Respondents ({filteredNonRespondents.length})
                         </TabsTrigger>
                         <TabsTrigger value="analytics">
                             <PieChart className="mr-2 h-4 w-4" />Analytics
@@ -555,7 +585,7 @@ export default function ViewResponsesClientPage() {
                              </DropdownMenuItem>
                              <DropdownMenuItem onSelect={() => setActiveTab('non-respondents')} disabled={!canManageResponses}>
                                 <UserX className="mr-2 h-4 w-4"/>
-                                Non-Respondents ({nonRespondents.length})
+                                Non-Respondents ({filteredNonRespondents.length})
                             </DropdownMenuItem>
                              <DropdownMenuItem onSelect={() => setActiveTab('analytics')}>
                                 <PieChart className="mr-2 h-4 w-4" />
@@ -707,14 +737,46 @@ export default function ViewResponsesClientPage() {
                     
                     <TabsContent value="non-respondents">
                         <Card>
-                            <CardHeader className="flex flex-row items-center justify-between">
-                                <h3 className="text-lg font-semibold">Non-Respondents</h3>
-                                <Button onClick={() => handleExport('non-respondents')} disabled={nonRespondents.length === 0} size="sm" variant="outline">
+                            <CardHeader>
+                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                  <div>
+                                    <h3 className="text-lg font-semibold">Non-Respondents</h3>
+                                    <p className="text-sm text-muted-foreground">List of eligible members who have not submitted a response.</p>
+                                  </div>
+                                  <Button onClick={() => handleExport('non-respondents')} disabled={filteredNonRespondents.length === 0} size="sm" variant="outline">
                                     <Download className="mr-2 h-4 w-4" /> Export
-                                </Button>
+                                  </Button>
+                                </div>
+                                {canManageNonRespondents && (
+                                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t">
+                                     {currentUser.role === 'superadmin' && (
+                                        <Select value={nonRespondentFilters.mohallahId} onValueChange={(value) => setNonRespondentFilters(prev => ({...prev, mohallahId: value}))}>
+                                          <SelectTrigger><SelectValue placeholder="Filter by Mohallah" /></SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="all">All Mohallahs</SelectItem>
+                                            {allMohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                                          </SelectContent>
+                                        </Select>
+                                      )}
+                                      <Select value={nonRespondentFilters.team} onValueChange={(value) => setNonRespondentFilters(prev => ({...prev, team: value}))}>
+                                          <SelectTrigger><SelectValue placeholder="Filter by Team" /></SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="all">All Teams</SelectItem>
+                                            {availableTeams.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                          </SelectContent>
+                                      </Select>
+                                       <Select value={nonRespondentFilters.designation} onValueChange={(value) => setNonRespondentFilters(prev => ({...prev, designation: value}))}>
+                                          <SelectTrigger><SelectValue placeholder="Filter by Designation" /></SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="all">All Designations</SelectItem>
+                                            {ALL_DESIGNATIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                                          </SelectContent>
+                                      </Select>
+                                  </div>
+                                )}
                             </CardHeader>
                             <CardContent>
-                                {nonRespondents.length === 0 ? (
+                                {filteredNonRespondents.length === 0 ? (
                                     <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
                                         <Users className="h-12 w-12 text-muted-foreground mx-auto"/>
                                         <p className="text-lg font-medium text-muted-foreground">All relevant members have responded!</p>
@@ -723,7 +785,7 @@ export default function ViewResponsesClientPage() {
                                     <>
                                     {/* Mobile View: Simple List */}
                                     <div className="md:hidden space-y-2">
-                                    {nonRespondents.map((user, index) => (
+                                    {filteredNonRespondents.map((user, index) => (
                                         <div key={user.id} className="p-3 border rounded-lg flex justify-between items-center">
                                         <div className="flex items-center gap-4">
                                             <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
@@ -745,17 +807,19 @@ export default function ViewResponsesClientPage() {
                                                 <TableHead>ITS ID</TableHead>
                                                 <TableHead>BGK ID</TableHead>
                                                 <TableHead>Team</TableHead>
+                                                <TableHead>Designation</TableHead>
                                                 <TableHead>Mohallah</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {nonRespondents.map((user, index) => (
+                                            {filteredNonRespondents.map((user, index) => (
                                                 <TableRow key={user.id}>
                                                     <TableCell>{index + 1}</TableCell>
                                                     <TableCell className="font-medium">{user.name}</TableCell>
                                                     <TableCell>{user.itsId}</TableCell>
                                                     <TableCell>{user.bgkId || 'N/A'}</TableCell>
                                                     <TableCell>{user.team || 'N/A'}</TableCell>
+                                                     <TableCell>{user.designation || 'N/A'}</TableCell>
                                                     <TableCell>{getMohallahNameById(user.mohallahId)}</TableCell>
                                                 </TableRow>
                                             ))}
@@ -779,7 +843,5 @@ export default function ViewResponsesClientPage() {
         </div>
     );
 }
-
-    
 
     

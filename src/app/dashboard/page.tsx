@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2 } from "lucide-react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
   ChartContainer,
@@ -27,7 +27,7 @@ import type { UserRole, UserDesignation, Miqaat, MiqaatAttendanceEntryItem, Form
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { getUsers, getUsersCount, getUserByItsOrBgkId as fetchUserByItsId } from "@/lib/firebase/userService";
 import { getMohallahsCount } from "@/lib/firebase/mohallahService";
-import { getForms, getFormResponsesForUser } from "@/lib/firebase/formService";
+import { getForms, getFormResponsesForUser, getFormResponses } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
@@ -136,7 +136,7 @@ export default function DashboardOverviewPage() {
   const [attendanceChartData, setAttendanceChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoadingChartData, setIsLoadingChartData] = useState(true);
 
-  const [activeFormsWithResponses, setActiveFormsWithResponses] = useState< (FormType & { responseRate: number })[] | null >(null);
+  const [activeFormsWithResponses, setActiveFormsWithResponses] = useState< (FormType & { responseRate: number, nonRespondentCount: number })[] | null >(null);
   const [isLoadingFormsData, setIsLoadingFormsData] = useState(true);
 
 
@@ -351,10 +351,6 @@ export default function DashboardOverviewPage() {
 
     try {
         const allUsers = await getUsers();
-        const userResponses = await getFormResponsesForUser(currentUser.itsId);
-        const respondedFormIds = new Set(userResponses.map(r => r.formId));
-        
-        const activeForms = allForms.filter(f => f.status === 'open' && (!f.endDate || new Date(f.endDate) > new Date()));
         
         let visibleUsers: User[] = [];
         if (currentUser.role === 'admin' && currentUser.mohallahId) {
@@ -371,8 +367,15 @@ export default function DashboardOverviewPage() {
                 visibleUsers = allUsers.filter(u => u.team === currentUser.team && u.mohallahId === currentUser.mohallahId);
             }
         }
+        
+        const activeForms = allForms.filter(f => f.status === 'open' && (!f.endDate || new Date(f.endDate) > new Date()));
 
-        const formsWithMissing = activeForms.filter(form => {
+        const formsWithMissing: FormType[] = [];
+
+        for (const form of activeForms) {
+            const allFormResponses = await getFormResponses(form.id);
+            const respondedItsIds = new Set(allFormResponses.map(r => r.submittedBy));
+            
             const eligibleUsersForForm = visibleUsers.filter(user => {
                 const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
                 if (isForEveryone) return true;
@@ -381,16 +384,15 @@ export default function DashboardOverviewPage() {
                 const inItsId = form.eligibleItsIds?.includes(user.itsId);
                 return !!(inMohallah || inTeam || inItsId);
             });
+        
+            if (eligibleUsersForForm.length === 0) continue;
 
-            if (eligibleUsersForForm.length === 0) return false;
-
-            const respondedItsIds = new Set();
-            (form as any).responses?.forEach((resp: any) => respondedItsIds.add(resp.submittedBy));
             const hasNonRespondents = eligibleUsersForForm.some(user => !respondedItsIds.has(user.itsId));
 
-            return hasNonRespondents;
-        });
-
+            if (hasNonRespondents) {
+                formsWithMissing.push(form);
+            }
+        }
         setFormsWithNonRespondents(formsWithMissing);
 
     } catch (error) {
@@ -409,13 +411,13 @@ export default function DashboardOverviewPage() {
     setNonRespondentList([]);
     if (!formId) return;
 
+    setIsLoadingNonRespondents(true);
     try {
         const selectedForm = allForms.find(f => f.id === formId);
-        if (!selectedForm) return;
+        if (!selectedForm || !currentUser) return;
 
         const allUsers = await getUsers();
-        const userResponses = await getFormResponsesForUser(currentUser.itsId); // This may not be correct
-        const allFormResponses = await getFormResponsesForUser(formId); // Need a way to get all responses for a form
+        const allFormResponses = await getFormResponses(formId);
         const respondedItsIds = new Set(allFormResponses.map(r => r.submittedBy));
         
         let visibleUsers: User[] = [];
@@ -447,7 +449,11 @@ export default function DashboardOverviewPage() {
 
         setNonRespondentList(nonRespondents);
 
-    } catch (e) { console.error("Could not load non-respondents for selected form", e)}
+    } catch (e) { 
+        console.error("Could not load non-respondents for selected form", e)
+    } finally {
+        setIsLoadingNonRespondents(false);
+    }
   };
   
   // Effect for User's Pending Forms
@@ -771,7 +777,7 @@ export default function DashboardOverviewPage() {
   }, [isTeamLead, allMiqaatsList]);
 
   useEffect(() => {
-    if (!isTeamLead || allForms.length === 0) {
+    if (!isTeamLead || allForms.length === 0 || !currentUser) {
       setIsLoadingFormsData(false);
       return;
     }
@@ -781,21 +787,44 @@ export default function DashboardOverviewPage() {
             const allUsers = await getUsers();
             const activeForms = allForms.filter(f => f.status === 'open' && (!f.endDate || new Date(f.endDate) > new Date()));
             
-            const formsWithRates: (FormType & { responseRate: number })[] = [];
+            const formsWithRates: (FormType & { responseRate: number, nonRespondentCount: number })[] = [];
+
+            let visibleUsersInScope: User[] = [];
+            if (currentUser.role === 'admin' && currentUser.mohallahId) {
+                visibleUsersInScope = allUsers.filter(u => u.mohallahId === currentUser.mohallahId);
+            } else if (currentUser.role === 'superadmin') {
+                visibleUsersInScope = allUsers;
+            } else if (currentUser.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) {
+                 if (TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
+                    visibleUsersInScope = allUsers.filter(u => u.mohallahId === currentUser.mohallahId);
+                } else if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
+                    const managedTeamsSet = new Set(currentUser.managedTeams);
+                    visibleUsersInScope = allUsers.filter(u => u.team && managedTeamsSet.has(u.team) && u.mohallahId === currentUser.mohallahId);
+                } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
+                    visibleUsersInScope = allUsers.filter(u => u.team === currentUser.team && u.mohallahId === currentUser.mohallahId);
+                }
+            }
+
 
             for (const form of activeForms) {
                 const isFormForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
                 
-                const eligibleUsers = allUsers.filter(u => {
+                const eligibleUsersInScope = visibleUsersInScope.filter(u => {
                     if (form.eligibleItsIds?.length) return form.eligibleItsIds.includes(u.itsId);
                     if (isFormForEveryone) return true;
                     return (form.mohallahIds?.includes(u.mohallahId || '')) || (form.teams?.includes(u.team || ''));
                 });
                 
-                const responseCount = form.responseCount || 0;
-                const responseRate = eligibleUsers.length > 0 ? (responseCount / eligibleUsers.length) * 100 : 0;
+                if (eligibleUsersInScope.length === 0) continue;
+
+                const allResponses = await getFormResponses(form.id);
+                const responsesFromScope = allResponses.filter(r => eligibleUsersInScope.some(u => u.itsId === r.submittedBy));
+                const responseCount = responsesFromScope.length;
+
+                const responseRate = eligibleUsersInScope.length > 0 ? (responseCount / eligibleUsersInScope.length) * 100 : 0;
+                const nonRespondentCount = eligibleUsersInScope.length - responseCount;
                 
-                formsWithRates.push({ ...form, responseRate });
+                formsWithRates.push({ ...form, responseRate, nonRespondentCount });
             }
             setActiveFormsWithResponses(formsWithRates);
         } catch (e) {
@@ -806,7 +835,7 @@ export default function DashboardOverviewPage() {
         }
     };
     processFormsData();
-  }, [isTeamLead, allForms]);
+  }, [isTeamLead, allForms, currentUser]);
 
 
 
@@ -997,7 +1026,7 @@ export default function DashboardOverviewPage() {
                 <Card className="shadow-lg col-span-1 lg:col-span-2">
                     <CardHeader>
                         <CardTitle className="flex items-center"><FilePenLine className="mr-2 h-5 w-5 text-primary"/>Active Form Response Rates</CardTitle>
-                        <CardDescription>Overview of current form completion status.</CardDescription>
+                        <CardDescription>Overview of current form completion status within your scope.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {isLoadingFormsData ? (
@@ -1012,7 +1041,7 @@ export default function DashboardOverviewPage() {
                                         <span className="text-sm font-semibold">{form.responseRate.toFixed(0)}%</span>
                                     </div>
                                     <Progress value={form.responseRate} />
-                                    <p className="text-xs text-muted-foreground mt-1">{form.responseCount || 0} responses</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{form.nonRespondentCount} member(s) have not responded.</p>
                                 </div>
                             ))
                         ) : (
@@ -1150,8 +1179,16 @@ export default function DashboardOverviewPage() {
                   <Separator />
                   
                   <div className="max-h-[60vh] overflow-y-auto pr-2">
-                      {selectedFormForNonRespondents ? (
+                      {isLoadingNonRespondents ? (
+                          <div className="flex items-center justify-center p-4">
+                            <FunkyLoader>Loading list...</FunkyLoader>
+                          </div>
+                      ) : selectedFormForNonRespondents ? (
                           nonRespondentList.length > 0 ? (
+                            <>
+                              <p className="text-sm text-muted-foreground px-1 mb-2">
+                                  Found <span className="font-bold">{nonRespondentList.length}</span> non-respondent(s).
+                              </p>
                               <ul className="space-y-2">
                                   {nonRespondentList.map(member => (
                                       <li key={member.id} className="flex justify-between items-center p-2 rounded-md border">
@@ -1163,6 +1200,7 @@ export default function DashboardOverviewPage() {
                                       </li>
                                   ))}
                               </ul>
+                            </>
                           ) : (
                               <p className="text-center text-muted-foreground py-4">
                                   All eligible members in your scope have responded to this form.
@@ -1173,7 +1211,15 @@ export default function DashboardOverviewPage() {
                       )}
                   </div>
               </div>
-              <SheetFooter>
+               <SheetFooter className="border-t pt-4">
+                {selectedFormForNonRespondents && (
+                     <Button variant="outline" asChild>
+                        <Link href={`/dashboard/forms/${selectedFormForNonRespondents}/responses`}>
+                            <ExternalLink className="mr-2 h-4 w-4"/>
+                            View Full Report
+                        </Link>
+                    </Button>
+                )}
                   <Button onClick={() => setIsNonRespondentSheetOpen(false)}>Close</Button>
               </SheetFooter>
           </SheetContent>
@@ -1218,3 +1264,5 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
+
+    
