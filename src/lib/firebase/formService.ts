@@ -215,6 +215,25 @@ export const addFormResponse = async (formId: string, responseData: FormResponse
     }
 };
 
+export const getFormResponses = async (formId: string): Promise<FormResponse[]> => {
+    try {
+        const responsesCollectionRef = collection(db, 'forms', formId, 'responses');
+        const q = query(responsesCollectionRef, orderBy('submittedAt', 'desc'));
+        const querySnapshot = await getDocs(q);
+        
+        return querySnapshot.docs.map(docSnapshot => {
+            const data = docSnapshot.data();
+            const submittedAt = data.submittedAt instanceof Timestamp
+                              ? data.submittedAt.toDate().toISOString()
+                              : new Date().toISOString();
+            return { ...data, id: docSnapshot.id, submittedAt } as FormResponse;
+        });
+    } catch (error) {
+        console.error(`Error fetching responses for form ${formId}:`, error);
+        throw error;
+    }
+};
+
 export const getFormResponsesRealtime = (formId: string, onUpdate: (responses: FormResponse[]) => void): Unsubscribe => {
     const responsesCollectionRef = collection(db, 'forms', formId, 'responses');
     const q = query(responsesCollectionRef, orderBy('submittedAt', 'desc'));
