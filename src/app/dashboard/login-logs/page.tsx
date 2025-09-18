@@ -138,28 +138,16 @@ export default function LoginLogsPage() {
               <p className="text-sm text-muted-foreground">No users have logged in yet.</p>
             </div>
           ) : (
-             <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                <Accordion type="single" collapsible className="w-full">
+             <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
                 {logs.map(log => (
-                    <AccordionItem value={log.id} key={log.id} className={'rounded-lg border px-4 mb-2'}>
-                        <AccordionTrigger>
-                            <div className="flex items-center gap-4 flex-grow text-left">
-                                {getLogLevelIcon(log.level)}
-                                <div className="flex-grow">
-                                    <p className="font-semibold text-card-foreground">{log.message}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">{format(new Date(log.timestamp), "PPpp")}</p>
-                                </div>
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="pt-2">
-                            <div className="p-2 bg-background/50 rounded-md">
-                                <p className="text-sm font-semibold text-muted-foreground mb-1">Details:</p>
-                                <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono">{log.context}</pre>
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
+                    <div key={log.id} className="flex items-center gap-4 rounded-lg border p-4">
+                        {getLogLevelIcon(log.level)}
+                        <div className="flex-grow">
+                            <p className="font-semibold text-card-foreground">{log.message}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{format(new Date(log.timestamp), "PPpp")}</p>
+                        </div>
+                    </div>
                 ))}
-                </Accordion>
             </div>
           )}
         </CardContent>
