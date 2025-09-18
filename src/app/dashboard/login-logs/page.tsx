@@ -7,16 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { SystemLog, UserRole } from "@/types";
-import { getSystemLogs, clearSystemLogs } from "@/lib/firebase/logService";
+import { getSystemLogs as getLoginLogs, clearSystemLogs as clearLoginLogs } from "@/lib/firebase/logService";
 import { Loader2, ShieldAlert, ScrollText, Trash2, AlertTriangle, FileWarning, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Separator } from "@/components/ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
-// This page is being repurposed for Login Logs.
-// The component is renamed to reflect the new functionality.
 export default function LoginLogsPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
@@ -26,25 +23,13 @@ export default function LoginLogsPage() {
 
   useEffect(() => {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
-    const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
-    const pageRights = JSON.parse(pageRightsRaw || '[]');
-    // The nav item path should be updated if the filename changes. For now, it's repurposed.
-    const navItem = allNavItems.find(item => item.href === '/dashboard/login-logs' || item.href === '/dashboard/system-logs');
+    const navItem = allNavItems.find(item => item.href === '/dashboard/login-logs');
     
-    if (navItem) {
-      // Assuming only superadmin can see login logs
-      const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
-      const hasPageRight = pageRights.includes(navItem.href);
-      
-      if (hasRoleAccess || hasPageRight) {
-        setIsAuthorized(true);
-      } else {
-        setIsAuthorized(false);
-        setTimeout(() => router.replace('/dashboard'), 2000);
-      }
+    if (navItem?.allowedRoles?.includes(role || 'user')) {
+      setIsAuthorized(true);
     } else {
-       setIsAuthorized(false);
-       setTimeout(() => router.replace('/dashboard'), 2000);
+      setIsAuthorized(false);
+      setTimeout(() => router.replace('/dashboard'), 2000);
     }
   }, [router]);
 
@@ -53,7 +38,7 @@ export default function LoginLogsPage() {
         setIsLoading(false);
         return;
     }
-    const unsubscribe = getSystemLogs(
+    const unsubscribe = getLoginLogs(
       (fetchedLogs) => {
         setLogs(fetchedLogs);
         setIsLoading(false);
@@ -73,7 +58,7 @@ export default function LoginLogsPage() {
 
   const handleClearLogs = async () => {
     try {
-      await clearSystemLogs();
+      await clearLoginLogs();
       toast({
         title: "Logs Cleared",
         description: "All login logs have been deleted.",
@@ -97,7 +82,7 @@ export default function LoginLogsPage() {
         return <CheckCircle className="h-5 w-5 text-gray-500 shrink-0" />;
     }
   };
-
+  
   if (isAuthorized === null || isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">

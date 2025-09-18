@@ -18,6 +18,7 @@ export type User = {
   designation?: UserDesignation;
   pageRights?: string[];
   fcmTokens?: string[]; // For storing FCM registration tokens
+  lastLogin?: string; // ISO string, updated on login
 };
 
 export type MiqaatAttendanceEntryItem = {
@@ -172,7 +173,7 @@ export interface FormResponse {
     }
 }
 
-// New type for System Logs
+// Renamed from SystemLog to represent login logs, but keeping name for now.
 export interface SystemLog {
     id: string;
     level: 'info' | 'warning' | 'error';

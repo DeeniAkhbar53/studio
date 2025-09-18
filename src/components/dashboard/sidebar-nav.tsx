@@ -26,7 +26,6 @@ export const allNavItems: NavItem[] = [
     label: "Notifications",
     icon: Bell,
   },
-  // { href: "/dashboard/scan-attendance", label: "Scan My QR", icon: ScanBarcode, allowedRoles: ['user'] }, // Removed this line
   {
     href: "/dashboard/mark-attendance",
     label: "Mark Attendance",
@@ -69,8 +68,8 @@ export const allNavItems: NavItem[] = [
     icon: FileText,
   },
   {
-    href: "/dashboard/system-logs",
-    label: "System Logs",
+    href: "/dashboard/login-logs",
+    label: "Login Logs",
     icon: ScrollText,
     allowedRoles: ['superadmin']
   },

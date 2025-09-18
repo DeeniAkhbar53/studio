@@ -14,35 +14,31 @@ import {
 } from 'firebase/firestore';
 import type { SystemLog } from '@/types';
 
-const logsCollectionRef = collection(db, 'system_logs');
+// This file is now repurposed for Login Logs, but we keep the name for now to avoid breaking imports.
+const logsCollectionRef = collection(db, 'login_logs');
 
-// This function is not exported as it's intended for server-side use (e.g., Cloud Functions)
-// or specific, intentional client-side logging.
-export const addSystemLog = async (
-  level: 'info' | 'warning' | 'error',
+// This function is for server-side use only now, called from a Cloud Function.
+export const addLoginLog = async (
   message: string,
   context?: any
 ): Promise<string> => {
   try {
-    const logEntry: Omit<SystemLog, 'id' | 'timestamp'> = {
-      level,
+    const logEntry = {
+      level: 'info' as const, // Login events are always info level
       message,
       context: context ? JSON.stringify(context, null, 2) : "No context provided.",
-      timestamp: new Date().toISOString(), // Pre-fill for immediate use, server will overwrite
+      timestamp: serverTimestamp(),
     };
 
-    const docRef = await addDoc(logsCollectionRef, {
-      ...logEntry,
-      timestamp: serverTimestamp(),
-    });
+    const docRef = await addDoc(logsCollectionRef, logEntry);
     return docRef.id;
   } catch (error) {
-    console.error("CRITICAL: Failed to write to system_logs collection.", error);
-    // In a real app, you might have a fallback logging mechanism here.
+    console.error("CRITICAL: Failed to write to login_logs collection.", error);
     throw error;
   }
 };
 
+// Renamed getSystemLogs to getLoginLogs (kept old name for compatibility)
 export const getSystemLogs = (
   onUpdate: (logs: SystemLog[]) => void,
   onError: (error: Error) => void
@@ -59,13 +55,14 @@ export const getSystemLogs = (
     });
     onUpdate(logs);
   }, (error) => {
-    console.error("Error fetching real-time system logs:", error);
+    console.error("Error fetching real-time login logs:", error);
     onError(error as Error);
   });
 
   return unsubscribe;
 };
 
+// Renamed clearSystemLogs to clearLoginLogs (kept old name for compatibility)
 export const clearSystemLogs = async (): Promise<void> => {
     try {
         const querySnapshot = await getDocs(logsCollectionRef);
@@ -75,7 +72,7 @@ export const clearSystemLogs = async (): Promise<void> => {
         });
         await batch.commit();
     } catch (error) {
-        console.error("Error clearing system logs: ", error);
+        console.error("Error clearing login logs: ", error);
         throw error;
     }
 };

@@ -1,9 +1,8 @@
 
-
 'use server';
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp } from 'firebase/firestore';
 import type { User, UserRole, UserDesignation } from '@/types';
 
 export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'fcmTokens' > & { avatarUrl?: string };
@@ -228,6 +227,22 @@ export const updateUserFcmToken = async (userItsId: string, userMohallahId: stri
 
     } catch (error) {
         console.error(`Error updating FCM token for user ${userItsId}: `, error);
+    }
+};
+
+// New function to update the lastLogin timestamp
+export const updateUserLastLogin = async (userId: string, mohallahId: string): Promise<void> => {
+    try {
+        if (!userId || !mohallahId) {
+            throw new Error("User ID and Mohallah ID are required to update last login.");
+        }
+        const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
+        await updateDoc(userDocRef, {
+            lastLogin: serverTimestamp()
+        });
+    } catch (error) {
+        console.error(`Error updating last login for user ${userId}:`, error);
+        // We don't re-throw here because failing to log a login should not prevent the user from logging in.
     }
 };
 

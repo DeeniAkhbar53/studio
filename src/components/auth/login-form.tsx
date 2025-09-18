@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
+import { getUserByItsOrBgkId, updateUserLastLogin } from "@/lib/firebase/userService";
 import { KeyRound, Loader2, Lock } from "lucide-react";
 import type { User, UserRole } from "@/types";
 import { useState } from "react";
@@ -43,7 +43,12 @@ export function LoginForm() {
     },
   });
 
-  const proceedToLogin = (user: User) => {
+  const proceedToLogin = async (user: User) => {
+    // This will trigger the onUserLogin cloud function
+    if (user.id && user.mohallahId) {
+        await updateUserLastLogin(user.id, user.mohallahId);
+    }
+
     if (typeof window !== "undefined") {
       localStorage.setItem('userRole', user.role);
       localStorage.setItem('userName', user.name);
@@ -76,7 +81,7 @@ export function LoginForm() {
       // If we are in the password stage
       if (requiresPassword && userToAuthenticate) {
         if (userToAuthenticate.password === password) {
-          proceedToLogin(userToAuthenticate);
+          await proceedToLogin(userToAuthenticate);
         } else {
           toast({
             variant: "destructive",
@@ -102,7 +107,7 @@ export function LoginForm() {
           setIsSubmitting(false);
         } else {
           // If not admin/superadmin or no password is set, log them in directly
-          proceedToLogin(user);
+          await proceedToLogin(user);
         }
 
       } else {
