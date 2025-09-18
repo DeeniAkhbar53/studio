@@ -230,3 +230,20 @@ export const updateUserFcmToken = async (userItsId: string, userMohallahId: stri
         console.error(`Error updating FCM token for user ${userItsId}: `, error);
     }
 };
+
+
+export const getUniqueTeamNames = async (): Promise<string[]> => {
+    try {
+        const allUsers = await getUsers();
+        const teamNames = new Set<string>();
+        allUsers.forEach(user => {
+            if (user.team) {
+                teamNames.add(user.team);
+            }
+        });
+        return Array.from(teamNames).sort();
+    } catch (error) {
+        console.error("Error fetching unique team names:", error);
+        return [];
+    }
+};
