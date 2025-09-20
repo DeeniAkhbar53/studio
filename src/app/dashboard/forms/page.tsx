@@ -140,7 +140,7 @@ export default function FormsListPage() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div className="flex flex-row items-center justify-between gap-4">
                         <div>
                             <CardTitle className="flex items-center">
                                 <FileText className="mr-2 h-5 w-5 text-primary"/>
@@ -151,8 +151,9 @@ export default function FormsListPage() {
                             </CardDescription>
                         </div>
                         {canCreateForms && (
-                            <Button size="sm" onClick={() => router.push('/dashboard/forms/new')} className="w-full md:w-auto">
-                                <PlusCircle className="mr-2 h-4 w-4" /> Create New Form
+                            <Button size="sm" onClick={() => router.push('/dashboard/forms/new')} className="shrink-0">
+                                <PlusCircle className="mr-2 h-4 w-4" /> 
+                                <span className="hidden sm:inline">Create New Form</span>
                             </Button>
                         )}
                     </div>

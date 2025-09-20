@@ -182,7 +182,7 @@ export default function ManageMohallahsPage() {
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+           <div className="flex flex-row justify-between items-center gap-4">
             <div className="flex-grow">
               <CardTitle className="flex items-center"><Home className="mr-2 h-5 w-5 text-primary" />Manage Mohallahs</CardTitle>
               <CardDescription className="mt-1">Add, edit, or delete Mohallahs. List updates in realtime.</CardDescription>
@@ -190,8 +190,9 @@ export default function ManageMohallahsPage() {
             {canManage && (
               <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>
                 <DialogTrigger asChild>
-                  <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} size="sm">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Mohallah
+                  <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} size="sm" className="shrink-0">
+                    <PlusCircle className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Add New Mohallah</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px]">
@@ -338,5 +339,3 @@ export default function ManageMohallahsPage() {
     </div>
   );
 }
-
-    
