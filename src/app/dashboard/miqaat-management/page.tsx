@@ -305,15 +305,16 @@ export default function MiqaatManagementPage() {
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+           <div className="flex flex-row justify-between items-center gap-4">
             <div className="flex-grow">
               <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-primary"/>Manage Miqaats</CardTitle>
               <CardDescription className="mt-1">Create, view, and manage all Miqaats. List updates in realtime.</CardDescription>
             </div>
             <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingMiqaat(null); }}>
               <DialogTrigger asChild>
-                <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}} size="sm">
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Miqaat
+                <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}} size="sm" className="shrink-0">
+                  <PlusCircle className="h-4 w-4 md:mr-2" />
+                  <span className="hidden md:inline">Add New Miqaat</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-xl">
@@ -497,7 +498,7 @@ export default function MiqaatManagementPage() {
                       <AccordionItem value={miqaat.id} key={miqaat.id}>
                         <AccordionTrigger className="hover:no-underline">
                            <div className="flex items-center gap-4 w-full">
-                             <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
+                             <span className="text-sm font-mono text-muted-foreground">{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.</span>
                              <div className="flex-grow text-left">
                                <p className="font-semibold text-card-foreground">{miqaat.name}</p>
                                <p className="text-xs text-muted-foreground">{format(new Date(miqaat.startTime), "PP")}</p>
@@ -728,5 +729,3 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
-
-    
