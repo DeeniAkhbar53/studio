@@ -6,10 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetTrigger } from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import { Form as UIForm, FormControl, FormMessage, FormItem, FormField, FormLabel } from "@/components/ui/form";
 import type { AttendanceRecord, User, Mohallah, Miqaat, UserDesignation, FormResponse, Form, SystemLog } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { getUserByItsOrBgkId, getUsers, updateUser } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getMiqaats } from "@/lib/firebase/miqaatService";
 import { getFormResponsesForUser, getForms } from "@/lib/firebase/formService";
@@ -21,6 +27,7 @@ import type { Unsubscribe } from "firebase/firestore";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FunkyLoader } from "@/components/ui/funky-loader";
+import { useToast } from "@/hooks/use-toast";
 
 const GROUP_LEADER_DESIGNATION: UserDesignation = "Group Leader";
 const ASST_GROUP_LEADER_DESIGNATION: UserDesignation = "Asst.Grp Leader";
@@ -31,6 +38,15 @@ interface FormHistoryStatus extends Form {
 }
 
 const ITEMS_PER_PAGE = 10;
+
+const profileFormSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
+  phoneNumber: z.string().optional().or(z.literal("")),
+});
+
+type ProfileFormValues = z.infer<typeof profileFormSchema>;
+
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -54,7 +70,19 @@ export default function ProfilePage() {
   const [formsPage, setFormsPage] = useState(1);
   const [loginPage, setLoginPage] = useState(1);
 
+  const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
+
   const router = useRouter();
+  const { toast } = useToast();
+
+  const profileForm = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      name: user?.name || "",
+      email: user?.email || "",
+      phoneNumber: user?.phoneNumber || "",
+    },
+  });
 
   const fetchProfileData = useCallback(async () => {
     setIsLoading(true);
@@ -79,6 +107,15 @@ export default function ProfilePage() {
         if (!isMounted) return;
         setUser(fetchedUser);
         setAllUsers(allSystemUsers);
+        
+        if (fetchedUser) {
+            profileForm.reset({
+                name: fetchedUser.name,
+                email: fetchedUser.email || "",
+                phoneNumber: fetchedUser.phoneNumber || "",
+            });
+        }
+
 
         if (fetchedUser) {
           // Fetch Attendance History
@@ -259,6 +296,7 @@ export default function ProfilePage() {
       if (unsubscribeMohallahs) unsubscribeMohallahs();
       if (unsubscribeMiqaats) unsubscribeMiqaats();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   useEffect(() => {
@@ -295,6 +333,30 @@ export default function ProfilePage() {
     return mohallah ? mohallah.name : "Unknown Mohallah";
   };
   
+    const handleProfileUpdate = async (values: ProfileFormValues) => {
+        if (!user || !user.id || !user.mohallahId) {
+            toast({ title: "Error", description: "User session is invalid. Please log in again.", variant: "destructive" });
+            return;
+        }
+
+        try {
+            await updateUser(user.id, user.mohallahId, values);
+            toast({ title: "Profile Updated", description: "Your details have been successfully updated." });
+            
+            // Re-fetch user data to update the UI
+            const updatedUser = await getUserByItsOrBgkId(user.itsId);
+            setUser(updatedUser);
+             if (updatedUser) {
+                localStorage.setItem('userName', updatedUser.name);
+             }
+            
+            setIsEditSheetOpen(false);
+
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            toast({ title: "Update Failed", description: "Could not save your changes. Please try again.", variant: "destructive" });
+        }
+    };
     // Pagination logic for Attendance History
     const attendanceTotalPages = Math.ceil(attendanceHistory.length / ITEMS_PER_PAGE);
     const currentAttendanceData = useMemo(() => {
@@ -343,10 +405,66 @@ export default function ProfilePage() {
           <div className="flex-grow text-center md:text-left w-full">
             <div className="flex flex-row items-center justify-center md:justify-between mb-1">
               <h3 className="text-2xl font-bold text-foreground">{user.name}</h3>
-               <Button variant="outline" size="sm" className="ml-4" disabled>
-                <Edit3 className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Edit Profile (Soon)</span>
-              </Button>
+                <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" size="sm" className="ml-4">
+                        <Edit3 className="h-4 w-4 md:mr-2" />
+                        <span className="hidden md:inline">Edit Profile</span>
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent>
+                    <SheetHeader>
+                        <SheetTitle>Edit Your Profile</SheetTitle>
+                        <SheetDescription>
+                            Update your personal information here. Click save when you're done.
+                        </SheetDescription>
+                    </SheetHeader>
+                    <UIForm {...profileForm}>
+                        <form onSubmit={profileForm.handleSubmit(handleProfileUpdate)} className="space-y-4 py-4">
+                             <FormField
+                                control={profileForm.control}
+                                name="name"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Full Name</FormLabel>
+                                        <FormControl><Input {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={profileForm.control}
+                                name="email"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Email Address</FormLabel>
+                                        <FormControl><Input type="email" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={profileForm.control}
+                                name="phoneNumber"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Phone Number</FormLabel>
+                                        <FormControl><Input {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <SheetFooter className="pt-4">
+                                <Button type="button" variant="outline" onClick={() => setIsEditSheetOpen(false)}>Cancel</Button>
+                                <Button type="submit" disabled={profileForm.formState.isSubmitting}>
+                                    {profileForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Save Changes
+                                </Button>
+                            </SheetFooter>
+                        </form>
+                    </UIForm>
+                  </SheetContent>
+                </Sheet>
             </div>
             <p className="text-accent">ITS: {user.itsId} {user.bgkId && `/ BGK: ${user.bgkId}`}</p>
             <p className="text-sm text-muted-foreground mt-1">{user.designation || "Member"}</p>
@@ -712,3 +830,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    
