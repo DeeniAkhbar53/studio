@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFo
 import { Input } from "@/components/ui/input";
 import { Form as UIForm, FormControl, FormMessage, FormItem, FormField, FormLabel } from "@/components/ui/form";
 import type { AttendanceRecord, User, Mohallah, Miqaat, UserDesignation, FormResponse, Form, SystemLog } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,6 +43,16 @@ const profileFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   phoneNumber: z.string().optional().or(z.literal("")),
+  password: z.string().optional(),
+}).refine(data => {
+    // If password is provided (and not just an empty string), it must be at least 6 characters
+    if (data.password && data.password.length > 0 && data.password.length < 6) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Password must be at least 6 characters.",
+    path: ["password"],
 });
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
@@ -81,6 +91,7 @@ export default function ProfilePage() {
       name: user?.name || "",
       email: user?.email || "",
       phoneNumber: user?.phoneNumber || "",
+      password: "",
     },
   });
 
@@ -113,6 +124,7 @@ export default function ProfilePage() {
                 name: fetchedUser.name,
                 email: fetchedUser.email || "",
                 phoneNumber: fetchedUser.phoneNumber || "",
+                password: "", // Always start with empty password field
             });
         }
 
@@ -340,7 +352,18 @@ export default function ProfilePage() {
         }
 
         try {
-            await updateUser(user.id, user.mohallahId, values);
+            const payload: Partial<User> = {
+                name: values.name,
+                email: values.email,
+                phoneNumber: values.phoneNumber,
+            };
+
+            // Only include password if it's not empty
+            if (values.password && values.password.trim() !== "") {
+                payload.password = values.password;
+            }
+
+            await updateUser(user.id, user.mohallahId, payload);
             toast({ title: "Profile Updated", description: "Your details have been successfully updated." });
             
             // Re-fetch user data to update the UI
@@ -407,7 +430,7 @@ export default function ProfilePage() {
               <h3 className="text-2xl font-bold text-foreground">{user.name}</h3>
                 <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
                   <SheetTrigger asChild>
-                    <Button variant="outline" size="sm" className="ml-4">
+                    <Button variant="outline" size="sm" className="ml-4 shrink-0">
                         <Edit3 className="h-4 w-4 md:mr-2" />
                         <span className="hidden md:inline">Edit Profile</span>
                     </Button>
@@ -454,6 +477,30 @@ export default function ProfilePage() {
                                     </FormItem>
                                 )}
                             />
+                            {(user.role === 'admin' || user.role === 'superadmin') && (
+                               <FormField
+                                control={profileForm.control}
+                                name="password"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>New Password</FormLabel>
+                                        <FormControl>
+                                            <div className="relative">
+                                                <Lock className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                                <Input
+                                                    type="password"
+                                                    placeholder="Leave blank to keep unchanged"
+                                                    {...field}
+                                                    className="pl-9"
+                                                />
+                                            </div>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            )}
+
                              <SheetFooter className="pt-4">
                                 <Button type="button" variant="outline" onClick={() => setIsEditSheetOpen(false)}>Cancel</Button>
                                 <Button type="submit" disabled={profileForm.formState.isSubmitting}>
@@ -830,5 +877,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    
