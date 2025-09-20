@@ -73,7 +73,7 @@
     --accent: 220 15% 40%; /* Darker Neutral Gray for dark mode hover */
     --accent-foreground: 0 0% 98%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 72% 51%; /* Slightly brighter red for dark mode */
     --destructive-foreground: 0 0% 98%;
 
     --border: 220 15% 25%;
