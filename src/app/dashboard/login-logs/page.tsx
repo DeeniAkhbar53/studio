@@ -8,11 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useToast } from "@/hooks/use-toast";
 import type { SystemLog, UserRole } from "@/types";
 import { getLoginLogs, clearLoginLogs } from "@/lib/firebase/logService";
-import { Loader2, ShieldAlert, ScrollText, Trash2, AlertTriangle, FileWarning, CheckCircle } from "lucide-react";
+import { Loader2, ShieldAlert, ScrollText, Trash2, AlertTriangle, FileWarning, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FunkyLoader } from "@/components/ui/funky-loader";
+
+const ITEMS_PER_PAGE = 20;
 
 export default function LoginLogsPage() {
   const router = useRouter();
@@ -20,6 +22,7 @@ export default function LoginLogsPage() {
   const [logs, setLogs] = useState<SystemLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
@@ -55,6 +58,15 @@ export default function LoginLogsPage() {
     );
     return () => unsubscribe();
   }, [isAuthorized, toast]);
+  
+  const totalPages = Math.ceil(logs.length / ITEMS_PER_PAGE);
+  const currentLogs = logs.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  
+  const handlePreviousPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const handleNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 
   const handleClearLogs = async () => {
     try {
@@ -86,8 +98,7 @@ export default function LoginLogsPage() {
   if (isAuthorized === null || isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Loading Logs...</p>
+        <FunkyLoader size="lg">Loading Logs...</FunkyLoader>
       </div>
     );
   }
@@ -106,32 +117,34 @@ export default function LoginLogsPage() {
   return (
     <div className="space-y-6">
       <Card className="shadow-lg">
-        <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <CardTitle className="flex items-center"><ScrollText className="mr-2 h-5 w-5 text-primary"/>Login Logs</CardTitle>
-            <CardDescription className="mt-1">View successful user login events. Updates in real-time.</CardDescription>
+        <CardHeader>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center"><ScrollText className="mr-2 h-5 w-5 text-primary"/>Login Logs</CardTitle>
+              <CardDescription className="mt-1">View successful user login events. Updates in real-time.</CardDescription>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" disabled={logs.length === 0}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Clear All Logs
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                  <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>This will permanently delete all login logs. This action cannot be undone.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleClearLogs}>Delete All Logs</AlertDialogAction>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm" disabled={logs.length === 0}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Clear All Logs
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>This will permanently delete all login logs. This action cannot be undone.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleClearLogs}>Delete All Logs</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
         </CardHeader>
         <CardContent>
-          {logs.length === 0 ? (
+          {currentLogs.length === 0 ? (
             <div className="text-center py-10">
               <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
               <p className="mt-4 text-lg font-medium">No Login Events</p>
@@ -139,7 +152,7 @@ export default function LoginLogsPage() {
             </div>
           ) : (
              <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
-                {logs.map(log => (
+                {currentLogs.map(log => (
                     <div key={log.id} className="flex items-center gap-4 rounded-lg border p-4">
                         {getLogLevelIcon(log.level)}
                         <div className="flex-grow">
@@ -151,8 +164,21 @@ export default function LoginLogsPage() {
             </div>
           )}
         </CardContent>
-        <CardFooter>
-            <p className="text-xs text-muted-foreground">Total logs: {logs.length}</p>
+        <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+          <p className="text-xs text-muted-foreground">
+            Showing {currentLogs.length > 0 ? ((currentPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, logs.length)} of {logs.length} logs
+          </p>
+          {totalPages > 1 && (
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" onClick={handlePreviousPage} disabled={currentPage === 1}>
+                <ChevronLeft className="h-4 w-4" /> Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+              <Button variant="outline" size="sm" onClick={handleNextPage} disabled={currentPage === totalPages}>
+                Next <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </CardFooter>
       </Card>
     </div>

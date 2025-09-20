@@ -18,9 +18,9 @@ import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel as ShadF
 import { getMohallahs, addMohallah, updateMohallahName, deleteMohallah as fbDeleteMohallah } from "@/lib/firebase/mohallahService";
 import { getUsers } from "@/lib/firebase/userService"; 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
-import { Separator } from "@/components/ui/separator";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FunkyLoader } from "@/components/ui/funky-loader";
 
 const mohallahFormSchema = z.object({
   name: z.string().min(3, "Mohallah name must be at least 3 characters"),
@@ -160,7 +160,7 @@ export default function ManageMohallahsPage() {
   if (isAuthorized === null) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <FunkyLoader size="lg" />
       </div>
     );
   }
@@ -182,7 +182,7 @@ export default function ManageMohallahsPage() {
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex-grow">
               <CardTitle className="flex items-center"><Home className="mr-2 h-5 w-5 text-primary" />Manage Mohallahs</CardTitle>
               <CardDescription className="mt-1">Add, edit, or delete Mohallahs. List updates in realtime.</CardDescription>
@@ -190,7 +190,7 @@ export default function ManageMohallahsPage() {
             {canManage && (
               <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>
                 <DialogTrigger asChild>
-                  <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} className="w-full md:w-auto self-start md:self-center" size="sm">
+                  <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} size="sm">
                     <PlusCircle className="mr-2 h-4 w-4" /> Add New Mohallah
                   </Button>
                 </DialogTrigger>
@@ -223,13 +223,11 @@ export default function ManageMohallahsPage() {
               </Dialog>
             )}
           </div>
-          <Separator />
         </CardHeader>
         <CardContent>
           {isLoadingMohallahs ? (
             <div className="flex justify-center items-center py-10">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <p className="ml-2 text-muted-foreground">Loading Mohallahs data...</p>
+              <FunkyLoader>Loading Mohallahs data...</FunkyLoader>
             </div>
           ) : mohallahs.length === 0 ? (
             <p className="text-center text-muted-foreground py-4">No Mohallahs found. Add one to get started.</p>
@@ -340,5 +338,3 @@ export default function ManageMohallahsPage() {
     </div>
   );
 }
-
-    

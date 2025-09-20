@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { Miqaat, UserRole, Mohallah, User } from "@/types";
-import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt, Clock, CheckCircle, XCircle, Copy, HandCoins } from "lucide-react"; 
-import { useState, useEffect, useRef } from "react";
+import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt, Clock, CheckCircle, XCircle, Copy, HandCoins, ChevronLeft, ChevronRight } from "lucide-react"; 
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,6 +32,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { format } from "date-fns";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+import { FunkyLoader } from "@/components/ui/funky-loader";
 
 
 const miqaatSchema = z.object({
@@ -54,6 +55,8 @@ const miqaatSchema = z.object({
 });
 
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
+
+const ITEMS_PER_PAGE = 10;
 
 // Helper function to format date to local YYYY-MM-DDTHH:MM for input[type=datetime-local]
 const toLocalISOString = (date: Date) => {
@@ -88,6 +91,8 @@ export default function MiqaatManagementPage() {
   
   const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
   const [barcodeMiqaat, setBarcodeMiqaat] = useState<Miqaat | null>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
 
   const form = useForm<MiqaatFormValues>({
     resolver: zodResolver(miqaatSchema),
@@ -255,10 +260,20 @@ export default function MiqaatManagementPage() {
     }
   };
 
-  const filteredMiqaats = miqaats.filter(m =>
+  const filteredMiqaats = useMemo(() => miqaats.filter(m =>
     m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (m.location || "").toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ), [miqaats, searchTerm]);
+  
+  const totalPages = Math.ceil(filteredMiqaats.length / ITEMS_PER_PAGE);
+  const currentMiqaats = useMemo(() => {
+      const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+      return filteredMiqaats.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredMiqaats, currentPage]);
+
+  const handlePreviousPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
+  const handleNextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
+
   
   const filteredUsers = allUsers.filter(user => {
     if (!memberSearchTerm) return true;
@@ -268,7 +283,7 @@ export default function MiqaatManagementPage() {
   if (isAuthorized === null) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <FunkyLoader size="lg" />
       </div>
     );
   }
@@ -290,14 +305,14 @@ export default function MiqaatManagementPage() {
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex-grow">
               <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-primary"/>Manage Miqaats</CardTitle>
               <CardDescription className="mt-1">Create, view, and manage all Miqaats. List updates in realtime.</CardDescription>
             </div>
             <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingMiqaat(null); }}>
               <DialogTrigger asChild>
-                <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}} size="sm" className="w-full md:w-auto self-start md:self-center">
+                <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}} size="sm">
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Miqaat
                 </Button>
               </DialogTrigger>
@@ -450,7 +465,6 @@ export default function MiqaatManagementPage() {
               </DialogContent>
             </Dialog>
           </div>
-          <Separator />
         </CardHeader>
         <CardContent>
           <div className="mb-4">
@@ -467,15 +481,14 @@ export default function MiqaatManagementPage() {
           </div>
           {isLoadingMiqaats ? (
             <div className="flex justify-center items-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="ml-2 text-muted-foreground">Loading Miqaats...</p>
+                <FunkyLoader>Loading Miqaats...</FunkyLoader>
             </div>
-          ) : filteredMiqaats.length > 0 ? (
+          ) : currentMiqaats.length > 0 ? (
             <>
               {/* Mobile View: Accordion */}
               <div className="md:hidden">
                 <Accordion type="single" collapsible className="w-full">
-                  {filteredMiqaats.map((miqaat, index) => {
+                  {currentMiqaats.map((miqaat, index) => {
                     const isSpecific = miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0;
                     const eligibility = isSpecific ? `${miqaat.eligibleItsIds?.length} members` : "Groups";
                     const isExpired = new Date(miqaat.endTime) < new Date();
@@ -576,7 +589,7 @@ export default function MiqaatManagementPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredMiqaats.map((miqaat, index) => {
+                        {currentMiqaats.map((miqaat, index) => {
                             const isSpecific = miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0;
                             const eligibility = isSpecific
                                 ? `${miqaat.eligibleItsIds?.length} members`
@@ -584,7 +597,7 @@ export default function MiqaatManagementPage() {
 
                             return (
                                 <TableRow key={miqaat.id}>
-                                    <TableCell>{index + 1}</TableCell>
+                                    <TableCell>{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}</TableCell>
                                     <TableCell className="font-medium">
                                         {miqaat.name}
                                         <p className="text-sm text-muted-foreground line-clamp-1">{miqaat.location || "No location"}</p>
@@ -661,6 +674,22 @@ export default function MiqaatManagementPage() {
             </div>
           )}
         </CardContent>
+         <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+            <p className="text-xs text-muted-foreground">
+                Showing {currentMiqaats.length > 0 ? ((currentPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredMiqaats.length)} of {filteredMiqaats.length} Miqaats
+            </p>
+            {totalPages > 1 && (
+                <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" onClick={handlePreviousPage} disabled={currentPage === 1}>
+                    <ChevronLeft className="h-4 w-4" /> Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={handleNextPage} disabled={currentPage === totalPages}>
+                    Next <ChevronRight className="h-4 w-4" />
+                </Button>
+                </div>
+            )}
+        </CardFooter>
       </Card>
       
        <AlertDialog open={showBarcodeDialog} onOpenChange={setShowBarcodeDialog}>
@@ -699,4 +728,3 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
-

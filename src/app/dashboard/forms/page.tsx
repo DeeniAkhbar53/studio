@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, FileText, Users, MoreHorizontal, Edit, Trash2, Calendar, Eye, CheckCircle, XCircle, Pencil, Clock } from "lucide-react";
+import { PlusCircle, FileText, Users, MoreHorizontal, Edit, Trash2, Calendar, Eye, CheckCircle, XCircle, Pencil, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole, Form as FormType, User } from "@/types";
 import { getForms, deleteForm, updateFormStatus } from "@/lib/firebase/formService";
@@ -26,12 +26,16 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 
+const ITEMS_PER_PAGE = 10;
+
 export default function FormsListPage() {
     const router = useRouter();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [forms, setForms] = useState<FormType[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
+    const [currentPage, setCurrentPage] = useState(1);
+
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -121,32 +125,44 @@ export default function FormsListPage() {
         });
     }, [forms, currentUser]);
 
+    const totalPages = Math.ceil(filteredForms.length / ITEMS_PER_PAGE);
+    const currentFormsToDisplay = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        return filteredForms.slice(startIndex, endIndex);
+    }, [filteredForms, currentPage]);
+
+    const handlePreviousPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+    const handleNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+
 
     return (
         <div className="space-y-6">
             <Card>
-                <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between">
-                    <div>
-                        <CardTitle className="flex items-center">
-                            <FileText className="mr-2 h-5 w-5 text-primary"/>
-                            Forms & Surveys
-                        </CardTitle>
-                        <CardDescription className="mt-1">
-                            Fill out available forms{canCreateForms && " or create new ones if you have permission."}
-                        </CardDescription>
+                <CardHeader>
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div>
+                            <CardTitle className="flex items-center">
+                                <FileText className="mr-2 h-5 w-5 text-primary"/>
+                                Forms & Surveys
+                            </CardTitle>
+                            <CardDescription className="mt-1">
+                                Fill out available forms{canCreateForms && " or create and manage them."}
+                            </CardDescription>
+                        </div>
+                        {canCreateForms && (
+                            <Button size="sm" onClick={() => router.push('/dashboard/forms/new')} className="w-full md:w-auto">
+                                <PlusCircle className="mr-2 h-4 w-4" /> Create New Form
+                            </Button>
+                        )}
                     </div>
-                    {canCreateForms && (
-                        <Button size="sm" onClick={() => router.push('/dashboard/forms/new')} className="w-full md:w-auto mt-2 md:mt-0">
-                            <PlusCircle className="mr-2 h-4 w-4" /> Create New Form
-                        </Button>
-                    )}
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
                          <div className="flex justify-center items-center py-20">
                             <FunkyLoader>Loading forms...</FunkyLoader>
                         </div>
-                    ) : filteredForms.length === 0 ? (
+                    ) : currentFormsToDisplay.length === 0 ? (
                         <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
                             <FileText className="h-12 w-12 text-muted-foreground mx-auto"/>
                             <p className="text-lg font-medium text-muted-foreground">No Forms Available</p>
@@ -159,7 +175,7 @@ export default function FormsListPage() {
                          {/* Mobile View: Accordion */}
                          <div className="md:hidden">
                             <Accordion type="single" collapsible className="w-full">
-                                {filteredForms.map((form) => {
+                                {currentFormsToDisplay.map((form) => {
                                     const expired = isFormExpired(form);
                                     const currentStatus = expired ? 'closed' : form.status;
                                     
@@ -267,7 +283,7 @@ export default function FormsListPage() {
                                    </TableRow>
                                </TableHeader>
                                <TableBody>
-                                   {filteredForms.map((form) => {
+                                   {currentFormsToDisplay.map((form) => {
                                         const expired = isFormExpired(form);
                                         const currentStatus = expired ? 'closed' : form.status;
 
@@ -362,6 +378,36 @@ export default function FormsListPage() {
                        </>
                     )}
                 </CardContent>
+                <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+                    <p className="text-xs text-muted-foreground">
+                        Showing {currentFormsToDisplay.length > 0 ? ((currentPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredForms.length)} of {filteredForms.length} forms
+                    </p>
+                    {totalPages > 1 && (
+                    <div className="flex items-center space-x-2">
+                        <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePreviousPage}
+                        disabled={currentPage === 1}
+                        >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                        Page {currentPage} of {totalPages}
+                        </span>
+                        <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages}
+                        >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    )}
+                </CardFooter>
             </Card>
         </div>
     );

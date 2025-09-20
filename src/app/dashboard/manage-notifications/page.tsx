@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,13 +11,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { NotificationItem, UserRole } from "@/types";
-import { PlusCircle, Trash2, BellRing, Loader2, ShieldAlert } from "lucide-react";
+import { PlusCircle, Trash2, BellRing, Loader2, ShieldAlert, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
-import { Separator } from "@/components/ui/separator";
 import { addNotification, deleteNotification } from "@/lib/firebase/notificationService";
 import { db } from "@/lib/firebase/firebase"; 
 import { collection, query, orderBy, getDocs, Timestamp } from "firebase/firestore";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { FunkyLoader } from "@/components/ui/funky-loader";
+
+const ITEMS_PER_PAGE = 10;
 
 export default function ManageNotificationsPage() {
   const router = useRouter();
@@ -30,6 +32,7 @@ export default function ManageNotificationsPage() {
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { toast } = useToast();
 
@@ -156,11 +159,20 @@ export default function ManageNotificationsPage() {
   };
   
   const canManage = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+
+  const totalPages = Math.ceil(notifications.length / ITEMS_PER_PAGE);
+  const currentNotifications = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return notifications.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [notifications, currentPage]);
+
+  const handlePreviousPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const handleNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   
   if (isAuthorized === null) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <FunkyLoader size="lg" />
       </div>
     );
   }
@@ -183,9 +195,16 @@ export default function ManageNotificationsPage() {
     {canManage && (
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center"><BellRing className="mr-2 h-6 w-6 text-primary" />Manage Notifications</CardTitle>
-          <Separator className="my-2" />
-          <CardDescription>Create and publish new notifications for specific user groups or all users.</CardDescription>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <CardTitle className="flex items-center"><BellRing className="mr-2 h-6 w-6 text-primary" />Manage Notifications</CardTitle>
+                <CardDescription className="mt-1">Create and publish new notifications for specific user groups or all users.</CardDescription>
+            </div>
+             <Button onClick={handlePostNotification} disabled={isSubmitting || isLoading} size="sm">
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                Post Notification
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -226,32 +245,24 @@ export default function ManageNotificationsPage() {
             </Select>
           </div>
         </CardContent>
-        <CardFooter>
-          <Button onClick={handlePostNotification} disabled={isSubmitting || isLoading} size="sm">
-            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-             Post Notification
-          </Button>
-        </CardFooter>
       </Card>
     )}
 
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Posted Notifications Log</CardTitle>
-          <Separator className="my-2" />
           <CardDescription>List of all active notifications. Newest first.</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center items-center py-10">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="ml-2">Loading notifications...</p>
+              <FunkyLoader>Loading notifications...</FunkyLoader>
             </div>
-          ) : notifications.length === 0 ? (
+          ) : currentNotifications.length === 0 ? (
             <p className="text-muted-foreground text-center py-4">No notifications posted yet.</p>
           ) : (
             <ul className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-              {notifications.map((notification) => (
+              {currentNotifications.map((notification) => (
                 <li key={notification.id} className="p-4 border rounded-lg bg-card flex justify-between items-start gap-4">
                   <div className="flex-grow">
                     <h3 className="font-semibold text-card-foreground">{notification.title}</h3>
@@ -282,6 +293,22 @@ export default function ManageNotificationsPage() {
             </ul>
           )}
         </CardContent>
+        <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+            <p className="text-xs text-muted-foreground">
+                Showing {currentNotifications.length > 0 ? ((currentPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, notifications.length)} of {notifications.length} notifications
+            </p>
+            {totalPages > 1 && (
+            <div className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" onClick={handlePreviousPage} disabled={currentPage === 1}>
+                    <ChevronLeft className="h-4 w-4" /> Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={handleNextPage} disabled={currentPage === totalPages}>
+                    Next <ChevronRight className="h-4 w-4" />
+                </Button>
+            </div>
+            )}
+        </CardFooter>
       </Card>
     </div>
   );
