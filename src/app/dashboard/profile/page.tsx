@@ -3,11 +3,11 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { AttendanceRecord, User, Mohallah, Miqaat, UserDesignation, FormResponse, Form, SystemLog } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
@@ -30,6 +30,8 @@ interface FormHistoryStatus extends Form {
   submittedAt?: string;
 }
 
+const ITEMS_PER_PAGE = 10;
+
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -47,6 +49,10 @@ export default function ProfilePage() {
   
   const [isLoadingLoginHistory, setIsLoadingLoginHistory] = useState(false);
   const [loginHistoryError, setLoginHistoryError] = useState<string | null>(null);
+
+  const [attendancePage, setAttendancePage] = useState(1);
+  const [formsPage, setFormsPage] = useState(1);
+  const [loginPage, setLoginPage] = useState(1);
 
   const router = useRouter();
 
@@ -289,6 +295,26 @@ export default function ProfilePage() {
     return mohallah ? mohallah.name : "Unknown Mohallah";
   };
   
+    // Pagination logic for Attendance History
+    const attendanceTotalPages = Math.ceil(attendanceHistory.length / ITEMS_PER_PAGE);
+    const currentAttendanceData = useMemo(() => {
+        const startIndex = (attendancePage - 1) * ITEMS_PER_PAGE;
+        return attendanceHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [attendanceHistory, attendancePage]);
+
+    // Pagination logic for Forms History
+    const formsTotalPages = Math.ceil(formHistory.length / ITEMS_PER_PAGE);
+    const currentFormsData = useMemo(() => {
+        const startIndex = (formsPage - 1) * ITEMS_PER_PAGE;
+        return formHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [formHistory, formsPage]);
+
+    // Pagination logic for Login History
+    const loginTotalPages = Math.ceil(loginHistory.length / ITEMS_PER_PAGE);
+    const currentLoginData = useMemo(() => {
+        const startIndex = (loginPage - 1) * ITEMS_PER_PAGE;
+        return loginHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [loginHistory, loginPage]);
 
   if (isLoading && !user) {
     return (
@@ -315,11 +341,11 @@ export default function ProfilePage() {
             <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-grow text-center md:text-left w-full">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-1">
+            <div className="flex flex-row items-center justify-center md:justify-between mb-1">
               <h3 className="text-2xl font-bold text-foreground">{user.name}</h3>
-              <Button variant="outline" size="sm" className="self-center md:self-auto md:ml-4 mt-4 md:mt-0" disabled>
-                <Edit3 className="mr-2 h-4 w-4" />
-                Edit Profile (Soon)
+               <Button variant="outline" size="sm" className="ml-4" disabled>
+                <Edit3 className="h-4 w-4 md:mr-2" />
+                <span className="hidden md:inline">Edit Profile (Soon)</span>
               </Button>
             </div>
             <p className="text-accent">ITS: {user.itsId} {user.bgkId && `/ BGK: ${user.bgkId}`}</p>
@@ -399,7 +425,7 @@ export default function ProfilePage() {
                 {/* Mobile Accordion View */}
                 <div className="md:hidden">
                   <Accordion type="single" collapsible className="w-full">
-                    {attendanceHistory.map((record) => (
+                    {currentAttendanceData.map((record) => (
                       <AccordionItem value={record.id} key={record.id}>
                         <AccordionTrigger>
                           <div className="flex-grow text-left">
@@ -439,7 +465,7 @@ export default function ProfilePage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {attendanceHistory.map((record) => (
+                      {currentAttendanceData.map((record) => (
                         <TableRow key={record.id}>
                           <TableCell className="font-medium">{record.miqaatName}</TableCell>
                           <TableCell>{format(new Date(record.markedAt), "PP p")}</TableCell>
@@ -462,6 +488,34 @@ export default function ProfilePage() {
                     </TableBody>
                   </Table>
                 </div>
+                 <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+                    <p className="text-xs text-muted-foreground">
+                        Showing {currentAttendanceData.length > 0 ? ((attendancePage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(attendancePage * ITEMS_PER_PAGE, attendanceHistory.length)} of {attendanceHistory.length} records
+                    </p>
+                    {attendanceTotalPages > 1 && (
+                    <div className="flex items-center space-x-2">
+                        <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAttendancePage(prev => Math.max(prev - 1, 1))}
+                        disabled={attendancePage === 1}
+                        >
+                        <ChevronLeft className="h-4 w-4" /> Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                        Page {attendancePage} of {attendanceTotalPages}
+                        </span>
+                        <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAttendancePage(prev => Math.min(prev + 1, attendanceTotalPages))}
+                        disabled={attendancePage === attendanceTotalPages}
+                        >
+                        Next <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    )}
+                </CardFooter>
                 </>
               ) : (
                 <div className="text-center py-10">
@@ -488,7 +542,7 @@ export default function ProfilePage() {
                   {/* Mobile Accordion View */}
                   <div className="md:hidden">
                     <Accordion type="single" collapsible className="w-full">
-                      {formHistory.map((form) => (
+                      {currentFormsData.map((form) => (
                         <AccordionItem value={form.id} key={form.id}>
                           <AccordionTrigger>
                             <div className="flex-grow text-left">
@@ -523,7 +577,7 @@ export default function ProfilePage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {formHistory.map((form) => (
+                        {currentFormsData.map((form) => (
                           <TableRow key={form.id}>
                             <TableCell className="font-medium">
                                 {form.title}
@@ -546,6 +600,34 @@ export default function ProfilePage() {
                       </TableBody>
                     </Table>
                   </div>
+                   <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+                        <p className="text-xs text-muted-foreground">
+                            Showing {currentFormsData.length > 0 ? ((formsPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(formsPage * ITEMS_PER_PAGE, formHistory.length)} of {formHistory.length} forms
+                        </p>
+                        {formsTotalPages > 1 && (
+                        <div className="flex items-center space-x-2">
+                            <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setFormsPage(prev => Math.max(prev - 1, 1))}
+                            disabled={formsPage === 1}
+                            >
+                            <ChevronLeft className="h-4 w-4" /> Previous
+                            </Button>
+                            <span className="text-sm text-muted-foreground">
+                            Page {formsPage} of {formsTotalPages}
+                            </span>
+                            <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setFormsPage(prev => Math.min(prev + 1, formsTotalPages))}
+                            disabled={formsPage === formsTotalPages}
+                            >
+                            Next <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        )}
+                    </CardFooter>
                   </>
                 ) : (
                   <div className="text-center py-10">
@@ -568,6 +650,7 @@ export default function ProfilePage() {
                     <p className="mt-4 text-lg text-destructive">{loginHistoryError}</p>
                   </div>
                 ) : loginHistory.length > 0 ? (
+                 <>
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -577,7 +660,7 @@ export default function ProfilePage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {loginHistory.map((log) => (
+                        {currentLoginData.map((log) => (
                           <TableRow key={log.id}>
                             <TableCell className="font-medium">{log.message}</TableCell>
                             <TableCell className="text-right">{format(new Date(log.timestamp), "PP p")}</TableCell>
@@ -586,6 +669,35 @@ export default function ProfilePage() {
                       </TableBody>
                     </Table>
                   </div>
+                  <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+                        <p className="text-xs text-muted-foreground">
+                            Showing {currentLoginData.length > 0 ? ((loginPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(loginPage * ITEMS_PER_PAGE, loginHistory.length)} of {loginHistory.length} logs
+                        </p>
+                        {loginTotalPages > 1 && (
+                        <div className="flex items-center space-x-2">
+                            <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setLoginPage(prev => Math.max(prev - 1, 1))}
+                            disabled={loginPage === 1}
+                            >
+                            <ChevronLeft className="h-4 w-4" /> Previous
+                            </Button>
+                            <span className="text-sm text-muted-foreground">
+                            Page {loginPage} of {loginTotalPages}
+                            </span>
+                            <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setLoginPage(prev => Math.min(prev + 1, loginTotalPages))}
+                            disabled={loginPage === loginTotalPages}
+                            >
+                            Next <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        )}
+                    </CardFooter>
+                 </>
                 ) : (
                   <div className="text-center py-10">
                     <Clock className="mx-auto h-12 w-12 text-muted-foreground" />
