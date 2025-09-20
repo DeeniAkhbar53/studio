@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -60,11 +60,11 @@ export default function LoginLogsPage() {
   }, [isAuthorized, toast]);
   
   const totalPages = Math.ceil(logs.length / ITEMS_PER_PAGE);
-  const currentLogs = logs.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-  
+  const currentLogs = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return logs.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [logs, currentPage]);
+
   const handlePreviousPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
   const handleNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
 
@@ -184,3 +184,5 @@ export default function LoginLogsPage() {
     </div>
   );
 }
+
+    
