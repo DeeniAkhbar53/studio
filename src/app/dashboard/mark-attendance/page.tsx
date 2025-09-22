@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle } from "@/components/ui/alert-dialog";
+import { FunkyLoader } from "@/components/ui/funky-loader";
 
 type UniformComplianceState = {
     fetaPaghri: 'yes' | 'no' | 'safar';
@@ -104,6 +105,33 @@ export default function MarkAttendancePage() {
     }
   }, [toast]);
   
+  const fetchAllUsersForCache = useCallback(async () => {
+    if (isCachingUsers || !currentUserRole) return;
+    setIsCachingUsers(true);
+    console.log("Starting to cache users for offline use...");
+
+    const mohallahIdForCache = currentUserRole === 'superadmin' ? undefined : currentUserMohallahId;
+
+    try {
+        const usersToCache = await getUsers(mohallahIdForCache || undefined);
+        await cacheAllUsers(usersToCache);
+        toast({
+            title: "Member List Updated",
+            description: `Successfully cached ${usersToCache.length} members for ${mohallahIdForCache ? 'your Mohallah' : 'the entire system'}.`,
+        });
+    } catch (error) {
+        console.error("Failed to fetch and cache users:", error);
+        toast({
+            title: "Offline Cache Failed",
+            description: "Could not update the local member list.",
+            variant: "destructive",
+        });
+    } finally {
+        setIsCachingUsers(false);
+    }
+  }, [isCachingUsers, toast, currentUserRole, currentUserMohallahId]);
+
+
   // Effect for online/offline detection and initial data caching
   useEffect(() => {
     if (!isAuthorized) return;
@@ -139,29 +167,6 @@ export default function MarkAttendancePage() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthorized]);
-
-  const fetchAllUsersForCache = useCallback(async () => {
-    if (isCachingUsers) return;
-    setIsCachingUsers(true);
-    console.log("Starting to cache all users for offline use...");
-    try {
-      const allUsers = await getUsers();
-      await cacheAllUsers(allUsers);
-      toast({
-        title: "Member List Updated",
-        description: `Successfully cached ${allUsers.length} members for offline use.`,
-      });
-    } catch (error) {
-      console.error("Failed to fetch and cache users:", error);
-      toast({
-        title: "Offline Cache Failed",
-        description: "Could not update the local member list.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCachingUsers(false);
-    }
-  }, [isCachingUsers, toast]);
 
 
   useEffect(() => {
@@ -514,7 +519,7 @@ export default function MarkAttendancePage() {
   if (isAuthorized === null) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <FunkyLoader size="lg" />
       </div>
     );
   }
@@ -661,13 +666,13 @@ export default function MarkAttendancePage() {
               size="sm"
             >
               {isProcessing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <FunkyLoader size="sm" />
               ) : miqaatHasAttendanceRequirements ? (
                 <CheckCircle className="mr-2 h-4 w-4" />
               ) : (
                 <CheckSquare className="mr-2 h-4 w-4" />
               )}
-              {miqaatHasAttendanceRequirements ? "Find Member & Mark Attendance" : "Mark Attendance"}
+              {isProcessing ? "Processing..." : miqaatHasAttendanceRequirements ? "Find & Check" : "Mark Attendance"}
             </Button>
           </form>
 
@@ -732,7 +737,7 @@ export default function MarkAttendancePage() {
          {isLoadingMiqaats && (
             <CardFooter>
                 <p className="text-sm text-muted-foreground flex items-center">
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading Miqaats...
+                    <FunkyLoader size="sm">Loading Miqaats...</FunkyLoader>
                 </p>
             </CardFooter>
         )}
@@ -957,5 +962,3 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
-
-    
