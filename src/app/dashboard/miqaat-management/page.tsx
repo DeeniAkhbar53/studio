@@ -75,10 +75,8 @@ export default function MiqaatManagementPage() {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
-  const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
+  const [allAvailableMohallahs, setAllAvailableMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
-  const [availableTeams, setAvailableTeams] = useState<string[]>([]); 
-  const [isLoadingTeams, setIsLoadingTeams] = useState(true); 
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
@@ -113,6 +111,7 @@ export default function MiqaatManagementPage() {
   });
 
   const eligibilityType = form.watch("eligibilityType");
+  const selectedMohallahsInForm = form.watch("mohallahIds");
 
   useEffect(() => {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
@@ -145,20 +144,64 @@ export default function MiqaatManagementPage() {
 
     const dataFetchPromises = [
         new Promise<void>(resolve => { setIsLoadingMiqaats(true); const unsub = getMiqaats(data => { setMiqaats(data); setIsLoadingMiqaats(false); resolve(); }); }),
-        new Promise<void>(resolve => { setIsLoadingMohallahs(true); const unsub = getMohallahs(data => { setAvailableMohallahs(data); setIsLoadingMohallahs(false); resolve(); }); }),
+        new Promise<void>(resolve => { setIsLoadingMohallahs(true); const unsub = getMohallahs(data => { setAllAvailableMohallahs(data); setIsLoadingMohallahs(false); resolve(); }); }),
         getUsers().then(users => {
           setAllUsers(users);
-          const teams = [...new Set(users.map(u => u.team).filter(Boolean))].sort() as string[];
-          setAvailableTeams(teams);
-        }).catch(err => console.error("Failed to fetch users and teams", err)).finally(() => {
+        }).catch(err => console.error("Failed to fetch users", err)).finally(() => {
           setIsLoadingUsers(false);
-          setIsLoadingTeams(false);
         }),
     ];
 
     Promise.all(dataFetchPromises);
 
   }, [isAuthorized]);
+  
+  // New derived states for form options based on user role
+  const formOptions = useMemo(() => {
+    if (currentUserRole === 'superadmin') {
+      const allTeams = [...new Set(allUsers.map(u => u.team).filter(Boolean))].sort() as string[];
+      return {
+        mohallahs: allAvailableMohallahs,
+        teams: allTeams,
+        users: allUsers,
+      };
+    }
+    if (currentUserRole === 'admin' && currentUserMohallahId) {
+      const mohallah = allAvailableMohallahs.find(m => m.id === currentUserMohallahId);
+      const usersInMohallah = allUsers.filter(u => u.mohallahId === currentUserMohallahId);
+      const teamsInMohallah = [...new Set(usersInMohallah.map(u => u.team).filter(Boolean))].sort() as string[];
+      return {
+        mohallahs: mohallah ? [mohallah] : [],
+        teams: teamsInMohallah,
+        users: usersInMohallah,
+      };
+    }
+    // Default empty for other roles or if data is not ready
+    return { mohallahs: [], teams: [], users: [] };
+  }, [currentUserRole, currentUserMohallahId, allAvailableMohallahs, allUsers]);
+
+  // Derived state for specific members list, filtered by selected groups
+  const filteredUsersForForm = useMemo(() => {
+      let users = formOptions.users;
+      
+      const formMohallahs = form.watch('mohallahIds') || [];
+      const formTeams = form.watch('teams') || [];
+
+      if (formMohallahs.length > 0) {
+          users = users.filter(u => u.mohallahId && formMohallahs.includes(u.mohallahId));
+      }
+      if (formTeams.length > 0) {
+          users = users.filter(u => u.team && formTeams.includes(u.team));
+      }
+
+      if (!memberSearchTerm) return users;
+      
+      return users.filter(user => 
+        user.name.toLowerCase().includes(memberSearchTerm.toLowerCase()) || 
+        user.itsId.includes(memberSearchTerm)
+      );
+  }, [formOptions.users, memberSearchTerm, form.watch]);
+
 
   useEffect(() => {
     if (!isDialogOpen) {
@@ -265,14 +308,13 @@ export default function MiqaatManagementPage() {
 
   const filteredMiqaats = useMemo(() => {
     let roleFilteredMiqaats = miqaats;
-    // If the user is an admin (but not a superadmin), filter the miqaats
+    
     if (currentUserRole === 'admin' && currentUserMohallahId) {
-        roleFilteredMiqaats = miqaats.filter(m => 
-            // Show miqaats that are open to all
-            (!m.mohallahIds || m.mohallahIds.length === 0) ||
-            // Or miqaats that include the admin's mohallah
-            (m.mohallahIds && m.mohallahIds.includes(currentUserMohallahId))
-        );
+        roleFilteredMiqaats = miqaats.filter(m => {
+            const isAssignedToMe = m.mohallahIds?.includes(currentUserMohallahId);
+            const isPublic = !m.mohallahIds?.length && !m.teams?.length && !m.eligibleItsIds?.length;
+            return isAssignedToMe || isPublic;
+        });
     }
     
     return roleFilteredMiqaats.filter(m =>
@@ -289,12 +331,6 @@ export default function MiqaatManagementPage() {
 
   const handlePreviousPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
   const handleNextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
-
-  
-  const filteredUsers = allUsers.filter(user => {
-    if (!memberSearchTerm) return true;
-    return user.itsId.includes(memberSearchTerm) || (user.bgkId || '').includes(memberSearchTerm);
-  });
   
   if (isAuthorized === null) {
     return (
@@ -321,7 +357,7 @@ export default function MiqaatManagementPage() {
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+           <div className="flex flex-row justify-between items-center gap-4">
             <div className="flex-grow">
               <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-primary"/>Manage Miqaats</CardTitle>
               <CardDescription className="mt-1">Create, view, and manage all Miqaats. List updates in realtime.</CardDescription>
@@ -400,7 +436,7 @@ export default function MiqaatManagementPage() {
                         <FormItem><ShadFormLabel>Assigned Mohallahs</ShadFormLabel>
                             <ScrollArea className="rounded-md border p-3 h-40">
                               {isLoadingMohallahs ? (<p className="text-sm text-muted-foreground">Loading...</p>) : (
-                                availableMohallahs.map((mohallah) => (
+                                formOptions.mohallahs.map((mohallah) => (
                                   <FormField key={mohallah.id} control={form.control} name="mohallahIds" render={({ field: checkboxField }) => (
                                     <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
                                       <FormControl><Checkbox checked={checkboxField.value?.includes(mohallah.id)} onCheckedChange={(checked) => {
@@ -417,8 +453,8 @@ export default function MiqaatManagementPage() {
                         <FormField control={form.control} name="teams" render={({ field }) => (
                         <FormItem><ShadFormLabel>Assigned Teams</ShadFormLabel>
                             <ScrollArea className="rounded-md border p-3 h-40">
-                              {isLoadingTeams ? (<p className="text-sm text-muted-foreground">Loading...</p>) : (
-                                availableTeams.map((team) => (
+                              {isLoadingUsers ? (<p className="text-sm text-muted-foreground">Loading...</p>) : (
+                                formOptions.teams.map((team) => (
                                   <FormField key={team} control={form.control} name="teams" render={({ field: checkboxField }) => (
                                     <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
                                       <FormControl><Checkbox checked={checkboxField.value?.includes(team)} onCheckedChange={(checked) => {
@@ -442,7 +478,7 @@ export default function MiqaatManagementPage() {
                                 <div className="relative">
                                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <Input
-                                        placeholder="Search by ITS or BGK ID..."
+                                        placeholder="Search by name, ITS..."
                                         value={memberSearchTerm}
                                         onChange={(e) => setMemberSearchTerm(e.target.value)}
                                         className="pl-8 mb-2"
@@ -450,7 +486,7 @@ export default function MiqaatManagementPage() {
                                 </div>
                                 <ScrollArea className="rounded-md border p-3 h-60">
                                 {isLoadingUsers ? (<p className="text-sm text-muted-foreground">Loading Users...</p>) : (
-                                    filteredUsers.map((user) => (
+                                    filteredUsersForForm.map((user) => (
                                     <FormField key={user.id} control={form.control} name="eligibleItsIds" render={({ field: checkboxField }) => (
                                         <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
                                         <FormControl><Checkbox checked={checkboxField.value?.includes(user.itsId)} onCheckedChange={(checked) => {
@@ -461,7 +497,7 @@ export default function MiqaatManagementPage() {
                                     )}/>
                                     ))
                                 )}
-                                {filteredUsers.length === 0 && !isLoadingUsers && <p className="text-sm text-muted-foreground text-center py-4">No members found matching search.</p>}
+                                {filteredUsersForForm.length === 0 && !isLoadingUsers && <p className="text-sm text-muted-foreground text-center py-4">No members found.</p>}
                                 </ScrollArea>
                                 <FormDescription className="text-xs">Select individual members eligible for this Miqaat.</FormDescription>
                             <FormMessage /></FormItem>
@@ -473,8 +509,8 @@ export default function MiqaatManagementPage() {
                     )} />
                     <DialogFooter>
                       <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                      <Button type="submit" disabled={form.formState.isSubmitting || isLoadingMohallahs || isLoadingTeams || isLoadingUsers}>
-                        {(form.formState.isSubmitting || isLoadingMohallahs || isLoadingTeams || isLoadingUsers) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <Button type="submit" disabled={form.formState.isSubmitting || isLoadingMohallahs || isLoadingUsers}>
+                        {(form.formState.isSubmitting || isLoadingMohallahs || isLoadingUsers) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         {editingMiqaat ? "Save Changes" : "Create Miqaat"}
                       </Button>
                     </DialogFooter>
