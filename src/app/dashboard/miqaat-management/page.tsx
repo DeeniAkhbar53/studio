@@ -87,6 +87,7 @@ export default function MiqaatManagementPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements"> | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const { toast } = useToast();
   
   const [showBarcodeDialog, setShowBarcodeDialog] = useState(false);
@@ -138,7 +139,9 @@ export default function MiqaatManagementPage() {
   useEffect(() => {
     if (!isAuthorized) return;
     const role = localStorage.getItem('userRole') as UserRole | null;
+    const mohallahId = localStorage.getItem('userMohallahId');
     setCurrentUserRole(role);
+    setCurrentUserMohallahId(mohallahId);
 
     const dataFetchPromises = [
         new Promise<void>(resolve => { setIsLoadingMiqaats(true); const unsub = getMiqaats(data => { setMiqaats(data); setIsLoadingMiqaats(false); resolve(); }); }),
@@ -260,10 +263,23 @@ export default function MiqaatManagementPage() {
     }
   };
 
-  const filteredMiqaats = useMemo(() => miqaats.filter(m =>
-    m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (m.location || "").toLowerCase().includes(searchTerm.toLowerCase())
-  ), [miqaats, searchTerm]);
+  const filteredMiqaats = useMemo(() => {
+    let roleFilteredMiqaats = miqaats;
+    // If the user is an admin (but not a superadmin), filter the miqaats
+    if (currentUserRole === 'admin' && currentUserMohallahId) {
+        roleFilteredMiqaats = miqaats.filter(m => 
+            // Show miqaats that are open to all
+            (!m.mohallahIds || m.mohallahIds.length === 0) ||
+            // Or miqaats that include the admin's mohallah
+            (m.mohallahIds && m.mohallahIds.includes(currentUserMohallahId))
+        );
+    }
+    
+    return roleFilteredMiqaats.filter(m =>
+        m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (m.location || "").toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [miqaats, searchTerm, currentUserRole, currentUserMohallahId]);
   
   const totalPages = Math.ceil(filteredMiqaats.length / ITEMS_PER_PAGE);
   const currentMiqaats = useMemo(() => {
@@ -305,16 +321,17 @@ export default function MiqaatManagementPage() {
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-           <div className="flex flex-row justify-between items-center gap-4">
+           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex-grow">
               <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-primary"/>Manage Miqaats</CardTitle>
               <CardDescription className="mt-1">Create, view, and manage all Miqaats. List updates in realtime.</CardDescription>
             </div>
             <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingMiqaat(null); }}>
               <DialogTrigger asChild>
-                <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}} size="sm" className="shrink-0">
+                <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}} size="sm" className="shrink-0 w-full md:w-auto">
                   <PlusCircle className="h-4 w-4 md:mr-2" />
                   <span className="hidden md:inline">Add New Miqaat</span>
+                  <span className="md:hidden">Add New</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-xl">
