@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/chart";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { FunkyLoader } from "@/components/ui/funky-loader";
 
 
 const reportSchema = z.object({
@@ -115,9 +116,9 @@ export default function ReportsPage() {
   const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const [availableMiqaats, setAvailableMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "attendedUserItsIds" | "attendanceRequirements">[]>([]);
-  const [availableMohallahs, setAvailableMohallahs] = useState<Mohallah[]>([]);
-  const [availableTeams, setAvailableTeams] = useState<string[]>([]);
+  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "attendedUserItsIds" | "attendanceRequirements">[]>([]);
+  const [allMohallahs, setAllMohallahs] = useState<Mohallah[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
@@ -184,15 +185,13 @@ export default function ReportsPage() {
   useEffect(() => {
     if (!isAuthorized) return;
     setIsLoadingOptions(true);
-    const unsubMiqaats = getMiqaats(setAvailableMiqaats);
-    const unsubMohallahs = getMohallahs(setAvailableMohallahs);
+    const unsubMiqaats = getMiqaats(setAllMiqaats);
+    const unsubMohallahs = getMohallahs(setAllMohallahs);
     
     getUsers().then(users => {
-        const teams = [...new Set(users.map(u => u.team).filter(Boolean) as string[])].sort();
-        setAvailableTeams(teams);
+        setAllUsers(users);
     }).catch(err => {
         console.error("Failed to fetch teams for reports page", err);
-        setAvailableTeams([]);
     }).finally(() => {
         setIsLoadingOptions(false);
     });
@@ -202,6 +201,21 @@ export default function ReportsPage() {
         unsubMohallahs();
     };
   }, [isAuthorized]);
+
+  const { availableMiqaats, availableMohallahs, availableTeams } = useMemo(() => {
+    if (currentUserRole === 'superadmin') {
+      const allTeams = [...new Set(allUsers.map(u => u.team).filter(Boolean) as string[])].sort();
+      return { availableMiqaats: allMiqaats, availableMohallahs: allMohallahs, availableTeams: allTeams };
+    }
+    if (currentUserRole === 'admin' && currentUserMohallahId) {
+      const filteredMiqaats = allMiqaats.filter(m => !m.mohallahIds?.length || m.mohallahIds.includes(currentUserMohallahId));
+      const filteredMohallahs = allMohallahs.filter(m => m.id === currentUserMohallahId);
+      const usersInMohallah = allUsers.filter(u => u.mohallahId === currentUserMohallahId);
+      const teamsInMohallah = [...new Set(usersInMohallah.map(u => u.team).filter(Boolean) as string[])].sort();
+      return { availableMiqaats: filteredMiqaats, availableMohallahs: filteredMohallahs, availableTeams: teamsInMohallah };
+    }
+    return { availableMiqaats: [], availableMohallahs: [], availableTeams: [] };
+  }, [currentUserRole, currentUserMohallahId, allMiqaats, allMohallahs, allUsers]);
 
 
   const watchedReportType = form.watch("reportType");
@@ -217,9 +231,8 @@ export default function ReportsPage() {
     let reportResultItems: ReportResultItem[] = [];
 
     try {
-      const allMiqaats = availableMiqaats;
-      const allUsers = await getUsers();
-      const userMap = new Map(allUsers.map(u => [u.itsId, u]));
+      const allUsersForReport = await getUsers(); // Fetch latest user data for report generation
+      const userMap = new Map(allUsersForReport.map(u => [u.itsId, u]));
       const selectedMiqaat = allMiqaats.find(m => m.id === values.miqaatId);
 
       const isSpecificMemberMiqaat = selectedMiqaat?.eligibleItsIds && selectedMiqaat.eligibleItsIds.length > 0;
@@ -230,13 +243,13 @@ export default function ReportsPage() {
           
           let eligibleUsers: User[];
           if (isSpecificMemberMiqaat) {
-              eligibleUsers = allUsers.filter(user => selectedMiqaat.eligibleItsIds!.includes(user.itsId));
+              eligibleUsers = allUsersForReport.filter(user => selectedMiqaat.eligibleItsIds!.includes(user.itsId));
           } else if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
-              eligibleUsers = allUsers.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
+              eligibleUsers = allUsersForReport.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
           } else if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
-              eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
+              eligibleUsers = allUsersForReport.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
           } else {
-              eligibleUsers = allUsers; // Open to all
+              eligibleUsers = allUsersForReport; // Open to all
           }
 
           const combinedRecords = eligibleUsers.map(user => {
@@ -253,7 +266,7 @@ export default function ReportsPage() {
 
           // Add non-eligible users if needed for a full roster, but mark them
           if (!isSpecificMemberMiqaat) {
-            allUsers.forEach(user => {
+            allUsersForReport.forEach(user => {
               if (!eligibleUsers.some(eu => eu.id === user.id) && !combinedRecords.some(cr => cr.userItsId === user.itsId)) {
                 combinedRecords.push({ id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, date: selectedMiqaat.startTime, status: 'not-eligible' as const, });
               }
@@ -322,13 +335,13 @@ export default function ReportsPage() {
         
           let eligibleUsers: User[];
           if (isSpecificMemberMiqaat) {
-            eligibleUsers = allUsers.filter(user => selectedMiqaat.eligibleItsIds!.includes(user.itsId));
+            eligibleUsers = allUsersForReport.filter(user => selectedMiqaat.eligibleItsIds!.includes(user.itsId));
           } else if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
-            eligibleUsers = allUsers.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
+            eligibleUsers = allUsersForReport.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
           } else if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
-            eligibleUsers = allUsers.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
+            eligibleUsers = allUsersForReport.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
           } else {
-              eligibleUsers = allUsers;
+              eligibleUsers = allUsersForReport;
           }
 
           const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
@@ -529,7 +542,7 @@ export default function ReportsPage() {
   };
 
 
-  const selectedMiqaatDetails = availableMiqaats.find(m => m.id === form.getValues("miqaatId"));
+  const selectedMiqaatDetails = allMiqaats.find(m => m.id === form.getValues("miqaatId"));
 
   const chartConfig = {
       present: { label: "Present", color: "hsl(var(--chart-2))" },
@@ -563,7 +576,7 @@ export default function ReportsPage() {
   if (isAuthorized === null) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <FunkyLoader size="lg" />
       </div>
     );
   }
@@ -715,7 +728,7 @@ export default function ReportsPage() {
               <div className="space-y-4">
                  <h3 className="text-md font-medium text-muted-foreground">Advanced Filters</h3>
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-                    {currentUserRole === 'superadmin' && (
+                    
                         <FormField
                             control={form.control}
                             name="mohallahId"
@@ -738,7 +751,7 @@ export default function ReportsPage() {
                                 </FormItem>
                             )}
                         />
-                    )}
+                    
                      <FormField
                         control={form.control}
                         name="team"
@@ -808,7 +821,7 @@ export default function ReportsPage() {
 
               <Button type="submit" disabled={isLoading || isLoadingOptions} className="min-w-[180px]" size="sm">
                 {isLoading || isLoadingOptions ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <FunkyLoader size="sm" />
                 ) : (
                   <Search className="mr-2 h-4 w-4" />
                 )}
@@ -1154,13 +1167,14 @@ export default function ReportsPage() {
       {(isLoadingOptions && reportData === null) && (
         <Card className="shadow-lg mt-6">
             <CardContent className="py-10 flex justify-center items-center">
-                <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-                <p className="text-center text-muted-foreground">
+                <FunkyLoader>
                     Loading report options...
-                </p>
+                </FunkyLoader>
             </CardContent>
          </Card>
       )}
     </div>
   );
 }
+
+    
