@@ -364,10 +364,9 @@ export default function MiqaatManagementPage() {
             </div>
             <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingMiqaat(null); }}>
               <DialogTrigger asChild>
-                <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}} size="sm" className="shrink-0 w-full md:w-auto">
+                 <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}} size="sm" className="shrink-0">
                   <PlusCircle className="h-4 w-4 md:mr-2" />
                   <span className="hidden md:inline">Add New Miqaat</span>
-                  <span className="md:hidden">Add New</span>
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-xl">
