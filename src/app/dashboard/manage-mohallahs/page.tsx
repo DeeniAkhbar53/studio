@@ -231,7 +231,7 @@ export default function ManageMohallahsPage() {
               <FunkyLoader>Loading Mohallahs data...</FunkyLoader>
             </div>
           ) : mohallahs.length === 0 ? (
-            <p className="text-center text-muted-foreground py-4">No Mohallahs found. Add one to get started.</p>
+            <div className="text-center text-muted-foreground py-4">No Mohallahs found. Add one to get started.</div>
           ) : (
             <>
               {/* Mobile View: Accordion */}
@@ -240,7 +240,7 @@ export default function ManageMohallahsPage() {
                   {mohallahs.map((mohallah) => (
                     <AccordionItem value={mohallah.id} key={mohallah.id}>
                       <AccordionTrigger>
-                        <p className="font-semibold text-card-foreground">{mohallah.name}</p>
+                        <div className="font-semibold text-card-foreground">{mohallah.name}</div>
                       </AccordionTrigger>
                       <AccordionContent className="pt-2">
                         {canManage && (

@@ -729,16 +729,16 @@ export default function MarkAttendancePage() {
         </CardContent>
         {!selectedMiqaatId && !isLoadingMiqaats && (
             <CardFooter>
-                <p className="text-sm text-muted-foreground flex items-center">
+                <div className="text-sm text-muted-foreground flex items-center">
                     <AlertCircle className="mr-2 h-4 w-4" /> Please select a Miqaat to begin marking attendance.
-                </p>
+                </div>
             </CardFooter>
         )}
          {isLoadingMiqaats && (
             <CardFooter>
-                <p className="text-sm text-muted-foreground flex items-center">
+                <div className="text-sm text-muted-foreground flex items-center">
                     <FunkyLoader size="sm">Loading Miqaats...</FunkyLoader>
-                </p>
+                </div>
             </CardFooter>
         )}
       </Card>

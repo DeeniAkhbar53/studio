@@ -1147,9 +1147,9 @@ export default function ReportsPage() {
                 </div>
              </>
             ) : (
-              <p className="text-center text-muted-foreground py-6">No records found matching your search term.</p>
+              <div className="text-center text-muted-foreground py-6">No records found matching your search term.</div>
             )}
-            {!filteredReportData && <p className="text-center text-muted-foreground py-6">No data found for the selected criteria.</p>}
+            {!filteredReportData && <div className="text-center text-muted-foreground py-6">No data found for the selected criteria.</div>}
           </CardContent>
         </Card>
       )}
@@ -1158,9 +1158,9 @@ export default function ReportsPage() {
          <Card className="shadow-lg mt-6">
             <CardContent className="py-10 flex flex-col items-center justify-center">
                 <AlertTriangle className="h-10 w-10 text-muted-foreground mb-3" />
-                <p className="text-center text-muted-foreground">
+                <div className="text-center text-muted-foreground">
                     Please select your report criteria and click &quot;Generate Report&quot; to view data.
-                </p>
+                </div>
             </CardContent>
          </Card>
       )}
@@ -1176,5 +1176,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
