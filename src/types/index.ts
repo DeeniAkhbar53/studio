@@ -21,9 +21,19 @@ export type User = {
   lastLogin?: string; // ISO string, updated on login
 };
 
+export type MiqaatSession = {
+  id: string;
+  name: string; // e.g., "Day 1", "Day 1 - Morning", "Main Session"
+  date: string; // ISO date string (YYYY-MM-DD)
+  startTime: string; // ISO string
+  endTime: string; // ISO string
+  reportingTime?: string; // ISO string
+};
+
 export type MiqaatAttendanceEntryItem = {
   userItsId: string;
   userName: string;
+  sessionId?: string; // To link attendance to a specific session
   markedAt: string; // ISO string
   markedByItsId: string;
   status: 'present' | 'late' | 'early';
@@ -40,6 +50,7 @@ export type MiqaatAttendanceEntryItem = {
 export type MiqaatSafarEntryItem = {
   userItsId: string;
   userName: string;
+  sessionId?: string;
   markedAt: string;
   markedByItsId: string;
   status: 'safar';
@@ -48,9 +59,12 @@ export type MiqaatSafarEntryItem = {
 export type Miqaat = {
   id: string;
   name: string;
-  startTime: string; // ISO string
-  endTime: string; // ISO string
-  reportingTime?: string; // ISO string, for "on-time" threshold
+  type: 'local' | 'international';
+  attendanceType?: 'single' | 'multiple'; // For international miqaats
+  startTime: string; // Overall start time
+  endTime: string; // Overall end time
+  reportingTime?: string; // For local miqaats
+  sessions?: MiqaatSession[]; // For international miqaats
   mohallahIds?: string[];
   teams?: string[];
   eligibleItsIds?: string[]; // For specific member selection
