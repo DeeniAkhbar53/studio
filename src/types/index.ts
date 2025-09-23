@@ -23,8 +23,8 @@ export type User = {
 
 export type MiqaatSession = {
   id: string;
-  name: string; // e.g., "Day 1", "Day 1 - Morning", "Main Session"
-  date: string; // ISO date string (YYYY-MM-DD)
+  day: number;
+  name: string;
   startTime: string; // ISO string
   endTime: string; // ISO string
   reportingTime?: string; // ISO string
@@ -108,6 +108,8 @@ export type MarkedAttendanceEntry = {
   timestamp: Date;
   miqaatId: string;
   miqaatName: string;
+  sessionId: string;
+  sessionName: string;
   status?: 'present' | 'late' | 'early';
 };
 
@@ -195,3 +197,5 @@ export interface SystemLog {
     context?: string; // stringified JSON
     timestamp: string; // ISO string
 }
+
+    

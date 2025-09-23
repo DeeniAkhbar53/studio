@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, UserRole } from "@/types";
+import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, UserRole, MiqaatSession } from "@/types";
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { savePendingAttendance, getPendingAttendance, removePendingAttendanceRecord, cacheAllUsers, getCachedUserByItsOrBgkId, OfflineAttendanceRecord } from "@/lib/offlineService";
@@ -43,9 +43,10 @@ export default function MarkAttendancePage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null); // New state for session
   const [memberIdInput, setMemberIdInput] = useState("");
   const [markedAttendanceThisSession, setMarkedAttendanceThisSession] = useState<MarkedAttendanceEntry[]>([]);
-  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "attendance" | "safarList" | "attendanceRequirements">[]>([]);
+  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "sessions" | "type" | "mohallahIds" | "teams" | "eligibleItsIds" | "attendance" | "safarList" | "attendanceRequirements">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [markerItsId, setMarkerItsId] = useState<string | null>(null);
@@ -188,6 +189,8 @@ export default function MarkAttendancePage() {
       setAllMiqaats(fetchedMiqaats.map(m => ({
         id: m.id,
         name: m.name,
+        type: m.type,
+        sessions: m.sessions || [],
         startTime: m.startTime,
         endTime: m.endTime,
         reportingTime: m.reportingTime,
@@ -225,31 +228,37 @@ export default function MarkAttendancePage() {
       toast({ title: "Miqaat Not Selected", description: "Please select a Miqaat before marking attendance.", variant: "destructive" });
       return;
     }
+    const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
+    if (!selectedMiqaatDetails) return;
+    if (selectedMiqaatDetails.type === 'international' && !selectedSessionId) {
+        toast({ title: "Session Not Selected", description: "Please select a session for this international Miqaat.", variant: "destructive" });
+        return;
+    }
+    
     if (!memberIdInput.trim()) {
       toast({ title: "ITS/BGK ID Required", description: "Please enter the member's ITS or BGK ID.", variant: "destructive" });
       return;
     }
     
-    const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
-    if (!selectedMiqaatDetails) {
-        toast({ title: "Error", description: "Selected Miqaat details not found.", variant: "destructive" });
-        setIsProcessing(false);
+    const currentSession = selectedMiqaatDetails.sessions?.find(s => s.id === selectedSessionId);
+    if (!currentSession) {
+        toast({ title: "Error", description: "Selected session details not found.", variant: "destructive" });
         return;
     }
 
-    const miqaatStartTime = new Date(selectedMiqaatDetails.startTime);
-    if (new Date() < miqaatStartTime) {
+    const sessionStartTime = new Date(currentSession.startTime);
+    if (new Date() < sessionStartTime) {
         toast({
             variant: "destructive",
-            title: "Miqaat Has Not Started",
-            description: `Attendance cannot be marked before ${format(miqaatStartTime, "PPp")}.`,
+            title: "Session Has Not Started",
+            description: `This session has not started yet. Starts at ${format(sessionStartTime, "PPp")}.`,
         });
         return;
     }
 
-    const miqaatEndTime = new Date(selectedMiqaatDetails.endTime);
-    if (new Date() > miqaatEndTime) {
-        toast({ title: "Miqaat has ended", description: "This Miqaat is closed and no longer accepting attendance.", variant: "destructive" });
+    const sessionEndTime = new Date(currentSession.endTime);
+    if (new Date() > sessionEndTime) {
+        toast({ title: "Session has ended", description: "This session is closed and no longer accepting attendance.", variant: "destructive" });
         return;
     }
 
@@ -276,7 +285,6 @@ export default function MarkAttendancePage() {
       return;
     }
 
-    // --- NEW ELIGIBILITY CHECK ---
     const isMiqaatForEveryone = 
         (!selectedMiqaatDetails.mohallahIds || selectedMiqaatDetails.mohallahIds.length === 0) &&
         (!selectedMiqaatDetails.teams || selectedMiqaatDetails.teams.length === 0) &&
@@ -289,17 +297,15 @@ export default function MarkAttendancePage() {
         const eligibleByMohallah = !!member.mohallahId && !!selectedMiqaatDetails.mohallahIds?.includes(member.mohallahId);
 
         if (selectedMiqaatDetails.eligibleItsIds && selectedMiqaatDetails.eligibleItsIds.length > 0) {
-            // If specific IDs are listed, only they are eligible.
             isEligible = eligibleById;
         } else {
-            // Otherwise, check against groups.
             isEligible = eligibleByMohallah || eligibleByTeam;
         }
         
         if (!isEligible) {
             toast({
                 title: "Not Eligible",
-                description: `${member.name} (${member.itsId}) is not eligible for this Miqaat based on its Mohallah, Team, or specific member list.`,
+                description: `${member.name} (${member.itsId}) is not eligible for this Miqaat.`,
                 variant: "destructive",
                 duration: 7000,
             });
@@ -308,20 +314,19 @@ export default function MarkAttendancePage() {
             return;
         }
     }
-    // --- END ELIGIBILITY CHECK ---
     
     const alreadyMarkedInSession = markedAttendanceThisSession.some(
-        (entry) => entry.memberItsId === member!.itsId && entry.miqaatId === selectedMiqaatId
+        (entry) => entry.memberItsId === member!.itsId && entry.miqaatId === selectedMiqaatId && entry.sessionId === selectedSessionId
     );
     const alreadyMarkedInDb = !isOffline && selectedMiqaatDetails.attendance?.some(
-      (entry) => entry.userItsId === member!.itsId
+      (entry) => entry.userItsId === member!.itsId && entry.sessionId === selectedSessionId
     );
     
     if (alreadyMarkedInDb || alreadyMarkedInSession) {
-      const existingEntry = selectedMiqaatDetails.attendance?.find(entry => entry.userItsId === member!.itsId);
+      const existingEntry = selectedMiqaatDetails.attendance?.find(entry => entry.userItsId === member!.itsId && entry.sessionId === selectedSessionId);
       toast({
-        title: "Already Marked",
-        description: `${member?.name} has already been marked for ${selectedMiqaatDetails.name} ${alreadyMarkedInSession ? 'in this session' : ''} (${existingEntry?.status || 'present'}).`,
+        title: "Already Marked for Session",
+        description: `${member?.name} has already been marked for ${currentSession.name} (${existingEntry?.status || 'present'}).`,
         className: 'border-blue-500 bg-blue-50 dark:bg-blue-900/30',
       });
       setMemberIdInput("");
@@ -344,22 +349,24 @@ export default function MarkAttendancePage() {
   };
   
   const finalizeAttendance = async (member: User, compliance?: UniformComplianceState) => {
-    if (!selectedMiqaatId || !markerItsId) {
-        toast({ title: "Error", description: "Miqaat or Marker ID missing.", variant: "destructive" });
+    if (!selectedMiqaatId || !markerItsId || !selectedSessionId) {
+        toast({ title: "Error", description: "Miqaat, Session, or Marker ID missing.", variant: "destructive" });
         return;
     }
     
     const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
     if (!selectedMiqaatDetails) return;
+    const currentSession = selectedMiqaatDetails.sessions?.find(s => s.id === selectedSessionId);
+    if (!currentSession) return;
 
     const now = new Date();
-    const miqaatEndTime = new Date(selectedMiqaatDetails.endTime);
-    const miqaatReportingTime = selectedMiqaatDetails.reportingTime ? new Date(selectedMiqaatDetails.reportingTime) : null;
+    const sessionEndTime = new Date(currentSession.endTime);
+    const sessionReportingTime = currentSession.reportingTime ? new Date(currentSession.reportingTime) : null;
     
     let attendanceStatus: 'early' | 'present' | 'late';
-    if (miqaatReportingTime && now < miqaatReportingTime) {
+    if (sessionReportingTime && now < sessionReportingTime) {
       attendanceStatus = 'early';
-    } else if (now > miqaatEndTime) {
+    } else if (now > sessionEndTime) {
       attendanceStatus = 'late';
     } else {
       attendanceStatus = 'present';
@@ -368,6 +375,7 @@ export default function MarkAttendancePage() {
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
         userItsId: member.itsId,
         userName: member.name,
+        sessionId: currentSession.id,
         markedAt: now.toISOString(),
         markedByItsId: markerItsId,
         status: attendanceStatus,
@@ -380,6 +388,8 @@ export default function MarkAttendancePage() {
         timestamp: now,
         miqaatId: selectedMiqaatDetails.id,
         miqaatName: selectedMiqaatDetails.name,
+        sessionId: currentSession.id,
+        sessionName: currentSession.name,
         status: attendanceStatus,
     };
     
@@ -390,14 +400,14 @@ export default function MarkAttendancePage() {
              setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
             toast({
                 title: "Saved Offline",
-                description: `Attendance for ${attendanceEntryPayload.userName} for ${selectedMiqaatDetails.name} saved locally. Sync when online.`,
+                description: `Attendance for ${attendanceEntryPayload.userName} for session ${currentSession.name} saved locally.`,
             });
         } else {
             await markAttendanceInMiqaat(selectedMiqaatDetails.id, attendanceEntryPayload);
             setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
             toast({
               title: `Attendance Marked (${attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)})`,
-              description: `${attendanceEntryPayload.userName} (${attendanceEntryPayload.userItsId}) marked for ${selectedMiqaatDetails.name}.`,
+              description: `${attendanceEntryPayload.userName} for ${currentSession.name}.`,
               className: 'border-green-500 bg-green-50 dark:bg-green-900/30',
             });
         }
@@ -449,7 +459,6 @@ export default function MarkAttendancePage() {
     for (const record of recordsToProcess) {
         try {
             await markAttendanceInMiqaat(record.miqaatId, record.entry);
-            // If successful, remove it from local DB
             if (record.id) {
                 await removePendingAttendanceRecord(record.id);
             }
@@ -467,15 +476,12 @@ export default function MarkAttendancePage() {
         }
     }
 
-    // Update state
     setLastSyncReport({ success: successCount, skipped: skippedCount, failed: failedCount });
     setIsSyncReportOpen(true);
     
-    // For retries, remove the successful one from the failed list
     if (retryingRecord) {
       setFailedSyncs(prev => prev.filter(f => f.record.syncAttemptId !== retryingRecord.record.syncAttemptId));
     } else {
-      // For a full sync, replace the failed list with the new failures
       setFailedSyncs(newlyFailedSyncs);
     }
 
@@ -498,19 +504,13 @@ export default function MarkAttendancePage() {
     };
   
   const currentMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
-  const currentMiqaatAttendanceCount = currentMiqaatDetails?.attendance?.length || 0;
+  const currentSessionDetails = currentMiqaatDetails?.sessions?.find(s => s.id === selectedSessionId);
+  
+  const currentMiqaatAttendanceCount = currentMiqaatDetails?.attendance?.filter(a => a.sessionId === selectedSessionId).length || 0;
   const currentSelectedMiqaatName = currentMiqaatDetails?.name || 'Selected Miqaat';
-  const currentMiqaatReportingTime = currentMiqaatDetails?.reportingTime 
-    ? format(new Date(currentMiqaatDetails.reportingTime), "PPp")
-    : null;
-  const currentMiqaatEndTime = currentMiqaatDetails?.endTime
-    ? format(new Date(currentMiqaatDetails.endTime), "PPp")
-    : null;
-
+  
   const miqaatHasAttendanceRequirements = useMemo(() => {
-    if (!currentMiqaatDetails || !currentMiqaatDetails.attendanceRequirements) {
-      return false;
-    }
+    if (!currentMiqaatDetails || !currentMiqaatDetails.attendanceRequirements) return false;
     const { fetaPaghri, koti, nazrulMaqam } = currentMiqaatDetails.attendanceRequirements;
     return fetaPaghri || koti || nazrulMaqam;
   }, [currentMiqaatDetails]);
@@ -599,6 +599,7 @@ export default function MarkAttendancePage() {
               <Select
                 onValueChange={(value) => {
                   setSelectedMiqaatId(value);
+                  setSelectedSessionId(null);
                   setMarkedAttendanceThisSession([]);
                 }}
                 value={selectedMiqaatId || undefined}
@@ -618,30 +619,49 @@ export default function MarkAttendancePage() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {currentMiqaatDetails && currentMiqaatDetails.type === 'international' && (
+                <div className="space-y-2">
+                    <Label htmlFor="session-select">Select Session</Label>
+                    <Select
+                        onValueChange={(value) => setSelectedSessionId(value)}
+                        value={selectedSessionId || undefined}
+                        disabled={!selectedMiqaatId || isProcessing}
+                    >
+                        <SelectTrigger id="session-select">
+                            <SelectValue placeholder="Choose a session" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {currentMiqaatDetails.sessions && currentMiqaatDetails.sessions.length > 0 ? (
+                                currentMiqaatDetails.sessions.map(session => (
+                                    <SelectItem key={session.id} value={session.id}>
+                                        {session.name}
+                                    </SelectItem>
+                                ))
+                            ) : (
+                                <SelectItem value="no-sessions" disabled>No sessions for this Miqaat</SelectItem>
+                            )}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
 
-            {currentMiqaatDetails && (
+            {currentSessionDetails && (
               <Card className="bg-muted/50">
                 <CardHeader className="p-4">
                   <CardTitle className="text-base flex items-center gap-2">
-                     {currentMiqaatDetails.eligibleItsIds && currentMiqaatDetails.eligibleItsIds.length > 0 ? (
-                        <UserX className="h-5 w-5 text-primary" />
-                     ) : (
-                        <CalendarClock className="h-5 w-5 text-primary" />
-                     )}
-                     {currentMiqaatDetails.eligibleItsIds && currentMiqaatDetails.eligibleItsIds.length > 0
-                        ? `${currentMiqaatDetails.eligibleItsIds.length} Specific Members Eligible`
-                        : "Reporting Time"
-                     }
+                     <CalendarClock className="h-5 w-5 text-primary" />
+                     Session Timing: {currentSessionDetails.name}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-0 text-sm space-y-1">
                   <p className="flex items-center gap-2">
                     <span className="font-semibold w-24">Early Before:</span>
-                    <span className="text-muted-foreground">{currentMiqaatReportingTime || "N/A"}</span>
+                    <span className="text-muted-foreground">{currentSessionDetails.reportingTime ? format(new Date(currentSessionDetails.reportingTime), "p") : "N/A"}</span>
                   </p>
                   <p className="flex items-center gap-2">
                     <span className="font-semibold w-24">Late After:</span>
-                    <span className="text-muted-foreground">{currentMiqaatEndTime || "N/A"}</span>
+                    <span className="text-muted-foreground">{format(new Date(currentSessionDetails.endTime), "p")}</span>
                   </p>
                 </CardContent>
               </Card>
@@ -656,12 +676,12 @@ export default function MarkAttendancePage() {
                 placeholder="Enter 8-digit ITS or BGK ID"
                 value={memberIdInput}
                 onChange={(e) => setMemberIdInput(e.target.value)}
-                disabled={!selectedMiqaatId || isProcessing || isLoadingMiqaats}
+                disabled={!selectedMiqaatId || (currentMiqaatDetails?.type === 'international' && !selectedSessionId) || isProcessing || isLoadingMiqaats}
               />
             </div>
             <Button
               type="submit"
-              disabled={!selectedMiqaatId || !memberIdInput || isProcessing || isLoadingMiqaats}
+              disabled={!selectedMiqaatId || (currentMiqaatDetails?.type === 'international' && !selectedSessionId) || !memberIdInput || isProcessing || isLoadingMiqaats}
               className="w-full"
               size="sm"
             >
@@ -676,17 +696,17 @@ export default function MarkAttendancePage() {
             </Button>
           </form>
 
-          {selectedMiqaatId && currentMiqaatDetails && (
+          {selectedMiqaatId && (
             <div className="mt-6 pt-6 border-t">
                 <h3 className="text-lg font-semibold mb-2 flex items-center">
                     <Users className="mr-2 h-5 w-5 text-primary" />
-                    Session Log for: {currentSelectedMiqaatName}
+                    Session Log for: {currentSessionDetails?.name || currentSelectedMiqaatName}
                 </h3>
                 <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground mb-4">
-                  <p>Total in DB: <span className="font-bold text-foreground">{currentMiqaatAttendanceCount}</span></p>
-                  <p>Marked this session: <span className="font-bold text-foreground">{markedAttendanceThisSession.filter(entry => entry.miqaatId === selectedMiqaatId).length}</span></p>
+                  <p>Total in this Session: <span className="font-bold text-foreground">{currentMiqaatAttendanceCount}</span></p>
+                  <p>Marked this session: <span className="font-bold text-foreground">{markedAttendanceThisSession.filter(entry => entry.sessionId === selectedSessionId).length}</span></p>
                 </div>
-                {markedAttendanceThisSession.filter(entry => entry.miqaatId === selectedMiqaatId).length > 0 ? (
+                {markedAttendanceThisSession.filter(entry => entry.sessionId === selectedSessionId).length > 0 ? (
                     <div className="max-h-60 overflow-y-auto rounded-md border">
                         <Table>
                             <TableHeader>
@@ -698,7 +718,7 @@ export default function MarkAttendancePage() {
                             </TableRow>
                             </TableHeader>
                             <TableBody>
-                            {markedAttendanceThisSession.filter(entry => entry.miqaatId === selectedMiqaatId).map((entry) => (
+                            {markedAttendanceThisSession.filter(entry => entry.sessionId === selectedSessionId).map((entry) => (
                                 <TableRow key={`${entry.memberItsId}-${entry.timestamp.toISOString()}`}>
                                 <TableCell className="font-medium">{entry.memberName}</TableCell>
                                 <TableCell>{entry.memberItsId}</TableCell>
@@ -720,7 +740,7 @@ export default function MarkAttendancePage() {
                 ) : (
                     <div className="text-sm text-muted-foreground text-center py-6 border rounded-lg bg-muted/20 flex flex-col items-center justify-center">
                         <Info className="h-6 w-6 text-muted-foreground mb-2"/>
-                        <p>No members marked yet in this session.</p>
+                        <p>No members marked yet for this session.</p>
                         <p>Entries will appear here as you mark them.</p>
                     </div>
                 )}
@@ -962,3 +982,5 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
+
+    
