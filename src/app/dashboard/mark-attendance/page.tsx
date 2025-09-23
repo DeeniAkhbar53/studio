@@ -374,11 +374,10 @@ export default function MarkAttendancePage() {
       setNazrulMaqamCurrency("USD");
       setMemberForComplianceCheck(member);
       setIsComplianceDialogOpen(true);
+      // Keep processing state true until dialog is handled
     } else {
       finalizeAttendance(member);
     }
-
-    setIsProcessing(false);
   };
   
   const finalizeAttendance = async (member: User, compliance?: UniformComplianceState) => {
@@ -620,7 +619,11 @@ export default function MarkAttendancePage() {
                   variant="secondary"
                   className="mt-2 sm:mt-0"
               >
-                  {isSyncing ? <FunkyLoader size="sm">Syncing...</FunkyLoader> : <div className="flex items-center"><CloudUpload className="mr-2 h-4 w-4" /> Sync {pendingRecordsCount} Record(s)</div>}
+                  {isSyncing ? (
+                    <div className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Syncing...</div>
+                  ) : (
+                    <div className="flex items-center"><CloudUpload className="mr-2 h-4 w-4" /> Sync {pendingRecordsCount} Record(s)</div>
+                  )}
               </Button>
             </ShadAlertDesc>
           </Alert>
@@ -641,7 +644,7 @@ export default function MarkAttendancePage() {
               className="w-full md:w-auto self-start md:self-center"
             >
               {isCachingUsers ? (
-                <FunkyLoader size="sm">Caching...</FunkyLoader>
+                <div className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Caching...</div>
               ) : (
                 <div className="flex items-center"><UserSearch className="mr-2 h-4 w-4" /> Refresh Offline Members List</div>
               )}
@@ -775,7 +778,7 @@ export default function MarkAttendancePage() {
               size="sm"
             >
               {isProcessing ? (
-                <FunkyLoader size="sm">Processing...</FunkyLoader>
+                <div className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</div>
               ) : (
                 <div className="flex items-center">
                   {miqaatHasAttendanceRequirements ? <CheckCircle className="mr-2 h-4 w-4" /> : <CheckSquare className="mr-2 h-4 w-4" />}
@@ -920,7 +923,7 @@ export default function MarkAttendancePage() {
 
       {/* Compliance Check Dialog */}
       <Dialog open={isComplianceDialogOpen} onOpenChange={setIsComplianceDialogOpen}>
-        <DialogContent>
+        <DialogContent className="bg-background">
           <DialogHeader>
             <DialogTitle>Compliance Check for {memberForComplianceCheck?.name}</DialogTitle>
             <DialogDescription>
@@ -1022,7 +1025,7 @@ export default function MarkAttendancePage() {
               disabled={isProcessing}
             >
               {isProcessing ? (
-                <FunkyLoader size="sm">Saving...</FunkyLoader>
+                <div className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</div>
               ) : (
                 <div className="flex items-center"><CheckSquare className="mr-2 h-4 w-4" /> Confirm and Mark Attendance</div>
               )}
@@ -1076,5 +1079,3 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
-
-    
