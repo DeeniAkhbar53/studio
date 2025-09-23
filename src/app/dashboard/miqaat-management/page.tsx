@@ -560,14 +560,17 @@ export default function MiqaatManagementPage() {
                                               )}/>
                                            ) : (
                                               <>
-                                              {sessionFields.filter(f => f.day === dayIndex).map((session, sessionIdx) => (
-                                                <div key={session.id} className="grid grid-cols-4 gap-2 items-end border-b pb-2 mb-2">
-                                                  <FormField control={form.control} name={`sessions.${sessionIdx}.name`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Name</ShadFormLabel><FormControl><Input {...field}/></FormControl></FormItem>)}/>
-                                                  <FormField control={form.control} name={`sessions.${sessionIdx}.startTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Start</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
-                                                  <FormField control={form.control} name={`sessions.${sessionIdx}.endTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">End</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
-                                                  <Button type="button" size="icon" variant="ghost" className="text-destructive h-8 w-8" onClick={() => removeSession(sessionIdx)}><Trash2 className="h-4 w-4"/></Button>
-                                                </div>
-                                              ))}
+                                              {sessionFields.filter(f => f.day === dayIndex).map((session, sessionIdx) => {
+                                                  const overallIndex = sessionFields.findIndex(f => f.id === session.id);
+                                                  return (
+                                                    <div key={session.id} className="grid grid-cols-4 gap-2 items-end border-b pb-2 mb-2">
+                                                      <FormField control={form.control} name={`sessions.${overallIndex}.name`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Name</ShadFormLabel><FormControl><Input {...field}/></FormControl></FormItem>)}/>
+                                                      <FormField control={form.control} name={`sessions.${overallIndex}.startTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Start</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
+                                                      <FormField control={form.control} name={`sessions.${overallIndex}.endTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">End</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
+                                                      <Button type="button" size="icon" variant="ghost" className="text-destructive h-8 w-8" onClick={() => removeSession(overallIndex)}><Trash2 className="h-4 w-4"/></Button>
+                                                    </div>
+                                                  );
+                                              })}
                                               <Button type="button" size="sm" variant="outline" onClick={() => appendSession({ id: crypto.randomUUID(), day: dayIndex, name: "", startTime: "", endTime: "" })}>
                                                 Add Session for Day {dayIndex}
                                               </Button>
