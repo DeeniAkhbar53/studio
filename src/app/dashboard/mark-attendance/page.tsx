@@ -163,7 +163,12 @@ export default function MarkAttendancePage() {
             const eligibleSet = new Set(miqaatDetails.eligibleItsIds);
             eligibleUsers = allSystemUsers.filter(u => eligibleSet.has(u.itsId));
         } else if (isForEveryone) {
-            eligibleUsers = allSystemUsers; // Cache all users if the miqaat is for everyone
+            // For public miqaats, only cache users from the current marker's Mohallah as a safe default
+            if (currentUserMohallahId) {
+                eligibleUsers = allSystemUsers.filter(u => u.mohallahId === currentUserMohallahId);
+            } else {
+                eligibleUsers = []; // Or handle this case as an error if Mohallah ID is expected
+            }
         } else {
              eligibleUsers = allSystemUsers.filter(user => 
                 (miqaatDetails.mohallahIds && user.mohallahId && miqaatDetails.mohallahIds.includes(user.mohallahId)) ||
@@ -188,7 +193,7 @@ export default function MarkAttendancePage() {
     } finally {
         setIsCachingUsers(false);
     }
-  }, [isCachingUsers, toast, selectedMiqaatId, allMiqaats]);
+  }, [isCachingUsers, toast, selectedMiqaatId, allMiqaats, currentUserMohallahId]);
 
 
   // Effect for online/offline detection and initial data caching
@@ -1132,5 +1137,3 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
-
-    
