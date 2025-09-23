@@ -154,34 +154,35 @@ export default function MarkAttendancePage() {
             throw new Error("Selected Miqaat details not found.");
         }
 
-        const allSystemUsers = await getUsers();
-        let eligibleUsers: User[];
+        let usersToCache: User[];
 
-        const isForEveryone = !miqaatDetails.mohallahIds?.length && !miqaatDetails.teams?.length && !miqaatDetails.eligibleItsIds?.length;
-
-        if (miqaatDetails.eligibleItsIds?.length) {
-            const eligibleSet = new Set(miqaatDetails.eligibleItsIds);
-            eligibleUsers = allSystemUsers.filter(u => eligibleSet.has(u.itsId));
-        } else if (isForEveryone) {
-            // For public miqaats, only cache users from the current marker's Mohallah as a safe default
+        if (miqaatDetails.type === 'international') {
+            const allSystemUsers = await getUsers(); // Fetch everyone
+            // Filter down to only eligible members for the international miqaat
+            usersToCache = allSystemUsers.filter(user => {
+                const isForEveryone = !miqaatDetails.mohallahIds?.length && !miqaatDetails.teams?.length && !miqaatDetails.eligibleItsIds?.length;
+                if (isForEveryone) return true;
+                const eligibleById = !!miqaatDetails.eligibleItsIds?.includes(user.itsId);
+                const eligibleByTeam = !!user.team && !!miqaatDetails.teams?.includes(user.team);
+                const eligibleByMohallah = !!user.mohallahId && !!miqaatDetails.mohallahIds?.includes(user.mohallahId);
+                return eligibleById || eligibleByTeam || eligibleByMohallah;
+            });
+        } else { // 'local' miqaat
             if (currentUserMohallahId) {
-                eligibleUsers = allSystemUsers.filter(u => u.mohallahId === currentUserMohallahId);
+                // For local miqaats, only fetch users from the marker's own mohallah
+                usersToCache = await getUsers(currentUserMohallahId);
             } else {
-                eligibleUsers = []; // Or handle this case as an error if Mohallah ID is expected
+                toast({ title: "Cache Error", description: "Cannot cache local miqaat members without a Mohallah assignment.", variant: "destructive" });
+                usersToCache = [];
             }
-        } else {
-             eligibleUsers = allSystemUsers.filter(user => 
-                (miqaatDetails.mohallahIds && user.mohallahId && miqaatDetails.mohallahIds.includes(user.mohallahId)) ||
-                (miqaatDetails.teams && user.team && miqaatDetails.teams.includes(user.team))
-            );
         }
 
-        await cacheAllUsers(eligibleUsers);
+        await cacheAllUsers(usersToCache);
         localStorage.setItem('cachedMiqaatId', miqaatIdForCache);
         setIsCacheOutOfSync(false); // Cache is now in sync
         toast({
             title: "Member List Updated",
-            description: `Successfully cached ${eligibleUsers.length} eligible members for ${miqaatDetails.name}.`,
+            description: `Successfully cached ${usersToCache.length} members for ${miqaatDetails.name}.`,
         });
     } catch (error) {
         console.error("Failed to fetch and cache users:", error);
