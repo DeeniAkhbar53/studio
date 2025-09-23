@@ -130,6 +130,7 @@ export interface ReportResultItem {
   bgkId?: string;
   team?: string;
   miqaatName: string;
+  sessionName?: string; // New field for session name
   date?: string; // ISO string
   status: "present" | "absent" | "late" | "early" | "safar" | "not-eligible"; // Added safar and not-eligible
   markedByItsId?: string;
@@ -197,5 +198,3 @@ export interface SystemLog {
     context?: string; // stringified JSON
     timestamp: string; // ISO string
 }
-
-    
