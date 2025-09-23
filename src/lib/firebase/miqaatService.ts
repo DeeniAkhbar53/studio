@@ -66,6 +66,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
   try {
     const firestorePayload: { [key: string]: any } = {
       ...miqaatData,
+      attendanceType: miqaatData.attendanceType || null,
       startTime: new Date(miqaatData.startTime).toISOString(),
       endTime: new Date(miqaatData.endTime).toISOString(),
       reportingTime: miqaatData.reportingTime ? new Date(miqaatData.reportingTime).toISOString() : null,
@@ -110,11 +111,14 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
      if (miqaatData.endTime) firestorePayload.endTime = new Date(miqaatData.endTime).toISOString();
      
      // Handle reportingTime carefully: convert to ISO string if it exists, otherwise set to null
-     if (miqaatData.reportingTime) {
-        firestorePayload.reportingTime = new Date(miqaatData.reportingTime).toISOString();
-     } else if (miqaatData.hasOwnProperty('reportingTime')) { // check if key exists, even if value is null/undefined
-        firestorePayload.reportingTime = null;
+     if (miqaatData.hasOwnProperty('reportingTime')) {
+        firestorePayload.reportingTime = miqaatData.reportingTime ? new Date(miqaatData.reportingTime).toISOString() : null;
      }
+
+    // Ensure attendanceType is not undefined
+    if (miqaatData.hasOwnProperty('attendanceType')) {
+        firestorePayload.attendanceType = miqaatData.attendanceType || null;
+    }
 
      if (miqaatData.sessions) {
        firestorePayload.sessions = miqaatData.sessions.map(s => ({
