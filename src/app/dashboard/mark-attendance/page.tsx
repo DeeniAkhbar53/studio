@@ -22,7 +22,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle } from "@/components/ui/alert-dialog";
-import { FunkyLoader } from "@/components/ui/funky-loader";
 
 type UniformComplianceState = {
     fetaPaghri: 'yes' | 'no' | 'safar';
@@ -173,8 +172,6 @@ export default function MarkAttendancePage() {
       if (online) {
         toast({ title: "You are back online!", description: "Ready to sync any pending records." });
         checkPendingRecords();
-        // Trigger caching of user data when coming online
-        fetchAllUsersForCache();
       } else {
         toast({ title: "You are offline", description: "Attendance will be saved locally and validated against the last known member list.", variant: "destructive", duration: 5000 });
       }
@@ -188,9 +185,6 @@ export default function MarkAttendancePage() {
       const online = navigator.onLine;
       setIsOffline(!online);
       checkPendingRecords();
-      if(online) {
-        fetchAllUsersForCache();
-      }
     }
 
     return () => {
@@ -375,24 +369,26 @@ export default function MarkAttendancePage() {
       setNazrulMaqamCurrency("USD");
       setMemberForComplianceCheck(member);
       setIsComplianceDialogOpen(true);
-      setIsProcessing(false); // Stop processing on the main button
+      // Keep isProcessing true until final action
     } else {
       finalizeAttendance(member);
     }
   };
   
   const finalizeAttendance = async (member: User, compliance?: UniformComplianceState) => {
-    setIsSaving(true); // Start saving indicator
+    setIsSaving(true);
     const miqaatId = selectedMiqaatId;
     if (!miqaatId || !markerItsId) {
         toast({ title: "Error", description: "Miqaat or Marker ID missing.", variant: "destructive" });
         setIsSaving(false);
+        setIsProcessing(false);
         return;
     }
     
     const selectedMiqaatDetails = allMiqaats.find(m => m.id === miqaatId);
     if (!selectedMiqaatDetails) {
         setIsSaving(false);
+        setIsProcessing(false);
         return;
     }
 
@@ -403,6 +399,7 @@ export default function MarkAttendancePage() {
     if (!currentSession) {
         toast({ title: "Error", description: "Could not determine the current session.", variant: "destructive" });
         setIsSaving(false);
+        setIsProcessing(false);
         return;
     }
 
@@ -471,6 +468,7 @@ export default function MarkAttendancePage() {
         setIsComplianceDialogOpen(false);
         setMemberForComplianceCheck(null);
         setIsSaving(false);
+        setIsProcessing(false);
     }
   };
 
@@ -580,7 +578,7 @@ export default function MarkAttendancePage() {
   if (isAuthorized === null) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <FunkyLoader size="lg" />
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     );
   }
@@ -621,9 +619,9 @@ export default function MarkAttendancePage() {
                   className="mt-2 sm:mt-0"
               >
                   {isSyncing ? (
-                    <div className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Syncing...</div>
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Syncing...</>
                   ) : (
-                    <div className="flex items-center"><CloudUpload className="mr-2 h-4 w-4" /> Sync {pendingRecordsCount} Record(s)</div>
+                    <><CloudUpload className="mr-2 h-4 w-4" /> Sync {pendingRecordsCount} Record(s)</>
                   )}
               </Button>
             </ShadAlertDesc>
@@ -645,9 +643,9 @@ export default function MarkAttendancePage() {
               className="w-full md:w-auto self-start md:self-center"
             >
               {isCachingUsers ? (
-                <div className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Caching...</div>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Caching...</>
               ) : (
-                <div className="flex items-center"><UserSearch className="mr-2 h-4 w-4" /> Refresh Offline Members List</div>
+                <><UserSearch className="mr-2 h-4 w-4" /> Refresh Offline Members List</>
               )}
             </Button>
           </div>
@@ -779,12 +777,12 @@ export default function MarkAttendancePage() {
               size="sm"
             >
               {isProcessing ? (
-                <div className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</div>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>
               ) : (
-                <div className="flex items-center">
+                <>
                   <UserSearch className="mr-2 h-4 w-4" />
                   {miqaatHasAttendanceRequirements ? "Find & Check" : "Mark Attendance"}
-                </div>
+                </>
               )}
             </Button>
           </form>
@@ -886,12 +884,12 @@ export default function MarkAttendancePage() {
                                       </TableCell>
                                       <TableCell className="text-right">
                                            <Button variant="outline" size="sm" onClick={() => handleSync({ record } as FailedSyncRecord)} className="mr-2" disabled={isSyncing || isOffline}>
-                                                <div className="flex items-center"><RefreshCw className="mr-2 h-4 w-4" /> Retry</div>
+                                                <RefreshCw className="mr-2 h-4 w-4" /> Retry
                                           </Button>
                                           <AlertDialog>
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="destructive" size="sm" disabled={isSyncing}>
-                                                        <div className="flex items-center"><Trash2 className="mr-2 h-4 w-4" /> Discard</div>
+                                                        <Trash2 className="mr-2 h-4 w-4" /> Discard
                                                     </Button>
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent>
@@ -1026,9 +1024,9 @@ export default function MarkAttendancePage() {
               disabled={isSaving}
             >
               {isSaving ? (
-                <div className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</div>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
               ) : (
-                <div className="flex items-center"><CheckSquare className="mr-2 h-4 w-4" /> Confirm and Mark Attendance</div>
+                <><CheckSquare className="mr-2 h-4 w-4" /> Confirm and Mark Attendance</>
               )}
             </Button>
           </DialogFooter>
