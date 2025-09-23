@@ -382,14 +382,19 @@ export default function MarkAttendancePage() {
   };
   
   const finalizeAttendance = async (member: User, compliance?: UniformComplianceState) => {
+    setIsProcessing(true); // Start processing for finalize
     const miqaatId = selectedMiqaatId;
     if (!miqaatId || !markerItsId) {
         toast({ title: "Error", description: "Miqaat or Marker ID missing.", variant: "destructive" });
+        setIsProcessing(false); // Stop processing on error
         return;
     }
     
     const selectedMiqaatDetails = allMiqaats.find(m => m.id === miqaatId);
-    if (!selectedMiqaatDetails) return;
+    if (!selectedMiqaatDetails) {
+        setIsProcessing(false);
+        return;
+    }
 
     const currentSession = selectedMiqaatDetails.type === 'international' 
         ? selectedMiqaatDetails.sessions?.find(s => s.id === selectedSessionId) 
@@ -397,12 +402,12 @@ export default function MarkAttendancePage() {
 
     if (!currentSession) {
         toast({ title: "Error", description: "Could not determine the current session.", variant: "destructive" });
+        setIsProcessing(false);
         return;
     }
 
     const now = new Date();
     const sessionEndTime = new Date(currentSession.endTime);
-    // Use reportingTime if available, otherwise fall back to startTime
     const sessionReportingTime = currentSession.reportingTime ? new Date(currentSession.reportingTime) : new Date(currentSession.startTime);
     
     let attendanceStatus: 'early' | 'present' | 'late';
@@ -465,6 +470,7 @@ export default function MarkAttendancePage() {
     } finally {
         setIsComplianceDialogOpen(false);
         setMemberForComplianceCheck(null);
+        setIsProcessing(false); // Stop processing after finalize completes
     }
   };
 
@@ -614,8 +620,7 @@ export default function MarkAttendancePage() {
                   variant="secondary"
                   className="mt-2 sm:mt-0"
               >
-                  {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudUpload className="mr-2 h-4 w-4" />}
-                  {isSyncing ? "Syncing..." : `Sync ${pendingRecordsCount} Record(s)`}
+                  {isSyncing ? <FunkyLoader size="sm">Syncing...</FunkyLoader> : <div className="flex items-center"><CloudUpload className="mr-2 h-4 w-4" /> Sync {pendingRecordsCount} Record(s)</div>}
               </Button>
             </ShadAlertDesc>
           </Alert>
@@ -636,13 +641,9 @@ export default function MarkAttendancePage() {
               className="w-full md:w-auto self-start md:self-center"
             >
               {isCachingUsers ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Caching...
-                </>
+                <FunkyLoader size="sm">Caching...</FunkyLoader>
               ) : (
-                <>
-                  <UserSearch className="mr-2 h-4 w-4" /> Refresh Offline Members List
-                </>
+                <div className="flex items-center"><UserSearch className="mr-2 h-4 w-4" /> Refresh Offline Members List</div>
               )}
             </Button>
           </div>
@@ -774,13 +775,13 @@ export default function MarkAttendancePage() {
               size="sm"
             >
               {isProcessing ? (
-                <FunkyLoader size="sm" />
-              ) : miqaatHasAttendanceRequirements ? (
-                <CheckCircle className="mr-2 h-4 w-4" />
+                <FunkyLoader size="sm">Processing...</FunkyLoader>
               ) : (
-                <CheckSquare className="mr-2 h-4 w-4" />
+                <div className="flex items-center">
+                  {miqaatHasAttendanceRequirements ? <CheckCircle className="mr-2 h-4 w-4" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+                  {miqaatHasAttendanceRequirements ? "Find & Check" : "Mark Attendance"}
+                </div>
               )}
-              {isProcessing ? "Processing..." : miqaatHasAttendanceRequirements ? "Find & Check" : "Mark Attendance"}
             </Button>
           </form>
 
@@ -881,12 +882,12 @@ export default function MarkAttendancePage() {
                                       </TableCell>
                                       <TableCell className="text-right">
                                            <Button variant="outline" size="sm" onClick={() => handleSync({ record } as FailedSyncRecord)} className="mr-2" disabled={isSyncing || isOffline}>
-                                              <RefreshCw className="mr-2 h-4 w-4" /> Retry
+                                                <div className="flex items-center"><RefreshCw className="mr-2 h-4 w-4" /> Retry</div>
                                           </Button>
                                           <AlertDialog>
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="destructive" size="sm" disabled={isSyncing}>
-                                                        <Trash2 className="mr-2 h-4 w-4" /> Discard
+                                                        <div className="flex items-center"><Trash2 className="mr-2 h-4 w-4" /> Discard</div>
                                                     </Button>
                                                 </AlertDialogTrigger>
                                                 <AlertDialogContent>
@@ -1018,9 +1019,13 @@ export default function MarkAttendancePage() {
                   finalizeAttendance(memberForComplianceCheck, finalComplianceState);
                 }
               }}
+              disabled={isProcessing}
             >
-              <CheckSquare className="mr-2 h-4 w-4" />
-              Confirm and Mark Attendance
+              {isProcessing ? (
+                <FunkyLoader size="sm">Saving...</FunkyLoader>
+              ) : (
+                <div className="flex items-center"><CheckSquare className="mr-2 h-4 w-4" /> Confirm and Mark Attendance</div>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1071,3 +1076,5 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
+
+    
