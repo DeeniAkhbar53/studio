@@ -559,7 +559,7 @@ export default function MiqaatManagementPage() {
                                           <p className="font-semibold mb-2">Day {dayIndex} - {dayDate}</p>
                                            {attendanceType === 'single' ? (
                                               <FormField control={form.control} name={`sessions.${dayIndex}.reportingTime`} render={({ field }) => (
-                                                   <FormItem><ShadFormLabel className="text-xs">Reporting Time</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>
+                                                   <FormItem><ShadFormLabel className="text-xs">Reporting Time</ShadFormLabel><FormControl><Input type="time" {...field} value={field.value || ''} /></FormControl></FormItem>
                                               )}/>
                                            ) : (
                                               <>
