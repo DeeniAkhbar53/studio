@@ -72,6 +72,7 @@ export default function MarkAttendancePage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [selectedMiqaatId, setSelectedMiqaatId] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null); // New state for session
   const [memberIdInput, setMemberIdInput] = useState("");
   const [markedAttendanceThisSession, setMarkedAttendanceThisSession] = useState<MarkedAttendanceEntry[]>([]);
@@ -537,6 +538,17 @@ export default function MarkAttendancePage() {
   
   const currentMiqaatAttendanceCount = currentMiqaatDetails?.attendance?.filter(a => a.sessionId === selectedSessionId).length || 0;
   const currentSelectedMiqaatName = currentMiqaatDetails?.name || 'Selected Miqaat';
+
+  const availableDays = useMemo(() => {
+    if (!currentMiqaatDetails || currentMiqaatDetails.type !== 'international') return [];
+    const days = [...new Set(currentMiqaatDetails.sessions?.map(s => s.day))].sort((a, b) => a - b);
+    return days;
+  }, [currentMiqaatDetails]);
+
+  const availableSessionsForDay = useMemo(() => {
+    if (!currentMiqaatDetails || !selectedDay) return [];
+    return currentMiqaatDetails.sessions?.filter(s => s.day === selectedDay) || [];
+  }, [currentMiqaatDetails, selectedDay]);
   
   const miqaatHasAttendanceRequirements = useMemo(() => {
     if (!currentMiqaatDetails || !currentMiqaatDetails.attendanceRequirements) return false;
@@ -622,12 +634,13 @@ export default function MarkAttendancePage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
             <div className="space-y-2">
               <Label htmlFor="miqaat-select">Select Miqaat</Label>
               <Select
                 onValueChange={(value) => {
                   setSelectedMiqaatId(value);
+                  setSelectedDay(null);
                   setSelectedSessionId(null);
                   setMarkedAttendanceThisSession([]);
                 }}
@@ -650,33 +663,59 @@ export default function MarkAttendancePage() {
             </div>
             
             {currentMiqaatDetails && currentMiqaatDetails.type === 'international' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="day-select">Select Day</Label>
+                  <Select
+                    onValueChange={(value) => {
+                      setSelectedDay(Number(value));
+                      setSelectedSessionId(null);
+                    }}
+                    value={selectedDay?.toString() || undefined}
+                    disabled={!selectedMiqaatId || isProcessing}
+                  >
+                    <SelectTrigger id="day-select">
+                      <SelectValue placeholder="Choose a day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableDays.length > 0 ? (
+                        availableDays.map(day => (
+                          <SelectItem key={day} value={day.toString()}>Day {day}</SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-days" disabled>No days for this Miqaat</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-2">
                     <Label htmlFor="session-select">Select Session</Label>
                     <Select
                         onValueChange={(value) => setSelectedSessionId(value)}
                         value={selectedSessionId || undefined}
-                        disabled={!selectedMiqaatId || isProcessing}
+                        disabled={!selectedDay || isProcessing || availableSessionsForDay.length === 0}
                     >
                         <SelectTrigger id="session-select">
-                            <SelectValue placeholder="Choose a session" />
+                            <SelectValue placeholder={!selectedDay ? "Select a day first" : "Choose a session"} />
                         </SelectTrigger>
                         <SelectContent>
-                            {currentMiqaatDetails.sessions && currentMiqaatDetails.sessions.length > 0 ? (
-                                currentMiqaatDetails.sessions.map(session => (
+                            {availableSessionsForDay.length > 0 ? (
+                                availableSessionsForDay.map(session => (
                                     <SelectItem key={session.id} value={session.id}>
                                         {session.name}
                                     </SelectItem>
                                 ))
                             ) : (
-                                <SelectItem value="no-sessions" disabled>No sessions for this Miqaat</SelectItem>
+                                <SelectItem value="no-sessions" disabled>No sessions for this day</SelectItem>
                             )}
                         </SelectContent>
                     </Select>
                 </div>
+              </>
             )}
 
             {currentSessionDetails && (
-              <Card className="bg-muted/50">
+              <Card className="bg-muted/50 lg:col-span-3">
                 <CardHeader className="p-4">
                   <CardTitle className="text-base flex items-center gap-2">
                      <CalendarClock className="h-5 w-5 text-primary" />
