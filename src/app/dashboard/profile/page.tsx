@@ -599,7 +599,10 @@ export default function ProfilePage() {
                       <AccordionItem value={record.id} key={record.id}>
                         <AccordionTrigger>
                           <div className="flex-grow text-left">
-                            <p className="font-semibold text-card-foreground">{record.miqaatName}</p>
+                            <div className="flex items-center gap-2">
+                                <p className="font-semibold text-card-foreground">{record.miqaatName}</p>
+                                <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge>
+                            </div>
                             <p className="text-xs text-muted-foreground">{format(new Date(record.markedAt), "PP")}</p>
                           </div>
                           <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
