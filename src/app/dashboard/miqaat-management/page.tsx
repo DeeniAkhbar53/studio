@@ -7,11 +7,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import type { Miqaat, UserRole, Mohallah, User } from "@/types";
-import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt, Clock, CheckCircle, XCircle, Copy, HandCoins, ChevronLeft, ChevronRight } from "lucide-react"; 
+import type { Miqaat, UserRole, Mohallah, User, MiqaatSession, UserDesignation } from "@/types";
+import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt, Clock, CheckCircle, XCircle, Copy, HandCoins, ChevronLeft, ChevronRight, GripVertical } from "lucide-react"; 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
@@ -29,19 +29,36 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { QRCodeSVG } from 'qrcode.react';
-import { format } from "date-fns";
+import { format, differenceInCalendarDays, addDays } from "date-fns";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 
 
+const miqaatSessionSchema = z.object({
+  id: z.string(),
+  day: z.number(),
+  name: z.string().min(1, "Session name is required."),
+  startTime: z.string().refine(val => val, { message: "Start time is required."}),
+  endTime: z.string().refine(val => val, { message: "End time is required."}),
+  reportingTime: z.string().optional(),
+});
+
 const miqaatSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   location: z.string().optional(),
-  startTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid start date" }),
-  endTime: z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid end date" }),
-  reportingTime: z.string().optional().nullable()
-    .refine(val => !val || val === "" || !isNaN(Date.parse(val)), { message: "Invalid reporting date if provided" }),
+  
+  type: z.enum(['local', 'international']).default('local'),
+  attendanceType: z.enum(['single', 'multiple']).optional(),
+
+  // For 'local' or 'international' with 'single' attendance
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  reportingTime: z.string().optional().nullable(),
+  
+  // For 'international' with 'multiple' attendance
+  sessions: z.array(miqaatSessionSchema).optional(),
+  
   eligibilityType: z.enum(['groups', 'specific_members']).default('groups'),
   mohallahIds: z.array(z.string()).optional().default([]),
   teams: z.array(z.string()).optional().default([]), 
@@ -52,7 +69,21 @@ const miqaatSchema = z.object({
     koti: z.boolean().default(false),
     nazrulMaqam: z.boolean().default(false),
   }).default({ fetaPaghri: false, koti: false, nazrulMaqam: false }),
+}).superRefine((data, ctx) => {
+    if (data.type === 'local') {
+        if (!data.startTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start Time is required for Local Miqaats.", path: ["startTime"] });
+        if (!data.endTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End Time is required for Local Miqaats.", path: ["endTime"] });
+    }
+     if (data.type === 'international') {
+        if (!data.startTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start Date is required to calculate days.", path: ["startTime"] });
+        if (!data.endTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End Date is required to calculate days.", path: ["endTime"] });
+        if (!data.attendanceType) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Attendance Type must be selected for International Miqaats.", path: ["attendanceType"]});
+    }
+    if (data.startTime && data.endTime && new Date(data.startTime) > new Date(data.endTime)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start date cannot be after end date.", path: ["startTime"] });
+    }
 });
+
 
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
 
@@ -73,7 +104,7 @@ const toLocalISOString = (date: Date) => {
 export default function MiqaatManagementPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements">[]>([]);
+  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "type" | "attendanceType" | "sessions" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [allAvailableMohallahs, setAllAvailableMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
@@ -83,7 +114,7 @@ export default function MiqaatManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements"> | null>(null);
+  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "type" | "attendanceType" | "sessions"| "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements"> | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -98,9 +129,12 @@ export default function MiqaatManagementPage() {
     defaultValues: {
       name: "",
       location: "",
+      type: 'local',
+      attendanceType: undefined,
       startTime: "",
       endTime: "",
       reportingTime: "",
+      sessions: [],
       eligibilityType: "groups",
       mohallahIds: [],
       teams: [], 
@@ -109,9 +143,27 @@ export default function MiqaatManagementPage() {
       attendanceRequirements: { fetaPaghri: false, koti: false, nazrulMaqam: false },
     },
   });
+  
+  const { fields: sessionFields, append: appendSession, remove: removeSession, replace: replaceSessions } = useFieldArray({
+    control: form.control,
+    name: "sessions"
+  });
 
   const eligibilityType = form.watch("eligibilityType");
-  const selectedMohallahsInForm = form.watch("mohallahIds");
+  const miqaatType = form.watch("type");
+  const attendanceType = form.watch("attendanceType");
+  const startDate = form.watch("startTime");
+  const endDate = form.watch("endTime");
+
+  const internationalMiqaatDays = useMemo(() => {
+    if (miqaatType === 'international' && startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (start > end) return 0;
+      return differenceInCalendarDays(end, start) + 1;
+    }
+    return 0;
+  }, [miqaatType, startDate, endDate]);
 
   useEffect(() => {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
@@ -209,18 +261,22 @@ export default function MiqaatManagementPage() {
     }
     
     if (editingMiqaat && isDialogOpen) {
-      let type: 'groups' | 'specific_members' = 'groups';
-      if (editingMiqaat.eligibleItsIds && editingMiqaat.eligibleItsIds.length > 0) {
-        type = 'specific_members';
-      }
-
+      const isInternational = editingMiqaat.type === 'international';
+      const hasSessions = editingMiqaat.sessions && editingMiqaat.sessions.length > 0;
+      
       form.reset({
         name: editingMiqaat.name,
         location: editingMiqaat.location || "",
-        startTime: editingMiqaat.startTime ? toLocalISOString(new Date(editingMiqaat.startTime)) : "",
-        endTime: editingMiqaat.endTime ? toLocalISOString(new Date(editingMiqaat.endTime)) : "",
-        reportingTime: editingMiqaat.reportingTime ? toLocalISOString(new Date(editingMiqaat.reportingTime)) : "",
-        eligibilityType: type,
+        type: editingMiqaat.type || 'local',
+        attendanceType: editingMiqaat.attendanceType,
+
+        startTime: editingMiqaat.startTime ? (isInternational ? format(new Date(editingMiqaat.startTime), "yyyy-MM-dd") : toLocalISOString(new Date(editingMiqaat.startTime))) : "",
+        endTime: editingMiqaat.endTime ? (isInternational ? format(new Date(editingMiqaat.endTime), "yyyy-MM-dd") : toLocalISOString(new Date(editingMiqaat.endTime))) : "",
+        reportingTime: editingMiqaat.reportingTime && !isInternational ? toLocalISOString(new Date(editingMiqaat.reportingTime)) : "",
+        
+        sessions: hasSessions ? editingMiqaat.sessions : [],
+        
+        eligibilityType: (editingMiqaat.eligibleItsIds && editingMiqaat.eligibleItsIds.length > 0) ? 'specific_members' : 'groups',
         mohallahIds: editingMiqaat.mohallahIds || [],
         teams: editingMiqaat.teams || [], 
         eligibleItsIds: editingMiqaat.eligibleItsIds || [],
@@ -228,21 +284,47 @@ export default function MiqaatManagementPage() {
         attendanceRequirements: editingMiqaat.attendanceRequirements || { fetaPaghri: false, koti: false, nazrulMaqam: false },
       });
     } else if (!isDialogOpen) {
-      form.reset({ name: "", location: "", startTime: "", endTime: "", reportingTime: "", eligibilityType: "groups", mohallahIds: [], teams: [], eligibleItsIds: [], barcodeData: "", attendanceRequirements: { fetaPaghri: false, koti: false, nazrulMaqam: false } });
+      form.reset({ name: "", location: "", type: "local", attendanceType: undefined, startTime: "", endTime: "", reportingTime: "", sessions: [], eligibilityType: "groups", mohallahIds: [], teams: [], eligibleItsIds: [], barcodeData: "", attendanceRequirements: { fetaPaghri: false, koti: false, nazrulMaqam: false } });
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
   const handleFormSubmit = async (values: MiqaatFormValues) => {
     
-    const dataForService: MiqaatDataForAdd | MiqaatDataForUpdate = {
+    let finalSessions: MiqaatSession[] = [];
+    let finalStartTime = values.startTime;
+    let finalEndTime = values.endTime;
+    
+    if (values.type === 'international' && values.startTime && values.endTime) {
+        finalStartTime = new Date(values.startTime).toISOString();
+        finalEndTime = new Date(values.endTime).toISOString();
+        if (values.attendanceType === 'single') {
+            finalSessions = values.sessions?.filter(s => s.day >= 1 && s.day <= internationalMiqaatDays).map(s => ({...s, name: `Day ${s.day}`})) || [];
+        } else {
+            finalSessions = values.sessions || [];
+        }
+    } else if (values.type === 'local') {
+        finalSessions = [{
+            id: 'main',
+            day: 1,
+            name: 'Main Session',
+            startTime: values.startTime!,
+            endTime: values.endTime!,
+            reportingTime: values.reportingTime || undefined
+        }];
+    }
+
+    const dataForService: Omit<MiqaatDataForAdd, 'sessions'> & { sessions: MiqaatSession[] } = {
       name: values.name,
-      startTime: values.startTime,
-      endTime: values.endTime,
+      location: values.location,
+      type: values.type,
+      attendanceType: values.attendanceType,
+      startTime: finalStartTime!,
+      endTime: finalEndTime!,
+      reportingTime: values.type === 'local' ? values.reportingTime : undefined,
+      sessions: finalSessions,
       mohallahIds: values.eligibilityType === 'groups' ? (values.mohallahIds || []) : [],
       teams: values.eligibilityType === 'groups' ? (values.teams || []) : [],
       eligibleItsIds: values.eligibilityType === 'specific_members' ? (values.eligibleItsIds || []) : [],
-      location: values.location, 
-      reportingTime: values.reportingTime, 
       barcodeData: values.barcodeData,
       attendanceRequirements: values.attendanceRequirements,
     };
@@ -262,34 +344,50 @@ export default function MiqaatManagementPage() {
         toast({ title: "Database Error", description: `Could not save Miqaat data. ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
     }
   };
+  
+  const openDialogForType = (type: 'local' | 'international') => {
+    setEditingMiqaat(null);
+    form.reset({
+      name: "",
+      location: "",
+      type: type, // Set the type based on selection
+      attendanceType: undefined,
+      startTime: "",
+      endTime: "",
+      reportingTime: "",
+      sessions: [],
+      eligibilityType: "groups",
+      mohallahIds: [],
+      teams: [], 
+      eligibleItsIds: [],
+      barcodeData: "",
+      attendanceRequirements: { fetaPaghri: false, koti: false, nazrulMaqam: false },
+    });
+    setIsDialogOpen(true);
+  };
 
-  const handleEdit = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements">) => {
+  const handleEdit = (miqaat: Miqaat) => {
     setEditingMiqaat(miqaat);
     setIsDialogOpen(true);
   };
   
-  const handleDuplicate = (miqaat: Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements">) => {
+  const handleDuplicate = (miqaat: Miqaat) => {
     setEditingMiqaat(null); // Ensure we are in "create" mode
     
-    let type: 'groups' | 'specific_members' = 'groups';
-    if (miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0) {
-      type = 'specific_members';
-    }
-
     form.reset({
       name: `${miqaat.name} - Copy`,
       location: miqaat.location || "",
-      // Reset dates
-      startTime: "",
+      type: miqaat.type,
+      attendanceType: miqaat.attendanceType,
+      startTime: "", // Reset dates
       endTime: "",
       reportingTime: "",
-      // Copy eligibility
-      eligibilityType: type,
+      sessions: [], // Reset sessions
+      eligibilityType: (miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0) ? 'specific_members' : 'groups',
       mohallahIds: miqaat.mohallahIds || [],
       teams: miqaat.teams || [],
       eligibleItsIds: miqaat.eligibleItsIds || [],
       attendanceRequirements: miqaat.attendanceRequirements || { fetaPaghri: false, koti: false, nazrulMaqam: false },
-      // Reset barcode
       barcodeData: "",
     });
     
@@ -362,18 +460,25 @@ export default function MiqaatManagementPage() {
               <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-primary"/>Manage Miqaats</CardTitle>
               <CardDescription className="mt-1">Create, view, and manage all Miqaats. List updates in realtime.</CardDescription>
             </div>
-            <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) setEditingMiqaat(null); }}>
-              <DialogTrigger asChild>
-                 <Button onClick={() => {setEditingMiqaat(null); form.reset(); setIsDialogOpen(true);}} size="sm" className="shrink-0">
-                  <PlusCircle className="h-4 w-4 md:mr-2" />
-                  <span className="hidden md:inline">Add New Miqaat</span>
-                </Button>
-              </DialogTrigger>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="shrink-0">
+                    <PlusCircle className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Add New Miqaat</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onSelect={() => openDialogForType('local')}>Local Miqaat</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => openDialogForType('international')}>International Miqaat</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                   <DialogTitle>{editingMiqaat ? "Edit Miqaat" : "Create New Miqaat"}</DialogTitle>
                   <DialogDescription>
-                    {editingMiqaat ? "Update the details of the Miqaat." : "Fill in the details for the new Miqaat."}
+                    {editingMiqaat ? "Update the details of the Miqaat." : `Creating a new ${form.getValues("type")} Miqaat.`}
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -384,17 +489,105 @@ export default function MiqaatManagementPage() {
                      <FormField control={form.control} name="location" render={({ field }) => (
                       <FormItem><ShadFormLabel>Location</ShadFormLabel><FormControl><Input placeholder="Optional" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="startTime" render={({ field }) => (
-                        <FormItem><ShadFormLabel>Start Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={form.control} name="endTime" render={({ field }) => (
-                        <FormItem><ShadFormLabel>End Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                    </div>
-                     <FormField control={form.control} name="reportingTime" render={({ field }) => (
-                      <FormItem><ShadFormLabel>Reporting Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} value={field.value || ""} /></FormControl><FormDescription className="text-xs">Optional. Leave blank if not applicable.</FormDescription><FormMessage /></FormItem>
-                    )} />
+                    
+                    <FormField
+                      control={form.control} name="type"
+                      render={({ field }) => (
+                        <FormItem className="space-y-3">
+                          <ShadFormLabel>Miqaat Type</ShadFormLabel>
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={field.onChange}
+                              value={field.value}
+                              className="flex space-x-4"
+                              disabled={!!editingMiqaat}
+                            >
+                              <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="local" /></FormControl><ShadFormLabel className="font-normal">Local</ShadFormLabel></FormItem>
+                              <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="international" /></FormControl><ShadFormLabel className="font-normal">International</ShadFormLabel></FormItem>
+                            </RadioGroup>
+                          </FormControl>
+                        </FormItem>
+                    )}/>
+
+                    {miqaatType === 'local' && (
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField control={form.control} name="startTime" render={({ field }) => (
+                          <FormItem><ShadFormLabel>Start Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                          )} />
+                          <FormField control={form.control} name="endTime" render={({ field }) => (
+                          <FormItem><ShadFormLabel>End Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                          )} />
+                      </div>
+                    )}
+                    
+                     {miqaatType === 'international' && (
+                        <div className="p-4 border rounded-md space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="startTime" render={({ field }) => (
+                              <FormItem><ShadFormLabel>Start Date</ShadFormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <FormField control={form.control} name="endTime" render={({ field }) => (
+                              <FormItem><ShadFormLabel>End Date</ShadFormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                          </div>
+                           {internationalMiqaatDays > 0 && (
+                             <FormField control={form.control} name="attendanceType" render={({ field }) => (
+                                <FormItem className="space-y-3 pt-2">
+                                    <ShadFormLabel className="font-semibold">Attendance Type</ShadFormLabel>
+                                    <FormControl>
+                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-4">
+                                            <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="single" /></FormControl><ShadFormLabel className="font-normal">Single Daily Check-in</ShadFormLabel></FormItem>
+                                            <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="multiple" /></FormControl><ShadFormLabel className="font-normal">Multiple Sessions per Day</ShadFormLabel></FormItem>
+                                        </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}/>
+                           )}
+                           {internationalMiqaatDays > 0 && attendanceType && (
+                              <div className="space-y-4">
+                                <Label>Daily Sessions ({internationalMiqaatDays} Days)</Label>
+                                <div className="space-y-4 max-h-60 overflow-y-auto p-2 border rounded-md">
+                                  {Array.from({ length: internationalMiqaatDays }, (_, i) => {
+                                    const dayIndex = i + 1;
+                                    const dayDate = format(addDays(new Date(startDate), i), "MMM dd");
+                                    return (
+                                       <Card key={dayIndex} className="p-3">
+                                          <p className="font-semibold mb-2">Day {dayIndex} - {dayDate}</p>
+                                           {attendanceType === 'single' ? (
+                                              <FormField control={form.control} name={`sessions.${dayIndex}.reportingTime`} render={({ field }) => (
+                                                   <FormItem><ShadFormLabel className="text-xs">Reporting Time</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>
+                                              )}/>
+                                           ) : (
+                                              <>
+                                              {sessionFields.filter(f => f.day === dayIndex).map((session, sessionIdx) => (
+                                                <div key={session.id} className="grid grid-cols-4 gap-2 items-end border-b pb-2 mb-2">
+                                                  <FormField control={form.control} name={`sessions.${sessionIdx}.name`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Name</ShadFormLabel><FormControl><Input {...field}/></FormControl></FormItem>)}/>
+                                                  <FormField control={form.control} name={`sessions.${sessionIdx}.startTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Start</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
+                                                  <FormField control={form.control} name={`sessions.${sessionIdx}.endTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">End</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
+                                                  <Button type="button" size="icon" variant="ghost" className="text-destructive h-8 w-8" onClick={() => removeSession(sessionIdx)}><Trash2 className="h-4 w-4"/></Button>
+                                                </div>
+                                              ))}
+                                              <Button type="button" size="sm" variant="outline" onClick={() => appendSession({ id: crypto.randomUUID(), day: dayIndex, name: "", startTime: "", endTime: "" })}>
+                                                Add Session for Day {dayIndex}
+                                              </Button>
+                                              </>
+                                           )}
+                                       </Card>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                           )}
+                        </div>
+                     )}
+
+                     {miqaatType === 'local' && (
+                       <FormField control={form.control} name="reportingTime" render={({ field }) => (
+                        <FormItem><ShadFormLabel>Reporting Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} value={field.value || ""} /></FormControl><FormDescription className="text-xs">Optional. Leave blank if not applicable.</FormDescription><FormMessage /></FormItem>
+                      )} />
+                     )}
+
                     <FormField
                         control={form.control}
                         name="attendanceRequirements"
@@ -593,11 +786,11 @@ export default function MiqaatManagementPage() {
                                 </Button>
                                 {currentUserRole === 'admin' || currentUserRole === 'superadmin' ? (
                                     <>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDuplicate(miqaat)}>
+                                        <Button variant="ghost" size="icon" onClick={() => handleDuplicate(miqaat as Miqaat)}>
                                             <Copy className="h-4 w-4"/>
                                             <span className="sr-only">Duplicate</span>
                                         </Button>
-                                        <Button variant="outline" size="sm" onClick={() => handleEdit(miqaat)}>
+                                        <Button variant="outline" size="sm" onClick={() => handleEdit(miqaat as Miqaat)}>
                                             <Edit className="mr-2 h-4 w-4"/> Edit
                                         </Button>
                                         <AlertDialog>
@@ -685,10 +878,10 @@ export default function MiqaatManagementPage() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => handleDuplicate(miqaat)}>
+                                                    <DropdownMenuItem onSelect={() => handleDuplicate(miqaat as Miqaat)}>
                                                         <Copy className="mr-2 h-4 w-4" /> Duplicate
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleEdit(miqaat)}>
+                                                    <DropdownMenuItem onSelect={() => handleEdit(miqaat as Miqaat)}>
                                                         <Edit className="mr-2 h-4 w-4" /> Edit
                                                     </DropdownMenuItem>
                                                      <AlertDialog>
