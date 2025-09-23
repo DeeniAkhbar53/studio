@@ -79,6 +79,11 @@ const miqaatSchema = z.object({
         if (!data.endTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End Date is required to calculate days.", path: ["endTime"] });
         if (!data.attendanceType) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Attendance Type must be selected for International Miqaats.", path: ["attendanceType"]});
     }
+    if (data.attendanceType === 'single' || data.type === 'local') {
+      if (!data.sessions || data.sessions.length === 0) {
+        // This validation is now less critical as useEffect handles it, but good as a fallback.
+      }
+    }
     if (data.startTime && data.endTime && new Date(data.startTime) > new Date(data.endTime)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start date cannot be after end date.", path: ["startTime"] });
     }
@@ -275,7 +280,7 @@ export default function MiqaatManagementPage() {
         endTime: editingMiqaat.endTime ? (isInternational ? format(new Date(editingMiqaat.endTime), "yyyy-MM-dd") : toLocalISOString(new Date(editingMiqaat.endTime))) : "",
         reportingTime: editingMiqaat.reportingTime && !isInternational ? toLocalISOString(new Date(editingMiqaat.reportingTime)) : "",
         
-        sessions: hasSessions ? editingMiqaat.sessions : [],
+        sessions: hasSessions ? editingMiqaat.sessions.map(s => ({ ...s, reportingTime: s.reportingTime || "" })) : [],
         
         eligibilityType: (editingMiqaat.eligibleItsIds && editingMiqaat.eligibleItsIds.length > 0) ? 'specific_members' : 'groups',
         mohallahIds: editingMiqaat.mohallahIds || [],
@@ -289,40 +294,39 @@ export default function MiqaatManagementPage() {
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
-  const handleFormSubmit = async (values: MiqaatFormValues) => {
-    
-    let finalSessions: MiqaatSession[] = [];
-    let finalStartTime = values.startTime;
-    let finalEndTime = values.endTime;
-    
-    if (values.type === 'international' && values.startTime && values.endTime) {
-        finalStartTime = new Date(values.startTime).toISOString();
-        finalEndTime = new Date(values.endTime).toISOString();
-        if (values.attendanceType === 'single') {
-            finalSessions = values.sessions?.filter(s => s.day >= 1 && s.day <= internationalMiqaatDays).map(s => ({...s, name: `Day ${s.day}`})) || [];
-        } else {
-            finalSessions = values.sessions || [];
-        }
-    } else if (values.type === 'local') {
-        finalSessions = [{
-            id: 'main',
-            day: 1,
-            name: 'Main Session',
-            startTime: values.startTime!,
-            endTime: values.endTime!,
-            reportingTime: values.reportingTime || undefined
-        }];
-    }
+  useEffect(() => {
+    const { type, attendanceType, startTime, endTime } = form.getValues();
 
+    if (type === 'local' && startTime && endTime) {
+      form.setValue('sessions', [{ id: 'main', day: 1, name: 'Main Session', startTime: startTime, endTime: endTime, reportingTime: form.getValues('reportingTime') || "" }]);
+    } else if (type === 'international' && attendanceType === 'single' && internationalMiqaatDays > 0) {
+      const newSessions: MiqaatSession[] = Array.from({ length: internationalMiqaatDays }, (_, i) => ({
+        id: `day-${i + 1}`,
+        day: i + 1,
+        name: `Day ${i + 1}`,
+        startTime: addDays(new Date(startTime), i).toISOString(),
+        endTime: addDays(new Date(startTime), i).toISOString(),
+        reportingTime: form.getValues(`sessions.${i}.reportingTime`) || "" 
+      }));
+      replaceSessions(newSessions);
+    } else {
+        if (!editingMiqaat) { // Only clear if not editing
+             form.setValue('sessions', []);
+        }
+    }
+  }, [miqaatType, attendanceType, startDate, endDate, internationalMiqaatDays, form, replaceSessions, editingMiqaat]);
+
+
+  const handleFormSubmit = async (values: MiqaatFormValues) => {
     const dataForService: Omit<MiqaatDataForAdd, 'sessions'> & { sessions: MiqaatSession[] } = {
       name: values.name,
       location: values.location,
       type: values.type,
       attendanceType: values.attendanceType,
-      startTime: finalStartTime!,
-      endTime: finalEndTime!,
+      startTime: values.startTime!,
+      endTime: values.endTime!,
       reportingTime: values.type === 'local' ? values.reportingTime : undefined,
-      sessions: finalSessions,
+      sessions: values.sessions || [],
       mohallahIds: values.eligibilityType === 'groups' ? (values.mohallahIds || []) : [],
       teams: values.eligibilityType === 'groups' ? (values.teams || []) : [],
       eligibleItsIds: values.eligibilityType === 'specific_members' ? (values.eligibleItsIds || []) : [],
@@ -558,8 +562,8 @@ export default function MiqaatManagementPage() {
                                        <Card key={dayIndex} className="p-3">
                                           <p className="font-semibold mb-2">Day {dayIndex} - {dayDate}</p>
                                            {attendanceType === 'single' ? (
-                                              <FormField control={form.control} name={`sessions.${dayIndex}.reportingTime`} render={({ field }) => (
-                                                   <FormItem><ShadFormLabel className="text-xs">Reporting Time</ShadFormLabel><FormControl><Input type="time" {...field} value={field.value || ''} /></FormControl></FormItem>
+                                              <FormField control={form.control} name={`sessions.${i}.reportingTime`} render={({ field }) => (
+                                                   <FormItem><ShadFormLabel className="text-xs">Reporting Time</ShadFormLabel><FormControl><Input type="time" {...field} /></FormControl></FormItem>
                                               )}/>
                                            ) : (
                                               <>
