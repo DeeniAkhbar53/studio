@@ -82,6 +82,7 @@ export default function MarkAttendancePage() {
   const [markerItsId, setMarkerItsId] = useState<string | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // State for uniform check dialog
   const [isComplianceDialogOpen, setIsComplianceDialogOpen] = useState(false);
@@ -374,24 +375,24 @@ export default function MarkAttendancePage() {
       setNazrulMaqamCurrency("USD");
       setMemberForComplianceCheck(member);
       setIsComplianceDialogOpen(true);
-      // Keep processing state true until dialog is handled
+      setIsProcessing(false); // Stop processing on the main button
     } else {
       finalizeAttendance(member);
     }
   };
   
   const finalizeAttendance = async (member: User, compliance?: UniformComplianceState) => {
-    setIsProcessing(true); // Start processing for finalize
+    setIsSaving(true); // Start saving indicator
     const miqaatId = selectedMiqaatId;
     if (!miqaatId || !markerItsId) {
         toast({ title: "Error", description: "Miqaat or Marker ID missing.", variant: "destructive" });
-        setIsProcessing(false); // Stop processing on error
+        setIsSaving(false);
         return;
     }
     
     const selectedMiqaatDetails = allMiqaats.find(m => m.id === miqaatId);
     if (!selectedMiqaatDetails) {
-        setIsProcessing(false);
+        setIsSaving(false);
         return;
     }
 
@@ -401,7 +402,7 @@ export default function MarkAttendancePage() {
 
     if (!currentSession) {
         toast({ title: "Error", description: "Could not determine the current session.", variant: "destructive" });
-        setIsProcessing(false);
+        setIsSaving(false);
         return;
     }
 
@@ -469,7 +470,7 @@ export default function MarkAttendancePage() {
     } finally {
         setIsComplianceDialogOpen(false);
         setMemberForComplianceCheck(null);
-        setIsProcessing(false); // Stop processing after finalize completes
+        setIsSaving(false);
     }
   };
 
@@ -781,7 +782,7 @@ export default function MarkAttendancePage() {
                 <div className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</div>
               ) : (
                 <div className="flex items-center">
-                  {miqaatHasAttendanceRequirements ? <CheckCircle className="mr-2 h-4 w-4" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+                  <UserSearch className="mr-2 h-4 w-4" />
                   {miqaatHasAttendanceRequirements ? "Find & Check" : "Mark Attendance"}
                 </div>
               )}
@@ -849,7 +850,7 @@ export default function MarkAttendancePage() {
          {isLoadingMiqaats && (
             <CardFooter>
                 <div className="text-sm text-muted-foreground flex items-center">
-                    <FunkyLoader size="sm">Loading Miqaats...</FunkyLoader>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />Loading Miqaats...
                 </div>
             </CardFooter>
         )}
@@ -1022,9 +1023,9 @@ export default function MarkAttendancePage() {
                   finalizeAttendance(memberForComplianceCheck, finalComplianceState);
                 }
               }}
-              disabled={isProcessing}
+              disabled={isSaving}
             >
-              {isProcessing ? (
+              {isSaving ? (
                 <div className="flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</div>
               ) : (
                 <div className="flex items-center"><CheckSquare className="mr-2 h-4 w-4" /> Confirm and Mark Attendance</div>
