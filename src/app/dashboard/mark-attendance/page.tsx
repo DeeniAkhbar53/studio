@@ -157,16 +157,26 @@ export default function MarkAttendancePage() {
         let usersToCache: User[];
 
         if (miqaatDetails.type === 'international') {
-            const allSystemUsers = await getUsers(); // Fetch everyone
-            // Filter down to only eligible members for the international miqaat
-            usersToCache = allSystemUsers.filter(user => {
-                const isForEveryone = !miqaatDetails.mohallahIds?.length && !miqaatDetails.teams?.length && !miqaatDetails.eligibleItsIds?.length;
-                if (isForEveryone) return true;
-                const eligibleById = !!miqaatDetails.eligibleItsIds?.includes(user.itsId);
-                const eligibleByTeam = !!user.team && !!miqaatDetails.teams?.includes(user.team);
-                const eligibleByMohallah = !!user.mohallahId && !!miqaatDetails.mohallahIds?.includes(user.mohallahId);
-                return eligibleById || eligibleByTeam || eligibleByMohallah;
-            });
+            const allSystemUsers = await getUsers();
+            const isForEveryone = !miqaatDetails.mohallahIds?.length && !miqaatDetails.teams?.length && !miqaatDetails.eligibleItsIds?.length;
+
+            if (isForEveryone) {
+                // If it's for everyone, cache only the current user's mohallah to prevent huge downloads
+                 if (currentUserMohallahId) {
+                    usersToCache = await getUsers(currentUserMohallahId);
+                } else {
+                    toast({ title: "Cache Warning", description: "Cannot cache all system members for a public Miqaat without a Mohallah context. Caching empty list.", variant: "default" });
+                    usersToCache = [];
+                }
+            } else {
+                // Filter down to only eligible members for the international miqaat
+                usersToCache = allSystemUsers.filter(user => {
+                    const eligibleById = !!miqaatDetails.eligibleItsIds?.includes(user.itsId);
+                    const eligibleByTeam = !!user.team && !!miqaatDetails.teams?.includes(user.team);
+                    const eligibleByMohallah = !!user.mohallahId && !!miqaatDetails.mohallahIds?.includes(user.mohallahId);
+                    return eligibleById || eligibleByTeam || eligibleByMohallah;
+                });
+            }
         } else { // 'local' miqaat
             if (currentUserMohallahId) {
                 // For local miqaats, only fetch users from the marker's own mohallah
@@ -609,6 +619,13 @@ export default function MarkAttendancePage() {
     const days = [...new Set(currentMiqaatDetails.sessions?.map(s => s.day))].sort((a, b) => a - b);
     return days;
   }, [currentMiqaatDetails]);
+  
+  // Auto-select day 1 if it's a single-day international event
+  useEffect(() => {
+    if (currentMiqaatDetails?.type === 'international' && availableDays.length === 1) {
+      setSelectedDay(availableDays[0]);
+    }
+  }, [currentMiqaatDetails, availableDays]);
 
   const availableSessionsForDay = useMemo(() => {
     if (!currentMiqaatDetails || !selectedDay) return [];
@@ -722,7 +739,13 @@ export default function MarkAttendancePage() {
                       setSelectedDay(1); // Default for local
                       setSelectedSessionId(miqaat.sessions?.[0]?.id || null);
                   } else {
-                      setSelectedDay(null);
+                      // For international, check if it's a single day event
+                      const days = [...new Set(miqaat?.sessions?.map(s => s.day))];
+                      if (days.length === 1) {
+                          setSelectedDay(days[0]);
+                      } else {
+                          setSelectedDay(null);
+                      }
                       setSelectedSessionId(null);
                   }
                   setMarkedAttendanceThisSession([]);
@@ -745,57 +768,55 @@ export default function MarkAttendancePage() {
               </Select>
             </div>
             
-            {currentMiqaatDetails && currentMiqaatDetails.type === 'international' && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="day-select">Select Day</Label>
-                  <Select
-                    onValueChange={(value) => {
-                      setSelectedDay(Number(value));
-                      setSelectedSessionId(null);
-                    }}
-                    value={selectedDay?.toString() || undefined}
-                    disabled={!selectedMiqaatId || isProcessing}
-                  >
-                    <SelectTrigger id="day-select">
-                      <SelectValue placeholder="Choose a day" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableDays.length > 0 ? (
-                        availableDays.map(day => (
-                          <SelectItem key={day} value={day.toString()}>Day {day}</SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="no-days" disabled>No days for this Miqaat</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="session-select">Select Session</Label>
-                    <Select
-                        onValueChange={(value) => setSelectedSessionId(value)}
-                        value={selectedSessionId || undefined}
-                        disabled={!selectedDay || isProcessing || availableSessionsForDay.length === 0}
-                    >
-                        <SelectTrigger id="session-select">
-                            <SelectValue placeholder={!selectedDay ? "Select a day first" : "Choose a session"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {availableSessionsForDay.length > 0 ? (
-                                availableSessionsForDay.map(session => (
-                                    <SelectItem key={session.id} value={session.id}>
-                                        {session.name}
-                                    </SelectItem>
-                                ))
-                            ) : (
-                                <SelectItem value="no-sessions" disabled>No sessions for this day</SelectItem>
-                            )}
-                        </SelectContent>
-                    </Select>
-                </div>
-              </>
+            {currentMiqaatDetails && currentMiqaatDetails.type === 'international' && availableDays.length > 1 && (
+              <div className="space-y-2">
+                <Label htmlFor="day-select">Select Day</Label>
+                <Select
+                  onValueChange={(value) => {
+                    setSelectedDay(Number(value));
+                    setSelectedSessionId(null);
+                  }}
+                  value={selectedDay?.toString() || undefined}
+                  disabled={!selectedMiqaatId || isProcessing}
+                >
+                  <SelectTrigger id="day-select">
+                    <SelectValue placeholder="Choose a day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableDays.map(day => (
+                      <SelectItem key={day} value={day.toString()}>Day {day}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
+            
+            {currentMiqaatDetails?.type === 'international' && (
+              <div className="space-y-2">
+                  <Label htmlFor="session-select">Select Session</Label>
+                  <Select
+                      onValueChange={(value) => setSelectedSessionId(value)}
+                      value={selectedSessionId || undefined}
+                      disabled={!selectedDay || isProcessing || availableSessionsForDay.length === 0}
+                  >
+                      <SelectTrigger id="session-select">
+                          <SelectValue placeholder={!selectedDay ? "Select a day first" : "Choose a session"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                          {availableSessionsForDay.length > 0 ? (
+                              availableSessionsForDay.map(session => (
+                                  <SelectItem key={session.id} value={session.id}>
+                                      {session.name}
+                                  </SelectItem>
+                              ))
+                          ) : (
+                              <SelectItem value="no-sessions" disabled>No sessions for this day</SelectItem>
+                          )}
+                      </SelectContent>
+                  </Select>
+              </div>
+            )}
+
 
             {currentSessionDetails && (
               <Card className="bg-muted/50 lg:col-span-3">
