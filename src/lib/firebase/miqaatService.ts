@@ -71,7 +71,6 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
       reportingTime: miqaatData.reportingTime ? new Date(miqaatData.reportingTime).toISOString() : null,
       sessions: (miqaatData.sessions || []).map(s => ({
         ...s,
-        // For multiple sessions, startTime/endTime are just times, combine with date
         startTime: s.startTime,
         endTime: s.endTime,
         reportingTime: s.reportingTime || null
@@ -109,7 +108,14 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
 
      if (miqaatData.startTime) firestorePayload.startTime = new Date(miqaatData.startTime).toISOString();
      if (miqaatData.endTime) firestorePayload.endTime = new Date(miqaatData.endTime).toISOString();
-     if (miqaatData.reportingTime) firestorePayload.reportingTime = new Date(miqaatData.reportingTime).toISOString();
+     
+     // Handle reportingTime carefully: convert to ISO string if it exists, otherwise set to null
+     if (miqaatData.reportingTime) {
+        firestorePayload.reportingTime = new Date(miqaatData.reportingTime).toISOString();
+     } else if (miqaatData.hasOwnProperty('reportingTime')) { // check if key exists, even if value is null/undefined
+        firestorePayload.reportingTime = null;
+     }
+
      if (miqaatData.sessions) {
        firestorePayload.sessions = miqaatData.sessions.map(s => ({
          ...s,
