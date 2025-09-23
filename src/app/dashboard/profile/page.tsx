@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 const GROUP_LEADER_DESIGNATION: UserDesignation = "Group Leader";
 const ASST_GROUP_LEADER_DESIGNATION: UserDesignation = "Asst.Grp Leader";
@@ -142,6 +143,7 @@ export default function ProfilePage() {
             try {
                 if (!isMounted) return;
                 
+                const userMap = new Map(allSystemUsers.map(u => [u.itsId, u.name]));
                 const attendedRecords: AttendanceRecord[] = [];
                 const attendedMiqaatIds = new Set<string>();
 
@@ -152,10 +154,11 @@ export default function ProfilePage() {
                             id: `${miqaat.id}-${regularEntry.userItsId}`,
                             miqaatId: miqaat.id,
                             miqaatName: miqaat.name,
+                            miqaatType: miqaat.type,
                             userItsId: regularEntry.userItsId,
                             userName: regularEntry.userName,
                             markedAt: regularEntry.markedAt,
-                            markedByItsId: regularEntry.markedByItsId,
+                            markedByName: userMap.get(regularEntry.markedByItsId) || regularEntry.markedByItsId,
                             status: regularEntry.status || 'present',
                             uniformCompliance: regularEntry.uniformCompliance,
                         });
@@ -168,10 +171,11 @@ export default function ProfilePage() {
                             id: `safar-${miqaat.id}-${safarEntry.userItsId}`,
                             miqaatId: miqaat.id,
                             miqaatName: miqaat.name,
+                            miqaatType: miqaat.type,
                             userItsId: safarEntry.userItsId,
                             userName: safarEntry.userName,
                             markedAt: safarEntry.markedAt,
-                            markedByItsId: safarEntry.markedByItsId,
+                            markedByName: userMap.get(safarEntry.markedByItsId) || safarEntry.markedByItsId,
                             status: 'safar',
                         });
                         attendedMiqaatIds.add(miqaat.id);
@@ -195,6 +199,7 @@ export default function ProfilePage() {
                         id: `absent-${miqaat.id}-${fetchedUser.itsId}`,
                         miqaatId: miqaat.id,
                         miqaatName: miqaat.name,
+                        miqaatType: miqaat.type,
                         userItsId: fetchedUser.itsId,
                         userName: fetchedUser.name,
                         markedAt: miqaat.startTime,
@@ -610,7 +615,7 @@ export default function ProfilePage() {
                         <AccordionContent className="space-y-2 pt-2">
                           <div className="px-2 text-sm text-muted-foreground">
                             <p><strong>Marked At:</strong> {format(new Date(record.markedAt), "p")}</p>
-                            <p><strong>Marked By:</strong> {record.markedByItsId || 'N/A'}</p>
+                            <p><strong>Marked By:</strong> {record.markedByName || 'Self/System'}</p>
                           </div>
                         </AccordionContent>
                       </AccordionItem>
@@ -626,13 +631,16 @@ export default function ProfilePage() {
                         <TableHead>Miqaat Name</TableHead>
                         <TableHead>Date Marked</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Marked By (ITS)</TableHead>
+                        <TableHead className="text-right">Marked By</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {currentAttendanceData.map((record) => (
                         <TableRow key={record.id}>
-                          <TableCell className="font-medium">{record.miqaatName}</TableCell>
+                          <TableCell className="font-medium flex items-center gap-2">
+                            {record.miqaatName}
+                            <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge>
+                          </TableCell>
                           <TableCell>{format(new Date(record.markedAt), "PP p")}</TableCell>
                            <TableCell>
                                 <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
@@ -646,7 +654,7 @@ export default function ProfilePage() {
                                 </span>
                            </TableCell>
                           <TableCell className="text-right">
-                            {record.markedByItsId || "Self/System"}
+                            {record.markedByName || "Self/System"}
                           </TableCell>
                         </TableRow>
                       ))}

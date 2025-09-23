@@ -81,10 +81,12 @@ export type AttendanceRecord = {
   id: string;
   miqaatId: string;
   miqaatName: string;
+  miqaatType: 'local' | 'international';
   userItsId: string;
   userName: string;
   markedAt: string; // ISO string
   markedByItsId?: string;
+  markedByName?: string;
   status: 'present' | 'late' | 'early' | 'absent' | 'safar' | 'not-eligible';
   uniformCompliance?: MiqaatAttendanceEntryItem['uniformCompliance'];
 };
