@@ -78,10 +78,10 @@ export default function MarkAttendancePage() {
   const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "sessions" | "type" | "mohallahIds" | "teams" | "eligibleItsIds" | "attendance" | "safarList" | "attendanceRequirements">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [markerItsId, setMarkerItsId] = useState<string | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
 
   // State for uniform check dialog
   const [isComplianceDialogOpen, setIsComplianceDialogOpen] = useState(false);
@@ -96,6 +96,7 @@ export default function MarkAttendancePage() {
   const [pendingRecordsCount, setPendingRecordsCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isCachingUsers, setIsCachingUsers] = useState(false);
+  const [isCacheOutOfSync, setIsCacheOutOfSync] = useState(false);
   const [failedSyncs, setFailedSyncs] = useState<FailedSyncRecord[]>([]);
   const [isSyncReportOpen, setIsSyncReportOpen] = useState(false);
   const [lastSyncReport, setLastSyncReport] = useState<{ success: number; skipped: number; failed: number } | null>(null);
@@ -137,18 +138,45 @@ export default function MarkAttendancePage() {
   }, [toast]);
   
   const fetchAllUsersForCache = useCallback(async () => {
-    if (isCachingUsers || !currentUserRole) return;
-    setIsCachingUsers(true);
-    console.log("Starting to cache users for offline use...");
+    if (isCachingUsers) return;
+    const miqaatIdForCache = selectedMiqaatId;
+    if (!miqaatIdForCache) {
+      toast({ title: "Select a Miqaat First", description: "Please select a Miqaat before refreshing the member list.", variant: "destructive" });
+      return;
+    }
 
-    const mohallahIdForCache = currentUserRole === 'superadmin' ? undefined : currentUserMohallahId;
+    setIsCachingUsers(true);
+    toast({ title: "Caching Started", description: "Updating the local member list for offline use..." });
 
     try {
-        const usersToCache = await getUsers(mohallahIdForCache || undefined);
-        await cacheAllUsers(usersToCache);
+        const miqaatDetails = allMiqaats.find(m => m.id === miqaatIdForCache);
+        if (!miqaatDetails) {
+            throw new Error("Selected Miqaat details not found.");
+        }
+
+        const allSystemUsers = await getUsers();
+        let eligibleUsers: User[];
+
+        const isForEveryone = !miqaatDetails.mohallahIds?.length && !miqaatDetails.teams?.length && !miqaatDetails.eligibleItsIds?.length;
+
+        if (miqaatDetails.eligibleItsIds?.length) {
+            const eligibleSet = new Set(miqaatDetails.eligibleItsIds);
+            eligibleUsers = allSystemUsers.filter(u => eligibleSet.has(u.itsId));
+        } else if (isForEveryone) {
+            eligibleUsers = allSystemUsers; // Cache all users if the miqaat is for everyone
+        } else {
+             eligibleUsers = allSystemUsers.filter(user => 
+                (miqaatDetails.mohallahIds && user.mohallahId && miqaatDetails.mohallahIds.includes(user.mohallahId)) ||
+                (miqaatDetails.teams && user.team && miqaatDetails.teams.includes(user.team))
+            );
+        }
+
+        await cacheAllUsers(eligibleUsers);
+        localStorage.setItem('cachedMiqaatId', miqaatIdForCache);
+        setIsCacheOutOfSync(false); // Cache is now in sync
         toast({
             title: "Member List Updated",
-            description: `Successfully cached ${usersToCache.length} members for ${mohallahIdForCache ? 'your Mohallah' : 'the entire system'}.`,
+            description: `Successfully cached ${eligibleUsers.length} eligible members for ${miqaatDetails.name}.`,
         });
     } catch (error) {
         console.error("Failed to fetch and cache users:", error);
@@ -160,7 +188,7 @@ export default function MarkAttendancePage() {
     } finally {
         setIsCachingUsers(false);
     }
-  }, [isCachingUsers, toast, currentUserRole, currentUserMohallahId]);
+  }, [isCachingUsers, toast, selectedMiqaatId, allMiqaats]);
 
 
   // Effect for online/offline detection and initial data caching
@@ -193,6 +221,19 @@ export default function MarkAttendancePage() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthorized]);
+  
+  useEffect(() => {
+      if (selectedMiqaatId) {
+          const cachedForId = localStorage.getItem('cachedMiqaatId');
+          if (cachedForId !== selectedMiqaatId) {
+              setIsCacheOutOfSync(true);
+          } else {
+              setIsCacheOutOfSync(false);
+          }
+      } else {
+          setIsCacheOutOfSync(false);
+      }
+  }, [selectedMiqaatId]);
 
 
   useEffect(() => {
@@ -598,6 +639,19 @@ export default function MarkAttendancePage() {
 
   return (
     <div className="space-y-6">
+       {isCacheOutOfSync && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <ShadAlertTitle>Cache Mismatch</ShadAlertTitle>
+          <ShadAlertDesc className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            The offline member list may be incorrect for this Miqaat.
+            <Button variant="destructive" size="sm" onClick={fetchAllUsersForCache} disabled={isCachingUsers}>
+              {isCachingUsers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Update Offline List
+            </Button>
+          </ShadAlertDesc>
+        </Alert>
+      )}
       { (isOffline || pendingRecordsCount > 0) &&
          <Alert variant={isOffline ? "destructive" : "default"} className="mb-4">
           {isOffline ? <WifiOff className="h-4 w-4" /> : <Wifi className="h-4 w-4" />}
@@ -645,7 +699,7 @@ export default function MarkAttendancePage() {
               {isCachingUsers ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Caching...</>
               ) : (
-                <><UserSearch className="mr-2 h-4 w-4" /> Refresh Offline Members List</>
+                <><UserSearch className="mr-2 h-4 w-4" /> Refresh Offline Members</>
               )}
             </Button>
           </div>
@@ -1078,3 +1132,5 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
+
+    
