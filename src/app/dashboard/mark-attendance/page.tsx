@@ -16,7 +16,7 @@ import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService
 import { savePendingAttendance, getPendingAttendance, removePendingAttendanceRecord, cacheAllUsers, getCachedUserByItsOrBgkId, OfflineAttendanceRecord } from "@/lib/offlineService";
 import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare, UserX, HandCoins, Trash2, RefreshCw, XCircle } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -38,6 +38,35 @@ interface FailedSyncRecord {
     reason: 'conflict' | 'error';
     errorMessage?: string;
 }
+
+// Helper function to safely format time from either a full date string or a time string
+const formatTimeValue = (timeValue?: string): string => {
+    if (!timeValue) return "N/A";
+    
+    // Check if it's likely a time string (e.g., "14:30")
+    if (/^\d{2}:\d{2}$/.test(timeValue)) {
+        try {
+            // Use date-fns's parse function to convert time string to a Date object (with today's date)
+            const dateFromTime = parse(timeValue, 'HH:mm', new Date());
+            return format(dateFromTime, "p"); // format to "2:30 PM"
+        } catch {
+            return timeValue; // fallback if parsing fails
+        }
+    }
+    
+    // Assume it's a full date string
+    try {
+        const dateObj = new Date(timeValue);
+        // Check if the date is valid
+        if (isNaN(dateObj.getTime())) {
+            return timeValue; // Return original string if date is invalid
+        }
+        return format(dateObj, "p");
+    } catch {
+        return timeValue; // fallback for any other error
+    }
+};
+
 
 export default function MarkAttendancePage() {
   const router = useRouter();
@@ -657,11 +686,11 @@ export default function MarkAttendancePage() {
                 <CardContent className="p-4 pt-0 text-sm space-y-1">
                   <p className="flex items-center gap-2">
                     <span className="font-semibold w-24">Early Before:</span>
-                    <span className="text-muted-foreground">{currentSessionDetails.reportingTime ? format(new Date(currentSessionDetails.reportingTime), "p") : "N/A"}</span>
+                    <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.reportingTime)}</span>
                   </p>
                   <p className="flex items-center gap-2">
                     <span className="font-semibold w-24">Late After:</span>
-                    <span className="text-muted-foreground">{format(new Date(currentSessionDetails.endTime), "p")}</span>
+                    <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.endTime)}</span>
                   </p>
                 </CardContent>
               </Card>
@@ -982,5 +1011,3 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
-
-    
