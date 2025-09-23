@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohallah, UserDesignation, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem } from "@/types";
+import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohallah, UserDesignation, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem, MiqaatSession } from "@/types";
 import { getMiqaats, batchMarkSafarInMiqaat } from "@/lib/firebase/miqaatService";
 import { getUsers } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
@@ -55,6 +55,8 @@ const reportSchema = z.object({
     required_error: "You need to select a report type.",
   }),
   miqaatId: z.string().optional(),
+  day: z.string().optional(),
+  sessionId: z.string().optional(),
   itsId: z.string().optional().refine(val => !val || /^\d{8}$/.test(val), {
     message: "ITS ID must be 8 digits if provided.",
   }),
@@ -116,7 +118,7 @@ export default function ReportsPage() {
   const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "attendedUserItsIds" | "attendanceRequirements" | "sessions" | "type">[]>([]);
+  const [allMiqaats, setAllMiqaats] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "attendedUserItsIds" | "attendanceRequirements" | "sessions" | "type" | "attendanceType">[]>([]);
   const [allMohallahs, setAllMohallahs] = useState<Mohallah[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   
@@ -142,6 +144,8 @@ export default function ReportsPage() {
     defaultValues: {
       reportType: undefined,
       miqaatId: "",
+      day: "all",
+      sessionId: "all",
       itsId: "",
       dateRange: { from: undefined, to: undefined },
       mohallahId: "all",
@@ -219,6 +223,22 @@ export default function ReportsPage() {
 
 
   const watchedReportType = form.watch("reportType");
+  const watchedMiqaatId = form.watch("miqaatId");
+  const watchedDay = form.watch("day");
+
+  const selectedMiqaatForForm = useMemo(() => {
+    return allMiqaats.find(m => m.id === watchedMiqaatId);
+  }, [watchedMiqaatId, allMiqaats]);
+
+  const availableDays = useMemo(() => {
+    if (!selectedMiqaatForForm || selectedMiqaatForForm.type !== 'international') return [];
+    return [...new Set(selectedMiqaatForForm.sessions?.map(s => s.day))].sort((a, b) => a - b);
+  }, [selectedMiqaatForForm]);
+
+  const availableSessionsForDay = useMemo(() => {
+    if (!selectedMiqaatForForm || !watchedDay || watchedDay === 'all') return [];
+    return selectedMiqaatForForm.sessions?.filter(s => s.day.toString() === watchedDay) || [];
+  }, [selectedMiqaatForForm, watchedDay]);
 
   const onSubmit = async (values: ReportFormValues) => {
     setIsLoading(true);
@@ -256,33 +276,29 @@ export default function ReportsPage() {
               const allUserEntries = attendanceRecords.filter(a => a.userItsId === user.itsId);
               
               if (allUserEntries.length > 0) {
-                  // For simplicity, we'll take the first entry if there are multiple for a user in a miqaat.
-                  // A more advanced report could list all session attendances.
                   const regularEntry = allUserEntries[0];
-                  const sessionName = selectedMiqaat.sessions?.find(s => s.id === regularEntry.sessionId)?.name;
-                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, sessionName: sessionName || 'Main', date: regularEntry.markedAt, status: regularEntry.status || 'present', markedByItsId: regularEntry.markedByItsId, uniformCompliance: regularEntry.uniformCompliance };
+                  const session = selectedMiqaat.sessions?.find(s => s.id === regularEntry.sessionId);
+                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: regularEntry.markedAt, status: regularEntry.status || 'present', markedByItsId: regularEntry.markedByItsId, uniformCompliance: regularEntry.uniformCompliance };
               }
 
               const safarEntry = safarRecords.find(s => s.userItsId === user.itsId);
               if (safarEntry) {
-                   const sessionName = selectedMiqaat.sessions?.find(s => s.id === safarEntry.sessionId)?.name;
-                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, sessionName: sessionName || 'Main', date: safarEntry.markedAt, status: 'safar' as const, markedByItsId: safarEntry.markedByItsId };
+                   const session = selectedMiqaat.sessions?.find(s => s.id === safarEntry.sessionId);
+                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar' as const, markedByItsId: safarEntry.markedByItsId };
               }
-              return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, sessionName: 'N/A', date: selectedMiqaat.startTime, status: 'absent' as const };
+              return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, day: undefined, sessionName: 'N/A', date: selectedMiqaat.startTime, status: 'absent' as const };
           });
-
-          // Add non-eligible users if needed for a full roster, but mark them
+          
           if (!isSpecificMemberMiqaat) {
             allUsersForReport.forEach(user => {
               if (!eligibleUsers.some(eu => eu.id === user.id) && !combinedRecords.some(cr => cr.userItsId === user.itsId)) {
-                combinedRecords.push({ id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, sessionName: 'N/A', date: selectedMiqaat.startTime, status: 'not-eligible' as const, });
+                combinedRecords.push({ id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, day: undefined, sessionName: 'N/A', date: selectedMiqaat.startTime, status: 'not-eligible' as const, });
               }
             });
           }
 
           reportResultItems = combinedRecords;
 
-          // --- Calculate Summary Stats BEFORE filtering ---
           const totalEligible = eligibleUsers.length;
           const presentCount = combinedRecords.filter(r => r.status === 'present').length;
           const lateCount = combinedRecords.filter(r => r.status === 'late').length;
@@ -305,9 +321,9 @@ export default function ReportsPage() {
       } else if (values.reportType === "miqaat_safar_list" && selectedMiqaat) {
           const safarList = selectedMiqaat.safarList || [];
           reportResultItems = safarList.map(safarEntry => {
-            const sessionName = selectedMiqaat.sessions?.find(s => s.id === safarEntry.sessionId)?.name;
+            const session = selectedMiqaat.sessions?.find(s => s.id === safarEntry.sessionId);
             return {
-              id: `${selectedMiqaat.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, bgkId: userMap.get(safarEntry.userItsId)?.bgkId, team: userMap.get(safarEntry.userItsId)?.team, miqaatName: selectedMiqaat.name, sessionName: sessionName || 'Main', date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId,
+              id: `${selectedMiqaat.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, bgkId: userMap.get(safarEntry.userItsId)?.bgkId, team: userMap.get(safarEntry.userItsId)?.team, miqaatName: selectedMiqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId,
             }
           });
       } else if (values.reportType === "member_attendance" && values.itsId) {
@@ -315,14 +331,14 @@ export default function ReportsPage() {
           for (const miqaat of allMiqaats) {
               const allUserEntries = miqaat.attendance?.filter(a => a.userItsId === values.itsId) || [];
               allUserEntries.forEach(regularAttendance => {
-                  const sessionName = miqaat.sessions?.find(s => s.id === regularAttendance.sessionId)?.name;
-                  memberHistory.push({ id: `${miqaat.id}-${regularAttendance.userItsId}`, userName: regularAttendance.userName, userItsId: regularAttendance.userItsId, bgkId: userMap.get(regularAttendance.userItsId)?.bgkId, team: userMap.get(regularAttendance.userItsId)?.team, miqaatName: miqaat.name, sessionName: sessionName || 'Main', date: regularAttendance.markedAt, status: regularAttendance.status || 'present', markedByItsId: regularAttendance.markedByItsId, uniformCompliance: regularAttendance.uniformCompliance });
+                  const session = miqaat.sessions?.find(s => s.id === regularAttendance.sessionId);
+                  memberHistory.push({ id: `${miqaat.id}-${regularAttendance.userItsId}`, userName: regularAttendance.userName, userItsId: regularAttendance.userItsId, bgkId: userMap.get(regularAttendance.userItsId)?.bgkId, team: userMap.get(regularAttendance.userItsId)?.team, miqaatName: miqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: regularAttendance.markedAt, status: regularAttendance.status || 'present', markedByItsId: regularAttendance.markedByItsId, uniformCompliance: regularAttendance.uniformCompliance });
               });
 
               const safarAttendance = miqaat.safarList?.find(s => s.userItsId === values.itsId);
               if (safarAttendance) {
-                  const sessionName = miqaat.sessions?.find(s => s.id === safarAttendance.sessionId)?.name;
-                  memberHistory.push({ id: `${miqaat.id}-${safarAttendance.userItsId}`, userName: safarAttendance.userName, userItsId: safarAttendance.userItsId, bgkId: userMap.get(safarAttendance.userItsId)?.bgkId, team: userMap.get(safarAttendance.userItsId)?.team, miqaatName: miqaat.name, sessionName: sessionName || 'Main', date: safarAttendance.markedAt, status: 'safar', markedByItsId: safarAttendance.markedByItsId });
+                  const session = miqaat.sessions?.find(s => s.id === safarAttendance.sessionId);
+                  memberHistory.push({ id: `${miqaat.id}-${safarAttendance.userItsId}`, userName: safarAttendance.userName, userItsId: safarAttendance.userItsId, bgkId: userMap.get(safarAttendance.userItsId)?.bgkId, team: userMap.get(safarAttendance.userItsId)?.team, miqaatName: miqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: safarAttendance.markedAt, status: 'safar', markedByItsId: safarAttendance.markedByItsId });
               }
           }
           reportResultItems = memberHistory.sort((a,b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
@@ -334,13 +350,13 @@ export default function ReportsPage() {
               const safarRecords = miqaat.safarList || [];
               
               attendanceRecords.forEach(att => {
-                const sessionName = miqaat.sessions?.find(s => s.id === att.sessionId)?.name;
-                allRecords.push({ id: `${miqaat.id}-${att.userItsId}`, userName: att.userName, userItsId: att.userItsId, bgkId: userMap.get(att.userItsId)?.bgkId, team: userMap.get(att.userItsId)?.team, miqaatName: miqaat.name, sessionName: sessionName || 'Main', date: att.markedAt, status: att.status || 'present', markedByItsId: att.markedByItsId, uniformCompliance: att.uniformCompliance })
+                const session = miqaat.sessions?.find(s => s.id === att.sessionId);
+                allRecords.push({ id: `${miqaat.id}-${att.userItsId}`, userName: att.userName, userItsId: att.userItsId, bgkId: userMap.get(att.userItsId)?.bgkId, team: userMap.get(att.userItsId)?.team, miqaatName: miqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: att.markedAt, status: att.status || 'present', markedByItsId: att.markedByItsId, uniformCompliance: att.uniformCompliance })
               });
 
               safarRecords.forEach(safar => {
-                const sessionName = miqaat.sessions?.find(s => s.id === safar.sessionId)?.name;
-                allRecords.push({ id: `${miqaat.id}-${safar.userItsId}`, userName: safar.userName, userItsId: safar.userItsId, bgkId: userMap.get(safar.userItsId)?.bgkId, team: userMap.get(safar.userItsId)?.team, miqaatName: miqaat.name, sessionName: sessionName || 'Main', date: safar.markedAt, status: 'safar', markedByItsId: safar.markedByItsId })
+                const session = miqaat.sessions?.find(s => s.id === safar.sessionId);
+                allRecords.push({ id: `${miqaat.id}-${safar.userItsId}`, userName: safar.userName, userItsId: safar.userItsId, bgkId: userMap.get(safar.userItsId)?.bgkId, team: userMap.get(safar.userItsId)?.team, miqaatName: miqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: safar.markedAt, status: 'safar', markedByItsId: safar.markedByItsId })
               });
           }
           reportResultItems = allRecords;
@@ -363,13 +379,11 @@ export default function ReportsPage() {
           }
 
           const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
-          reportResultItems = nonAttendantUsers.map(user => ({ id: user.id, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, sessionName: "N/A", date: new Date(selectedMiqaat.startTime).toISOString(), status: "absent", }));
+          reportResultItems = nonAttendantUsers.map(user => ({ id: user.id, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, day: undefined, sessionName: "N/A", date: new Date(selectedMiqaat.startTime).toISOString(), status: "absent", }));
       }
 
-      // --- APPLY FILTERS ---
       let filteredData = [...reportResultItems];
       
-      // Role-based data segregation
       if (currentUserRole === 'admin' && currentUserMohallahId) {
           filteredData = filteredData.filter(record => {
               const userDetails = userMap.get(record.userItsId);
@@ -377,7 +391,6 @@ export default function ReportsPage() {
           });
       }
 
-      // Date Range Filter
       if (values.dateRange?.from) {
         filteredData = filteredData.filter(r => r.date && new Date(r.date) >= values.dateRange!.from!);
       }
@@ -385,7 +398,14 @@ export default function ReportsPage() {
         filteredData = filteredData.filter(r => r.date && new Date(r.date) <= values.dateRange!.to!);
       }
 
-      // Advanced Form Filters (Mohallah, Team, Designation)
+      if (values.day && values.day !== 'all') {
+        filteredData = filteredData.filter(r => r.day?.toString() === values.day);
+      }
+      if (values.sessionId && values.sessionId !== 'all') {
+        const session = selectedMiqaatForForm?.sessions?.find(s => s.id === values.sessionId);
+        filteredData = filteredData.filter(r => r.sessionName === session?.name);
+      }
+
       filteredData = filteredData.filter(record => {
         const userDetails = userMap.get(record.userItsId);
         if (!userDetails) return false; 
@@ -548,7 +568,6 @@ export default function ReportsPage() {
         description: `${selectedIds.length} member(s) have been marked as 'Safar'.`,
       });
       
-      // Refresh the report data
       await onSubmit(form.getValues());
       setSelectedIds([]);
 
@@ -689,6 +708,55 @@ export default function ReportsPage() {
                   />
                 )}
                 
+                {selectedMiqaatForForm?.type === 'international' && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="day"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Filter by Day</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="All Days" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="all">All Days</SelectItem>
+                              {availableDays.map(day => <SelectItem key={day} value={day.toString()}>Day {day}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {selectedMiqaatForForm.attendanceType === 'multiple' && (
+                       <FormField
+                        control={form.control}
+                        name="sessionId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Filter by Session</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!watchedDay || watchedDay === 'all'}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="All Sessions for Day" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="all">All Sessions for Day</SelectItem>
+                                {availableSessionsForDay.map(session => <SelectItem key={session.id} value={session.id}>{session.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </>
+                )}
+
                 <FormField
                   control={form.control}
                   name="dateRange"
@@ -742,7 +810,6 @@ export default function ReportsPage() {
                 />
               </div>
 
-               {/* Advanced Filters */}
               <Separator />
               <div className="space-y-4">
                  <h3 className="text-md font-medium text-muted-foreground">Advanced Filters</h3>
@@ -1031,7 +1098,6 @@ export default function ReportsPage() {
             
             {filteredReportData && filteredReportData.length > 0 ? (
              <>
-                {/* Mobile View: Accordion */}
                 <div className="md:hidden">
                     <Accordion type="single" collapsible className="w-full">
                         {filteredReportData.map((record, index) => (
@@ -1090,7 +1156,6 @@ export default function ReportsPage() {
                 </div>
 
 
-                {/* Desktop View: Table */}
                 <div className="hidden md:block overflow-x-auto border rounded-lg">
                     <Table>
                     <TableHeader>
@@ -1198,3 +1263,4 @@ export default function ReportsPage() {
     </div>
   );
 }
+

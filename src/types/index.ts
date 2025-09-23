@@ -130,7 +130,8 @@ export interface ReportResultItem {
   bgkId?: string;
   team?: string;
   miqaatName: string;
-  sessionName?: string; // New field for session name
+  day?: number;
+  sessionName?: string;
   date?: string; // ISO string
   status: "present" | "absent" | "late" | "early" | "safar" | "not-eligible"; // Added safar and not-eligible
   markedByItsId?: string;
