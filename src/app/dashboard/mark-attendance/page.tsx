@@ -270,7 +270,10 @@ export default function MarkAttendancePage() {
       return;
     }
     
-    const currentSession = selectedMiqaatDetails.sessions?.find(s => s.id === selectedSessionId);
+    const currentSession = selectedMiqaatDetails.type === 'international'
+        ? selectedMiqaatDetails.sessions?.find(s => s.id === selectedSessionId)
+        : selectedMiqaatDetails.sessions?.[0]; // For local miqaat, default to first (main) session
+        
     if (!currentSession) {
         toast({ title: "Error", description: "Selected session details not found.", variant: "destructive" });
         return;
@@ -349,11 +352,11 @@ export default function MarkAttendancePage() {
         (entry) => entry.memberItsId === member!.itsId && entry.miqaatId === selectedMiqaatId && entry.sessionId === selectedSessionId
     );
     const alreadyMarkedInDb = !isOffline && selectedMiqaatDetails.attendance?.some(
-      (entry) => entry.userItsId === member!.itsId && entry.sessionId === selectedSessionId
+      (entry) => entry.userItsId === member!.itsId && entry.sessionId === currentSession.id
     );
     
     if (alreadyMarkedInDb || alreadyMarkedInSession) {
-      const existingEntry = selectedMiqaatDetails.attendance?.find(entry => entry.userItsId === member!.itsId && entry.sessionId === selectedSessionId);
+      const existingEntry = selectedMiqaatDetails.attendance?.find(entry => entry.userItsId === member!.itsId && entry.sessionId === currentSession.id);
       toast({
         title: "Already Marked for Session",
         description: `${member?.name} has already been marked for ${currentSession.name} (${existingEntry?.status || 'present'}).`,
@@ -379,22 +382,31 @@ export default function MarkAttendancePage() {
   };
   
   const finalizeAttendance = async (member: User, compliance?: UniformComplianceState) => {
-    if (!selectedMiqaatId || !markerItsId || !selectedSessionId) {
-        toast({ title: "Error", description: "Miqaat, Session, or Marker ID missing.", variant: "destructive" });
+    const miqaatId = selectedMiqaatId;
+    if (!miqaatId || !markerItsId) {
+        toast({ title: "Error", description: "Miqaat or Marker ID missing.", variant: "destructive" });
         return;
     }
     
-    const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
+    const selectedMiqaatDetails = allMiqaats.find(m => m.id === miqaatId);
     if (!selectedMiqaatDetails) return;
-    const currentSession = selectedMiqaatDetails.sessions?.find(s => s.id === selectedSessionId);
-    if (!currentSession) return;
+
+    const currentSession = selectedMiqaatDetails.type === 'international' 
+        ? selectedMiqaatDetails.sessions?.find(s => s.id === selectedSessionId) 
+        : selectedMiqaatDetails.sessions?.[0]; // Local Miqaat
+
+    if (!currentSession) {
+        toast({ title: "Error", description: "Could not determine the current session.", variant: "destructive" });
+        return;
+    }
 
     const now = new Date();
     const sessionEndTime = new Date(currentSession.endTime);
-    const sessionReportingTime = currentSession.reportingTime ? new Date(currentSession.reportingTime) : null;
+    // Use reportingTime if available, otherwise fall back to startTime
+    const sessionReportingTime = currentSession.reportingTime ? new Date(currentSession.reportingTime) : new Date(currentSession.startTime);
     
     let attendanceStatus: 'early' | 'present' | 'late';
-    if (sessionReportingTime && now < sessionReportingTime) {
+    if (now < sessionReportingTime) {
       attendanceStatus = 'early';
     } else if (now > sessionEndTime) {
       attendanceStatus = 'late';
@@ -534,9 +546,11 @@ export default function MarkAttendancePage() {
     };
   
   const currentMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
-  const currentSessionDetails = currentMiqaatDetails?.sessions?.find(s => s.id === selectedSessionId);
+  const currentSessionDetails = currentMiqaatDetails?.type === 'international' 
+    ? currentMiqaatDetails.sessions?.find(s => s.id === selectedSessionId)
+    : currentMiqaatDetails?.sessions?.[0]; // local miqaat
   
-  const currentMiqaatAttendanceCount = currentMiqaatDetails?.attendance?.filter(a => a.sessionId === selectedSessionId).length || 0;
+  const currentMiqaatAttendanceCount = currentMiqaatDetails?.attendance?.filter(a => a.sessionId === currentSessionDetails?.id).length || 0;
   const currentSelectedMiqaatName = currentMiqaatDetails?.name || 'Selected Miqaat';
 
   const availableDays = useMemo(() => {
@@ -635,13 +649,19 @@ export default function MarkAttendancePage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-            <div className="space-y-2">
+            <div className="space-y-2 lg:col-span-1">
               <Label htmlFor="miqaat-select">Select Miqaat</Label>
               <Select
                 onValueChange={(value) => {
                   setSelectedMiqaatId(value);
-                  setSelectedDay(null);
-                  setSelectedSessionId(null);
+                  const miqaat = allMiqaats.find(m => m.id === value);
+                  if (miqaat?.type === 'local') {
+                      setSelectedDay(1); // Default for local
+                      setSelectedSessionId(miqaat.sessions?.[0]?.id || null);
+                  } else {
+                      setSelectedDay(null);
+                      setSelectedSessionId(null);
+                  }
                   setMarkedAttendanceThisSession([]);
                 }}
                 value={selectedMiqaatId || undefined}
@@ -725,7 +745,7 @@ export default function MarkAttendancePage() {
                 <CardContent className="p-4 pt-0 text-sm space-y-1">
                   <p className="flex items-center gap-2">
                     <span className="font-semibold w-24">Early Before:</span>
-                    <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.reportingTime)}</span>
+                    <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.reportingTime || currentSessionDetails.startTime)}</span>
                   </p>
                   <p className="flex items-center gap-2">
                     <span className="font-semibold w-24">Late After:</span>
@@ -744,12 +764,12 @@ export default function MarkAttendancePage() {
                 placeholder="Enter 8-digit ITS or BGK ID"
                 value={memberIdInput}
                 onChange={(e) => setMemberIdInput(e.target.value)}
-                disabled={!selectedMiqaatId || (currentMiqaatDetails?.type === 'international' && !selectedSessionId) || isProcessing || isLoadingMiqaats}
+                disabled={!selectedMiqaatId || !currentSessionDetails || isProcessing || isLoadingMiqaats}
               />
             </div>
             <Button
               type="submit"
-              disabled={!selectedMiqaatId || (currentMiqaatDetails?.type === 'international' && !selectedSessionId) || !memberIdInput || isProcessing || isLoadingMiqaats}
+              disabled={!selectedMiqaatId || !currentSessionDetails || !memberIdInput || isProcessing || isLoadingMiqaats}
               className="w-full"
               size="sm"
             >
@@ -764,7 +784,7 @@ export default function MarkAttendancePage() {
             </Button>
           </form>
 
-          {selectedMiqaatId && (
+          {selectedMiqaatId && currentSessionDetails && (
             <div className="mt-6 pt-6 border-t">
                 <h3 className="text-lg font-semibold mb-2 flex items-center">
                     <Users className="mr-2 h-5 w-5 text-primary" />
@@ -772,9 +792,9 @@ export default function MarkAttendancePage() {
                 </h3>
                 <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground mb-4">
                   <p>Total in this Session: <span className="font-bold text-foreground">{currentMiqaatAttendanceCount}</span></p>
-                  <p>Marked this session: <span className="font-bold text-foreground">{markedAttendanceThisSession.filter(entry => entry.sessionId === selectedSessionId).length}</span></p>
+                  <p>Marked this session: <span className="font-bold text-foreground">{markedAttendanceThisSession.filter(entry => entry.sessionId === currentSessionDetails?.id).length}</span></p>
                 </div>
-                {markedAttendanceThisSession.filter(entry => entry.sessionId === selectedSessionId).length > 0 ? (
+                {markedAttendanceThisSession.filter(entry => entry.sessionId === currentSessionDetails?.id).length > 0 ? (
                     <div className="max-h-60 overflow-y-auto rounded-md border">
                         <Table>
                             <TableHeader>
@@ -786,7 +806,7 @@ export default function MarkAttendancePage() {
                             </TableRow>
                             </TableHeader>
                             <TableBody>
-                            {markedAttendanceThisSession.filter(entry => entry.sessionId === selectedSessionId).map((entry) => (
+                            {markedAttendanceThisSession.filter(entry => entry.sessionId === currentSessionDetails?.id).map((entry) => (
                                 <TableRow key={`${entry.memberItsId}-${entry.timestamp.toISOString()}`}>
                                 <TableCell className="font-medium">{entry.memberName}</TableCell>
                                 <TableCell>{entry.memberItsId}</TableCell>
