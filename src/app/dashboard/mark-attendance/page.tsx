@@ -631,6 +631,13 @@ export default function MarkAttendancePage() {
     if (!currentMiqaatDetails || !selectedDay) return [];
     return currentMiqaatDetails.sessions?.filter(s => s.day === selectedDay) || [];
   }, [currentMiqaatDetails, selectedDay]);
+
+   // Auto-select session if there's only one for the selected day
+    useEffect(() => {
+        if (availableSessionsForDay.length === 1) {
+            setSelectedSessionId(availableSessionsForDay[0].id);
+        }
+    }, [availableSessionsForDay]);
   
   const miqaatHasAttendanceRequirements = useMemo(() => {
     if (!currentMiqaatDetails || !currentMiqaatDetails.attendanceRequirements) return false;
@@ -791,7 +798,7 @@ export default function MarkAttendancePage() {
               </div>
             )}
             
-            {currentMiqaatDetails?.type === 'international' && (
+            {currentMiqaatDetails?.type === 'international' && availableSessionsForDay.length > 1 && (
               <div className="space-y-2">
                   <Label htmlFor="session-select">Select Session</Label>
                   <Select
