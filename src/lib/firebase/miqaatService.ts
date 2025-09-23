@@ -71,9 +71,10 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
       reportingTime: miqaatData.reportingTime ? new Date(miqaatData.reportingTime).toISOString() : null,
       sessions: (miqaatData.sessions || []).map(s => ({
         ...s,
-        startTime: new Date(s.startTime).toISOString(),
-        endTime: new Date(s.endTime).toISOString(),
-        reportingTime: s.reportingTime ? new Date(s.reportingTime).toISOString() : null
+        // For multiple sessions, startTime/endTime are just times, combine with date
+        startTime: s.startTime,
+        endTime: s.endTime,
+        reportingTime: s.reportingTime || null
       })),
       mohallahIds: Array.isArray(miqaatData.mohallahIds) ? miqaatData.mohallahIds : [],
       teams: Array.isArray(miqaatData.teams) ? miqaatData.teams : [],
@@ -112,9 +113,9 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
      if (miqaatData.sessions) {
        firestorePayload.sessions = miqaatData.sessions.map(s => ({
          ...s,
-         startTime: new Date(s.startTime).toISOString(),
-         endTime: new Date(s.endTime).toISOString(),
-         reportingTime: s.reportingTime ? new Date(s.reportingTime).toISOString() : null,
+         startTime: s.startTime,
+         endTime: s.endTime,
+         reportingTime: s.reportingTime || null,
        }));
      }
 
