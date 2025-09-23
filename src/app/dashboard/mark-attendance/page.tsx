@@ -996,6 +996,7 @@ export default function MarkAttendancePage() {
                             <SelectItem value="EUR">EUR</SelectItem>
                             <SelectItem value="CAD">CAD</SelectItem>
                             <SelectItem value="AUD">AUD</SelectItem>
+                            <SelectItem value="KWD">KWD</SelectItem>
                         </SelectContent>
                      </Select>
                    </div>
