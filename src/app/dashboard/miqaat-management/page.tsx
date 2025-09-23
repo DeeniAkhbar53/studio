@@ -112,6 +112,7 @@ export default function MiqaatManagementPage() {
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [miqaatTypeFilter, setMiqaatTypeFilter] = useState<'all' | 'local' | 'international'>("all");
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "type" | "attendanceType" | "sessions"| "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements"> | null>(null);
@@ -415,11 +416,13 @@ export default function MiqaatManagementPage() {
         });
     }
     
-    return roleFilteredMiqaats.filter(m =>
-        m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (m.location || "").toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [miqaats, searchTerm, currentUserRole, currentUserMohallahId]);
+    return roleFilteredMiqaats.filter(m => {
+        const typeMatch = miqaatTypeFilter === 'all' || m.type === miqaatTypeFilter;
+        const searchTermMatch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (m.location || "").toLowerCase().includes(searchTerm.toLowerCase());
+        return typeMatch && searchTermMatch;
+    });
+  }, [miqaats, searchTerm, miqaatTypeFilter, currentUserRole, currentUserMohallahId]);
   
   const totalPages = Math.ceil(filteredMiqaats.length / ITEMS_PER_PAGE);
   const currentMiqaats = useMemo(() => {
@@ -716,17 +719,27 @@ export default function MiqaatManagementPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row gap-4 mb-4">
+            <div className="relative flex-grow">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
                 placeholder="Search Miqaats by name or location..."
-                className="pl-8 w-full md:w-1/2 lg:w-1/3"
+                className="pl-8 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+             <Select value={miqaatTypeFilter} onValueChange={(value) => setMiqaatTypeFilter(value as 'all' | 'local' | 'international')}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                    <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="local">Local</SelectItem>
+                    <SelectItem value="international">International</SelectItem>
+                </SelectContent>
+            </Select>
           </div>
           {isLoadingMiqaats ? (
             <div className="flex justify-center items-center py-10">
@@ -830,6 +843,7 @@ export default function MiqaatManagementPage() {
                         <TableRow>
                             <TableHead className="w-[50px]">Sr.No.</TableHead>
                             <TableHead>Miqaat Title</TableHead>
+                            <TableHead>Type</TableHead>
                             <TableHead>Dates</TableHead>
                             <TableHead>Eligibility</TableHead>
                             <TableHead>Attendance</TableHead>
@@ -850,6 +864,9 @@ export default function MiqaatManagementPage() {
                                     <TableCell className="font-medium">
                                         {miqaat.name}
                                         <p className="text-sm text-muted-foreground line-clamp-1">{miqaat.location || "No location"}</p>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant={miqaat.type === 'local' ? 'outline' : 'secondary'}>{miqaat.type}</Badge>
                                     </TableCell>
                                     <TableCell>
                                         <div className="text-xs">Start: {format(new Date(miqaat.startTime), "PPp")}</div>
