@@ -298,7 +298,7 @@ export default function MiqaatManagementPage() {
       const newSessions: MiqaatSession[] = Array.from({ length: internationalMiqaatDays }, (_, i) => {
         const dayNumber = i + 1;
         const existingDaySession = existingSessions.find(s => s.day === dayNumber);
-        const dayDate = addDays(new Date(startTime), i);
+        const dayDate = addDays(new Date(startTime!), i);
         
         if (attendanceType === 'single') {
             return existingDaySession || {
@@ -363,7 +363,7 @@ export default function MiqaatManagementPage() {
       attendanceType: values.attendanceType,
       startTime: values.startTime!,
       endTime: values.endTime!,
-      reportingTime: values.type === 'local' ? values.reportingTime : undefined,
+      reportingTime: values.type === 'local' ? values.reportingTime! : undefined,
       sessions: finalSessions,
       mohallahIds: values.eligibilityType === 'groups' ? (values.mohallahIds || []) : [],
       teams: values.eligibilityType === 'groups' ? (values.teams || []) : [],
@@ -673,7 +673,7 @@ export default function MiqaatManagementPage() {
                                   <div className="space-y-4 max-h-60 overflow-y-auto p-2 border rounded-md">
                                     {Array.from({ length: internationalMiqaatDays }, (_, i) => {
                                       const dayIndex = i + 1;
-                                      const dayDate = format(addDays(new Date(startDate), i), "MMM dd");
+                                      const dayDate = format(addDays(new Date(startDate!), i), "MMM dd");
                                       return (
                                          <Card key={dayIndex} className="p-3">
                                             <p className="font-semibold mb-2">Day {dayIndex} - {dayDate}</p>
@@ -1146,3 +1146,5 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
+
+    
