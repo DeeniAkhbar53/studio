@@ -132,6 +132,7 @@ export interface ReportResultItem {
   bgkId?: string;
   team?: string;
   miqaatName: string;
+  miqaatType: 'local' | 'international';
   day?: number;
   sessionName?: string;
   date?: string; // ISO string

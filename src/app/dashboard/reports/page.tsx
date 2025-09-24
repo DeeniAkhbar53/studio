@@ -48,6 +48,7 @@ import {
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FunkyLoader } from "@/components/ui/funky-loader";
+import { Badge } from "@/components/ui/badge";
 
 
 const reportSchema = z.object({
@@ -278,21 +279,21 @@ export default function ReportsPage() {
               if (allUserEntries.length > 0) {
                   const regularEntry = allUserEntries[0];
                   const session = selectedMiqaat.sessions?.find(s => s.id === regularEntry.sessionId);
-                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: regularEntry.markedAt, status: regularEntry.status || 'present', markedByItsId: regularEntry.markedByItsId, uniformCompliance: regularEntry.uniformCompliance };
+                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: regularEntry.markedAt, status: regularEntry.status || 'present', markedByItsId: regularEntry.markedByItsId, uniformCompliance: regularEntry.uniformCompliance };
               }
 
               const safarEntry = safarRecords.find(s => s.userItsId === user.itsId);
               if (safarEntry) {
                    const session = selectedMiqaat.sessions?.find(s => s.id === safarEntry.sessionId);
-                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar' as const, markedByItsId: safarEntry.markedByItsId };
+                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar' as const, markedByItsId: safarEntry.markedByItsId };
               }
-              return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, day: undefined, sessionName: 'N/A', date: selectedMiqaat.startTime, status: 'absent' as const };
+              return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: undefined, sessionName: 'N/A', date: selectedMiqaat.startTime, status: 'absent' as const };
           });
           
           if (!isSpecificMemberMiqaat) {
             allUsersForReport.forEach(user => {
               if (!eligibleUsers.some(eu => eu.id === user.id) && !combinedRecords.some(cr => cr.userItsId === user.itsId)) {
-                combinedRecords.push({ id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, day: undefined, sessionName: 'N/A', date: selectedMiqaat.startTime, status: 'not-eligible' as const, });
+                combinedRecords.push({ id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: undefined, sessionName: 'N/A', date: selectedMiqaat.startTime, status: 'not-eligible' as const, });
               }
             });
           }
@@ -323,7 +324,7 @@ export default function ReportsPage() {
           reportResultItems = safarList.map(safarEntry => {
             const session = selectedMiqaat.sessions?.find(s => s.id === safarEntry.sessionId);
             return {
-              id: `${selectedMiqaat.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, bgkId: userMap.get(safarEntry.userItsId)?.bgkId, team: userMap.get(safarEntry.userItsId)?.team, miqaatName: selectedMiqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId,
+              id: `${selectedMiqaat.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, bgkId: userMap.get(safarEntry.userItsId)?.bgkId, team: userMap.get(safarEntry.userItsId)?.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId,
             }
           });
       } else if (values.reportType === "member_attendance" && values.itsId) {
@@ -332,13 +333,13 @@ export default function ReportsPage() {
               const allUserEntries = miqaat.attendance?.filter(a => a.userItsId === values.itsId) || [];
               allUserEntries.forEach(regularAttendance => {
                   const session = miqaat.sessions?.find(s => s.id === regularAttendance.sessionId);
-                  memberHistory.push({ id: `${miqaat.id}-${regularAttendance.userItsId}`, userName: regularAttendance.userName, userItsId: regularAttendance.userItsId, bgkId: userMap.get(regularAttendance.userItsId)?.bgkId, team: userMap.get(regularAttendance.userItsId)?.team, miqaatName: miqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: regularAttendance.markedAt, status: regularAttendance.status || 'present', markedByItsId: regularAttendance.markedByItsId, uniformCompliance: regularAttendance.uniformCompliance });
+                  memberHistory.push({ id: `${miqaat.id}-${regularAttendance.userItsId}`, userName: regularAttendance.userName, userItsId: regularAttendance.userItsId, bgkId: userMap.get(regularAttendance.userItsId)?.bgkId, team: userMap.get(regularAttendance.userItsId)?.team, miqaatName: miqaat.name, miqaatType: miqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: regularAttendance.markedAt, status: regularAttendance.status || 'present', markedByItsId: regularAttendance.markedByItsId, uniformCompliance: regularAttendance.uniformCompliance });
               });
 
               const safarAttendance = miqaat.safarList?.find(s => s.userItsId === values.itsId);
               if (safarAttendance) {
                   const session = miqaat.sessions?.find(s => s.id === safarAttendance.sessionId);
-                  memberHistory.push({ id: `${miqaat.id}-${safarAttendance.userItsId}`, userName: safarAttendance.userName, userItsId: safarAttendance.userItsId, bgkId: userMap.get(safarAttendance.userItsId)?.bgkId, team: userMap.get(safarAttendance.userItsId)?.team, miqaatName: miqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: safarAttendance.markedAt, status: 'safar', markedByItsId: safarAttendance.markedByItsId });
+                  memberHistory.push({ id: `${miqaat.id}-${safarAttendance.userItsId}`, userName: safarAttendance.userName, userItsId: safarAttendance.userItsId, bgkId: userMap.get(safarAttendance.userItsId)?.bgkId, team: userMap.get(safarAttendance.userItsId)?.team, miqaatName: miqaat.name, miqaatType: miqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: safarAttendance.markedAt, status: 'safar', markedByItsId: safarAttendance.markedByItsId });
               }
           }
           reportResultItems = memberHistory.sort((a,b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
@@ -351,12 +352,12 @@ export default function ReportsPage() {
               
               attendanceRecords.forEach(att => {
                 const session = miqaat.sessions?.find(s => s.id === att.sessionId);
-                allRecords.push({ id: `${miqaat.id}-${att.userItsId}`, userName: att.userName, userItsId: att.userItsId, bgkId: userMap.get(att.userItsId)?.bgkId, team: userMap.get(att.userItsId)?.team, miqaatName: miqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: att.markedAt, status: att.status || 'present', markedByItsId: att.markedByItsId, uniformCompliance: att.uniformCompliance })
+                allRecords.push({ id: `${miqaat.id}-${att.userItsId}`, userName: att.userName, userItsId: att.userItsId, bgkId: userMap.get(att.userItsId)?.bgkId, team: userMap.get(att.userItsId)?.team, miqaatName: miqaat.name, miqaatType: miqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: att.markedAt, status: att.status || 'present', markedByItsId: att.markedByItsId, uniformCompliance: att.uniformCompliance })
               });
 
               safarRecords.forEach(safar => {
                 const session = miqaat.sessions?.find(s => s.id === safar.sessionId);
-                allRecords.push({ id: `${miqaat.id}-${safar.userItsId}`, userName: safar.userName, userItsId: safar.userItsId, bgkId: userMap.get(safar.userItsId)?.bgkId, team: userMap.get(safar.userItsId)?.team, miqaatName: miqaat.name, day: session?.day, sessionName: session?.name || 'Main', date: safar.markedAt, status: 'safar', markedByItsId: safar.markedByItsId })
+                allRecords.push({ id: `${miqaat.id}-${safar.userItsId}`, userName: safar.userName, userItsId: safar.userItsId, bgkId: userMap.get(safar.userItsId)?.bgkId, team: userMap.get(safar.userItsId)?.team, miqaatName: miqaat.name, miqaatType: miqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: safar.markedAt, status: 'safar', markedByItsId: safar.markedByItsId })
               });
           }
           reportResultItems = allRecords;
@@ -379,7 +380,7 @@ export default function ReportsPage() {
           }
 
           const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
-          reportResultItems = nonAttendantUsers.map(user => ({ id: user.id, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, day: undefined, sessionName: "N/A", date: new Date(selectedMiqaat.startTime).toISOString(), status: "absent", }));
+          reportResultItems = nonAttendantUsers.map(user => ({ id: user.id, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: undefined, sessionName: "N/A", date: new Date(selectedMiqaat.startTime).toISOString(), status: "absent", }));
       }
 
       let filteredData = [...reportResultItems];
@@ -475,7 +476,7 @@ export default function ReportsPage() {
       toast({ title: "No data to export", description: "Please generate a report first.", variant: "destructive" });
       return;
     }
-    const headers = ["User Name", "ITS ID", "BGK ID", "Team", "Miqaat", "Session Name", "Marked Date", "Marked Time", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti", "NazrulMaqam Amount", "NazrulMaqam Currency"];
+    const headers = ["User Name", "ITS ID", "BGK ID", "Team", "Miqaat", "Miqaat Type", "Session Name", "Marked Date", "Marked Time", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti", "NazrulMaqam Amount", "NazrulMaqam Currency"];
     const csvRows = [
       headers.join(','),
       ...filteredReportData.map(row => {
@@ -486,6 +487,7 @@ export default function ReportsPage() {
             row.bgkId || 'N/A',
             row.team || 'N/A',
             `"${row.miqaatName.replace(/"/g, '""')}"`,
+            row.miqaatType,
             row.sessionName || 'N/A',
             date ? format(date, "yyyy-MM-dd") : "N/A",
             date ? format(date, "HH:mm:ss") : "N/A",
@@ -1136,6 +1138,7 @@ export default function ReportsPage() {
                                         <p><strong>BGK ID:</strong> {record.bgkId || "N/A"}</p>
                                         <p><strong>Team:</strong> {record.team || "N/A"}</p>
                                         <p><strong>Miqaat:</strong> {record.miqaatName}</p>
+                                        <p><strong>Type:</strong> <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></p>
                                         <p><strong>Session:</strong> {record.sessionName || "N/A"}</p>
                                         <p><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</p>
                                         {(watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
@@ -1175,6 +1178,7 @@ export default function ReportsPage() {
                         <TableHead>BGK ID</TableHead>
                         <TableHead>Team</TableHead>
                         <TableHead>Miqaat</TableHead>
+                        <TableHead>Type</TableHead>
                         <TableHead>Session</TableHead>
                         <TableHead>Date / Time</TableHead>
                         <TableHead>Status</TableHead>
@@ -1207,6 +1211,7 @@ export default function ReportsPage() {
                             <TableCell>{record.bgkId || 'N/A'}</TableCell>
                             <TableCell>{record.team || 'N/A'}</TableCell>
                             <TableCell>{record.miqaatName}</TableCell>
+                            <TableCell><Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></TableCell>
                              <TableCell>{record.sessionName || 'N/A'}</TableCell>
                             <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
                             <TableCell>
