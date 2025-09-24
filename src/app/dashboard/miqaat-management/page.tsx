@@ -597,14 +597,14 @@ export default function MiqaatManagementPage() {
                                                       <FormField control={form.control} name={`sessions.${overallIndex}.startTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Start</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
                                                       <FormField control={form.control} name={`sessions.${overallIndex}.endTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">End</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
                                                       <div className="grid grid-cols-2 gap-1 items-end">
-                                                        <FormField control={form.control} name={`sessions.${overallIndex}.reportingTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Report</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
+                                                        <FormField control={form.control} name={`sessions.${overallIndex}.reportingTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Report</ShadFormLabel><FormControl><Input type="time" {...field} value={field.value || ''}/></FormControl></FormItem>)}/>
                                                         <Button type="button" size="icon" variant="ghost" className="text-destructive h-8 w-8" onClick={() => removeSession(overallIndex)}><Trash2 className="h-4 w-4"/></Button>
                                                       </div>
                                                     </div>
                                                   );
                                               })}
                                               {attendanceType === 'multiple' && (
-                                                <Button type="button" size="sm" variant="outline" onClick={() => appendSession({ id: crypto.randomUUID(), day: dayIndex, name: "", startTime: "", endTime: "" })}>
+                                                <Button type="button" size="sm" variant="outline" onClick={() => appendSession({ id: crypto.randomUUID(), day: dayIndex, name: "", startTime: "", endTime: "", reportingTime: "" })}>
                                                   Add Session for Day {dayIndex}
                                                 </Button>
                                               )}
@@ -1024,5 +1024,3 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
-
-    
