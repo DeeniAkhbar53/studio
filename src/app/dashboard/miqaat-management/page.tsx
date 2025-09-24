@@ -69,26 +69,37 @@ const miqaatSchema = z.object({
     koti: z.boolean().default(false),
     nazrulMaqam: z.boolean().default(false),
   }).default({ fetaPaghri: false, koti: false, nazrulMaqam: false }),
-}).superRefine((data, ctx) => {
+}).refine((data) => {
     if (data.type === 'local') {
-        if (!data.startTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start Time is required for Local Miqaats.", path: ["startTime"] });
-        if (!data.endTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End Time is required for Local Miqaats.", path: ["endTime"] });
+        return !!data.startTime && !!data.endTime;
     }
-     if (data.type === 'international') {
-        if (!data.startTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start Date is required to calculate days.", path: ["startTime"] });
-        if (!data.endTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End Date is required to calculate days.", path: ["endTime"] });
-        if (!data.attendanceType) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Attendance Type must be selected for International Miqaats.", path: ["attendanceType"]});
+    return true;
+}, {
+    message: "Start and End time are required for Local Miqaats.",
+    path: ["startTime"], 
+}).refine((data) => {
+    if (data.type === 'international') {
+        return !!data.startTime && !!data.endTime;
     }
-    if (data.attendanceType === 'single' || data.type === 'local') {
-      if (!data.sessions || data.sessions.length === 0) {
-        // This validation is now less critical as useEffect handles it, but good as a fallback.
-      }
-    }
+    return true;
+}, {
+    message: "Start and End date are required for International Miqaats.",
+    path: ["startTime"],
+}).refine((data) => {
     if (data.startTime && data.endTime && new Date(data.startTime) > new Date(data.endTime)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start date cannot be after end date.", path: ["startTime"] });
+        return false;
     }
-});
-
+    return true;
+}, {
+    message: "Start date cannot be after end date.",
+    path: ["startTime"],
+}).refine((data) => {
+    const isMultiDay = data.startTime && data.endTime && differenceInCalendarDays(new Date(data.endTime), new Date(data.startTime)) > 0;
+    if (data.type === 'international' && isMultiDay) {
+        return !!data.attendanceType;
+    }
+    return true;
+}, { message: "For multi-day Miqaats, an attendance type must be selected.", path: ["attendanceType"] });
 
 type MiqaatFormValues = z.infer<typeof miqaatSchema>;
 
@@ -139,7 +150,7 @@ export default function MiqaatManagementPage() {
       attendanceType: undefined,
       startTime: "",
       endTime: "",
-      reportingTime: "",
+      reportingTime: null,
       sessions: [],
       eligibilityType: "groups",
       mohallahIds: [],
@@ -163,10 +174,14 @@ export default function MiqaatManagementPage() {
 
   const internationalMiqaatDays = useMemo(() => {
     if (miqaatType === 'international' && startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      if (start > end) return 0;
-      return differenceInCalendarDays(end, start) + 1;
+      try {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        if (start > end || isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+        return differenceInCalendarDays(end, start) + 1;
+      } catch (e) {
+        return 0;
+      }
     }
     return 0;
   }, [miqaatType, startDate, endDate]);
@@ -290,16 +305,14 @@ export default function MiqaatManagementPage() {
         attendanceRequirements: editingMiqaat.attendanceRequirements || { fetaPaghri: false, koti: false, nazrulMaqam: false },
       });
     } else if (!isDialogOpen) {
-      form.reset({ name: "", location: "", type: "local", attendanceType: undefined, startTime: "", endTime: "", reportingTime: "", sessions: [], eligibilityType: "groups", mohallahIds: [], teams: [], eligibleItsIds: [], barcodeData: "", attendanceRequirements: { fetaPaghri: false, koti: false, nazrulMaqam: false } });
+      form.reset({ name: "", location: "", type: "local", attendanceType: undefined, startTime: "", endTime: "", reportingTime: null, sessions: [], eligibilityType: "groups", mohallahIds: [], teams: [], eligibleItsIds: [], barcodeData: "", attendanceRequirements: { fetaPaghri: false, koti: false, nazrulMaqam: false } });
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
   useEffect(() => {
     const { type, attendanceType, startTime, endTime } = form.getValues();
 
-    if (type === 'local' && startTime && endTime) {
-      form.setValue('sessions', [{ id: 'main', day: 1, name: 'Main Session', startTime: startTime, endTime: endTime, reportingTime: form.getValues('reportingTime') || "" }]);
-    } else if (type === 'international' && attendanceType === 'single' && internationalMiqaatDays > 0) {
+    if (type === 'international' && attendanceType === 'single' && internationalMiqaatDays > 0) {
       const newSessions: MiqaatSession[] = Array.from({ length: internationalMiqaatDays }, (_, i) => ({
         id: `day-${i + 1}`,
         day: i + 1,
@@ -309,38 +322,52 @@ export default function MiqaatManagementPage() {
         reportingTime: form.getValues(`sessions.${i}.reportingTime`) || "" 
       }));
       replaceSessions(newSessions);
-    } else {
-        if (!editingMiqaat) { // Only clear if not editing
-             form.setValue('sessions', []);
-        }
     }
-  }, [miqaatType, attendanceType, startDate, endDate, internationalMiqaatDays, form, replaceSessions, editingMiqaat]);
+  }, [miqaatType, attendanceType, startDate, endDate, internationalMiqaatDays, form, replaceSessions]);
 
+  const handleFormError = (errors: any) => {
+      console.error("Form validation failed:", errors);
+  };
 
   const handleFormSubmit = async (values: MiqaatFormValues) => {
-    const dataForService: Omit<MiqaatDataForAdd, 'sessions'> & { sessions: MiqaatSession[] } = {
-      name: values.name,
-      location: values.location,
-      type: values.type,
-      attendanceType: values.attendanceType,
-      startTime: values.startTime!,
-      endTime: values.endTime!,
-      reportingTime: values.type === 'local' ? values.reportingTime : undefined,
-      sessions: values.sessions || [],
-      mohallahIds: values.eligibilityType === 'groups' ? (values.mohallahIds || []) : [],
-      teams: values.eligibilityType === 'groups' ? (values.teams || []) : [],
-      eligibleItsIds: values.eligibilityType === 'specific_members' ? (values.eligibleItsIds || []) : [],
-      barcodeData: values.barcodeData,
-      attendanceRequirements: values.attendanceRequirements,
+    const finalValues = { ...values };
+
+    const isSingleDayInternational = finalValues.type === 'international' && internationalMiqaatDays === 1;
+
+    if (finalValues.type === 'local' || isSingleDayInternational) {
+        finalValues.sessions = [{
+            id: 'main',
+            day: 1,
+            name: 'Main Session',
+            startTime: finalValues.startTime!,
+            endTime: finalValues.endTime!,
+            reportingTime: finalValues.reportingTime || ""
+        }];
+    }
+    
+    const dataForService: Omit<MiqaatDataForAdd, 'sessions'> & { sessions?: MiqaatSession[] } = {
+      name: finalValues.name,
+      location: finalValues.location,
+      type: finalValues.type,
+      attendanceType: finalValues.attendanceType,
+      startTime: finalValues.startTime!,
+      endTime: finalValues.endTime!,
+      reportingTime: finalValues.type === 'local' ? finalValues.reportingTime : undefined,
+      sessions: finalValues.sessions,
+      mohallahIds: finalValues.eligibilityType === 'groups' ? (finalValues.mohallahIds || []) : [],
+      teams: finalValues.eligibilityType === 'groups' ? (finalValues.teams || []) : [],
+      eligibleItsIds: finalValues.eligibilityType === 'specific_members' ? (finalValues.eligibleItsIds || []) : [],
+      barcodeData: finalValues.barcodeData,
+      attendanceRequirements: finalValues.attendanceRequirements,
     };
     
     try {
       if (editingMiqaat) {
         await updateMiqaat(editingMiqaat.id, dataForService as MiqaatDataForUpdate);
-        toast({ title: "Miqaat Updated", description: `"${values.name}" has been updated.` });
+        toast({ title: "Miqaat Updated", description: `"${finalValues.name}" has been updated.` });
       } else {
         await addMiqaat(dataForService as MiqaatDataForAdd);
-        toast({ title: "Miqaat Created", description: `"${values.name}" has been added.` });
+        toast({ title: "Miqaat Created", description: `"${finalValues.name}" has been added.` });
       }
       setIsDialogOpen(false);
       setEditingMiqaat(null);
@@ -359,7 +386,7 @@ export default function MiqaatManagementPage() {
       attendanceType: undefined,
       startTime: "",
       endTime: "",
-      reportingTime: "",
+      reportingTime: null,
       sessions: [],
       eligibilityType: "groups",
       mohallahIds: [],
@@ -386,7 +413,7 @@ export default function MiqaatManagementPage() {
       attendanceType: miqaat.attendanceType,
       startTime: "", // Reset dates
       endTime: "",
-      reportingTime: "",
+      reportingTime: null,
       sessions: [], // Reset sessions
       eligibilityType: (miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0) ? 'specific_members' : 'groups',
       mohallahIds: miqaat.mohallahIds || [],
@@ -489,7 +516,7 @@ export default function MiqaatManagementPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                  <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
                     <FormField control={form.control} name="name" render={({ field }) => (
                       <FormItem><ShadFormLabel>Name</ShadFormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -537,7 +564,7 @@ export default function MiqaatManagementPage() {
                               <FormItem><ShadFormLabel>End Date</ShadFormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                             )}/>
                           </div>
-                           {internationalMiqaatDays > 0 && (
+                           {internationalMiqaatDays > 1 && (
                              <FormField control={form.control} name="attendanceType" render={({ field }) => (
                                 <FormItem className="space-y-3 pt-2">
                                     <ShadFormLabel className="font-semibold">Attendance Type</ShadFormLabel>
@@ -551,7 +578,7 @@ export default function MiqaatManagementPage() {
                                 </FormItem>
                             )}/>
                            )}
-                           {internationalMiqaatDays > 0 && attendanceType && (
+                           {internationalMiqaatDays > 0 && attendanceType === 'multiple' && (
                               <div className="space-y-4">
                                 <Label>Daily Sessions ({internationalMiqaatDays} Days)</Label>
                                 <div className="space-y-4 max-h-60 overflow-y-auto p-2 border rounded-md">
@@ -561,12 +588,7 @@ export default function MiqaatManagementPage() {
                                     return (
                                        <Card key={dayIndex} className="p-3">
                                           <p className="font-semibold mb-2">Day {dayIndex} - {dayDate}</p>
-                                           {attendanceType === 'single' ? (
-                                              <FormField control={form.control} name={`sessions.${i}.reportingTime`} render={({ field }) => (
-                                                   <FormItem><ShadFormLabel className="text-xs">Reporting Time</ShadFormLabel><FormControl><Input type="time" {...field} /></FormControl></FormItem>
-                                              )}/>
-                                           ) : (
-                                              <>
+                                           <>
                                               {sessionFields.filter(f => f.day === dayIndex).map((session, sessionIdx) => {
                                                   const overallIndex = sessionFields.findIndex(f => f.id === session.id);
                                                   return (
@@ -582,7 +604,6 @@ export default function MiqaatManagementPage() {
                                                 Add Session for Day {dayIndex}
                                               </Button>
                                               </>
-                                           )}
                                        </Card>
                                     );
                                   })}
