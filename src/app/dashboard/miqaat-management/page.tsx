@@ -140,6 +140,8 @@ export default function MiqaatManagementPage() {
   const [barcodeMiqaat, setBarcodeMiqaat] = useState<Miqaat | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedMiqaatIds, setSelectedMiqaatIds] = useState<string[]>([]);
+
 
   const form = useForm<MiqaatFormValues>({
     resolver: zodResolver(miqaatSchema),
@@ -435,6 +437,39 @@ export default function MiqaatManagementPage() {
       toast({ title: "Database Error", description: "Could not delete Miqaat.", variant: "destructive" });
     }
   };
+  
+  const handleBulkDelete = async () => {
+    if (selectedMiqaatIds.length === 0) return;
+
+    let deletedCount = 0;
+    let failedCount = 0;
+
+    for (const miqaatId of selectedMiqaatIds) {
+      try {
+        await fbDeleteMiqaat(miqaatId);
+        deletedCount++;
+      } catch (error) {
+        console.error(`Failed to delete miqaat ${miqaatId}:`, error);
+        failedCount++;
+      }
+    }
+
+    if (failedCount > 0) {
+      toast({
+        title: "Bulk Delete Partially Failed",
+        description: `Deleted ${deletedCount} miqaats, but failed to delete ${failedCount}.`,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Bulk Delete Successful",
+        description: `Successfully deleted ${deletedCount} miqaat(s).`,
+      });
+    }
+    
+    setSelectedMiqaatIds([]);
+  };
+
 
   const filteredMiqaats = useMemo(() => {
     let roleFilteredMiqaats = miqaats;
@@ -464,6 +499,20 @@ export default function MiqaatManagementPage() {
   const handlePreviousPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
   const handleNextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
   
+  const handleSelectAllOnPage = (checked: boolean | string) => {
+    if (checked) {
+      setSelectedMiqaatIds(prev => [...new Set([...prev, ...currentMiqaats.map(m => m.id)])]);
+    } else {
+      const pageIds = currentMiqaats.map(m => m.id);
+      setSelectedMiqaatIds(prev => prev.filter(id => !pageIds.includes(id)));
+    }
+  };
+  
+  const handleSelectMiqaat = (miqaatId: string, checked: boolean | string) => {
+    setSelectedMiqaatIds(prev => checked ? [...prev, miqaatId] : prev.filter(id => id !== miqaatId));
+  };
+
+
   if (isAuthorized === null) {
     return (
       <div className="flex h-full w-full items-center justify-center">
@@ -494,258 +543,286 @@ export default function MiqaatManagementPage() {
               <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-5 w-5 text-primary"/>Manage Miqaats</CardTitle>
               <CardDescription className="mt-1">Create, view, and manage all Miqaats. List updates in realtime.</CardDescription>
             </div>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" className="shrink-0">
-                    <PlusCircle className="h-4 w-4 md:mr-2" />
-                    <span className="hidden md:inline">Add New Miqaat</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onSelect={() => openDialogForType('local')}>Local Miqaat</DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => openDialogForType('international')}>International Miqaat</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            
+            <div className="flex items-center gap-2">
+              {selectedMiqaatIds.length > 0 && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete ({selectedMiqaatIds.length})
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirm Bulk Deletion</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete {selectedMiqaatIds.length} selected miqaat(s)? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">
+                        Delete Selected
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" className="shrink-0">
+                      <PlusCircle className="h-4 w-4 md:mr-2" />
+                      <span className="hidden md:inline">Add New Miqaat</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => openDialogForType('local')}>Local Miqaat</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => openDialogForType('international')}>International Miqaat</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-              <DialogContent className="sm:max-w-xl">
-                <DialogHeader>
-                  <DialogTitle>{editingMiqaat ? "Edit Miqaat" : "Create New Miqaat"}</DialogTitle>
-                  <DialogDescription>
-                    {editingMiqaat ? "Update the details of the Miqaat." : `Creating a new ${form.getValues("type")} Miqaat.`}
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-                    <FormField control={form.control} name="name" render={({ field }) => (
-                      <FormItem><ShadFormLabel>Name</ShadFormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                     <FormField control={form.control} name="location" render={({ field }) => (
-                      <FormItem><ShadFormLabel>Location</ShadFormLabel><FormControl><Input placeholder="Optional" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    
-                    <FormField
-                      control={form.control} name="type"
-                      render={({ field }) => (
-                        <FormItem className="space-y-3">
-                          <ShadFormLabel>Miqaat Type</ShadFormLabel>
-                          <FormControl>
-                            <RadioGroup
-                              onValueChange={field.onChange}
-                              value={field.value}
-                              className="flex space-x-4"
-                              disabled={!!editingMiqaat}
-                            >
-                              <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="local" /></FormControl><ShadFormLabel className="font-normal">Local</ShadFormLabel></FormItem>
-                              <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="international" /></FormControl><ShadFormLabel className="font-normal">International</ShadFormLabel></FormItem>
-                            </RadioGroup>
-                          </FormControl>
-                        </FormItem>
-                    )}/>
-
-                    {miqaatType === 'local' && (
-                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField control={form.control} name="startTime" render={({ field }) => (
-                          <FormItem><ShadFormLabel>Start Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                          <FormField control={form.control} name="endTime" render={({ field }) => (
-                          <FormItem><ShadFormLabel>End Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
-                          )} />
-                      </div>
-                    )}
-                    
-                     {miqaatType === 'international' && (
-                        <div className="p-4 border rounded-md space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField control={form.control} name="startTime" render={({ field }) => (
-                              <FormItem><ShadFormLabel>Start Date</ShadFormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-                            )}/>
-                            <FormField control={form.control} name="endTime" render={({ field }) => (
-                              <FormItem><ShadFormLabel>End Date</ShadFormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-                            )}/>
-                          </div>
-                           {internationalMiqaatDays > 0 && (
-                             <FormField control={form.control} name="attendanceType" render={({ field }) => (
-                                <FormItem className="space-y-3 pt-2">
-                                    <ShadFormLabel className="font-semibold">Attendance Type</ShadFormLabel>
-                                    <FormControl>
-                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-4">
-                                            <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="single" /></FormControl><ShadFormLabel className="font-normal">Single Daily Check-in</ShadFormLabel></FormItem>
-                                            <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="multiple" /></FormControl><ShadFormLabel className="font-normal">Multiple Sessions per Day</ShadFormLabel></FormItem>
-                                        </RadioGroup>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}/>
-                           )}
-                           {internationalMiqaatDays > 0 && (attendanceType === 'multiple' || attendanceType === 'single') && (
-                              <div className="space-y-4">
-                                <Label>Daily Sessions ({internationalMiqaatDays} Days)</Label>
-                                <div className="space-y-4 max-h-60 overflow-y-auto p-2 border rounded-md">
-                                  {Array.from({ length: internationalMiqaatDays }, (_, i) => {
-                                    const dayIndex = i + 1;
-                                    const dayDate = format(addDays(new Date(startDate), i), "MMM dd");
-                                    return (
-                                       <Card key={dayIndex} className="p-3">
-                                          <p className="font-semibold mb-2">Day {dayIndex} - {dayDate}</p>
-                                           <>
-                                              {sessionFields.filter(f => f.day === dayIndex).map((session, sessionIdx) => {
-                                                  const overallIndex = sessionFields.findIndex(f => f.id === session.id);
-                                                  return (
-                                                    <div key={session.id} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end border-b pb-2 mb-2">
-                                                      <FormField control={form.control} name={`sessions.${overallIndex}.name`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Name</ShadFormLabel><FormControl><Input {...field}/></FormControl></FormItem>)}/>
-                                                      <FormField control={form.control} name={`sessions.${overallIndex}.startTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Start</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
-                                                      <FormField control={form.control} name={`sessions.${overallIndex}.endTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">End</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
-                                                      <div className="grid grid-cols-2 gap-1 items-end">
-                                                        <FormField control={form.control} name={`sessions.${overallIndex}.reportingTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Report</ShadFormLabel><FormControl><Input type="time" {...field} value={field.value || ''}/></FormControl></FormItem>)}/>
-                                                        <Button type="button" size="icon" variant="ghost" className="text-destructive h-8 w-8" onClick={() => removeSession(overallIndex)}><Trash2 className="h-4 w-4"/></Button>
-                                                      </div>
-                                                    </div>
-                                                  );
-                                              })}
-                                              {attendanceType === 'multiple' && (
-                                                <Button type="button" size="sm" variant="outline" onClick={() => appendSession({ id: crypto.randomUUID(), day: dayIndex, name: "", startTime: "", endTime: "", reportingTime: "" })}>
-                                                  Add Session for Day {dayIndex}
-                                                </Button>
-                                              )}
-                                              </>
-                                       </Card>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                           )}
-                        </div>
-                     )}
-
-                     {miqaatType === 'local' && (
-                       <FormField control={form.control} name="reportingTime" render={({ field }) => (
-                        <FormItem><ShadFormLabel>Reporting Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} value={field.value || ""} /></FormControl><FormDescription className="text-xs">Optional. Leave blank if not applicable.</FormDescription><FormMessage /></FormItem>
+                <DialogContent className="sm:max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle>{editingMiqaat ? "Edit Miqaat" : "Create New Miqaat"}</DialogTitle>
+                    <DialogDescription>
+                      {editingMiqaat ? "Update the details of the Miqaat." : `Creating a new ${form.getValues("type")} Miqaat.`}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleFormSubmit, handleFormError)} className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                      <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormItem><ShadFormLabel>Name</ShadFormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                       )} />
-                     )}
-
-                    <FormField
-                        control={form.control}
-                        name="attendanceRequirements"
-                        render={() => (
-                          <FormItem className="space-y-2 pt-2">
-                            <ShadFormLabel className="font-semibold">Attendance Requirements</ShadFormLabel>
-                            <div className="flex flex-col sm:flex-row gap-4">
-                                <FormField control={form.control} name="attendanceRequirements.fetaPaghri" render={({ field }) => (
-                                    <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Feta/Paghri</ShadFormLabel></FormItem>
-                                )}/>
-                                <FormField control={form.control} name="attendanceRequirements.koti" render={({ field }) => (
-                                    <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Koti</ShadFormLabel></FormItem>
-                                )}/>
-                                <FormField control={form.control} name="attendanceRequirements.nazrulMaqam" render={({ field }) => (
-                                    <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Nazrul Maqam</ShadFormLabel></FormItem>
-                                )}/>
-                            </div>
-                            <FormDescription className="text-xs">Select any requirements for attendance marking.</FormDescription>
-                          </FormItem>
-                        )}
-                    />
-                    
-                    <FormField control={form.control} name="eligibilityType" render={({ field }) => (
-                        <FormItem className="space-y-3 pt-2">
-                            <ShadFormLabel className="font-semibold">Eligibility</ShadFormLabel>
+                       <FormField control={form.control} name="location" render={({ field }) => (
+                        <FormItem><ShadFormLabel>Location</ShadFormLabel><FormControl><Input placeholder="Optional" {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      
+                      <FormField
+                        control={form.control} name="type"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <ShadFormLabel>Miqaat Type</ShadFormLabel>
                             <FormControl>
-                                <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
-                                    <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="groups" /></FormControl><ShadFormLabel className="font-normal">By Group (Mohallah/Team)</ShadFormLabel></FormItem>
-                                    <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="specific_members" /></FormControl><ShadFormLabel className="font-normal">By Specific Members</ShadFormLabel></FormItem>
-                                </RadioGroup>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                value={field.value}
+                                className="flex space-x-4"
+                                disabled={!!editingMiqaat}
+                              >
+                                <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="local" /></FormControl><ShadFormLabel className="font-normal">Local</ShadFormLabel></FormItem>
+                                <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="international" /></FormControl><ShadFormLabel className="font-normal">International</ShadFormLabel></FormItem>
+                              </RadioGroup>
                             </FormControl>
-                        </FormItem>
-                    )}/>
-                    
-                    {eligibilityType === 'groups' && (
-                        <>
-                        <FormField control={form.control} name="mohallahIds" render={({ field }) => (
-                        <FormItem><ShadFormLabel>Assigned Mohallahs</ShadFormLabel>
-                            <ScrollArea className="rounded-md border p-3 h-40">
-                              {isLoadingMohallahs ? (<p className="text-sm text-muted-foreground">Loading...</p>) : (
-                                formOptions.mohallahs.map((mohallah) => (
-                                  <FormField key={mohallah.id} control={form.control} name="mohallahIds" render={({ field: checkboxField }) => (
-                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
-                                      <FormControl><Checkbox checked={checkboxField.value?.includes(mohallah.id)} onCheckedChange={(checked) => {
-                                        return checked ? checkboxField.onChange([...(checkboxField.value || []), mohallah.id]) : checkboxField.onChange(checkboxField.value?.filter((value) => value !== mohallah.id));
-                                      }} /></FormControl>
-                                      <ShadFormLabel className="font-normal text-sm">{mohallah.name}</ShadFormLabel>
-                                    </FormItem>
-                                  )}/>
-                                ))
-                              )}
-                            </ScrollArea>
-                            <FormDescription className="text-xs">Select Mohallahs. Leave empty for all.</FormDescription><FormMessage /></FormItem>
-                        )}/>
-                        <FormField control={form.control} name="teams" render={({ field }) => (
-                        <FormItem><ShadFormLabel>Assigned Teams</ShadFormLabel>
-                            <ScrollArea className="rounded-md border p-3 h-40">
-                              {isLoadingUsers ? (<p className="text-sm text-muted-foreground">Loading...</p>) : (
-                                formOptions.teams.map((team) => (
-                                  <FormField key={team} control={form.control} name="teams" render={({ field: checkboxField }) => (
-                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
-                                      <FormControl><Checkbox checked={checkboxField.value?.includes(team)} onCheckedChange={(checked) => {
-                                        return checked ? checkboxField.onChange([...(checkboxField.value || []), team]) : checkboxField.onChange(checkboxField.value?.filter((value) => value !== team));
-                                      }} /></FormControl>
-                                      <ShadFormLabel className="font-normal text-sm">{team}</ShadFormLabel>
-                                    </FormItem>
-                                  )}/>
-                                ))
-                              )}
-                            </ScrollArea>
-                            <FormDescription className="text-xs">Select Teams. Leave empty for all.</FormDescription><FormMessage /></FormItem>
-                        )}/>
-                        </>
-                    )}
-                    
-                     {eligibilityType === 'specific_members' && (
-                        <FormField control={form.control} name="eligibleItsIds" render={({ field }) => (
-                            <FormItem>
-                                <ShadFormLabel>Eligible Members</ShadFormLabel>
-                                <div className="relative">
-                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Search by name, ITS..."
-                                        value={memberSearchTerm}
-                                        onChange={(e) => setMemberSearchTerm(e.target.value)}
-                                        className="pl-8 mb-2"
-                                    />
-                                </div>
-                                <ScrollArea className="rounded-md border p-3 h-60">
-                                {isLoadingUsers ? (<p className="text-sm text-muted-foreground">Loading Users...</p>) : (
-                                    filteredUsersForForm.map((user) => (
-                                    <FormField key={user.id} control={form.control} name="eligibleItsIds" render={({ field: checkboxField }) => (
-                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
-                                        <FormControl><Checkbox checked={checkboxField.value?.includes(user.itsId)} onCheckedChange={(checked) => {
-                                            return checked ? checkboxField.onChange([...(checkboxField.value || []), user.itsId]) : checkboxField.onChange(checkboxField.value?.filter((value) => value !== user.itsId));
-                                        }} /></FormControl>
-                                        <ShadFormLabel className="font-normal text-sm">{user.name} ({user.itsId})</ShadFormLabel>
-                                        </FormItem>
-                                    )}/>
-                                    ))
-                                )}
-                                {filteredUsersForForm.length === 0 && !isLoadingUsers && <p className="text-sm text-muted-foreground text-center py-4">No members found.</p>}
-                                </ScrollArea>
-                                <FormDescription className="text-xs">Select individual members eligible for this Miqaat.</FormDescription>
-                            <FormMessage /></FormItem>
-                        )}/>
-                    )}
+                          </FormItem>
+                      )}/>
 
-                    <FormField control={form.control} name="barcodeData" render={({ field }) => (
-                      <FormItem><ShadFormLabel>Barcode Data</ShadFormLabel><FormControl><Input placeholder="Optional (auto-generates if empty)" {...field} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                      <Button type="submit" disabled={form.formState.isSubmitting || isLoadingMohallahs || isLoadingUsers}>
-                        {(form.formState.isSubmitting || isLoadingMohallahs || isLoadingUsers) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {editingMiqaat ? "Save Changes" : "Create Miqaat"}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
+                      {miqaatType === 'local' && (
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="startTime" render={({ field }) => (
+                            <FormItem><ShadFormLabel>Start Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                            <FormField control={form.control} name="endTime" render={({ field }) => (
+                            <FormItem><ShadFormLabel>End Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                        </div>
+                      )}
+                      
+                       {miqaatType === 'international' && (
+                          <div className="p-4 border rounded-md space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <FormField control={form.control} name="startTime" render={({ field }) => (
+                                <FormItem><ShadFormLabel>Start Date</ShadFormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                              )}/>
+                              <FormField control={form.control} name="endTime" render={({ field }) => (
+                                <FormItem><ShadFormLabel>End Date</ShadFormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                              )}/>
+                            </div>
+                             {internationalMiqaatDays > 0 && (
+                               <FormField control={form.control} name="attendanceType" render={({ field }) => (
+                                  <FormItem className="space-y-3 pt-2">
+                                      <ShadFormLabel className="font-semibold">Attendance Type</ShadFormLabel>
+                                      <FormControl>
+                                          <RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-4">
+                                              <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="single" /></FormControl><ShadFormLabel className="font-normal">Single Daily Check-in</ShadFormLabel></FormItem>
+                                              <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="multiple" /></FormControl><ShadFormLabel className="font-normal">Multiple Sessions per Day</ShadFormLabel></FormItem>
+                                          </RadioGroup>
+                                      </FormControl>
+                                      <FormMessage />
+                                  </FormItem>
+                              )}/>
+                             )}
+                             {internationalMiqaatDays > 0 && (attendanceType === 'multiple' || attendanceType === 'single') && (
+                                <div className="space-y-4">
+                                  <Label>Daily Sessions ({internationalMiqaatDays} Days)</Label>
+                                  <div className="space-y-4 max-h-60 overflow-y-auto p-2 border rounded-md">
+                                    {Array.from({ length: internationalMiqaatDays }, (_, i) => {
+                                      const dayIndex = i + 1;
+                                      const dayDate = format(addDays(new Date(startDate), i), "MMM dd");
+                                      return (
+                                         <Card key={dayIndex} className="p-3">
+                                            <p className="font-semibold mb-2">Day {dayIndex} - {dayDate}</p>
+                                             <>
+                                                {sessionFields.filter(f => f.day === dayIndex).map((session, sessionIdx) => {
+                                                    const overallIndex = sessionFields.findIndex(f => f.id === session.id);
+                                                    return (
+                                                      <div key={session.id} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end border-b pb-2 mb-2">
+                                                        <FormField control={form.control} name={`sessions.${overallIndex}.name`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Name</ShadFormLabel><FormControl><Input {...field}/></FormControl></FormItem>)}/>
+                                                        <FormField control={form.control} name={`sessions.${overallIndex}.startTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Start</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
+                                                        <FormField control={form.control} name={`sessions.${overallIndex}.endTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">End</ShadFormLabel><FormControl><Input type="time" {...field}/></FormControl></FormItem>)}/>
+                                                        <div className="grid grid-cols-2 gap-1 items-end">
+                                                          <FormField control={form.control} name={`sessions.${overallIndex}.reportingTime`} render={({ field }) => (<FormItem><ShadFormLabel className="text-xs">Report</ShadFormLabel><FormControl><Input type="time" {...field} value={field.value || ''}/></FormControl></FormItem>)}/>
+                                                          <Button type="button" size="icon" variant="ghost" className="text-destructive h-8 w-8" onClick={() => removeSession(overallIndex)}><Trash2 className="h-4 w-4"/></Button>
+                                                        </div>
+                                                      </div>
+                                                    );
+                                                })}
+                                                {attendanceType === 'multiple' && (
+                                                  <Button type="button" size="sm" variant="outline" onClick={() => appendSession({ id: crypto.randomUUID(), day: dayIndex, name: "", startTime: "", endTime: "", reportingTime: "" })}>
+                                                    Add Session for Day {dayIndex}
+                                                  </Button>
+                                                )}
+                                                </>
+                                         </Card>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                             )}
+                          </div>
+                       )}
+
+                       {miqaatType === 'local' && (
+                         <FormField control={form.control} name="reportingTime" render={({ field }) => (
+                          <FormItem><ShadFormLabel>Reporting Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} value={field.value || ""} /></FormControl><FormDescription className="text-xs">Optional. Leave blank if not applicable.</FormDescription><FormMessage /></FormItem>
+                        )} />
+                       )}
+
+                      <FormField
+                          control={form.control}
+                          name="attendanceRequirements"
+                          render={() => (
+                            <FormItem className="space-y-2 pt-2">
+                              <ShadFormLabel className="font-semibold">Attendance Requirements</ShadFormLabel>
+                              <div className="flex flex-col sm:flex-row gap-4">
+                                  <FormField control={form.control} name="attendanceRequirements.fetaPaghri" render={({ field }) => (
+                                      <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Feta/Paghri</ShadFormLabel></FormItem>
+                                  )}/>
+                                  <FormField control={form.control} name="attendanceRequirements.koti" render={({ field }) => (
+                                      <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Koti</ShadFormLabel></FormItem>
+                                  )}/>
+                                  <FormField control={form.control} name="attendanceRequirements.nazrulMaqam" render={({ field }) => (
+                                      <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Nazrul Maqam</ShadFormLabel></FormItem>
+                                  )}/>
+                              </div>
+                              <FormDescription className="text-xs">Select any requirements for attendance marking.</FormDescription>
+                            </FormItem>
+                          )}
+                      />
+                      
+                      <FormField control={form.control} name="eligibilityType" render={({ field }) => (
+                          <FormItem className="space-y-3 pt-2">
+                              <ShadFormLabel className="font-semibold">Eligibility</ShadFormLabel>
+                              <FormControl>
+                                  <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex space-x-4">
+                                      <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="groups" /></FormControl><ShadFormLabel className="font-normal">By Group (Mohallah/Team)</ShadFormLabel></FormItem>
+                                      <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="specific_members" /></FormControl><ShadFormLabel className="font-normal">By Specific Members</ShadFormLabel></FormItem>
+                                  </RadioGroup>
+                              </FormControl>
+                          </FormItem>
+                      )}/>
+                      
+                      {eligibilityType === 'groups' && (
+                          <>
+                          <FormField control={form.control} name="mohallahIds" render={({ field }) => (
+                          <FormItem><ShadFormLabel>Assigned Mohallahs</ShadFormLabel>
+                              <ScrollArea className="rounded-md border p-3 h-40">
+                                {isLoadingMohallahs ? (<p className="text-sm text-muted-foreground">Loading...</p>) : (
+                                  formOptions.mohallahs.map((mohallah) => (
+                                    <FormField key={mohallah.id} control={form.control} name="mohallahIds" render={({ field: checkboxField }) => (
+                                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
+                                        <FormControl><Checkbox checked={checkboxField.value?.includes(mohallah.id)} onCheckedChange={(checked) => {
+                                          return checked ? checkboxField.onChange([...(checkboxField.value || []), mohallah.id]) : checkboxField.onChange(checkboxField.value?.filter((value) => value !== mohallah.id));
+                                        }} /></FormControl>
+                                        <ShadFormLabel className="font-normal text-sm">{mohallah.name}</ShadFormLabel>
+                                      </FormItem>
+                                    )}/>
+                                  ))
+                                )}
+                              </ScrollArea>
+                              <FormDescription className="text-xs">Select Mohallahs. Leave empty for all.</FormDescription><FormMessage /></FormItem>
+                          )}/>
+                          <FormField control={form.control} name="teams" render={({ field }) => (
+                          <FormItem><ShadFormLabel>Assigned Teams</ShadFormLabel>
+                              <ScrollArea className="rounded-md border p-3 h-40">
+                                {isLoadingUsers ? (<p className="text-sm text-muted-foreground">Loading...</p>) : (
+                                  formOptions.teams.map((team) => (
+                                    <FormField key={team} control={form.control} name="teams" render={({ field: checkboxField }) => (
+                                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
+                                        <FormControl><Checkbox checked={checkboxField.value?.includes(team)} onCheckedChange={(checked) => {
+                                          return checked ? checkboxField.onChange([...(checkboxField.value || []), team]) : checkboxField.onChange(checkboxField.value?.filter((value) => value !== team));
+                                        }} /></FormControl>
+                                        <ShadFormLabel className="font-normal text-sm">{team}</ShadFormLabel>
+                                      </FormItem>
+                                    )}/>
+                                  ))
+                                )}
+                              </ScrollArea>
+                              <FormDescription className="text-xs">Select Teams. Leave empty for all.</FormDescription><FormMessage /></FormItem>
+                          )}/>
+                          </>
+                      )}
+                      
+                       {eligibilityType === 'specific_members' && (
+                          <FormField control={form.control} name="eligibleItsIds" render={({ field }) => (
+                              <FormItem>
+                                  <ShadFormLabel>Eligible Members</ShadFormLabel>
+                                  <div className="relative">
+                                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                      <Input
+                                          placeholder="Search by name, ITS..."
+                                          value={memberSearchTerm}
+                                          onChange={(e) => setMemberSearchTerm(e.target.value)}
+                                          className="pl-8 mb-2"
+                                      />
+                                  </div>
+                                  <ScrollArea className="rounded-md border p-3 h-60">
+                                  {isLoadingUsers ? (<p className="text-sm text-muted-foreground">Loading Users...</p>) : (
+                                      filteredUsersForForm.map((user) => (
+                                      <FormField key={user.id} control={form.control} name="eligibleItsIds" render={({ field: checkboxField }) => (
+                                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 mb-2">
+                                          <FormControl><Checkbox checked={checkboxField.value?.includes(user.itsId)} onCheckedChange={(checked) => {
+                                              return checked ? checkboxField.onChange([...(checkboxField.value || []), user.itsId]) : checkboxField.onChange(checkboxField.value?.filter((value) => value !== user.itsId));
+                                          }} /></FormControl>
+                                          <ShadFormLabel className="font-normal text-sm">{user.name} ({user.itsId})</ShadFormLabel>
+                                          </FormItem>
+                                      )}/>
+                                      ))
+                                  )}
+                                  {filteredUsersForForm.length === 0 && !isLoadingUsers && <p className="text-sm text-muted-foreground text-center py-4">No members found.</p>}
+                                  </ScrollArea>
+                                  <FormDescription className="text-xs">Select individual members eligible for this Miqaat.</FormDescription>
+                              <FormMessage /></FormItem>
+                          )}/>
+                      )}
+
+                      <FormField control={form.control} name="barcodeData" render={({ field }) => (
+                        <FormItem><ShadFormLabel>Barcode Data</ShadFormLabel><FormControl><Input placeholder="Optional (auto-generates if empty)" {...field} /></FormControl><FormMessage /></FormItem>
+                      )} />
+                      <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={form.formState.isSubmitting || isLoadingMohallahs || isLoadingUsers}>
+                          {(form.formState.isSubmitting || isLoadingMohallahs || isLoadingUsers) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          {editingMiqaat ? "Save Changes" : "Create Miqaat"}
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -787,21 +864,35 @@ export default function MiqaatManagementPage() {
 
                     return (
                       <AccordionItem value={miqaat.id} key={miqaat.id}>
-                        <AccordionTrigger className="hover:no-underline">
-                           <div className="flex items-center gap-4 w-full">
-                             <span className="text-sm font-mono text-muted-foreground">{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.</span>
-                             <div className="flex-grow text-left">
-                               <p className="font-semibold text-card-foreground">{miqaat.name}</p>
-                               <p className="text-xs text-muted-foreground">{format(new Date(miqaat.startTime), "PP")}</p>
+                        <div className={cn("flex items-center w-full pr-4", selectedMiqaatIds.includes(miqaat.id) && "bg-muted/50")}>
+                          {(currentUserRole === 'admin' || currentUserRole === 'superadmin') && (
+                            <div className="py-4 pl-4">
+                                <Checkbox
+                                    checked={selectedMiqaatIds.includes(miqaat.id)}
+                                    onCheckedChange={(checked) => handleSelectMiqaat(miqaat.id, checked)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    aria-label={`Select miqaat ${miqaat.name}`}
+                                />
+                            </div>
+                          )}
+                          <AccordionTrigger className="w-full pl-4 py-4 hover:no-underline flex-1 text-left">
+                             <div className="flex items-center justify-between w-full">
+                               <div className="flex items-center gap-4">
+                                 <span className="text-sm font-mono text-muted-foreground">{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.</span>
+                                 <div className="flex-grow text-left">
+                                   <p className="font-semibold text-card-foreground">{miqaat.name}</p>
+                                   <p className="text-xs text-muted-foreground">{format(new Date(miqaat.startTime), "PP")}</p>
+                                 </div>
+                               </div>
+                                <Badge variant={isExpired ? 'destructive' : 'default'} className="whitespace-nowrap">
+                                 {isExpired ? <XCircle className="mr-1 h-3 w-3" /> : <CheckCircle className="mr-1 h-3 w-3" />}
+                                 {isExpired ? 'Expired' : 'Active'}
+                                </Badge>
                              </div>
-                              <Badge variant={isExpired ? 'destructive' : 'default'} className="whitespace-nowrap">
-                               {isExpired ? <XCircle className="mr-1 h-3 w-3" /> : <CheckCircle className="mr-1 h-3 w-3" />}
-                               {isExpired ? 'Expired' : 'Active'}
-                              </Badge>
-                           </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="space-y-4 pt-2">
-                           <div className="grid grid-cols-2 gap-4 text-sm px-2">
+                          </AccordionTrigger>
+                        </div>
+                        <AccordionContent className="space-y-4 pt-0">
+                           <div className="grid grid-cols-2 gap-4 text-sm px-4 pb-4 pt-2">
                               <div className="space-y-1">
                                   <p className="font-medium text-muted-foreground">Location</p>
                                   <p>{miqaat.location || "N/A"}</p>
@@ -825,7 +916,7 @@ export default function MiqaatManagementPage() {
                               </div>
                            </div>
                            <Separator/>
-                            <div className="flex justify-end gap-2 px-2">
+                            <div className="flex justify-end gap-2 px-4 pb-2">
                                 <Button variant="ghost" size="icon" onClick={() => { setBarcodeMiqaat(miqaat as Miqaat); setShowBarcodeDialog(true); }}>
                                     <Barcode className="h-4 w-4"/>
                                     <span className="sr-only">Barcode</span>
@@ -871,6 +962,15 @@ export default function MiqaatManagementPage() {
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            {(currentUserRole === 'admin' || currentUserRole === 'superadmin') && (
+                              <TableHead className="w-[50px] px-2">
+                                <Checkbox
+                                    onCheckedChange={handleSelectAllOnPage}
+                                    checked={currentMiqaats.length > 0 && currentMiqaats.every(m => selectedMiqaatIds.includes(m.id))}
+                                    aria-label="Select all on page"
+                                />
+                              </TableHead>
+                            )}
                             <TableHead className="w-[50px]">Sr.No.</TableHead>
                             <TableHead>Miqaat Title</TableHead>
                             <TableHead>Type</TableHead>
@@ -889,7 +989,16 @@ export default function MiqaatManagementPage() {
                                 : "Groups";
 
                             return (
-                                <TableRow key={miqaat.id}>
+                                <TableRow key={miqaat.id} data-state={selectedMiqaatIds.includes(miqaat.id) ? "selected" : undefined}>
+                                    {(currentUserRole === 'admin' || currentUserRole === 'superadmin') && (
+                                       <TableCell className="px-2">
+                                         <Checkbox
+                                          checked={selectedMiqaatIds.includes(miqaat.id)}
+                                          onCheckedChange={(checked) => handleSelectMiqaat(miqaat.id, checked)}
+                                          aria-label={`Select miqaat ${miqaat.name}`}
+                                         />
+                                       </TableCell>
+                                    )}
                                     <TableCell>{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}</TableCell>
                                     <TableCell className="font-medium">
                                         {miqaat.name}
