@@ -564,7 +564,7 @@ export default function MiqaatManagementPage() {
                               <FormItem><ShadFormLabel>End Date</ShadFormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                             )}/>
                           </div>
-                           {internationalMiqaatDays > 1 && (
+                           {internationalMiqaatDays > 0 && (
                              <FormField control={form.control} name="attendanceType" render={({ field }) => (
                                 <FormItem className="space-y-3 pt-2">
                                     <ShadFormLabel className="font-semibold">Attendance Type</ShadFormLabel>
@@ -578,7 +578,7 @@ export default function MiqaatManagementPage() {
                                 </FormItem>
                             )}/>
                            )}
-                           {internationalMiqaatDays > 0 && attendanceType === 'multiple' && (
+                           {internationalMiqaatDays > 0 && (attendanceType === 'multiple' || attendanceType === 'single') && (
                               <div className="space-y-4">
                                 <Label>Daily Sessions ({internationalMiqaatDays} Days)</Label>
                                 <div className="space-y-4 max-h-60 overflow-y-auto p-2 border rounded-md">
@@ -600,9 +600,11 @@ export default function MiqaatManagementPage() {
                                                     </div>
                                                   );
                                               })}
-                                              <Button type="button" size="sm" variant="outline" onClick={() => appendSession({ id: crypto.randomUUID(), day: dayIndex, name: "", startTime: "", endTime: "" })}>
-                                                Add Session for Day {dayIndex}
-                                              </Button>
+                                              {attendanceType === 'multiple' && (
+                                                <Button type="button" size="sm" variant="outline" onClick={() => appendSession({ id: crypto.randomUUID(), day: dayIndex, name: "", startTime: "", endTime: "" })}>
+                                                  Add Session for Day {dayIndex}
+                                                </Button>
+                                              )}
                                               </>
                                        </Card>
                                     );
