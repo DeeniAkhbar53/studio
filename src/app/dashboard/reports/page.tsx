@@ -905,13 +905,13 @@ export default function ReportsPage() {
               </div>
 
 
-              <Button type="submit" disabled={isLoading || isLoadingOptions} className="min-w-[180px]" size="sm">
-                {isLoading || isLoadingOptions ? (
-                  <FunkyLoader size="sm" />
+              <Button type="submit" disabled={isLoading || isLoadingOptions} className="min-w-[180px]">
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Search className="mr-2 h-4 w-4" />
                 )}
-                {isLoading ? "Generating..." : (isLoadingOptions ? "Loading Options..." : "Generate Report") }
+                {isLoading ? "Generating..." : isLoadingOptions ? "Loading Options..." : "Generate Report"}
               </Button>
             </form>
           </Form>
