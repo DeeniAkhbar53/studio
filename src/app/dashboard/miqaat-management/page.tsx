@@ -48,7 +48,7 @@ const formSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   location: z.string().optional(),
   type: z.enum(['local', 'international']).default('local'),
-  attendanceType: z.enum(['single', 'multiple']).optional(),
+  attendanceType: z.enum(['single', 'multiple']).nullable().optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   reportingTime: z.string().optional().nullable(),
@@ -89,8 +89,9 @@ const formSchema = z.object({
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End date is required for International Miqaats.", path: ["endTime"] });
         }
         
-        const dayDifference = differenceInCalendarDays(new Date(data.endTime), new Date(data.startTime));
-        if (dayDifference > 0 && !data.attendanceType) { // Multi-day event
+        const dayDifference = (data.startTime && data.endTime) ? differenceInCalendarDays(new Date(data.endTime), new Date(data.startTime)) : -1;
+        
+        if (dayDifference > 0 && !data.attendanceType) { // Multi-day event requires a type
              ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: "Attendance Type (Single or Multiple) is required for multi-day international miqaats.",
@@ -362,7 +363,8 @@ export default function MiqaatManagementPage() {
 
 
   const handleFormSubmit = async (values: MiqaatFormValues) => {
-    console.log("Form values submitted for validation:", values);
+    console.log("Form data before validation:", JSON.stringify(values, null, 2));
+
     const isSingleDayInternational = values.type === 'international' && internationalMiqaatDays === 1;
 
     let finalSessions = values.sessions || [];
@@ -382,7 +384,7 @@ export default function MiqaatManagementPage() {
       name: values.name,
       location: values.location,
       type: values.type,
-      attendanceType: values.attendanceType,
+      attendanceType: values.attendanceType || undefined,
       startTime: values.startTime!,
       endTime: values.endTime!,
       reportingTime: values.type === 'local' ? values.reportingTime! : undefined,
@@ -673,7 +675,7 @@ export default function MiqaatManagementPage() {
                                   <FormItem className="space-y-3 pt-2">
                                       <ShadFormLabel className="font-semibold">Attendance Type</ShadFormLabel>
                                       <FormControl>
-                                          <RadioGroup onValueChange={field.onChange} value={field.value} className="flex space-x-4">
+                                          <RadioGroup onValueChange={field.onChange} value={field.value || ""} className="flex space-x-4">
                                               <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="single" /></FormControl><ShadFormLabel className="font-normal">Single Daily Check-in</ShadFormLabel></FormItem>
                                               <FormItem className="flex items-center space-x-2"><FormControl><RadioGroupItem value="multiple" /></FormControl><ShadFormLabel className="font-normal">Multiple Sessions per Day</ShadFormLabel></FormItem>
                                           </RadioGroup>
@@ -1162,4 +1164,3 @@ export default function MiqaatManagementPage() {
   );
 }
 
-    
