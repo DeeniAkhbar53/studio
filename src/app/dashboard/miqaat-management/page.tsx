@@ -272,8 +272,8 @@ export default function MiqaatManagementPage() {
         type: editingMiqaat.type || 'local',
         attendanceType: editingMiqaat.attendanceType,
 
-        startTime: editingMiqaat.startTime ? (isInternational ? format(new Date(editingMiqaat.startTime), "yyyy-MM-dd") : toLocalISOString(new Date(editingMiqaat.startTime))) : "",
-        endTime: editingMiqaat.endTime ? (isInternational ? format(new Date(editingMiqaat.endTime), "yyyy-MM-dd") : toLocalISOString(new Date(editingMiqaat.endTime))) : "",
+        startTime: editingMiqaat.startTime ? toLocalISOString(new Date(editingMiqaat.startTime)) : "",
+        endTime: editingMiqaat.endTime ? toLocalISOString(new Date(editingMiqaat.endTime)) : "",
         reportingTime: editingMiqaat.reportingTime || "",
         
         sessions: hasSessions ? editingMiqaat.sessions.map(s => ({ ...s, reportingTime: s.reportingTime || "" })) : [],
@@ -646,12 +646,12 @@ export default function MiqaatManagementPage() {
                        {miqaatType === 'international' && (
                           <div className="p-4 border rounded-md space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <FormField control={form.control} name="startTime" render={({ field }) => (
-                                <FormItem><ShadFormLabel>Start Date</ShadFormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-                              )}/>
-                              <FormField control={form.control} name="endTime" render={({ field }) => (
-                                <FormItem><ShadFormLabel>End Date</ShadFormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-                              )}/>
+                               <FormField control={form.control} name="startTime" render={({ field }) => (
+                                <FormItem><ShadFormLabel>Start Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="endTime" render={({ field }) => (
+                                <FormItem><ShadFormLabel>End Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
                             </div>
                              {internationalMiqaatDays > 0 && (
                                <FormField control={form.control} name="attendanceType" render={({ field }) => (
@@ -1146,5 +1146,3 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
-
-    
