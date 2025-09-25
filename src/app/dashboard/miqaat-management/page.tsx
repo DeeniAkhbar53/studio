@@ -64,6 +64,16 @@ const formSchema = z.object({
     nazrulMaqam: z.boolean().default(false),
   }).default({ fetaPaghri: false, koti: false, nazrulMaqam: false }),
 }).superRefine((data, ctx) => {
+    // Universal check: If start and end times are provided, end must be after start.
+    if (data.startTime && data.endTime && new Date(data.startTime) >= new Date(data.endTime)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "End date/time must be after the start date/time.",
+            path: ["endTime"],
+        });
+    }
+
+    // Type-specific checks
     if (data.type === 'local') {
         if (!data.startTime) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start date and time are required for Local Miqaats.", path: ["startTime"] });
@@ -78,10 +88,15 @@ const formSchema = z.object({
         if (!data.endTime) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End date is required for International Miqaats.", path: ["endTime"] });
         }
-    }
-
-    if (data.startTime && data.endTime && new Date(data.startTime) >= new Date(data.endTime)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End date/time must be after the start date/time.", path: ["endTime"] });
+        
+        const dayDifference = differenceInCalendarDays(new Date(data.endTime), new Date(data.startTime));
+        if (dayDifference > 0 && !data.attendanceType) { // Multi-day event
+             ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Attendance Type (Single or Multiple) is required for multi-day international miqaats.",
+                path: ["attendanceType"],
+            });
+        }
     }
 });
 
@@ -347,6 +362,7 @@ export default function MiqaatManagementPage() {
 
 
   const handleFormSubmit = async (values: MiqaatFormValues) => {
+    console.log("Form values submitted for validation:", values);
     const isSingleDayInternational = values.type === 'international' && internationalMiqaatDays === 1;
 
     let finalSessions = values.sessions || [];
@@ -395,7 +411,8 @@ export default function MiqaatManagementPage() {
   };
   
   const handleFormError = (errors: any) => {
-      console.error("Form validation failed:", errors);
+      console.error("Form validation failed:", JSON.stringify(errors, null, 2));
+      toast({ title: "Validation Error", description: "Please check the form for errors.", variant: "destructive"});
   };
   
   const openDialogForType = (type: 'local' | 'international') => {
