@@ -1135,20 +1135,20 @@ export default function ReportsPage() {
                                 </AccordionTrigger>
                                 <AccordionContent className="space-y-2 pt-2">
                                     <div className="px-2 text-sm text-muted-foreground">
-                                        <p><strong>BGK ID:</strong> {record.bgkId || "N/A"}</p>
-                                        <p><strong>Team:</strong> {record.team || "N/A"}</p>
-                                        <p><strong>Miqaat:</strong> {record.miqaatName}</p>
-                                        <p><strong>Type:</strong> <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></p>
-                                        <p><strong>Session:</strong> {record.sessionName || "N/A"}</p>
-                                        <p><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</p>
+                                        <div><strong>BGK ID:</strong> {record.bgkId || "N/A"}</div>
+                                        <div><strong>Team:</strong> {record.team || "N/A"}</div>
+                                        <div><strong>Miqaat:</strong> {record.miqaatName}</div>
+                                        <div><strong>Type:</strong> <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></div>
+                                        <div><strong>Session:</strong> {record.sessionName || "N/A"}</div>
+                                        <div><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</div>
                                         {(watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
-                                            <p><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</p>
+                                            <div><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</div>
                                         }
                                         {record.uniformCompliance && (
                                             <>
-                                                <p><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri}</p>
-                                                <p><strong>Koti:</strong> {record.uniformCompliance.koti}</p>
-                                                <p><strong>Nazrul Maqam:</strong> {record.uniformCompliance.nazrulMaqam ? `${record.uniformCompliance.nazrulMaqam.amount} ${record.uniformCompliance.nazrulMaqam.currency}` : 'N/A'}</p>
+                                                <div><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri}</div>
+                                                <div><strong>Koti:</strong> {record.uniformCompliance.koti}</div>
+                                                <div><strong>Nazrul Maqam:</strong> {record.uniformCompliance.nazrulMaqam ? `${record.uniformCompliance.nazrulMaqam.amount} ${record.uniformCompliance.nazrulMaqam.currency}` : 'N/A'}</div>
                                             </>
                                         )}
                                     </div>
