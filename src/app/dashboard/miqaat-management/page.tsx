@@ -91,7 +91,7 @@ const formSchema = z.object({
         
         const dayDifference = (data.startTime && data.endTime) ? differenceInCalendarDays(new Date(data.endTime), new Date(data.startTime)) : -1;
         
-        if (dayDifference > 0 && !data.attendanceType) { // Multi-day event requires a type
+        if (dayDifference >= 1 && !data.attendanceType) { // Multi-day event requires a type
              ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: "Attendance Type (Single or Multiple) is required for multi-day international miqaats.",
@@ -317,53 +317,43 @@ export default function MiqaatManagementPage() {
 
     if (type === 'international' && (attendanceType === 'single' || attendanceType === 'multiple') && internationalMiqaatDays > 0) {
       const existingSessions = form.getValues('sessions') || [];
-      const newSessions: MiqaatSession[] = Array.from({ length: internationalMiqaatDays }, (_, i) => {
+      const newSessions: MiqaatSession[] = [];
+
+      for (let i = 0; i < internationalMiqaatDays; i++) {
         const dayNumber = i + 1;
-        const existingDaySession = existingSessions.find(s => s.day === dayNumber);
         const dayDate = addDays(new Date(startTime!), i);
-        
+        const existingDaySessions = existingSessions.filter(s => s.day === dayNumber);
+
         if (attendanceType === 'single') {
-            return existingDaySession || {
-                id: `day-${dayNumber}`,
-                day: dayNumber,
-                name: `Day ${dayNumber}`,
-                startTime: dayDate.toISOString(),
-                endTime: dayDate.toISOString(),
-                reportingTime: ""
-            };
+            if (existingDaySessions.length > 0) {
+                newSessions.push(existingDaySessions[0]); // Keep the first existing one
+            } else {
+                newSessions.push({
+                    id: crypto.randomUUID(), day: dayNumber, name: `Day ${dayNumber}`,
+                    startTime: dayDate.toISOString(), endTime: dayDate.toISOString(), reportingTime: ""
+                });
+            }
+        } else { // multiple
+            if (existingDaySessions.length > 0) {
+                newSessions.push(...existingDaySessions); // Keep all existing sessions for the day
+            } else {
+                // If no sessions exist for this day, create a default one
+                newSessions.push({
+                    id: crypto.randomUUID(), day: dayNumber, name: `Session 1`,
+                    startTime: "", endTime: "", reportingTime: ""
+                });
+            }
         }
-        
-        // For multiple, we just need to ensure the day exists and can be added to.
-        // We will create at least one session if none exist for that day.
-        if (existingDaySession) {
-            return existingDaySession;
-        }
-        return {
-            id: crypto.randomUUID(),
-            day: dayNumber,
-            name: `Session 1`,
-            startTime: "",
-            endTime: "",
-            reportingTime: ""
-        };
-      });
+      }
       
-       if (attendanceType === 'single') {
-            replaceSessions(newSessions);
-       } else {
-            // For multiple, preserve existing sessions for other days not in range
-            const otherDaySessions = existingSessions.filter(s => s.day > internationalMiqaatDays);
-            const combined = [...newSessions, ...otherDaySessions];
-            // Remove duplicates by ID and ensure we only have what's needed
-            const uniqueSessions = Array.from(new Map(combined.map(s => [s.id, s])).values());
-            replaceSessions(uniqueSessions);
-       }
+      const finalSessions = newSessions.filter(s => s.day <= internationalMiqaatDays);
+      replaceSessions(finalSessions);
     }
   }, [miqaatType, attendanceType, startDate, endDate, internationalMiqaatDays, form, replaceSessions]);
 
 
   const handleFormSubmit = async (values: MiqaatFormValues) => {
-    console.log("Form data before validation:", JSON.stringify(values, null, 2));
+    console.log("Form data before submission:", JSON.stringify(values, null, 2));
 
     const isSingleDayInternational = values.type === 'international' && internationalMiqaatDays === 1;
 
@@ -1163,4 +1153,3 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
-
