@@ -107,8 +107,8 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
     
     const firestorePayload: { [key: string]: any } = { ...miqaatData };
 
-     if (miqaatData.startTime) firestorePayload.startTime = new Date(miqaatData.startTime).toISOString();
-     if (miqaatData.endTime) firestorePayload.endTime = new Date(miqaatData.endTime).toISOString();
+     if (miqaatData.startTime) firestorePayload.startTime = miqaatData.startTime;
+     if (miqaatData.endTime) firestorePayload.endTime = miqaatData.endTime;
      
      if (miqaatData.hasOwnProperty('reportingTime')) {
         firestorePayload.reportingTime = miqaatData.reportingTime || null;
