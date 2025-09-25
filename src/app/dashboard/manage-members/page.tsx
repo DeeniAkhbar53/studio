@@ -13,7 +13,7 @@ import type { Mohallah, User, UserRole, UserDesignation, PageRightConfig } from 
 import { PlusCircle, Search, Edit, Trash2, FileUp, Loader2, Users as UsersIcon, Download, AlertTriangle, ChevronLeft, ChevronRight, BellDot, ShieldAlert, Lock, Mail } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
@@ -591,29 +591,45 @@ export default function ManageMembersPage() {
     }
 };
 
-
-  const downloadSampleCsv = () => {
-    const csvHeaders = "name,itsId,email,bgkId,password,team,phoneNumber,role,mohallahName,designation,pageRights,managedTeams\n";
-    const csvDummyData = [
-      "Abbas Bhai,10101010,abbas@example.com,BGK001,,Alpha Team,1234567890,user,Houston,Member,,",
-      "Fatema Ben,20202020,fatema@example.com,,Bravo Team,0987654321,attendance-marker,Dallas,Vice Captain,/dashboard/reports;/dashboard/mark-attendance,Bravo Team;Charlie Team",
-      "Yusuf Bhai,30303030,yusuf@example.com,BGK003,strongpassword,Alpha Team,,admin,Houston,Captain,/dashboard/reports;/dashboard/manage-members,",
-    ].join("\n");
-    const csvContent = csvHeaders + csvDummyData;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute("href", url);
-      link.setAttribute("download", "sample_members_import.csv");
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+  const handleExport = () => {
+    if (filteredMembers.length === 0) {
+      toast({
+        title: "No Data",
+        description: "There are no members to export based on the current filters.",
+        variant: "default"
+      });
+      return;
     }
-     toast({ title: "Sample CSV Downloaded", description: "Replace dummy data. MohallahName must match existing. pageRights/managedTeams are semicolon-separated." });
+
+    const dataToExport = filteredMembers.map(member => ({
+      "Name": member.name,
+      "ITS ID": member.itsId,
+      "BGK ID": member.bgkId || "",
+      "Email": member.email || "",
+      "Phone Number": member.phoneNumber || "",
+      "Mohallah": getMohallahNameById(member.mohallahId) || "",
+      "Team": member.team || "",
+      "Designation": member.designation || "",
+      "Role": member.role
+    }));
+
+    const csv = Papa.unparse(dataToExport);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'members_export.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Export Complete",
+      description: `${filteredMembers.length} member records have been downloaded.`
+    });
   };
-  
+
   const getMohallahNameById = (id?: string) => mohallahs.find(m => m.id === id)?.name || "N/A";
 
   const filteredMembers = useMemo(() => {
@@ -793,8 +809,8 @@ export default function ManageMembersPage() {
                         </AlertContent>
                       </AlertDialog>
                   )}
-                  <Button variant="outline" onClick={downloadSampleCsv} size="sm">
-                      <Download className="mr-2 h-4 w-4" /> CSV
+                  <Button variant="outline" onClick={handleExport} size="sm" disabled={filteredMembers.length === 0}>
+                      <Download className="mr-2 h-4 w-4" /> Export
                   </Button>
                   <Dialog open={isCsvImportDialogOpen} onOpenChange={(open) => { setIsCsvImportDialogOpen(open); if(!open) setSelectedFile(null); }}>
                     <DialogTrigger asChild>
@@ -1481,3 +1497,4 @@ export default function ManageMembersPage() {
   );
 }
 
+    
