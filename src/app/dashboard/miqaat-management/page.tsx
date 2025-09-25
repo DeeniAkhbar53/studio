@@ -66,10 +66,10 @@ const formSchema = z.object({
 }).superRefine((data, ctx) => {
     if (data.type === 'local') {
         if (!data.startTime) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start time is required for Local Miqaats.", path: ["startTime"] });
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start date and time are required for Local Miqaats.", path: ["startTime"] });
         }
         if (!data.endTime) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End time is required for Local Miqaats.", path: ["endTime"] });
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End date and time are required for Local Miqaats.", path: ["endTime"] });
         }
     } else if (data.type === 'international') {
         if (!data.startTime) {
@@ -80,8 +80,8 @@ const formSchema = z.object({
         }
     }
 
-    if (data.startTime && data.endTime && new Date(data.startTime) > new Date(data.endTime)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start date cannot be after end date.", path: ["startTime"] });
+    if (data.startTime && data.endTime && new Date(data.startTime) >= new Date(data.endTime)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End date/time must be after the start date/time.", path: ["endTime"] });
     }
 });
 
