@@ -960,7 +960,7 @@ export default function DashboardOverviewPage() {
        <div className="flex-grow space-y-6">
           {dashboardAlerts.length > 0 && (
               <div className="relative w-full">
-                <Carousel>
+                <Carousel className="w-full">
                     <CarouselContent>
                         {dashboardAlerts.map(alert => (
                             <CarouselItem key={alert.id}>
@@ -968,9 +968,9 @@ export default function DashboardOverviewPage() {
                                     <Alert variant={alert.variant} className="relative">
                                         <alert.icon className="h-4 w-4" />
                                         <AlertTitle>{alert.title}</AlertTitle>
-                                        <AlertDescription className="flex justify-between items-center pr-8">
+                                        <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                                             <span>{alert.description}</span>
-                                            <Button variant={alert.variant} size="sm" onClick={alert.action} className="ml-4">
+                                            <Button variant={alert.variant === 'destructive' ? 'destructive' : 'default'} size="sm" onClick={alert.action} className="mt-2 sm:mt-0 shrink-0">
                                                 {alert.actionLabel}
                                             </Button>
                                         </AlertDescription>
@@ -981,8 +981,8 @@ export default function DashboardOverviewPage() {
                     </CarouselContent>
                     {dashboardAlerts.length > 1 && (
                         <>
-                            <CarouselPrevious className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8 sm:-left-12" />
-                            <CarouselNext className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8 sm:-right-12" />
+                            <CarouselPrevious className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8 sm:-left-4 md:-left-12" />
+                            <CarouselNext className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8 sm:-right-4 md:-right-12" />
                         </>
                     )}
                 </Carousel>
