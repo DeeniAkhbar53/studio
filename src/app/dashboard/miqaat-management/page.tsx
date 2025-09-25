@@ -73,10 +73,6 @@ const formSchema = z.object({
     if (data.startTime && data.endTime && new Date(data.startTime) > new Date(data.endTime)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start date cannot be after end date.", path: ["startTime"] });
     }
-    const isMultiDay = data.startTime && data.endTime && differenceInCalendarDays(new Date(data.endTime), new Date(data.startTime)) > 0;
-    if (data.type === 'international' && isMultiDay && !data.attendanceType) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "For multi-day Miqaats, an attendance type must be selected.", path: ["attendanceType"] });
-    }
 });
 
 
@@ -632,28 +628,20 @@ export default function MiqaatManagementPage() {
                           </FormItem>
                       )}/>
 
-                      {miqaatType === 'local' && (
+                      
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField control={form.control} name="startTime" render={({ field }) => (
-                            <FormItem><ShadFormLabel>Start Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><ShadFormLabel>{miqaatType === 'local' ? 'Start Time' : 'Start Date'}</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name="endTime" render={({ field }) => (
-                            <FormItem><ShadFormLabel>End Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><ShadFormLabel>{miqaatType === 'local' ? 'End Time' : 'End Date'}</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
                             )} />
                         </div>
-                      )}
                       
                        {miqaatType === 'international' && (
                           <div className="p-4 border rounded-md space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                               <FormField control={form.control} name="startTime" render={({ field }) => (
-                                <FormItem><ShadFormLabel>Start Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
-                                )}/>
-                                <FormField control={form.control} name="endTime" render={({ field }) => (
-                                <FormItem><ShadFormLabel>End Time</ShadFormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
-                                )}/>
-                            </div>
-                             {internationalMiqaatDays > 0 && (
+                            
+                             {internationalMiqaatDays > 1 && (
                                <FormField control={form.control} name="attendanceType" render={({ field }) => (
                                   <FormItem className="space-y-3 pt-2">
                                       <ShadFormLabel className="font-semibold">Attendance Type</ShadFormLabel>
