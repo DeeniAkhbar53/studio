@@ -145,41 +145,43 @@ export default function ProfilePage() {
                 
                 const userMap = new Map(allSystemUsers.map(u => [u.itsId, u.name]));
                 const attendedRecords: AttendanceRecord[] = [];
-                const attendedMiqaatIds = new Set<string>();
+                 const attendedMiqaatSessionKeys = new Set<string>();
 
                 allMiqaats.forEach(miqaat => {
-                    const regularEntry = miqaat.attendance?.find(a => a.userItsId === fetchedUser.itsId);
-                    if (regularEntry) {
-                        attendedRecords.push({
-                            id: `${miqaat.id}-${regularEntry.userItsId}`,
-                            miqaatId: miqaat.id,
-                            miqaatName: miqaat.name,
-                            miqaatType: miqaat.type,
-                            userItsId: regularEntry.userItsId,
-                            userName: regularEntry.userName,
-                            markedAt: regularEntry.markedAt,
-                            markedByName: userMap.get(regularEntry.markedByItsId) || regularEntry.markedByItsId,
-                            status: regularEntry.status || 'present',
-                            uniformCompliance: regularEntry.uniformCompliance,
-                        });
-                        attendedMiqaatIds.add(miqaat.id);
-                    }
+                    (miqaat.attendance || []).forEach(entry => {
+                        if (entry.userItsId === fetchedUser.itsId) {
+                            attendedRecords.push({
+                                id: `${miqaat.id}-${entry.userItsId}-${entry.sessionId || 'main'}`,
+                                miqaatId: miqaat.id,
+                                miqaatName: miqaat.name,
+                                miqaatType: miqaat.type,
+                                userItsId: entry.userItsId,
+                                userName: entry.userName,
+                                markedAt: entry.markedAt,
+                                markedByName: userMap.get(entry.markedByItsId) || entry.markedByItsId,
+                                status: entry.status || 'present',
+                                uniformCompliance: entry.uniformCompliance,
+                            });
+                             attendedMiqaatSessionKeys.add(`${miqaat.id}-${entry.sessionId || 'main'}`);
+                        }
+                    });
 
-                    const safarEntry = miqaat.safarList?.find(s => s.userItsId === fetchedUser.itsId);
-                    if (safarEntry) {
-                         attendedRecords.push({
-                            id: `safar-${miqaat.id}-${safarEntry.userItsId}`,
-                            miqaatId: miqaat.id,
-                            miqaatName: miqaat.name,
-                            miqaatType: miqaat.type,
-                            userItsId: safarEntry.userItsId,
-                            userName: safarEntry.userName,
-                            markedAt: safarEntry.markedAt,
-                            markedByName: userMap.get(safarEntry.markedByItsId) || safarEntry.markedByItsId,
-                            status: 'safar',
-                        });
-                        attendedMiqaatIds.add(miqaat.id);
-                    }
+                    (miqaat.safarList || []).forEach(entry => {
+                        if (entry.userItsId === fetchedUser.itsId) {
+                             attendedRecords.push({
+                                id: `safar-${miqaat.id}-${entry.userItsId}-${entry.sessionId || 'main'}`,
+                                miqaatId: miqaat.id,
+                                miqaatName: miqaat.name,
+                                miqaatType: miqaat.type,
+                                userItsId: entry.userItsId,
+                                userName: entry.userName,
+                                markedAt: entry.markedAt,
+                                markedByName: userMap.get(entry.markedByItsId) || entry.markedByItsId,
+                                status: 'safar',
+                            });
+                            attendedMiqaatSessionKeys.add(`${miqaat.id}-${entry.sessionId || 'main'}`);
+                        }
+                    });
                 });
 
                 const eligibleMiqaats = allMiqaats.filter(miqaat => {
@@ -187,24 +189,35 @@ export default function ProfilePage() {
                     const miqaatEndTime = new Date(miqaat.endTime);
                     if (now < miqaatEndTime) return false;
 
-                    const isForEveryone = (!miqaat.mohallahIds || miqaat.mohallahIds.length === 0) && (!miqaat.teams || miqaat.teams.length === 0);
-                    const isInMohallah = fetchedUser.mohallahId && miqaat.mohallahIds?.includes(fetchedUser.mohallahId);
-                    const isInTeam = fetchedUser.team && miqaat.teams?.includes(fetchedUser.team);
-                    return isForEveryone || isInMohallah || isInTeam;
+                    const isForEveryone = !miqaat.mohallahIds?.length && !miqaat.teams?.length && !miqaat.eligibleItsIds?.length;
+                    if (isForEveryone) return true;
+
+                    const eligibleById = !!miqaat.eligibleItsIds?.includes(fetchedUser.itsId);
+                    const eligibleByTeam = !!fetchedUser.team && !!miqaat.teams?.includes(fetchedUser.team);
+                    const eligibleByMohallah = !!fetchedUser.mohallahId && !!miqaat.mohallahIds?.includes(fetchedUser.mohallahId);
+                    return eligibleById || eligibleByTeam || eligibleByMohallah;
                 });
 
-                const absentRecords = eligibleMiqaats
-                    .filter(miqaat => !attendedMiqaatIds.has(miqaat.id))
-                    .map(miqaat => ({
-                        id: `absent-${miqaat.id}-${fetchedUser.itsId}`,
-                        miqaatId: miqaat.id,
-                        miqaatName: miqaat.name,
-                        miqaatType: miqaat.type,
-                        userItsId: fetchedUser.itsId,
-                        userName: fetchedUser.name,
-                        markedAt: miqaat.startTime,
-                        status: 'absent' as const,
-                    }));
+                const absentRecords: AttendanceRecord[] = [];
+                eligibleMiqaats.forEach(miqaat => {
+                    const sessions = (miqaat.sessions && miqaat.sessions.length > 0) ? miqaat.sessions : [{ id: 'main', startTime: miqaat.startTime, name: 'Main Session', day: 1, endTime: miqaat.endTime }];
+                    sessions.forEach(session => {
+                        const sessionKey = `${miqaat.id}-${session.id}`;
+                        if (!attendedMiqaatSessionKeys.has(sessionKey)) {
+                            absentRecords.push({
+                                id: `absent-${sessionKey}-${fetchedUser.itsId}`,
+                                miqaatId: miqaat.id,
+                                miqaatName: miqaat.name,
+                                miqaatType: miqaat.type,
+                                userItsId: fetchedUser.itsId,
+                                userName: fetchedUser.name,
+                                markedAt: session.startTime,
+                                status: 'absent' as const,
+                            });
+                        }
+                    });
+                });
+
 
                 const combinedHistory = [...attendedRecords, ...absentRecords];
                 combinedHistory.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());

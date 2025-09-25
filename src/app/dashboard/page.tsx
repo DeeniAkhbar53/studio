@@ -341,15 +341,11 @@ export default function DashboardOverviewPage() {
             return isForEveryone;
         });
 
-        const attendedItsIds = new Set(latestMiqaat.attendance?.flatMap(a => a.sessionId ? `${a.userItsId}-${a.sessionId}`: a.userItsId));
-        
+        const attendedItsIds = new Set(latestMiqaat.attendance?.map(a => a.userItsId) || []);
+        const safarItsIds = new Set(latestMiqaat.safarList?.map(s => s.userItsId) || []);
+
         const absentMembers = eligibleTeamMembers.filter(member => {
-            if (latestMiqaat.type === 'international' && latestMiqaat.sessions && latestMiqaat.sessions.length > 0) {
-                // For international, check if absent from ALL sessions
-                return latestMiqaat.sessions.every(session => !attendedItsIds.has(`${member.itsId}-${session.id}`));
-            } else {
-                return !attendedItsIds.has(member.itsId);
-            }
+            return !attendedItsIds.has(member.itsId) && !safarItsIds.has(member.itsId);
         });
 
         if (absentMembers.length > 0) {
