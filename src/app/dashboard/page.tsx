@@ -980,8 +980,8 @@ export default function DashboardOverviewPage() {
                   </CarouselContent>
                    {dashboardAlerts.length > 1 && (
                       <>
-                        <CarouselPrevious className="left-2" />
-                        <CarouselNext className="right-2" />
+                        <CarouselPrevious className="h-6 w-6 sm:h-8 sm:w-8 left-1 sm:left-2" />
+                        <CarouselNext className="h-6 w-6 sm:h-8 sm:w-8 right-1 sm:right-2" />
                       </>
                    )}
               </Carousel>
