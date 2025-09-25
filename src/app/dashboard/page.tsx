@@ -288,12 +288,14 @@ export default function DashboardOverviewPage() {
         const now = new Date();
         const pastMiqaats = allMiqaatsList
             .filter(m => new Date(m.endTime) < now)
-            .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime());
+            .sort((a, b) => new Date(b.endTime).getTime() - new Date(a.startTime).getTime());
 
         if (pastMiqaats.length === 0) {
             setIsLoadingAbsentees(false);
             return;
         }
+
+        const latestMiqaat = pastMiqaats[0];
         
         const allUsers = await getUsers();
         let baseVisibleUsers: User[];
@@ -319,44 +321,39 @@ export default function DashboardOverviewPage() {
             return;
         }
 
-        for (const miqaat of pastMiqaats) {
-            const isForEveryone = (!miqaat.mohallahIds || miqaat.mohallahIds.length === 0) && (!miqaat.teams || miqaat.teams.length === 0) && (!miqaat.eligibleItsIds || miqaat.eligibleItsIds.length === 0);
-            
-            const eligibleTeamMembers = baseVisibleUsers.filter(member => {
-                if (miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0) {
-                    return miqaat.eligibleItsIds.includes(member.itsId);
-                }
-                if(isForEveryone) return true;
-                let isEligible = false;
-                if (miqaat.mohallahIds && miqaat.mohallahIds.length > 0) {
-                    isEligible = isEligible || (!!member.mohallahId && miqaat.mohallahIds.includes(member.mohallahId));
-                }
-                if (miqaat.teams && miqaat.teams.length > 0) {
-                    isEligible = isEligible || (!!member.team && miqaat.teams.includes(member.team));
-                }
-                if ((miqaat.mohallahIds?.length || 0) + (miqaat.teams?.length || 0) > 0) {
-                  return isEligible;
-                }
-                return isForEveryone;
-            });
-
-            const attendedItsIds = new Set(miqaat.attendance?.flatMap(a => a.sessionId ? `${a.userItsId}-${a.sessionId}`: a.userItsId));
-            const safarItsIds = new Set(miqaat.safarList?.map(s => s.userItsId) || []);
-
-            const absentMembers = eligibleTeamMembers.filter(member => {
-                if (safarItsIds.has(member.itsId)) return false;
-                if (miqaat.type === 'international' && miqaat.sessions && miqaat.sessions.length > 0) {
-                    // For international, check if absent from ALL sessions
-                    return miqaat.sessions.every(session => !attendedItsIds.has(`${member.itsId}-${session.id}`));
-                } else {
-                    return !attendedItsIds.has(member.itsId);
-                }
-            });
-
-
-            if (absentMembers.length > 0) {
-                newAbsenteeData.set(miqaat.id, { miqaatName: miqaat.name, absentees: absentMembers });
+        const isForEveryone = (!latestMiqaat.mohallahIds || latestMiqaat.mohallahIds.length === 0) && (!latestMiqaat.teams || latestMiqaat.teams.length === 0) && (!latestMiqaat.eligibleItsIds || latestMiqaat.eligibleItsIds.length === 0);
+        
+        const eligibleTeamMembers = baseVisibleUsers.filter(member => {
+            if (latestMiqaat.eligibleItsIds && latestMiqaat.eligibleItsIds.length > 0) {
+                return latestMiqaat.eligibleItsIds.includes(member.itsId);
             }
+            if(isForEveryone) return true;
+            let isEligible = false;
+            if (latestMiqaat.mohallahIds && latestMiqaat.mohallahIds.length > 0) {
+                isEligible = isEligible || (!!member.mohallahId && latestMiqaat.mohallahIds.includes(member.mohallahId));
+            }
+            if (latestMiqaat.teams && latestMiqaat.teams.length > 0) {
+                isEligible = isEligible || (!!member.team && latestMiqaat.teams.includes(member.team));
+            }
+            if ((latestMiqaat.mohallahIds?.length || 0) + (latestMiqaat.teams?.length || 0) > 0) {
+              return isEligible;
+            }
+            return isForEveryone;
+        });
+
+        const attendedItsIds = new Set(latestMiqaat.attendance?.flatMap(a => a.sessionId ? `${a.userItsId}-${a.sessionId}`: a.userItsId));
+        
+        const absentMembers = eligibleTeamMembers.filter(member => {
+            if (latestMiqaat.type === 'international' && latestMiqaat.sessions && latestMiqaat.sessions.length > 0) {
+                // For international, check if absent from ALL sessions
+                return latestMiqaat.sessions.every(session => !attendedItsIds.has(`${member.itsId}-${session.id}`));
+            } else {
+                return !attendedItsIds.has(member.itsId);
+            }
+        });
+
+        if (absentMembers.length > 0) {
+            newAbsenteeData.set(latestMiqaat.id, { miqaatName: latestMiqaat.name, absentees: absentMembers });
         }
         setAbsenteeData(newAbsenteeData);
 
