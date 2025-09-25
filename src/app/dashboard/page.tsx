@@ -959,32 +959,34 @@ export default function DashboardOverviewPage() {
     <div className="flex flex-col h-full">
        <div className="flex-grow space-y-6">
           {dashboardAlerts.length > 0 && (
-              <Carousel className="w-full">
-                  <CarouselContent>
-                      {dashboardAlerts.map(alert => (
-                          <CarouselItem key={alert.id}>
-                              <div className="p-1">
-                                  <Alert variant={alert.variant} className="relative">
-                                      <alert.icon className="h-4 w-4" />
-                                      <AlertTitle>{alert.title}</AlertTitle>
-                                      <AlertDescription className="flex justify-between items-center pr-8">
-                                          <span>{alert.description}</span>
-                                          <Button variant={alert.variant} size="sm" onClick={alert.action} className="ml-4">
-                                              {alert.actionLabel}
-                                          </Button>
-                                      </AlertDescription>
-                                  </Alert>
-                              </div>
-                          </CarouselItem>
-                      ))}
-                  </CarouselContent>
-                   {dashboardAlerts.length > 1 && (
-                      <>
-                        <CarouselPrevious className="h-6 w-6 left-1 sm:h-8 sm:w-8 sm:-left-12" />
-                        <CarouselNext className="h-6 w-6 right-1 sm:h-8 sm:w-8 sm:-right-12" />
-                      </>
-                   )}
-              </Carousel>
+              <div className="relative w-full">
+                <Carousel>
+                    <CarouselContent>
+                        {dashboardAlerts.map(alert => (
+                            <CarouselItem key={alert.id}>
+                                <div className="p-1">
+                                    <Alert variant={alert.variant} className="relative">
+                                        <alert.icon className="h-4 w-4" />
+                                        <AlertTitle>{alert.title}</AlertTitle>
+                                        <AlertDescription className="flex justify-between items-center pr-8">
+                                            <span>{alert.description}</span>
+                                            <Button variant={alert.variant} size="sm" onClick={alert.action} className="ml-4">
+                                                {alert.actionLabel}
+                                            </Button>
+                                        </AlertDescription>
+                                    </Alert>
+                                </div>
+                            </CarouselItem>
+                        ))}
+                    </CarouselContent>
+                    {dashboardAlerts.length > 1 && (
+                        <>
+                            <CarouselPrevious className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8 sm:-left-12" />
+                            <CarouselNext className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8 sm:-right-12" />
+                        </>
+                    )}
+                </Carousel>
+              </div>
           )}
       
         <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
