@@ -64,12 +64,22 @@ const formSchema = z.object({
     nazrulMaqam: z.boolean().default(false),
   }).default({ fetaPaghri: false, koti: false, nazrulMaqam: false }),
 }).superRefine((data, ctx) => {
-    if (data.type === 'local' && (!data.startTime || !data.endTime)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start and End time are required for Local Miqaats.", path: ["startTime"] });
+    if (data.type === 'local') {
+        if (!data.startTime) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start time is required for Local Miqaats.", path: ["startTime"] });
+        }
+        if (!data.endTime) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End time is required for Local Miqaats.", path: ["endTime"] });
+        }
+    } else if (data.type === 'international') {
+        if (!data.startTime) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start date is required for International Miqaats.", path: ["startTime"] });
+        }
+        if (!data.endTime) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "End date is required for International Miqaats.", path: ["endTime"] });
+        }
     }
-    if (data.type === 'international' && (!data.startTime || !data.endTime)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start and End date are required for International Miqaats.", path: ["startTime"] });
-    }
+
     if (data.startTime && data.endTime && new Date(data.startTime) > new Date(data.endTime)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Start date cannot be after end date.", path: ["startTime"] });
     }
