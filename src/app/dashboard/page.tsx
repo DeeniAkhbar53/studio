@@ -20,6 +20,13 @@ import {
   ChartLegend,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselPrevious,
+  CarouselNext,
+} from "@/components/ui/carousel";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -52,6 +59,17 @@ interface ScanDisplayMessage {
   miqaatName?: string;
   time?: string;
   status?: 'present' | 'late' | 'early';
+}
+
+interface DashboardAlert {
+    id: string;
+    type: 'miqaat' | 'form-non-respondent' | 'form-pending';
+    title: string;
+    description: string;
+    action: () => void;
+    actionLabel: string;
+    variant: 'destructive' | 'default';
+    icon: React.ElementType;
 }
 
 const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
@@ -100,15 +118,15 @@ export default function DashboardOverviewPage() {
     forms: true,
   });
 
-  const [allMiqaatsList, setAllMiqaatsList] = useState<Pick<Miqaat, "id" | "name" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "attendanceRequirements">[]>([]);
+  const [allMiqaatsList, setAllMiqaatsList] = useState<Pick<Miqaat, "id" | "name" | "type" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "attendanceRequirements" | "sessions">[]>([]);
   const [allForms, setAllForms] = useState<FormType[]>([]);
 
 
   // Absentee Notification State
-  const [absenteeData, setAbsenteeData] = useState<{ miqaatName: string; absentees: User[] } | null>(null);
+  const [absenteeData, setAbsenteeData] = useState<Map<string, { miqaatName: string; absentees: User[] }>>(new Map());
   const [isAbsenteeSheetOpen, setIsAbsenteeSheetOpen] = useState(false);
   const [isLoadingAbsentees, setIsLoadingAbsentees] = useState(false);
-  const [isAbsenteeAlertOpen, setIsAbsenteeAlertOpen] = useState(true);
+  const [selectedMiqaatForAbsentees, setSelectedMiqaatForAbsentees] = useState<string | null>(null);
   
   // Non-Respondent Form State (New logic)
   const [formsWithNonRespondents, setFormsWithNonRespondents] = useState<FormType[]>([]);
@@ -116,13 +134,13 @@ export default function DashboardOverviewPage() {
   const [nonRespondentList, setNonRespondentList] = useState<User[]>([]);
   const [isNonRespondentSheetOpen, setIsNonRespondentSheetOpen] = useState(false);
   const [isLoadingNonRespondents, setIsLoadingNonRespondents] = useState(false);
-  const [isNonRespondentAlertOpen, setIsNonRespondentAlertOpen] = useState(true);
 
   // Pending Forms State
   const [pendingForms, setPendingForms] = useState<FormType[]>([]);
   const [isPendingFormsSheetOpen, setIsPendingFormsSheetOpen] = useState(false);
   const [isLoadingPendingForms, setIsLoadingPendingForms] = useState(false);
-  const [isPendingFormsAlertOpen, setIsPendingFormsAlertOpen] = useState(true);
+  
+  const [dashboardAlerts, setDashboardAlerts] = useState<DashboardAlert[]>([]);
 
 
   const [isScannerDialogOpen, setIsScannerDialogOpen] = useState(false);
@@ -264,7 +282,8 @@ export default function DashboardOverviewPage() {
 
     const checkAbsentees = async () => {
       setIsLoadingAbsentees(true);
-      setAbsenteeData(null);
+      const newAbsenteeData = new Map<string, { miqaatName: string; absentees: User[] }>();
+      
       try {
         const now = new Date();
         const pastMiqaats = allMiqaatsList
@@ -275,8 +294,6 @@ export default function DashboardOverviewPage() {
             setIsLoadingAbsentees(false);
             return;
         }
-
-        const lastMiqaat = pastMiqaats[0];
         
         const allUsers = await getUsers();
         let baseVisibleUsers: User[];
@@ -294,43 +311,54 @@ export default function DashboardOverviewPage() {
         } else if (currentUser.designation && GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
             baseVisibleUsers = allUsers.filter(u => u.team === currentUser.team && u.mohallahId === currentUser.mohallahId);
         } else {
-            setIsLoadingAbsentees(false);
-            return; // Not a role that should see this alert
+             baseVisibleUsers = [];
         }
-
 
         if(baseVisibleUsers.length === 0) {
             setIsLoadingAbsentees(false);
             return;
         }
-        
-        const isForEveryone = (!lastMiqaat.mohallahIds || lastMiqaat.mohallahIds.length === 0) && (!lastMiqaat.teams || lastMiqaat.teams.length === 0) && (!lastMiqaat.eligibleItsIds || lastMiqaat.eligibleItsIds.length === 0);
-        
-        const eligibleTeamMembers = baseVisibleUsers.filter(member => {
-            if (lastMiqaat.eligibleItsIds && lastMiqaat.eligibleItsIds.length > 0) {
-                return lastMiqaat.eligibleItsIds.includes(member.itsId);
-            }
-            if(isForEveryone) return true;
-            let isEligible = false;
-            if (lastMiqaat.mohallahIds && lastMiqaat.mohallahIds.length > 0) {
-                isEligible = isEligible || (!!member.mohallahId && lastMiqaat.mohallahIds.includes(member.mohallahId));
-            }
-            if (lastMiqaat.teams && lastMiqaat.teams.length > 0) {
-                isEligible = isEligible || (!!member.team && lastMiqaat.teams.includes(member.team));
-            }
-            if ((lastMiqaat.mohallahIds?.length || 0) + (lastMiqaat.teams?.length || 0) > 0) {
-              return isEligible;
-            }
-            return isForEveryone;
-        });
 
-        const attendedItsIds = new Set(lastMiqaat.attendance?.map(a => a.userItsId) || []);
-        
-        const absentMembers = eligibleTeamMembers.filter(member => !attendedItsIds.has(member.itsId));
+        for (const miqaat of pastMiqaats) {
+            const isForEveryone = (!miqaat.mohallahIds || miqaat.mohallahIds.length === 0) && (!miqaat.teams || miqaat.teams.length === 0) && (!miqaat.eligibleItsIds || miqaat.eligibleItsIds.length === 0);
+            
+            const eligibleTeamMembers = baseVisibleUsers.filter(member => {
+                if (miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0) {
+                    return miqaat.eligibleItsIds.includes(member.itsId);
+                }
+                if(isForEveryone) return true;
+                let isEligible = false;
+                if (miqaat.mohallahIds && miqaat.mohallahIds.length > 0) {
+                    isEligible = isEligible || (!!member.mohallahId && miqaat.mohallahIds.includes(member.mohallahId));
+                }
+                if (miqaat.teams && miqaat.teams.length > 0) {
+                    isEligible = isEligible || (!!member.team && miqaat.teams.includes(member.team));
+                }
+                if ((miqaat.mohallahIds?.length || 0) + (miqaat.teams?.length || 0) > 0) {
+                  return isEligible;
+                }
+                return isForEveryone;
+            });
 
-        if (absentMembers.length > 0) {
-            setAbsenteeData({ miqaatName: lastMiqaat.name, absentees: absentMembers });
+            const attendedItsIds = new Set(miqaat.attendance?.flatMap(a => a.sessionId ? `${a.userItsId}-${a.sessionId}`: a.userItsId));
+            const safarItsIds = new Set(miqaat.safarList?.map(s => s.userItsId) || []);
+
+            const absentMembers = eligibleTeamMembers.filter(member => {
+                if (safarItsIds.has(member.itsId)) return false;
+                if (miqaat.type === 'international' && miqaat.sessions && miqaat.sessions.length > 0) {
+                    // For international, check if absent from ALL sessions
+                    return miqaat.sessions.every(session => !attendedItsIds.has(`${member.itsId}-${session.id}`));
+                } else {
+                    return !attendedItsIds.has(member.itsId);
+                }
+            });
+
+
+            if (absentMembers.length > 0) {
+                newAbsenteeData.set(miqaat.id, { miqaatName: miqaat.name, absentees: absentMembers });
+            }
         }
+        setAbsenteeData(newAbsenteeData);
 
       } catch (error) {
         console.error("Error checking for team absentees:", error);
@@ -496,6 +524,56 @@ export default function DashboardOverviewPage() {
     checkPendingForms();
 
   }, [isLoadingUser, currentUser, allForms]);
+  
+  useEffect(() => {
+    const alerts: DashboardAlert[] = [];
+    
+    if (isTeamLead && !isLoadingAbsentees && absenteeData.size > 0) {
+        absenteeData.forEach((data, miqaatId) => {
+            alerts.push({
+                id: `miqaat-${miqaatId}`,
+                type: 'miqaat',
+                title: 'Miqaat Attendance Alert',
+                description: `For ${data.miqaatName}, you have ${data.absentees.length} absent member(s).`,
+                action: () => {
+                    setSelectedMiqaatForAbsentees(miqaatId);
+                    setIsAbsenteeSheetOpen(true);
+                },
+                actionLabel: "View List",
+                variant: 'destructive',
+                icon: UserX,
+            });
+        });
+    }
+
+    if (isTeamLead && !isLoadingNonRespondents && formsWithNonRespondents.length > 0) {
+        alerts.push({
+            id: 'form-non-respondents',
+            type: 'form-non-respondent',
+            title: 'Form Non-Respondent Alert',
+            description: `You have non-respondents for ${formsWithNonRespondents.length} active form(s).`,
+            action: () => setIsNonRespondentSheetOpen(true),
+            actionLabel: "View Details",
+            variant: 'default',
+            icon: FileText
+        });
+    }
+    
+    if (!isTeamLead && !isLoadingPendingForms && pendingForms.length > 0) {
+         alerts.push({
+            id: 'form-pending',
+            type: 'form-pending',
+            title: 'Pending Forms',
+            description: `You have ${pendingForms.length} form(s) that need to be filled out.`,
+            action: () => setIsPendingFormsSheetOpen(true),
+            actionLabel: "View Forms",
+            variant: 'default',
+            icon: FileText
+        });
+    }
+
+    setDashboardAlerts(alerts);
+  }, [isTeamLead, isLoadingAbsentees, absenteeData, isLoadingNonRespondents, formsWithNonRespondents, isLoadingPendingForms, pendingForms]);
 
 
   const handleQrCodeScanned = useCallback(async (decodedText: string) => {
@@ -561,8 +639,18 @@ export default function DashboardOverviewPage() {
       setIsScannerDialogOpen(false);
       return;
     }
+    
+    const sessions = targetMiqaat.sessions && targetMiqaat.sessions.length > 0 ? targetMiqaat.sessions : [{ id: 'main', startTime: targetMiqaat.startTime, endTime: targetMiqaat.endTime, reportingTime: targetMiqaat.reportingTime, name: 'Main Session', day: 1 }];
+    const currentSession = sessions.find(s => now >= new Date(s.startTime) && now <= new Date(s.endTime));
 
-    const alreadyMarked = targetMiqaat.attendance?.some(entry => entry.userItsId === currentUserItsId);
+    if (!currentSession) {
+        setScanDisplayMessage({ type: 'error', text: `No active session found for ${targetMiqaat.name} at this time.` });
+        setIsProcessingScan(false);
+        setIsScannerDialogOpen(false);
+        return;
+    }
+
+    const alreadyMarked = targetMiqaat.attendance?.some(entry => entry.userItsId === currentUserItsId && entry.sessionId === currentSession.id);
     if (alreadyMarked) {
       const existingEntry = targetMiqaat.attendance?.find(entry => entry.userItsId === currentUserItsId);
       setScanDisplayMessage({ type: 'info', text: `Already marked for ${targetMiqaat.name} (${existingEntry?.status || 'present'}).`, miqaatName: targetMiqaat.name, time: format(new Date(existingEntry?.markedAt || Date.now()), "PPp"), status: existingEntry?.status });
@@ -572,12 +660,12 @@ export default function DashboardOverviewPage() {
     }
 
     
-    const miqaatReportingTime = targetMiqaat.reportingTime ? new Date(targetMiqaat.reportingTime) : null;
+    const sessionReportingTime = currentSession.reportingTime ? new Date(currentSession.reportingTime) : new Date(currentSession.startTime);
     
     let attendanceStatus: 'early' | 'present' | 'late';
-    if (miqaatReportingTime && now < miqaatReportingTime) {
+    if (now < sessionReportingTime) {
       attendanceStatus = 'early';
-    } else if (now > miqaatEndTime) {
+    } else if (now > new Date(currentSession.endTime)) {
       attendanceStatus = 'late';
     } else {
       attendanceStatus = 'present';
@@ -587,6 +675,7 @@ export default function DashboardOverviewPage() {
       const attendanceEntry: MiqaatAttendanceEntryItem = {
         userItsId: currentUserItsId,
         userName: currentUserName,
+        sessionId: currentSession.id,
         markedAt: now.toISOString(),
         markedByItsId: currentUserItsId,
         status: attendanceStatus,
@@ -857,11 +946,6 @@ export default function DashboardOverviewPage() {
       statsToDisplay.splice(4, 2);
   }
 
-  const shouldRenderMiqaatAlert = isTeamLead && !isLoadingAbsentees && (absenteeData && isAbsenteeAlertOpen);
-  const shouldRenderFormAlert = pendingForms.length > 0 && isPendingFormsAlertOpen && !isTeamLead;
-  const shouldRenderNonRespondentAlert = isTeamLead && !isLoadingNonRespondents && formsWithNonRespondents.length > 0 && isNonRespondentAlertOpen;
-
-
   if (isLoadingUser && !currentUserItsId) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center h-full">
@@ -877,60 +961,34 @@ export default function DashboardOverviewPage() {
   return (
     <div className="flex flex-col h-full">
        <div className="flex-grow space-y-6">
-          {(shouldRenderMiqaatAlert || shouldRenderFormAlert || shouldRenderNonRespondentAlert) && (
-          <div className="space-y-4">
-            {shouldRenderMiqaatAlert && absenteeData && (
-              <Alert variant="destructive" className="relative">
-                <UserX className="h-4 w-4" />
-                <AlertTitle>Miqaat Attendance Alert</AlertTitle>
-                <AlertDescription className="flex justify-between items-center pr-8">
-                  <span>
-                    For <span className="font-semibold">{absenteeData.miqaatName}</span>, you have <span className="font-bold">{absenteeData.absentees.length}</span> absent member(s).
-                  </span>
-                  <Button variant="destructive" size="sm" onClick={() => setIsAbsenteeSheetOpen(true)} className="ml-4">View List</Button>
-                </AlertDescription>
-                <button onClick={() => setIsAbsenteeAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-destructive/70 hover:text-destructive hover:bg-destructive/10">
-                  <X className="h-4 w-4" />
-                  <span className="sr-only">Close</span>
-                </button>
-              </Alert>
-            )}
-
-            {shouldRenderNonRespondentAlert && (
-              <Alert variant="default" className="relative border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-200 dark:border-amber-500/30">
-                <FileText className="h-4 w-4 text-amber-700 dark:text-amber-300" />
-                <AlertTitle className="text-amber-800 dark:text-amber-200">Form Non-Respondent Alert</AlertTitle>
-                <AlertDescription className="flex justify-between items-center pr-8 text-amber-700 dark:text-amber-300">
-                  <span>
-                    You have non-respondents for <span className="font-bold">{formsWithNonRespondents.length}</span> active form(s).
-                  </span>
-                  <Button variant="outline" size="sm" onClick={() => setIsNonRespondentSheetOpen(true)} className="ml-4 border-amber-500/50 hover:bg-amber-500/20">View List</Button>
-                </AlertDescription>
-                <button onClick={() => setIsNonRespondentAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-amber-700/70 hover:text-amber-700 hover:bg-amber-500/10">
-                  <X className="h-4 w-4" />
-                  <span className="sr-only">Close</span>
-                </button>
-              </Alert>
-            )}
-            
-            {shouldRenderFormAlert && (
-               <Alert variant="default" className="relative border-blue-500/50 bg-blue-500/10 text-blue-800 dark:text-blue-200 dark:border-blue-500/30">
-                <FileText className="h-4 w-4 text-blue-700 dark:text-blue-300" />
-                <AlertTitle className="text-blue-800 dark:text-blue-200">Pending Forms</AlertTitle>
-                <AlertDescription className="flex justify-between items-center pr-8 text-blue-700 dark:text-blue-300">
-                  <span>
-                    You have <span className="font-bold">{pendingForms.length}</span> form(s) that need to be filled out.
-                  </span>
-                  <Button variant="outline" size="sm" onClick={() => setIsPendingFormsSheetOpen(true)} className="ml-4 border-blue-500/50 hover:bg-blue-500/20">View Forms</Button>
-                </AlertDescription>
-                <button onClick={() => setIsPendingFormsAlertOpen(false)} className="absolute top-2 right-2 p-1 rounded-full text-blue-700/70 hover:text-blue-700 hover:bg-blue-500/10">
-                  <X className="h-4 w-4" />
-                  <span className="sr-only">Close</span>
-                </button>
-              </Alert>
-            )}
-          </div>
-        )}
+          {dashboardAlerts.length > 0 && (
+              <Carousel className="w-full">
+                  <CarouselContent>
+                      {dashboardAlerts.map(alert => (
+                          <CarouselItem key={alert.id}>
+                              <div className="p-1">
+                                  <Alert variant={alert.variant} className="relative">
+                                      <alert.icon className="h-4 w-4" />
+                                      <AlertTitle>{alert.title}</AlertTitle>
+                                      <AlertDescription className="flex justify-between items-center pr-8">
+                                          <span>{alert.description}</span>
+                                          <Button variant={alert.variant} size="sm" onClick={alert.action} className="ml-4">
+                                              {alert.actionLabel}
+                                          </Button>
+                                      </AlertDescription>
+                                  </Alert>
+                              </div>
+                          </CarouselItem>
+                      ))}
+                  </CarouselContent>
+                   {dashboardAlerts.length > 1 && (
+                      <>
+                        <CarouselPrevious className="left-2" />
+                        <CarouselNext className="right-2" />
+                      </>
+                   )}
+              </Carousel>
+          )}
       
         <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardHeader>
@@ -1126,15 +1184,15 @@ export default function DashboardOverviewPage() {
       <Sheet open={isAbsenteeSheetOpen} onOpenChange={setIsAbsenteeSheetOpen}>
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>Absentee List for {absenteeData?.miqaatName}</SheetTitle>
+            <SheetTitle>Absentee List for {selectedMiqaatForAbsentees ? absenteeData.get(selectedMiqaatForAbsentees)?.miqaatName : ''}</SheetTitle>
             <SheetDescription>
               The following members from your team(s) were marked absent.
             </SheetDescription>
           </SheetHeader>
           <div className="max-h-[80vh] overflow-y-auto my-4 pr-4">
-            {absenteeData && absenteeData.absentees.length > 0 ? (
+            {selectedMiqaatForAbsentees && absenteeData.get(selectedMiqaatForAbsentees) && absenteeData.get(selectedMiqaatForAbsentees)!.absentees.length > 0 ? (
               <ul className="space-y-2">
-                {absenteeData.absentees.map(member => (
+                {absenteeData.get(selectedMiqaatForAbsentees)!.absentees.map(member => (
                   <li key={member.id} className="flex justify-between items-center p-2 rounded-md border">
                     <div>
                         <p className="font-medium">{member.name}</p>
@@ -1264,5 +1322,3 @@ export default function DashboardOverviewPage() {
     </div>
   );
 }
-
-    
