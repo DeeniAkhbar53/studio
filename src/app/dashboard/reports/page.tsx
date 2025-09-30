@@ -686,28 +686,16 @@ export default function ReportsPage() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-                <FormItem>
-                    <FormLabel>Miqaat Type</FormLabel>
-                    <RadioGroup
-                        value={miqaatTypeFilter}
-                        onValueChange={(value) => {
-                            setMiqaatTypeFilter(value as 'local' | 'international' | 'all');
-                            form.setValue('miqaatId', ''); // Reset miqaat selection
-                        }}
-                        className="flex space-x-4 pt-2"
-                    >
-                        <FormItem className="flex items-center space-x-2"><RadioGroupItem value="all" id="all-filter" /><Label htmlFor="all-filter">All</Label></FormItem>
-                        <FormItem className="flex items-center space-x-2"><RadioGroupItem value="local" id="local-filter" /><Label htmlFor="local-filter">Local</Label></FormItem>
-                        <FormItem className="flex items-center space-x-2"><RadioGroupItem value="international" id="international-filter" /><Label htmlFor="international-filter">International</Label></FormItem>
-                    </RadioGroup>
-                </FormItem>
                 <FormField
                   control={form.control}
                   name="reportType"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Report Type</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={(value) => {
+                        field.onChange(value);
+                        form.setValue('miqaatId', ''); // Reset miqaat on report type change
+                      }} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select a report type" />
@@ -726,6 +714,24 @@ export default function ReportsPage() {
                   )}
                 />
                 
+                {watchedReportType && (
+                  <FormItem>
+                      <FormLabel>Miqaat Type</FormLabel>
+                      <RadioGroup
+                          value={miqaatTypeFilter}
+                          onValueChange={(value) => {
+                              setMiqaatTypeFilter(value as 'local' | 'international' | 'all');
+                              form.setValue('miqaatId', ''); // Reset miqaat selection
+                          }}
+                          className="flex space-x-4 pt-2"
+                      >
+                          <FormItem className="flex items-center space-x-2"><RadioGroupItem value="all" id="all-filter" /><Label htmlFor="all-filter">All</Label></FormItem>
+                          <FormItem className="flex items-center space-x-2"><RadioGroupItem value="local" id="local-filter" /><Label htmlFor="local-filter">Local</Label></FormItem>
+                          <FormItem className="flex items-center space-x-2"><RadioGroupItem value="international" id="international-filter" /><Label htmlFor="international-filter">International</Label></FormItem>
+                      </RadioGroup>
+                  </FormItem>
+                )}
+
                 {(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && (
                     <FormField
                       control={form.control}
