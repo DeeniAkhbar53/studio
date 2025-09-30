@@ -40,8 +40,8 @@ export type MiqaatAttendanceEntryItem = {
   uniformCompliance?: {
       fetaPaghri?: 'yes' | 'no' | 'safar';
       koti?: 'yes' | 'no' | 'safar';
-      uniform?: 'yes' | 'no' | 'safar';
-      shoes?: 'yes' | 'no' | 'safar';
+      uniform?: 'proper' | 'improper';
+      shoes?: 'proper' | 'improper';
       nazrulMaqam?: {
           amount: number;
           currency: string;
@@ -210,5 +210,3 @@ export interface SystemLog {
     context?: string; // stringified JSON
     timestamp: string; // ISO string
 }
-
-    

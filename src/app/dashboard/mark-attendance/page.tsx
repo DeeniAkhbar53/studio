@@ -26,6 +26,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 type UniformComplianceState = {
     fetaPaghri: 'yes' | 'no' | 'safar';
     koti: 'yes' | 'no' | 'safar';
+    uniform: 'proper' | 'improper';
+    shoes: 'proper' | 'improper';
     nazrulMaqam?: {
       amount: number;
       currency: string;
@@ -88,7 +90,7 @@ export default function MarkAttendancePage() {
   // State for uniform check dialog
   const [isComplianceDialogOpen, setIsComplianceDialogOpen] = useState(false);
   const [memberForComplianceCheck, setMemberForComplianceCheck] = useState<User | null>(null);
-  const [complianceState, setComplianceState] = useState<UniformComplianceState>({ fetaPaghri: 'no', koti: 'no' });
+  const [complianceState, setComplianceState] = useState<UniformComplianceState>({ fetaPaghri: 'no', koti: 'no', uniform: 'improper', shoes: 'improper' });
   const [nazrulMaqamAmount, setNazrulMaqamAmount] = useState("");
   const [nazrulMaqamCurrency, setNazrulMaqamCurrency] = useState("USD");
 
@@ -283,7 +285,7 @@ export default function MarkAttendancePage() {
         eligibleItsIds: m.eligibleItsIds || [],
         attendance: m.attendance || [],
         safarList: m.safarList || [],
-        attendanceRequirements: m.attendanceRequirements || { fetaPaghri: false, koti: false, nazrulMaqam: false },
+        attendanceRequirements: m.attendanceRequirements || { fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false },
       })));
       setIsLoadingMiqaats(false);
     });
@@ -425,8 +427,8 @@ export default function MarkAttendancePage() {
     }
     
     const reqs = selectedMiqaatDetails.attendanceRequirements;
-    if (reqs && (reqs.fetaPaghri || reqs.koti || reqs.nazrulMaqam)) {
-      setComplianceState({ fetaPaghri: 'no', koti: 'no' });
+    if (reqs && (reqs.fetaPaghri || reqs.koti || reqs.uniform || reqs.shoes || reqs.nazrulMaqam)) {
+      setComplianceState({ fetaPaghri: 'no', koti: 'no', uniform: 'improper', shoes: 'improper' });
       setNazrulMaqamAmount("");
       setNazrulMaqamCurrency("USD");
       setMemberForComplianceCheck(member);
@@ -646,8 +648,8 @@ export default function MarkAttendancePage() {
   
   const miqaatHasAttendanceRequirements = useMemo(() => {
     if (!currentMiqaatDetails || !currentMiqaatDetails.attendanceRequirements) return false;
-    const { fetaPaghri, koti, nazrulMaqam } = currentMiqaatDetails.attendanceRequirements;
-    return fetaPaghri || koti || nazrulMaqam;
+    const { fetaPaghri, koti, uniform, shoes, nazrulMaqam } = currentMiqaatDetails.attendanceRequirements;
+    return fetaPaghri || koti || uniform || shoes || nazrulMaqam;
   }, [currentMiqaatDetails]);
 
 
@@ -1043,7 +1045,7 @@ export default function MarkAttendancePage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
-              {currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
+              {currentMiqaatDetails?.type === 'local' && currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
                   <div>
                       <Label className="text-base font-medium">Feta/Paghri?</Label>
                       <RadioGroup
@@ -1066,7 +1068,7 @@ export default function MarkAttendancePage() {
                       </RadioGroup>
                   </div>
               )}
-               {currentMiqaatDetails?.attendanceRequirements?.koti && (
+               {currentMiqaatDetails?.type === 'local' && currentMiqaatDetails?.attendanceRequirements?.koti && (
                   <div>
                       <Label className="text-base font-medium">Koti?</Label>
                       <RadioGroup
@@ -1085,6 +1087,44 @@ export default function MarkAttendancePage() {
                            <div className="flex items-center space-x-2">
                               <RadioGroupItem value="safar" id="koti-safar" />
                               <Label htmlFor="koti-safar">Safar</Label>
+                          </div>
+                      </RadioGroup>
+                  </div>
+              )}
+               {currentMiqaatDetails?.type === 'international' && currentMiqaatDetails?.attendanceRequirements?.uniform && (
+                  <div>
+                      <Label className="text-base font-medium">Uniform (Dress/Jacket & Topi)?</Label>
+                      <RadioGroup
+                          value={complianceState.uniform}
+                          onValueChange={(value) => setComplianceState(prev => ({...prev, uniform: value as 'proper' | 'improper'}))}
+                          className="flex gap-4 mt-2"
+                      >
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="proper" id="uniform-proper" />
+                              <Label htmlFor="uniform-proper">Proper</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="improper" id="uniform-improper" />
+                              <Label htmlFor="uniform-improper">Improper</Label>
+                          </div>
+                      </RadioGroup>
+                  </div>
+              )}
+              {currentMiqaatDetails?.type === 'international' && currentMiqaatDetails?.attendanceRequirements?.shoes && (
+                  <div>
+                      <Label className="text-base font-medium">Shoes?</Label>
+                      <RadioGroup
+                          value={complianceState.shoes}
+                          onValueChange={(value) => setComplianceState(prev => ({...prev, shoes: value as 'proper' | 'improper'}))}
+                          className="flex gap-4 mt-2"
+                      >
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="proper" id="shoes-proper" />
+                              <Label htmlFor="shoes-proper">Proper</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="improper" id="shoes-improper" />
+                              <Label htmlFor="shoes-improper">Improper</Label>
                           </div>
                       </RadioGroup>
                   </div>
@@ -1124,14 +1164,23 @@ export default function MarkAttendancePage() {
             <Button
               onClick={() => {
                 if (memberForComplianceCheck) {
-                  let finalComplianceState: UniformComplianceState = { ...complianceState };
+                  let finalComplianceState: Partial<UniformComplianceState> = { };
+                  
+                  if(currentMiqaatDetails?.type === 'local') {
+                      finalComplianceState.fetaPaghri = complianceState.fetaPaghri;
+                      finalComplianceState.koti = complianceState.koti;
+                  } else {
+                      finalComplianceState.uniform = complianceState.uniform;
+                      finalComplianceState.shoes = complianceState.shoes;
+                  }
+
                    if (currentMiqaatDetails?.attendanceRequirements?.nazrulMaqam && nazrulMaqamAmount) {
                      finalComplianceState.nazrulMaqam = {
                        amount: parseFloat(nazrulMaqamAmount),
                        currency: nazrulMaqamCurrency,
                      };
                    }
-                  finalizeAttendance(memberForComplianceCheck, finalComplianceState);
+                  finalizeAttendance(memberForComplianceCheck, finalComplianceState as UniformComplianceState);
                 }
               }}
               disabled={isSaving}
