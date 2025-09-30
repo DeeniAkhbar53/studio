@@ -470,18 +470,39 @@ export default function ReportsPage() {
     );
   }, [reportData, reportSearchTerm]);
 
+  const reportMiqaatType = useMemo(() => {
+    if (!filteredReportData || filteredReportData.length === 0) return null;
+    // Check the type of the first record, assuming all records in a single report are of the same miqaat type if it's a miqaat-specific report
+    const miqaatId = form.getValues("miqaatId");
+    if (miqaatId) {
+      return allMiqaats.find(m => m.id === miqaatId)?.type || null;
+    }
+    // For general reports, we might have mixed types, so we don't assume one.
+    return null;
+  }, [filteredReportData, allMiqaats, form]);
+
 
   const handleExport = () => {
     if (!filteredReportData || filteredReportData.length === 0) {
       toast({ title: "No data to export", description: "Please generate a report first.", variant: "destructive" });
       return;
     }
-    const headers = ["User Name", "ITS ID", "BGK ID", "Team", "Miqaat", "Miqaat Type", "Session Name", "Marked Date", "Marked Time", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti", "Uniform", "Shoes", "NazrulMaqam Amount", "NazrulMaqam Currency"];
+
+    let headers = ["User Name", "ITS ID", "BGK ID", "Team", "Miqaat", "Miqaat Type", "Session Name", "Marked Date", "Marked Time", "Status", "Marked By ITS ID"];
+    
+    if (reportMiqaatType === 'local') {
+      headers.push("Feta/Paghri", "Koti");
+    } else if (reportMiqaatType === 'international') {
+      headers.push("Uniform", "Shoes");
+    }
+    headers.push("NazrulMaqam Amount", "NazrulMaqam Currency");
+
+
     const csvRows = [
       headers.join(','),
       ...filteredReportData.map(row => {
           const date = row.date ? new Date(row.date) : null;
-          return [
+          let rowData = [
             `"${row.userName.replace(/"/g, '""')}"`,
             row.userItsId,
             row.bgkId || 'N/A',
@@ -493,13 +514,26 @@ export default function ReportsPage() {
             date ? format(date, "HH:mm:ss") : "N/A",
             row.status,
             row.markedByItsId || "N/A",
+        ];
+
+        if (reportMiqaatType === 'local') {
+          rowData.push(
             row.uniformCompliance?.fetaPaghri ?? "N/A",
             row.uniformCompliance?.koti ?? "N/A",
+          );
+        } else if (reportMiqaatType === 'international') {
+          rowData.push(
             row.uniformCompliance?.uniform ?? "N/A",
             row.uniformCompliance?.shoes ?? "N/A",
+          );
+        }
+        
+        rowData.push(
             row.uniformCompliance?.nazrulMaqam?.amount ?? "N/A",
             row.uniformCompliance?.nazrulMaqam?.currency ?? "N/A",
-        ].join(',');
+        );
+
+        return rowData.join(',');
       })
     ];
     const csvString = csvRows.join('\n');
@@ -1148,10 +1182,10 @@ export default function ReportsPage() {
                                         }
                                         {record.uniformCompliance && (
                                             <>
-                                                <div><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri ?? 'N/A'}</div>
-                                                <div><strong>Koti:</strong> {record.uniformCompliance.koti ?? 'N/A'}</div>
-                                                <div><strong>Uniform:</strong> {record.uniformCompliance.uniform ?? 'N/A'}</div>
-                                                <div><strong>Shoes:</strong> {record.uniformCompliance.shoes ?? 'N/A'}</div>
+                                                {reportMiqaatType === 'local' && <div><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri ?? 'N/A'}</div>}
+                                                {reportMiqaatType === 'local' && <div><strong>Koti:</strong> {record.uniformCompliance.koti ?? 'N/A'}</div>}
+                                                {reportMiqaatType === 'international' && <div><strong>Uniform:</strong> {record.uniformCompliance.uniform ?? 'N/A'}</div>}
+                                                {reportMiqaatType === 'international' && <div><strong>Shoes:</strong> {record.uniformCompliance.shoes ?? 'N/A'}</div>}
                                                 <div><strong>Nazrul Maqam:</strong> {record.uniformCompliance.nazrulMaqam ? `${record.uniformCompliance.nazrulMaqam.amount} ${record.uniformCompliance.nazrulMaqam.currency}` : 'N/A'}</div>
                                             </>
                                         )}
@@ -1186,10 +1220,14 @@ export default function ReportsPage() {
                         <TableHead>Session</TableHead>
                         <TableHead>Date / Time</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Feta/Paghri</TableHead>
-                        <TableHead>Koti</TableHead>
-                        <TableHead>Uniform</TableHead>
-                        <TableHead>Shoes</TableHead>
+                        {reportMiqaatType === 'local' && <>
+                            <TableHead>Feta/Paghri</TableHead>
+                            <TableHead>Koti</TableHead>
+                        </>}
+                        {reportMiqaatType === 'international' && <>
+                            <TableHead>Uniform</TableHead>
+                            <TableHead>Shoes</TableHead>
+                        </>}
                         <TableHead>N.Maqam Amount</TableHead>
                         <TableHead>N.Maqam Currency</TableHead>
                         { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
@@ -1231,10 +1269,14 @@ export default function ReportsPage() {
                                     {record.status}
                                 </span>
                             </TableCell>
-                            <TableCell>{record.uniformCompliance?.fetaPaghri ?? 'N/A'}</TableCell>
-                            <TableCell>{record.uniformCompliance?.koti ?? 'N/A'}</TableCell>
-                            <TableCell>{record.uniformCompliance?.uniform ?? 'N/A'}</TableCell>
-                            <TableCell>{record.uniformCompliance?.shoes ?? 'N/A'}</TableCell>
+                            {reportMiqaatType === 'local' && <>
+                                <TableCell>{record.uniformCompliance?.fetaPaghri ?? 'N/A'}</TableCell>
+                                <TableCell>{record.uniformCompliance?.koti ?? 'N/A'}</TableCell>
+                            </>}
+                             {reportMiqaatType === 'international' && <>
+                                <TableCell>{record.uniformCompliance?.uniform ?? 'N/A'}</TableCell>
+                                <TableCell>{record.uniformCompliance?.shoes ?? 'N/A'}</TableCell>
+                            </>}
                             <TableCell>{record.uniformCompliance?.nazrulMaqam?.amount ?? 'N/A'}</TableCell>
                             <TableCell>{record.uniformCompliance?.nazrulMaqam?.currency ?? 'N/A'}</TableCell>
                             { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
