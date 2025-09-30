@@ -40,6 +40,8 @@ export type MiqaatAttendanceEntryItem = {
   uniformCompliance?: {
       fetaPaghri?: 'yes' | 'no' | 'safar';
       koti?: 'yes' | 'no' | 'safar';
+      uniform?: 'yes' | 'no' | 'safar';
+      shoes?: 'yes' | 'no' | 'safar';
       nazrulMaqam?: {
           amount: number;
           currency: string;
@@ -74,7 +76,13 @@ export type Miqaat = {
   attendance?: MiqaatAttendanceEntryItem[];
   safarList?: MiqaatSafarEntryItem[];
   attendedUserItsIds?: string[];
-  attendanceRequirements?: { fetaPaghri: boolean, koti: boolean, nazrulMaqam: boolean };
+  attendanceRequirements?: {
+    fetaPaghri?: boolean;
+    koti?: boolean;
+    uniform?: boolean;
+    shoes?: boolean;
+    nazrulMaqam?: boolean;
+  };
 };
 
 export type AttendanceRecord = {
@@ -202,3 +210,5 @@ export interface SystemLog {
     context?: string; // stringified JSON
     timestamp: string; // ISO string
 }
+
+    

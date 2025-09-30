@@ -61,8 +61,10 @@ const formSchema = z.object({
   attendanceRequirements: z.object({
     fetaPaghri: z.boolean().default(false),
     koti: z.boolean().default(false),
+    uniform: z.boolean().default(false),
+    shoes: z.boolean().default(false),
     nazrulMaqam: z.boolean().default(false),
-  }).default({ fetaPaghri: false, koti: false, nazrulMaqam: false }),
+  }).default({ fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false }),
 }).superRefine((data, ctx) => {
     // Universal check: If start and end times are provided, end must be after start.
     if (data.startTime && data.endTime && new Date(data.startTime) >= new Date(data.endTime)) {
@@ -160,7 +162,7 @@ export default function MiqaatManagementPage() {
       teams: [], 
       eligibleItsIds: [],
       barcodeData: "",
-      attendanceRequirements: { fetaPaghri: false, koti: false, nazrulMaqam: false },
+      attendanceRequirements: { fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false },
     },
   });
   
@@ -305,10 +307,10 @@ export default function MiqaatManagementPage() {
         teams: editingMiqaat.teams || [], 
         eligibleItsIds: editingMiqaat.eligibleItsIds || [],
         barcodeData: editingMiqaat.barcodeData || "",
-        attendanceRequirements: editingMiqaat.attendanceRequirements || { fetaPaghri: false, koti: false, nazrulMaqam: false },
+        attendanceRequirements: editingMiqaat.attendanceRequirements || { fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false },
       });
     } else if (!isDialogOpen) {
-      form.reset({ name: "", location: "", type: "local", attendanceType: undefined, startTime: "", endTime: "", reportingTime: null, sessions: [], eligibilityType: "groups", mohallahIds: [], teams: [], eligibleItsIds: [], barcodeData: "", attendanceRequirements: { fetaPaghri: false, koti: false, nazrulMaqam: false } });
+      form.reset({ name: "", location: "", type: "local", attendanceType: undefined, startTime: "", endTime: "", reportingTime: null, sessions: [], eligibilityType: "groups", mohallahIds: [], teams: [], eligibleItsIds: [], barcodeData: "", attendanceRequirements: { fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false } });
     }
   }, [editingMiqaat, form, isDialogOpen]);
 
@@ -423,7 +425,7 @@ export default function MiqaatManagementPage() {
       teams: [], 
       eligibleItsIds: [],
       barcodeData: "",
-      attendanceRequirements: { fetaPaghri: false, koti: false, nazrulMaqam: false },
+      attendanceRequirements: { fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false },
     });
     setIsDialogOpen(true);
   };
@@ -449,7 +451,7 @@ export default function MiqaatManagementPage() {
       mohallahIds: miqaat.mohallahIds || [],
       teams: miqaat.teams || [],
       eligibleItsIds: miqaat.eligibleItsIds || [],
-      attendanceRequirements: miqaat.attendanceRequirements || { fetaPaghri: false, koti: false, nazrulMaqam: false },
+      attendanceRequirements: miqaat.attendanceRequirements || { fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false },
       barcodeData: "",
     });
     
@@ -720,27 +722,41 @@ export default function MiqaatManagementPage() {
                         )} />
                        )}
 
-                      <FormField
-                          control={form.control}
-                          name="attendanceRequirements"
-                          render={() => (
-                            <FormItem className="space-y-2 pt-2">
-                              <ShadFormLabel className="font-semibold">Attendance Requirements</ShadFormLabel>
-                              <div className="flex flex-col sm:flex-row gap-4">
-                                  <FormField control={form.control} name="attendanceRequirements.fetaPaghri" render={({ field }) => (
-                                      <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Feta/Paghri</ShadFormLabel></FormItem>
-                                  )}/>
-                                  <FormField control={form.control} name="attendanceRequirements.koti" render={({ field }) => (
-                                      <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Koti</ShadFormLabel></FormItem>
-                                  )}/>
-                                  <FormField control={form.control} name="attendanceRequirements.nazrulMaqam" render={({ field }) => (
-                                      <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Nazrul Maqam</ShadFormLabel></FormItem>
-                                  )}/>
-                              </div>
-                              <FormDescription className="text-xs">Select any requirements for attendance marking.</FormDescription>
-                            </FormItem>
-                          )}
-                      />
+                        <FormField
+                            control={form.control}
+                            name="attendanceRequirements"
+                            render={() => (
+                                <FormItem className="space-y-2 pt-2">
+                                <ShadFormLabel className="font-semibold">Attendance Requirements</ShadFormLabel>
+                                <div className="flex flex-col sm:flex-row gap-4">
+                                    {miqaatType === 'local' ? (
+                                        <>
+                                            <FormField control={form.control} name="attendanceRequirements.fetaPaghri" render={({ field }) => (
+                                                <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Feta/Paghri</ShadFormLabel></FormItem>
+                                            )}/>
+                                            <FormField control={form.control} name="attendanceRequirements.koti" render={({ field }) => (
+                                                <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Koti</ShadFormLabel></FormItem>
+                                            )}/>
+                                        </>
+                                    ) : (
+                                        <>
+                                             <FormField control={form.control} name="attendanceRequirements.uniform" render={({ field }) => (
+                                                <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Uniform (Dress/Jacket & Topi)</ShadFormLabel></FormItem>
+                                            )}/>
+                                             <FormField control={form.control} name="attendanceRequirements.shoes" render={({ field }) => (
+                                                <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Shoes</ShadFormLabel></FormItem>
+                                            )}/>
+                                        </>
+                                    )}
+                                    <FormField control={form.control} name="attendanceRequirements.nazrulMaqam" render={({ field }) => (
+                                        <FormItem className="flex items-center space-x-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><ShadFormLabel className="font-normal text-sm">Nazrul Maqam</ShadFormLabel></FormItem>
+                                    )}/>
+                                </div>
+                                <FormDescription className="text-xs">Select any requirements for attendance marking.</FormDescription>
+                                </FormItem>
+                            )}
+                        />
+
                       
                       <FormField control={form.control} name="eligibilityType" render={({ field }) => (
                           <FormItem className="space-y-3 pt-2">
@@ -1153,3 +1169,5 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
+
+    
