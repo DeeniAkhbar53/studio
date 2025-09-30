@@ -1036,7 +1036,12 @@ export default function MarkAttendancePage() {
       )}
 
       {/* Compliance Check Dialog */}
-      <Dialog open={isComplianceDialogOpen} onOpenChange={setIsComplianceDialogOpen}>
+      <Dialog open={isComplianceDialogOpen} onOpenChange={(open) => {
+        setIsComplianceDialogOpen(open);
+        if (!open) {
+          setIsProcessing(false);
+        }
+      }}>
         <DialogContent className="bg-background">
           <DialogHeader>
             <DialogTitle>Compliance Check for {memberForComplianceCheck?.name}</DialogTitle>
