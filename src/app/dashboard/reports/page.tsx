@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useForm } from "react";
+import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -526,13 +526,12 @@ export default function ReportsPage() {
             row.uniformCompliance?.fetaPaghri ?? "N/A",
             row.uniformCompliance?.koti ?? "N/A",
           );
-        } else if (reportMiqaatType === 'international') {
+        }
+        if (reportMiqaatType === 'international') {
           rowData.push(
             row.uniformCompliance?.uniform ?? "N/A",
             row.uniformCompliance?.shoes ?? "N/A",
           );
-        } else { // For general reports, add empty placeholders
-          rowData.push("N/A", "N/A");
         }
         
         rowData.push(
@@ -1245,14 +1244,13 @@ export default function ReportsPage() {
                         <TableHead>Session</TableHead>
                         <TableHead>Date / Time</TableHead>
                         <TableHead>Status</TableHead>
-                        {reportMiqaatType === 'local' && <>
+                        {reportMiqaatType === 'local' ? ( <>
                             <TableHead>Feta/Paghri</TableHead>
                             <TableHead>Koti</TableHead>
-                        </>}
-                        {reportMiqaatType === 'international' && <>
+                        </> ) : reportMiqaatType === 'international' ? ( <>
                             <TableHead>Uniform</TableHead>
                             <TableHead>Shoes</TableHead>
-                        </>}
+                        </> ) : null}
                         <TableHead>N.Maqam Amount</TableHead>
                         <TableHead>N.Maqam Currency</TableHead>
                         { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
@@ -1343,5 +1341,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
