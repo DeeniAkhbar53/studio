@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useForm } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -29,6 +29,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   ChartContainer,
   BarChart as RechartsBarChart,
@@ -127,6 +128,7 @@ export default function ReportsPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
+  const [miqaatTypeFilter, setMiqaatTypeFilter] = useState<'local' | 'international' | 'all'>('all');
 
 
   const [isGraphDialogOpen, setIsGraphDialogOpen] = useState(false);
@@ -208,19 +210,24 @@ export default function ReportsPage() {
   }, [isAuthorized]);
 
   const { availableMiqaats, availableMohallahs, availableTeams } = useMemo(() => {
+    let roleFilteredMiqaats = allMiqaats;
+    if (miqaatTypeFilter !== 'all') {
+      roleFilteredMiqaats = roleFilteredMiqaats.filter(m => m.type === miqaatTypeFilter);
+    }
+    
     if (currentUserRole === 'superadmin') {
       const allTeams = [...new Set(allUsers.map(u => u.team).filter(Boolean) as string[])].sort();
-      return { availableMiqaats: allMiqaats, availableMohallahs: allMohallahs, availableTeams: allTeams };
+      return { availableMiqaats: roleFilteredMiqaats, availableMohallahs: allMohallahs, availableTeams: allTeams };
     }
     if (currentUserRole === 'admin' && currentUserMohallahId) {
-      const filteredMiqaats = allMiqaats.filter(m => !m.mohallahIds?.length || m.mohallahIds.includes(currentUserMohallahId));
+      const filteredMiqaatsForAdmin = roleFilteredMiqaats.filter(m => !m.mohallahIds?.length || m.mohallahIds.includes(currentUserMohallahId));
       const filteredMohallahs = allMohallahs.filter(m => m.id === currentUserMohallahId);
       const usersInMohallah = allUsers.filter(u => u.mohallahId === currentUserMohallahId);
       const teamsInMohallah = [...new Set(usersInMohallah.map(u => u.team).filter(Boolean) as string[])].sort();
-      return { availableMiqaats: filteredMiqaats, availableMohallahs: filteredMohallahs, availableTeams: teamsInMohallah };
+      return { availableMiqaats: filteredMiqaatsForAdmin, availableMohallahs: filteredMohallahs, availableTeams: teamsInMohallah };
     }
     return { availableMiqaats: [], availableMohallahs: [], availableTeams: [] };
-  }, [currentUserRole, currentUserMohallahId, allMiqaats, allMohallahs, allUsers]);
+  }, [currentUserRole, currentUserMohallahId, allMiqaats, allMohallahs, allUsers, miqaatTypeFilter]);
 
 
   const watchedReportType = form.watch("reportType");
@@ -472,12 +479,10 @@ export default function ReportsPage() {
 
   const reportMiqaatType = useMemo(() => {
     if (!filteredReportData || filteredReportData.length === 0) return null;
-    // Check the type of the first record, assuming all records in a single report are of the same miqaat type if it's a miqaat-specific report
     const miqaatId = form.getValues("miqaatId");
     if (miqaatId) {
       return allMiqaats.find(m => m.id === miqaatId)?.type || null;
     }
-    // For general reports, we might have mixed types, so we don't assume one.
     return null;
   }, [filteredReportData, allMiqaats, form]);
 
@@ -526,10 +531,12 @@ export default function ReportsPage() {
             row.uniformCompliance?.uniform ?? "N/A",
             row.uniformCompliance?.shoes ?? "N/A",
           );
+        } else { // For general reports, add empty placeholders
+          rowData.push("N/A", "N/A");
         }
         
         rowData.push(
-            row.uniformCompliance?.nazrulMaqam?.amount ?? "N/A",
+            row.uniformCompliance?.nazrulMaqam?.amount?.toString() ?? "N/A",
             row.uniformCompliance?.nazrulMaqam?.currency ?? "N/A",
         );
 
@@ -680,7 +687,7 @@ export default function ReportsPage() {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-                <FormField
+                 <FormField
                   control={form.control}
                   name="reportType"
                   render={({ field }) => (
@@ -704,31 +711,49 @@ export default function ReportsPage() {
                     </FormItem>
                   )}
                 />
-
+                
                 {(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && (
-                  <FormField
-                    control={form.control}
-                    name="miqaatId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Select Miqaat</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingOptions}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder={isLoadingOptions ? "Loading Miqaats..." : "Select a Miqaat"} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {isLoadingOptions && <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                            {!isLoadingOptions && availableMiqaats.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available</SelectItem>}
-                            {availableMiqaats.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({format(new Date(m.startTime), "P")})</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <>
+                    <FormItem>
+                       <FormLabel>Miqaat Type</FormLabel>
+                        <RadioGroup
+                          value={miqaatTypeFilter}
+                          onValueChange={(value) => {
+                              setMiqaatTypeFilter(value as 'local' | 'international' | 'all');
+                              form.setValue('miqaatId', ''); // Reset miqaat selection
+                          }}
+                          className="flex space-x-4 pt-2"
+                        >
+                          <FormItem className="flex items-center space-x-2"><RadioGroupItem value="all" id="all-filter" /><Label htmlFor="all-filter">All</Label></FormItem>
+                          <FormItem className="flex items-center space-x-2"><RadioGroupItem value="local" id="local-filter" /><Label htmlFor="local-filter">Local</Label></FormItem>
+                          <FormItem className="flex items-center space-x-2"><RadioGroupItem value="international" id="international-filter" /><Label htmlFor="international-filter">International</Label></FormItem>
+                        </RadioGroup>
+                    </FormItem>
+                    <FormField
+                      control={form.control}
+                      name="miqaatId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Select Miqaat</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingOptions}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder={isLoadingOptions ? "Loading Miqaats..." : "Select a Miqaat"} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {isLoadingOptions && <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                              {!isLoadingOptions && availableMiqaats.length === 0 && <SelectItem value="no-miqaats" disabled>No Miqaats available</SelectItem>}
+                              {availableMiqaats.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({format(new Date(m.startTime), "P")})</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
                 )}
+
 
                 {watchedReportType === "member_attendance" && (
                   <FormField
@@ -1318,3 +1343,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
