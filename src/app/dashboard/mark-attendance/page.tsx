@@ -1165,7 +1165,10 @@ export default function MarkAttendancePage() {
               )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsComplianceDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => {
+              setIsComplianceDialogOpen(false);
+              setIsProcessing(false);
+            }}>Cancel</Button>
             <Button
               onClick={() => {
                 if (memberForComplianceCheck) {
