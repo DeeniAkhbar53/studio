@@ -476,7 +476,7 @@ export default function ReportsPage() {
       toast({ title: "No data to export", description: "Please generate a report first.", variant: "destructive" });
       return;
     }
-    const headers = ["User Name", "ITS ID", "BGK ID", "Team", "Miqaat", "Miqaat Type", "Session Name", "Marked Date", "Marked Time", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti", "NazrulMaqam Amount", "NazrulMaqam Currency"];
+    const headers = ["User Name", "ITS ID", "BGK ID", "Team", "Miqaat", "Miqaat Type", "Session Name", "Marked Date", "Marked Time", "Status", "Marked By ITS ID", "Feta/Paghri", "Koti", "Uniform", "Shoes", "NazrulMaqam Amount", "NazrulMaqam Currency"];
     const csvRows = [
       headers.join(','),
       ...filteredReportData.map(row => {
@@ -495,6 +495,8 @@ export default function ReportsPage() {
             row.markedByItsId || "N/A",
             row.uniformCompliance?.fetaPaghri ?? "N/A",
             row.uniformCompliance?.koti ?? "N/A",
+            row.uniformCompliance?.uniform ?? "N/A",
+            row.uniformCompliance?.shoes ?? "N/A",
             row.uniformCompliance?.nazrulMaqam?.amount ?? "N/A",
             row.uniformCompliance?.nazrulMaqam?.currency ?? "N/A",
         ].join(',');
@@ -1146,8 +1148,10 @@ export default function ReportsPage() {
                                         }
                                         {record.uniformCompliance && (
                                             <>
-                                                <div><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri}</div>
-                                                <div><strong>Koti:</strong> {record.uniformCompliance.koti}</div>
+                                                <div><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri ?? 'N/A'}</div>
+                                                <div><strong>Koti:</strong> {record.uniformCompliance.koti ?? 'N/A'}</div>
+                                                <div><strong>Uniform:</strong> {record.uniformCompliance.uniform ?? 'N/A'}</div>
+                                                <div><strong>Shoes:</strong> {record.uniformCompliance.shoes ?? 'N/A'}</div>
                                                 <div><strong>Nazrul Maqam:</strong> {record.uniformCompliance.nazrulMaqam ? `${record.uniformCompliance.nazrulMaqam.amount} ${record.uniformCompliance.nazrulMaqam.currency}` : 'N/A'}</div>
                                             </>
                                         )}
@@ -1184,6 +1188,8 @@ export default function ReportsPage() {
                         <TableHead>Status</TableHead>
                         <TableHead>Feta/Paghri</TableHead>
                         <TableHead>Koti</TableHead>
+                        <TableHead>Uniform</TableHead>
+                        <TableHead>Shoes</TableHead>
                         <TableHead>N.Maqam Amount</TableHead>
                         <TableHead>N.Maqam Currency</TableHead>
                         { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
@@ -1227,6 +1233,8 @@ export default function ReportsPage() {
                             </TableCell>
                             <TableCell>{record.uniformCompliance?.fetaPaghri ?? 'N/A'}</TableCell>
                             <TableCell>{record.uniformCompliance?.koti ?? 'N/A'}</TableCell>
+                            <TableCell>{record.uniformCompliance?.uniform ?? 'N/A'}</TableCell>
+                            <TableCell>{record.uniformCompliance?.shoes ?? 'N/A'}</TableCell>
                             <TableCell>{record.uniformCompliance?.nazrulMaqam?.amount ?? 'N/A'}</TableCell>
                             <TableCell>{record.uniformCompliance?.nazrulMaqam?.currency ?? 'N/A'}</TableCell>
                             { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
