@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -1024,6 +1025,10 @@ export default function MiqaatManagementPage() {
                                 ? `${miqaat.eligibleItsIds?.length} members`
                                 : "Groups";
 
+                            const requirements = miqaat.attendanceRequirements || {};
+                            const hasLocalReqs = requirements.fetaPaghri || requirements.koti;
+                            const hasIntlReqs = requirements.uniform || requirements.shoes;
+                            
                             return (
                                 <TableRow key={miqaat.id} data-state={selectedMiqaatIds.includes(miqaat.id) ? "selected" : undefined}>
                                     {(currentUserRole === 'admin' || currentUserRole === 'superadmin') && (
@@ -1053,10 +1058,12 @@ export default function MiqaatManagementPage() {
                                     <TableCell className="text-center">{miqaat.attendance?.length || 0}</TableCell>
                                     <TableCell>
                                         <div className="flex flex-col gap-1">
-                                          {miqaat.attendanceRequirements?.fetaPaghri && <Badge variant="default" className="text-xs">Feta/Paghri</Badge>}
-                                          {miqaat.attendanceRequirements?.koti && <Badge variant="default" className="text-xs">Koti</Badge>}
-                                          {miqaat.attendanceRequirements?.nazrulMaqam && <Badge variant="default" className="text-xs">Nazrul Maqam</Badge>}
-                                          {!miqaat.attendanceRequirements?.fetaPaghri && !miqaat.attendanceRequirements?.koti && !miqaat.attendanceRequirements?.nazrulMaqam && <Badge variant="secondary" className="text-xs">N/A</Badge>}
+                                            {miqaat.type === 'local' && requirements.fetaPaghri && <Badge variant="default" className="text-xs">Feta/Paghri</Badge>}
+                                            {miqaat.type === 'local' && requirements.koti && <Badge variant="default" className="text-xs">Koti</Badge>}
+                                            {miqaat.type === 'international' && requirements.uniform && <Badge variant="default" className="text-xs">Uniform</Badge>}
+                                            {miqaat.type === 'international' && requirements.shoes && <Badge variant="default" className="text-xs">Shoes</Badge>}
+                                            {requirements.nazrulMaqam && <Badge variant="default" className="text-xs">Nazrul Maqam</Badge>}
+                                            {!hasLocalReqs && !hasIntlReqs && !requirements.nazrulMaqam && <Badge variant="secondary" className="text-xs">N/A</Badge>}
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right space-x-1">
@@ -1169,5 +1176,3 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
-
-    
