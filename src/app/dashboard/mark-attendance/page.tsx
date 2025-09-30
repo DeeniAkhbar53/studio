@@ -82,6 +82,8 @@ export default function MarkAttendancePage() {
   const [markerItsId, setMarkerItsId] = useState<string | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [miqaatTypeFilter, setMiqaatTypeFilter] = useState<'local' | 'international'>('local');
+
 
   // State for uniform check dialog
   const [isComplianceDialogOpen, setIsComplianceDialogOpen] = useState(false);
@@ -290,10 +292,13 @@ export default function MarkAttendancePage() {
 
   const availableMiqaatsForUser = useMemo(() => {
     if (isLoadingMiqaats) return [];
-    if (currentUserRole === 'superadmin') return allMiqaats;
+    
+    let baseFiltered = allMiqaats.filter(miqaat => miqaat.type === miqaatTypeFilter);
+    
+    if (currentUserRole === 'superadmin') return baseFiltered;
     if (!currentUserMohallahId) return [];
 
-    return allMiqaats.filter(miqaat => {
+    return baseFiltered.filter(miqaat => {
       if (miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0) {
         return true; 
       }
@@ -302,7 +307,7 @@ export default function MarkAttendancePage() {
       }
       return miqaat.mohallahIds.includes(currentUserMohallahId);
     });
-  }, [allMiqaats, currentUserMohallahId, currentUserRole, isLoadingMiqaats]);
+  }, [allMiqaats, currentUserMohallahId, currentUserRole, isLoadingMiqaats, miqaatTypeFilter]);
 
 
   const handleFindMember = async () => {
@@ -735,6 +740,26 @@ export default function MarkAttendancePage() {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+           <RadioGroup 
+                value={miqaatTypeFilter} 
+                onValueChange={(value) => {
+                    setMiqaatTypeFilter(value as 'local' | 'international');
+                    setSelectedMiqaatId(null);
+                    setSelectedDay(null);
+                    setSelectedSessionId(null);
+                }} 
+                className="flex items-center space-x-4"
+            >
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="local" id="local-filter" />
+                    <Label htmlFor="local-filter">Local</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="international" id="international-filter" />
+                    <Label htmlFor="international-filter">International</Label>
+                </div>
+            </RadioGroup>
+            
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
             <div className="space-y-2 lg:col-span-1">
               <Label htmlFor="miqaat-select">Select Miqaat</Label>
