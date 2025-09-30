@@ -526,12 +526,14 @@ export default function ReportsPage() {
             row.uniformCompliance?.fetaPaghri ?? "N/A",
             row.uniformCompliance?.koti ?? "N/A",
           );
-        }
-        if (reportMiqaatType === 'international') {
+        } else if (reportMiqaatType === 'international') {
           rowData.push(
             row.uniformCompliance?.uniform ?? "N/A",
             row.uniformCompliance?.shoes ?? "N/A",
           );
+        } else {
+            // For reports that are not miqaat specific, add placeholders
+            rowData.push("N/A", "N/A");
         }
         
         rowData.push(
@@ -1165,63 +1167,66 @@ export default function ReportsPage() {
             {filteredReportData && filteredReportData.length > 0 ? (
              <>
                 <div className="md:hidden">
-                    <Accordion type="single" collapsible className="w-full">
-                        {filteredReportData.map((record, index) => (
-                            <AccordionItem value={`${record.id}-${record.date || index}`} key={`${record.id}-${record.date || index}`}>
-                                <AccordionTrigger>
-                                    <div className="flex items-center gap-4 flex-grow text-left">
-                                        <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
-                                        {isNonAttendanceReport && (
-                                            <Checkbox
-                                                id={`mobile-select-${record.userItsId}`}
-                                                checked={selectedIds.includes(record.userItsId)}
-                                                onCheckedChange={(checked) => {
-                                                    setSelectedIds(prev => checked ? [...prev, record.userItsId] : prev.filter(id => id !== record.userItsId));
-                                                }}
-                                                onClick={(e) => e.stopPropagation()}
-                                                aria-label={`Select member ${record.userName}`}
-                                            />
-                                        )}
-                                        <div className="flex-grow">
-                                            <p className="font-semibold text-card-foreground">{record.userName}</p>
-                                            <p className="text-xs text-muted-foreground">ITS: {record.userItsId}</p>
-                                        </div>
-                                        <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
-                                            record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800' :
-                                            record.status === 'absent' ? 'bg-red-100 text-red-800' :
-                                            record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                                            record.status === 'safar' ? 'bg-blue-100 text-blue-800' :
-                                            'bg-gray-100 text-gray-800'
-                                        )}>
-                                            {record.status}
-                                        </span>
-                                    </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="space-y-2 pt-2">
-                                    <div className="px-2 text-sm text-muted-foreground">
-                                        <div><strong>BGK ID:</strong> {record.bgkId || "N/A"}</div>
-                                        <div><strong>Team:</strong> {record.team || "N/A"}</div>
-                                        <div><strong>Miqaat:</strong> {record.miqaatName}</div>
-                                        <div><strong>Type:</strong> <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></div>
-                                        <div><strong>Session:</strong> {record.sessionName || "N/A"}</div>
-                                        <div><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</div>
-                                        {(watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
-                                            <div><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</div>
-                                        }
-                                        {record.uniformCompliance && (
-                                            <>
-                                                {reportMiqaatType === 'local' && <div><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri ?? 'N/A'}</div>}
-                                                {reportMiqaatType === 'local' && <div><strong>Koti:</strong> {record.uniformCompliance.koti ?? 'N/A'}</div>}
-                                                {reportMiqaatType === 'international' && <div><strong>Uniform:</strong> {record.uniformCompliance.uniform ?? 'N/A'}</div>}
-                                                {reportMiqaatType === 'international' && <div><strong>Shoes:</strong> {record.uniformCompliance.shoes ?? 'N/A'}</div>}
-                                                <div><strong>Nazrul Maqam:</strong> {record.uniformCompliance.nazrulMaqam ? `${record.uniformCompliance.nazrulMaqam.amount} ${record.uniformCompliance.nazrulMaqam.currency}` : 'N/A'}</div>
-                                            </>
-                                        )}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        ))}
-                    </Accordion>
+                  <Accordion type="single" collapsible className="w-full">
+                    {filteredReportData.map((record, index) => (
+                      <AccordionItem value={`${record.id}-${record.date || index}`} key={`${record.id}-${record.date || index}`}>
+                        <div className="flex items-center w-full">
+                          {isNonAttendanceReport && (
+                            <div className="pl-4 py-4">
+                              <Checkbox
+                                id={`mobile-select-${record.userItsId}`}
+                                checked={selectedIds.includes(record.userItsId)}
+                                onCheckedChange={(checked) => {
+                                  setSelectedIds(prev => checked ? [...prev, record.userItsId] : prev.filter(id => id !== record.userItsId));
+                                }}
+                                aria-label={`Select member ${record.userName}`}
+                              />
+                            </div>
+                          )}
+                          <AccordionTrigger className={cn("flex-grow", !isNonAttendanceReport && "pl-4")}>
+                            <div className="flex items-center gap-4 flex-grow text-left">
+                              <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
+                              <div className="flex-grow">
+                                <p className="font-semibold text-card-foreground">{record.userName}</p>
+                                <p className="text-xs text-muted-foreground">ITS: {record.userItsId}</p>
+                              </div>
+                              <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
+                                record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800' :
+                                record.status === 'absent' ? 'bg-red-100 text-red-800' :
+                                record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
+                                record.status === 'safar' ? 'bg-blue-100 text-blue-800' :
+                                'bg-gray-100 text-gray-800'
+                              )}>
+                                {record.status}
+                              </span>
+                            </div>
+                          </AccordionTrigger>
+                        </div>
+                        <AccordionContent className="space-y-2 pt-2">
+                          <div className="px-2 text-sm text-muted-foreground">
+                            <div><strong>BGK ID:</strong> {record.bgkId || "N/A"}</div>
+                            <div><strong>Team:</strong> {record.team || "N/A"}</div>
+                            <div><strong>Miqaat:</strong> {record.miqaatName}</div>
+                            <div><strong>Type:</strong> <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></div>
+                            <div><strong>Session:</strong> {record.sessionName || "N/A"}</div>
+                            <div><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</div>
+                            {(watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
+                              <div><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</div>
+                            }
+                            {record.uniformCompliance && (
+                              <>
+                                {reportMiqaatType === 'local' && <div><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri ?? 'N/A'}</div>}
+                                {reportMiqaatType === 'local' && <div><strong>Koti:</strong> {record.uniformCompliance.koti ?? 'N/A'}</div>}
+                                {reportMiqaatType === 'international' && <div><strong>Uniform:</strong> {record.uniformCompliance.uniform ?? 'N/A'}</div>}
+                                {reportMiqaatType === 'international' && <div><strong>Shoes:</strong> {record.uniformCompliance.shoes ?? 'N/A'}</div>}
+                                <div><strong>Nazrul Maqam:</strong> {record.uniformCompliance.nazrulMaqam ? `${record.uniformCompliance.nazrulMaqam.amount} ${record.uniformCompliance.nazrulMaqam.currency}` : 'N/A'}</div>
+                              </>
+                            )}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
                 </div>
 
 
