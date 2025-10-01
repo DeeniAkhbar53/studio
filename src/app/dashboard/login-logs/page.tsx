@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -47,7 +46,7 @@ export default function LoginLogsPage() {
         setIsLoading(false);
       },
       (error) => {
-        console.error("Failed to fetch logs:", error);
+        
         if (error.message.includes("Missing or insufficient permissions")) {
             toast({ title: "Permission Denied", description: "You do not have permission to view these logs.", variant: "destructive" });
         } else {
@@ -77,7 +76,7 @@ export default function LoginLogsPage() {
         variant: "destructive"
       });
     } catch (error) {
-      console.error("Failed to clear logs:", error);
+      
       toast({ title: "Error", description: "Could not clear login logs.", variant: "destructive" });
     }
   };

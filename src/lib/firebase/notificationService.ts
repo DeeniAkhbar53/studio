@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from './firebase';
@@ -34,7 +33,7 @@ export const addNotification = async (notificationData: NotificationDataForAdd):
     });
     return docRef.id;
   } catch (error) {
-    console.error("Error adding notification to Firestore: ", error);
+    
     throw error;
   }
 };
@@ -42,7 +41,7 @@ export const addNotification = async (notificationData: NotificationDataForAdd):
 
 // Fetches notifications targeted to 'all' OR the specific user's role.
 export const getNotificationsForUser = async (currentUserItsId: string, currentUserRole: UserRole): Promise<NotificationItem[]> => {
-  console.log(`[notificationService] getNotificationsForUser called with ITS: ${currentUserItsId}, Role: ${currentUserRole}`);
+  
   try {
     // Query for 'all'
     const notificationsForAllQuery = query(
@@ -105,13 +104,13 @@ export const getNotificationsForUser = async (currentUserItsId: string, currentU
     // Sort by createdAt date, most recent first, as merging might disturb order
     combinedNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
-    console.log(`[notificationService] Fetched ${combinedNotifications.length} notifications after combining and sorting for ITS: ${currentUserItsId}.`);
+    
     return combinedNotifications;
 
   } catch (error) {
-    console.error("[notificationService] Error fetching notifications for user: ", error);
+    
     if (error instanceof Error && error.message.includes("index")) {
-        console.error("[notificationService] This operation likely requires Firestore indexes. Please check your Firebase console. You might need an index for ('targetAudience' ASC, 'createdAt' DESC) on the 'notifications' collection.");
+        
     }
     return []; // Return empty array on error to prevent app crash
   }
@@ -127,7 +126,7 @@ export const markNotificationAsRead = async (notificationId: string, userItsId: 
       readBy: arrayUnion(userItsId),
     });
   } catch (error) {
-    console.error(`Error marking notification ${notificationId} as read for user ${userItsId}: `, error);
+    
     // Not re-throwing, as this is a non-critical operation for the user experience if it fails once
   }
 };
@@ -137,7 +136,7 @@ export const deleteNotification = async (notificationId: string): Promise<void> 
     const notificationDocRef = doc(db, 'notifications', notificationId);
     await deleteDoc(notificationDocRef);
   } catch (error) {
-    console.error(`Error deleting notification ${notificationId}: `, error);
+    
     throw error;
   }
 };

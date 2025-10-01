@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -23,36 +22,36 @@ export default function NotificationsPage() {
     const role = localStorage.getItem('userRole') as UserRole | null;
     setCurrentUserItsId(itsId);
     setCurrentUserRole(role);
-    console.log("[NotificationsPage useEffect] Loaded from localStorage - ITS ID:", itsId, "Role:", role);
+    
   }, []);
 
   const fetchAndMarkNotifications = useCallback(async () => {
     if (!currentUserItsId || !currentUserRole) {
       setIsLoading(false);
-      console.log("[NotificationsPage fetchAndMark] Skipping fetch: No ITS ID or Role.", { currentUserItsId, currentUserRole });
+      
       return;
     }
     setIsLoading(true);
-    console.log("[NotificationsPage fetchAndMark] Fetching for ITS:", currentUserItsId, "Role:", currentUserRole);
+    
     try {
       const fetchedNotifications = await getNotificationsForUser(currentUserItsId, currentUserRole);
-      console.log("[NotificationsPage fetchAndMark] Fetched raw notifications:", fetchedNotifications);
+      
       
       const sortedNotifications = fetchedNotifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setNotifications(sortedNotifications);
-      console.log("[NotificationsPage fetchAndMark] Sorted notifications to display:", sortedNotifications);
+      
 
       // Mark fetched notifications as read for the current user
       const markReadPromises: Promise<void>[] = [];
       sortedNotifications.forEach(notif => {
         if (!notif.readBy?.includes(currentUserItsId)) {
-          console.log(`[NotificationsPage fetchAndMark] Marking notification ${notif.id} as read for ${currentUserItsId}`);
+          
           markReadPromises.push(markNotificationAsRead(notif.id, currentUserItsId));
         }
       });
       if (markReadPromises.length > 0) {
         await Promise.all(markReadPromises);
-        console.log(`[NotificationsPage fetchAndMark] Marked ${markReadPromises.length} notifications as read.`);
+        
         // Dispatch event so header can update badge
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent('notificationsUpdated'));
@@ -60,7 +59,7 @@ export default function NotificationsPage() {
       }
 
     } catch (error) {
-      console.error("[NotificationsPage fetchAndMark] Failed to fetch or mark notifications:", error);
+      
       toast({ title: "Error", description: "Could not load notifications.", variant: "destructive" });
     } finally {
       setIsLoading(false);

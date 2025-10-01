@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -356,7 +355,7 @@ export default function FillFormPage() {
                     setError("This form could not be found or may have been deleted.");
                 }
             } catch (err) {
-                console.error(err);
+                
                 setError("An error occurred while loading the form data.");
                 toast({
                     title: "Loading Error",
@@ -409,7 +408,7 @@ export default function FillFormPage() {
             await addFormResponse(form.id, responsePayload);
             setHasSubmitted(true);
         } catch (error) {
-            console.error("Failed to submit response:", error);
+            
             const errorMessage = error instanceof Error ? error.message : "Could not submit your response. Please try again.";
             toast({ title: "Error", description: errorMessage, variant: "destructive" });
         }

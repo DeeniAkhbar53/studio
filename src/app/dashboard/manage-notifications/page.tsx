@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -93,7 +92,7 @@ export default function ManageNotificationsPage() {
       });
       setNotifications(fetchedNotifications);
     } catch (error) {
-      console.error("Failed to fetch all notifications for management:", error);
+      
       toast({ title: "Error", description: "Could not load notifications for management.", variant: "destructive" });
     } finally {
       setIsLoading(false);
@@ -137,7 +136,7 @@ export default function ManageNotificationsPage() {
       setNewNotificationAudience('all');
       fetchAllNotifications(); 
     } catch (error) {
-      console.error("Failed to post notification:", error);
+      
       toast({ title: "Error", description: "Could not post notification.", variant: "destructive" });
     } finally {
         setIsSubmitting(false);
@@ -153,7 +152,7 @@ export default function ManageNotificationsPage() {
       });
       fetchAllNotifications(); // Refresh the list
     } catch (error) {
-      console.error("Failed to delete notification:", error);
+      
       toast({ title: "Error", description: "Could not delete notification.", variant: "destructive" });
     }
   };

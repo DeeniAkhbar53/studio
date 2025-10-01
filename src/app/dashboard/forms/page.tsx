@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -49,7 +48,7 @@ export default function FormsListPage() {
                 const fetchedForms = await getForms();
                 setForms(fetchedForms);
             } catch (error) {
-                console.error("Failed to fetch initial data:", error);
+                
                 toast({ title: "Error", description: "Could not load forms or user data.", variant: "destructive" });
             } finally {
                 setIsLoading(false);
@@ -66,7 +65,7 @@ export default function FormsListPage() {
             const fetchedForms = await getForms();
             setForms(fetchedForms);
         } catch (error) {
-            console.error("Failed to fetch forms:", error);
+            
             toast({ title: "Error", description: "Could not load forms.", variant: "destructive" });
         } finally {
             setIsLoading(false);
@@ -87,7 +86,7 @@ export default function FormsListPage() {
             });
             await fetchForms(); // Refetch forms
         } catch (error) {
-            console.error("Failed to delete form:", error);
+            
             toast({ title: "Error", description: `Could not delete form "${formTitle}".`, variant: "destructive" });
         }
     };
@@ -102,7 +101,7 @@ export default function FormsListPage() {
                 description: `Form is now ${newStatus}.`,
             });
         } catch (error) {
-            console.error("Failed to update form status:", error);
+            
             toast({ title: "Error", description: `Could not update the form's status.`, variant: "destructive" });
         }
     };

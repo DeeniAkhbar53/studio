@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from './firebase';
@@ -45,7 +44,7 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
     const docRef = await addDoc(membersCollectionRef, payloadForFirestore);
     return { ...payloadForFirestore, id: docRef.id } as User;
   } catch (error) {
-    console.error(`Error adding user to Mohallah ${mohallahId}: `, error);
+    
     throw error;
   }
 };
@@ -101,7 +100,7 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
 
     await updateDoc(userDocRef, updatePayload);
   } catch (error) {
-    console.error(`Error updating user ${userId} in Mohallah ${mohallahId}: `, error);
+    
     throw error;
   }
 };
@@ -114,7 +113,7 @@ export const deleteUser = async (userId: string, mohallahId: string): Promise<vo
     const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
     await deleteDoc(userDocRef);
   } catch (error) {
-    console.error(`Error deleting user ${userId} from Mohallah ${mohallahId}: `, error);
+    
     throw error;
   }
 };
@@ -123,10 +122,10 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
   try {
     let usersQuery;
     if (mohallahId && mohallahId !== 'all') {
-      console.log(`Fetching users for specific Mohallah ID: ${mohallahId}`);
+      
       usersQuery = query(collection(db, 'mohallahs', mohallahId, 'members'));
     } else {
-      console.log("Fetching all users using collectionGroup query for 'members'.");
+      
       usersQuery = query(collectionGroup(db, 'members'));
     }
     const data = await getDocs(usersQuery);
@@ -146,9 +145,9 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
         } as User
     });
   } catch (error) {
-    console.error("Error fetching users: ", error);
+    
     if (error instanceof Error && error.message.includes("index")) {
-        console.error("Query failed, possibly due to a missing system index. Super Admins: please ensure indexes are configured for 'members' collection group queries, or select a specific Mohallah.", error);
+        
         throw new Error("Query failed, possibly due to a missing system index. Super Admins: please ensure indexes are configured for 'members' collection group queries, or select a specific Mohallah.");
     }
     throw error;
@@ -169,7 +168,7 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
         ...userData, 
         id: userDoc.id,
         lastLogin,
-        pageRights: userData.pageRights || [], 
+        pageRights: userData.pageRights || [],
         managedTeams: userData.managedTeams || [],
         mohallahId: userData.mohallahId, // This is the ID of the Mohallah the user belongs to
         fcmTokens: userData.fcmTokens || [], // Ensure fcmTokens is included
@@ -195,9 +194,9 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
     
     return null;
   } catch (error) {
-    console.error('CRITICAL: Error fetching user by ITS/BGK ID using collection group query: ', error);
+    
     if (error instanceof Error && error.message.includes("index")) {
-        console.error("This operation requires Firestore indexes on 'itsId' and 'bgkId' for the 'members' collection group. Please check your Firebase console.");
+        
     }
     return null; 
   }
@@ -215,9 +214,9 @@ export const getUsersCount = async (mohallahId?: string): Promise<number> => {
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count;
   } catch (error) {
-    console.error('CRITICAL: Error fetching users count:', error);
+    
     if (error instanceof Error && error.message.includes("index") && !mohallahId) {
-         console.error("Counting all members requires collection group query support or indexes.");
+         
     }
     return 0; 
   }
@@ -228,7 +227,7 @@ export const updateUserFcmToken = async (userItsId: string, userMohallahId: stri
     try {
         const user = await getUserByItsOrBgkId(userItsId);
         if (!user || !user.mohallahId) {
-            console.error(`User with ITS ID ${userItsId} not found or has no Mohallah ID.`);
+            
             return;
         }
 
@@ -237,10 +236,10 @@ export const updateUserFcmToken = async (userItsId: string, userMohallahId: stri
         await updateDoc(userDocRef, {
             fcmTokens: arrayUnion(token)
         });
-        console.log(`FCM token updated for user ${userItsId}`);
+        
 
     } catch (error) {
-        console.error(`Error updating FCM token for user ${userItsId}: `, error);
+        
     }
 };
 
@@ -271,7 +270,7 @@ export const updateUserLastLogin = async (user: User): Promise<void> => {
         await batch.commit();
 
     } catch (error) {
-        console.error(`Error updating last login for user ${user.itsId}:`, error);
+        
         // We don't re-throw here because failing to log a login should not prevent the user from logging in.
     }
 };
@@ -288,7 +287,7 @@ export const getUniqueTeamNames = async (): Promise<string[]> => {
         });
         return Array.from(teamNames).sort();
     } catch (error) {
-        console.error("Error fetching unique team names:", error);
+        
         return [];
     }
 };

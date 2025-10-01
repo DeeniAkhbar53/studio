@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useForm, useFieldArray, Controller } from "react-hook-form";
@@ -149,7 +148,7 @@ export default function CreateFormPage() {
             toast({ title: "Form Created!", description: `"${values.title}" has been successfully created.` });
             router.push(`/dashboard/forms`);
         } catch (error) {
-            console.error("Failed to create form:", error);
+            
             toast({ title: "Error", description: "Failed to save the form to the database.", variant: "destructive" });
         }
     };

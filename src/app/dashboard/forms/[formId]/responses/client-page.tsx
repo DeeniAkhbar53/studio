@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -251,7 +250,7 @@ export default function ViewResponsesClientPage() {
                         const user = await getUserByItsOrBgkId(userItsId);
                         setCurrentUser(user);
                     } catch (e) {
-                         console.error("Could not fetch current user details", e);
+                         
                     }
                 }
             }
@@ -287,7 +286,7 @@ export default function ViewResponsesClientPage() {
                 setAvailableTeams(teams);
 
             } catch (err) {
-                console.error("Error fetching initial details:", err);
+                
                 setError("Could not load form or user details.");
             } finally {
                  // The realtime listener will set loading to false
@@ -328,7 +327,7 @@ export default function ViewResponsesClientPage() {
                 variant: "destructive",
             });
         } catch (err) {
-            console.error("Failed to delete response:", err);
+            
             toast({ title: "Error", description: "Could not delete the response.", variant: "destructive" });
         }
     };
@@ -561,7 +560,7 @@ export default function ViewResponsesClientPage() {
                         <TabsTrigger value="respondents">
                             <UserCheck className="mr-2 h-4 w-4"/>Respondents ({filteredResponses.length})
                         </TabsTrigger>
-                        <TabsTrigger value="non-respondents" disabled={!canManageResponses}>
+                        <TabsTrigger value="non-respondents" disabled={!canManageNonRespondents}>
                             <UserX className="mr-2 h-4 w-4"/>Non-Respondents ({filteredNonRespondents.length})
                         </TabsTrigger>
                         <TabsTrigger value="analytics">
@@ -583,7 +582,7 @@ export default function ViewResponsesClientPage() {
                                 <UserCheck className="mr-2 h-4 w-4"/>
                                 Respondents ({filteredResponses.length})
                              </DropdownMenuItem>
-                             <DropdownMenuItem onSelect={() => setActiveTab('non-respondents')} disabled={!canManageResponses}>
+                             <DropdownMenuItem onSelect={() => setActiveTab('non-respondents')} disabled={!canManageNonRespondents}>
                                 <UserX className="mr-2 h-4 w-4"/>
                                 Non-Respondents ({filteredNonRespondents.length})
                             </DropdownMenuItem>

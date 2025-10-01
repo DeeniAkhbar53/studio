@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -223,7 +222,7 @@ export default function ManageMembersPage() {
         const fetchedMembers = await getUsers(targetMohallahIdForFetch);
         setMembers(fetchedMembers);
     } catch (error: any) {
-        console.error("Failed to fetch members:", error);
+        
         if (currentUserRole === 'superadmin' && (!targetMohallahIdForFetch || targetMohallahIdForFetch === 'all') && error.message.includes("index")) {
             const specificErrorMsg = "Could not fetch all members. This may be due to missing database indexes. Please select a specific Mohallah to view its members or configure database indexes in your console.";
             setFetchError(specificErrorMsg);
@@ -299,7 +298,7 @@ export default function ManageMembersPage() {
 
   const handleMemberFormSubmit = async (values: MemberFormValues) => {
     const targetMohallahId = values.mohallahId;
-    console.log("Attempting to save member. Payload:", values, "Target Mohallah ID for path:", targetMohallahId);
+    
 
     if (!targetMohallahId) {
         toast({ title: "Error", description: "Mohallah ID is missing.", variant: "destructive" });
@@ -349,7 +348,7 @@ export default function ManageMembersPage() {
       setIsMemberSheetOpen(false);
       setEditingMember(null);
     } catch (error) {
-      console.error("Error saving member to system:", error);
+      
       toast({ title: "System Error", description: `Could not save member data. ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
     }
   };
@@ -370,7 +369,7 @@ export default function ManageMembersPage() {
       setSelectedMemberIds(prev => prev.filter(id => id !== member.id)); 
       fetchAndSetMembers();
     } catch (error) {
-      console.error("Error deleting member:", error);
+      
       toast({ title: "System Error", description: "Could not delete member.", variant: "destructive" });
     }
   };
@@ -392,11 +391,11 @@ export default function ManageMembersPage() {
           await deleteUser(memberToDelete.id, memberToDelete.mohallahId);
           deletedCount++;
         } catch (error) {
-          console.error(`Error deleting member ${memberToDelete.name}:`, error);
+          
           failedCount++;
         }
       } else {
-        console.warn(`Could not find member with ID ${memberId} or missing mohallahId for bulk delete.`);
+        
         failedCount++; 
       }
     }
@@ -567,11 +566,11 @@ export default function ManageMembersPage() {
                 }
 
                 if (failedRecords.length > 0) {
-                    console.warn("CSV Import - Skipped/Failed Records:", failedRecords);
+                    
                 }
             },
             error: (error: any) => {
-                console.error("Error parsing CSV:", error);
+                
                 setIsCsvProcessing(false);
                 toast({
                     title: "CSV Parsing Error",
@@ -581,7 +580,7 @@ export default function ManageMembersPage() {
             }
         });
     } catch (error) {
-        console.error("Error reading file:", error);
+        
         setIsCsvProcessing(false);
         toast({
             title: "File Read Error",
@@ -799,7 +798,7 @@ export default function ManageMembersPage() {
                             <AlertDesc>
                               Are you sure you want to delete {selectedMemberIds.length} selected member(s)? This action cannot be undone.
                             </AlertDesc>
-                          </AlertHeader>
+                          </AlertFooter>
                           <AlertFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">
@@ -1496,4 +1495,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-

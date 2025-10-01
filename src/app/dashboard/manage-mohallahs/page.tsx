@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -87,7 +86,7 @@ export default function ManageMohallahsPage() {
         setMembers(fetchedMembers);
       } catch (error) {
         toast({ title: "Error", description: "Failed to fetch Members for validation.", variant: "destructive" });
-        console.error("Failed to fetch Members:", error);
+        
       } finally {
         setIsLoadingMembers(false);
       }
@@ -119,7 +118,7 @@ export default function ManageMohallahsPage() {
       setIsMohallahDialogOpen(false);
       setEditingMohallah(null);
     } catch (error) {
-      console.error("Error saving Mohallah:", error);
+      
       toast({ title: "Database Error", description: `Could not save Mohallah. ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
     }
   };
@@ -150,7 +149,7 @@ export default function ManageMohallahsPage() {
       await fbDeleteMohallah(mohallah.id);
       toast({ title: "Mohallah Deleted", description: `Mohallah "${mohallah.name}" has been deleted.`});
     } catch (error) {
-      console.error("Error deleting Mohallah:", error);
+      
       toast({ title: "Database Error", description: "Could not delete Mohallah.", variant: "destructive" });
     }
   };

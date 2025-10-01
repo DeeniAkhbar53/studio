@@ -1,4 +1,3 @@
-
 import { db } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion, onSnapshot, Unsubscribe, writeBatch, runTransaction } from 'firebase/firestore';
 import type { Miqaat, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem, MiqaatSession } from '@/types';
@@ -53,7 +52,7 @@ export const getMiqaats = (onUpdate: (miqaats: Miqaat[]) => void): Unsubscribe =
     });
     onUpdate(miqaats);
   }, (error) => {
-    console.error("Error fetching miqaats with onSnapshot: ", error);
+    
     onUpdate([]);
   });
 
@@ -94,7 +93,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
     return { ...miqaatData, id: docRef.id, createdAt: new Date().toISOString(), attendance: [], safarList: [], attendedUserItsIds: [] } as Miqaat;
 
   } catch (error) {
-    console.error("Error adding miqaat: ", error);
+    
     throw error;
   }
 };
@@ -134,7 +133,7 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
 
     await updateDoc(miqaatDoc, firestorePayload);
   } catch (error) {
-    console.error("Error updating miqaat: ", error);
+    
     throw error;
   }
 };
@@ -144,7 +143,7 @@ export const deleteMiqaat = async (miqaatId: string): Promise<void> => {
         const miqaatDoc = doc(db, 'miqaats', miqaatId);
         await deleteDoc(miqaatDoc);
     } catch (error) {
-        console.error("Error deleting miqaat: ", error);
+        
         throw error;
     }
 };
@@ -164,7 +163,7 @@ export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAtte
           );
 
           if (alreadyExists) {
-              console.log(`User ${entry.userItsId} already marked for session ${entry.sessionId} in miqaat ${miqaatId}. Skipping.`);
+              
               return; 
           }
           
@@ -179,7 +178,7 @@ export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAtte
           });
       });
   } catch (error) {
-    console.error("Error marking attendance in Miqaat document: ", error);
+    
     throw error;
   }
 };
@@ -205,7 +204,7 @@ export const batchMarkSafarInMiqaat = async (miqaatId: string, entries: MiqaatSa
             const newEntries = entries.filter(entry => !existingItsIdsInSafar.has(entry.userItsId));
             
             if (newEntries.length === 0) {
-                console.log("All selected members already in Safar list for this Miqaat.");
+                
                 return;
             }
 
@@ -216,10 +215,10 @@ export const batchMarkSafarInMiqaat = async (miqaatId: string, entries: MiqaatSa
                 attendedUserItsIds: arrayUnion(...safarUserItsIdsToAdd)
             });
 
-            console.log(`Transactionally updating Miqaat ${miqaatId} with ${newEntries.length} new Safar records.`);
+            
         });
     } catch (error) {
-        console.error(`Error during batch Safar update for Miqaat ${miqaatId}:`, error);
+        
         throw error;
     }
 };

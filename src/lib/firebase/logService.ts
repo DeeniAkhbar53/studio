@@ -1,4 +1,3 @@
-
 import { db } from './firebase';
 import {
   collection,
@@ -33,7 +32,7 @@ export const addLoginLog = async (
     const docRef = await addDoc(logsCollectionRef, logEntry);
     return docRef.id;
   } catch (error) {
-    console.error("CRITICAL: Failed to write to login_logs collection.", error);
+    
     throw error;
   }
 };
@@ -54,7 +53,7 @@ export const getLoginLogs = (
     });
     onUpdate(logs);
   }, (error) => {
-    console.error("Error fetching real-time login logs:", error);
+    
     onError(error as Error);
   });
 
@@ -77,9 +76,9 @@ export const getLoginLogsForUser = async (userItsId: string): Promise<SystemLog[
             return { ...data, id: docSnapshot.id, timestamp } as SystemLog;
         });
     } catch (error) {
-        console.error(`Error fetching login logs for user ${userItsId}:`, error);
+        
         if (error instanceof Error && error.message.includes("index")) {
-            console.error(`This operation requires a Firestore index. Please create an index for the 'login_logs' collection with 'userItsId' (ascending) and 'timestamp' (descending).`);
+            
         }
         throw error;
     }
@@ -95,7 +94,7 @@ export const clearLoginLogs = async (): Promise<void> => {
         });
         await batch.commit();
     } catch (error) {
-        console.error("Error clearing login logs: ", error);
+        
         throw error;
     }
 };

@@ -1,4 +1,3 @@
-
 import type { MiqaatAttendanceEntryItem, User } from '@/types';
 
 const DB_NAME = 'MAttendanceDB';
@@ -27,7 +26,7 @@ function openDB(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onerror = () => {
-      console.error('IndexedDB error:', request.error);
+      
       reject(new Error('Failed to open IndexedDB.'));
     };
 
@@ -67,7 +66,7 @@ export async function savePendingAttendance(miqaatId: string, entry: MiqaatAtten
     const request = store.add(record);
     request.onsuccess = () => resolve();
     request.onerror = () => {
-      console.error('Failed to save pending attendance:', request.error);
+      
       reject(new Error('Could not save attendance record offline.'));
     };
   });
@@ -82,7 +81,7 @@ export async function getPendingAttendance(): Promise<OfflineAttendanceRecord[]>
     const request = store.getAll();
     request.onsuccess = () => resolve(request.result as OfflineAttendanceRecord[]);
     request.onerror = () => {
-      console.error('Failed to get pending attendance:', request.error);
+      
       reject(new Error('Could not retrieve offline records.'));
     };
   });
@@ -97,7 +96,7 @@ export async function removePendingAttendanceRecord(recordId: number): Promise<v
         const request = store.delete(recordId);
         request.onsuccess = () => resolve();
         request.onerror = () => {
-            console.error('Failed to delete pending record:', request.error);
+            
             reject(new Error('Could not delete the offline record.'));
         };
     });
@@ -113,7 +112,7 @@ export async function clearPendingAttendance(): Promise<void> {
     const request = store.clear();
     request.onsuccess = () => resolve();
     request.onerror = () => {
-      console.error('Failed to clear pending attendance:', request.error);
+      
       reject(new Error('Could not clear offline records.'));
     };
   });
@@ -141,7 +140,7 @@ export async function cacheAllUsers(users: User[]): Promise<void> {
     return new Promise((resolve, reject) => {
         transaction.oncomplete = () => resolve();
         transaction.onerror = (event) => {
-            console.error('Failed to cache users:', (event.target as IDBTransaction).error);
+            
             reject(new Error('Could not cache user data locally.'));
         };
     });
@@ -168,13 +167,13 @@ export async function getCachedUserByItsOrBgkId(id: string): Promise<User | null
                     resolve(bgkRequest.result || null);
                 };
                 bgkRequest.onerror = () => {
-                    console.error('Failed to get cached user by BGK ID:', bgkRequest.error);
+                    
                     reject(new Error('Failed to query local user cache by BGK ID.'));
                 };
             }
         };
         itsRequest.onerror = () => {
-            console.error('Failed to get cached user by ITS ID:', itsRequest.error);
+            
             reject(new Error('Failed to query local user cache by ITS ID.'));
         };
     });

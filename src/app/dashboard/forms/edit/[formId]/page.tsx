@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -151,7 +150,7 @@ export default function EditFormPage() {
                     router.push('/dashboard/forms');
                 }
             } catch (error) {
-                console.error("Failed to fetch form:", error);
+                
                 toast({ title: "Error", description: "Could not load the form for editing.", variant: "destructive" });
             } finally {
                 setIsLoading(false);
@@ -195,7 +194,7 @@ export default function EditFormPage() {
             toast({ title: "Form Updated!", description: `"${values.title}" has been successfully updated.` });
             router.push('/dashboard/forms');
         } catch (error) {
-            console.error("Failed to update form:", error);
+            
             toast({ title: "Error", description: "Failed to save the updated form.", variant: "destructive" });
         }
     };

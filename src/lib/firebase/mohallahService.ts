@@ -1,4 +1,3 @@
-
 import { db } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query as firestoreQuery, orderBy, onSnapshot, Unsubscribe, getCountFromServer, query } from 'firebase/firestore';
 import type { Mohallah } from '@/types';
@@ -14,7 +13,7 @@ export const getMohallahs = (onUpdate: (mohallahs: Mohallah[]) => void): Unsubsc
     const mohallahs = querySnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Mohallah));
     onUpdate(mohallahs);
   }, (error) => {
-    console.error("Error fetching mohallahs with onSnapshot: ", error);
+    
     onUpdate([]); 
   });
 
@@ -29,7 +28,7 @@ export const addMohallah = async (name: string): Promise<Mohallah> => {
     });
     return { id: docRef.id, name, createdAt: new Date().toISOString() } as Mohallah; 
   } catch (error) {
-    console.error("Error adding mohallah: ", error);
+    
     throw error;
   }
 };
@@ -39,7 +38,7 @@ export const updateMohallahName = async (mohallahId: string, newName: string): P
     const mohallahDoc = doc(db, 'mohallahs', mohallahId);
     await updateDoc(mohallahDoc, { name: newName });
   } catch (error) {
-    console.error("Error updating mohallah name: ", error);
+    
     throw error;
   }
 };
@@ -52,7 +51,7 @@ export const deleteMohallah = async (mohallahId: string): Promise<void> => {
     const mohallahDoc = doc(db, 'mohallahs', mohallahId);
     await deleteDoc(mohallahDoc);
   } catch (error) {
-    console.error("Error deleting mohallah and its members: ", error);
+    
     throw error;
   }
 };
@@ -63,7 +62,7 @@ export const getMohallahsCount = async (): Promise<number> => {
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count;
   } catch (error) {
-    console.error('CRITICAL: Error fetching mohallahs count:', error);
+    
     // Return 0 on error instead of re-throwing
     return 0; 
   }
