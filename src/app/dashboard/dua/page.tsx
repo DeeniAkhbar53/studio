@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Lock, Video, BookOpen, PlusCircle, MinusCircle, Eye } from "lucide-react";
+import { CheckCircle, Lock, Video, BookOpen, PlusCircle, MinusCircle, Eye, Edit, ShieldAlert } from "lucide-react";
 import { db } from "@/lib/firebase/firebase";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -19,6 +19,8 @@ import type { UserRole, UserDesignation } from "@/types";
 import { useRouter } from "next/navigation";
 import Plyr from "plyr-react";
 import "plyr-react/plyr.css";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { getDuaVideoUrl, updateDuaVideoUrl } from "@/lib/firebase/settingsService";
 
 
 const duaFormSchema = z.object({
@@ -35,7 +37,6 @@ const duaFormSchema = z.object({
 
 type DuaFormValues = z.infer<typeof duaFormSchema>;
 
-// Helper function to get the current week's identifier (e.g., "2024-W35")
 const getWeekId = (date: Date) => {
     const year = date.getFullYear();
     const firstDayOfYear = new Date(year, 0, 1);
@@ -67,16 +68,22 @@ const CounterInput = ({ field, label, description, max }: { field: any, label: s
 }
 
 const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
+const TARGET_MOHALLAH_ID = "Taheri Mohallah (Khaitan)"; // The ID of the allowed Mohallah
 
 export default function DuaPage() {
     const router = useRouter();
-    const [isAccessible, setIsAccessible] = useState(true); // Changed for testing
+    const [isAccessible, setIsAccessible] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [attendanceMarked, setAttendanceMarked] = useState(false);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
     const { toast } = useToast();
     const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
     const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
+    const [currentUserMohallah, setCurrentUserMohallah] = useState<string | null>(null);
+
+    const [videoUrl, setVideoUrl] = useState<string>("");
+    const [isEditLinkOpen, setIsEditLinkOpen] = useState(false);
+    const [newVideoUrl, setNewVideoUrl] = useState("");
 
 
      const form = useForm<DuaFormValues>({
@@ -90,40 +97,34 @@ export default function DuaPage() {
 
     useEffect(() => {
         if (typeof window !== "undefined") {
-            setCurrentUserRole(localStorage.getItem('userRole') as UserRole);
-            setCurrentUserDesignation(localStorage.getItem('userDesignation') as UserDesignation);
-        }
-    }, []);
-
-    
-    useEffect(() => {
-        // FOR TESTING: Page is always accessible.
-        // To re-enable time lock, uncomment the following block and set isAccessible initial state to false.
-        /*
-        const checkAccessTime = () => {
-            const now = new Date();
-            const day = now.getDay(); // Sunday = 0, Thursday = 4, Friday = 5
-            const hour = now.getHours();
-
-            // Thursday 5 PM (17:00) to Friday 10 PM (22:00)
-            const isThursdayWindow = (day === 4 && hour >= 17);
-            const isFridayWindow = (day === 5 && hour < 22);
-
-            if (isThursdayWindow || isFridayWindow) {
+            const role = localStorage.getItem('userRole') as UserRole;
+            const designation = localStorage.getItem('userDesignation') as UserDesignation;
+            const mohallah = localStorage.getItem('userMohallahId');
+            
+            setCurrentUserRole(role);
+            setCurrentUserDesignation(designation);
+            setCurrentUserMohallah(mohallah);
+            
+            // Check for Mohallah access first
+            if (mohallah === TARGET_MOHALLAH_ID || role === 'superadmin') {
                 setIsAccessible(true);
             } else {
                 setIsAccessible(false);
             }
-            setIsLoading(false);
-        };
+        }
 
-        checkAccessTime();
-        // Check every minute
-        const interval = setInterval(checkAccessTime, 60000);
+         getDuaVideoUrl().then(url => {
+            setVideoUrl(url || 'LXb3EKWsInQ'); // Default video if not set
+            setNewVideoUrl(url || 'LXb3EKWsInQ');
+        }).catch(() => {
+             setVideoUrl('LXb3EKWsInQ');
+        });
 
-        return () => clearInterval(interval);
-        */
-       setIsLoading(false); // Since we removed the check, just stop loading.
+    }, []);
+
+    
+    useEffect(() => {
+       setIsLoading(false); 
     }, []);
 
     useEffect(() => {
@@ -147,21 +148,40 @@ export default function DuaPage() {
                     feedback: data.feedback,
                 });
             }
+             setIsLoading(false);
         };
 
         checkExistingAttendance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAccessible]);
 
-    // Effect to hide the success message after a few seconds
     useEffect(() => {
         if (showSuccessMessage) {
             const timer = setTimeout(() => {
                 setShowSuccessMessage(false);
-            }, 5000); // Hide after 5 seconds
+            }, 5000); 
             return () => clearTimeout(timer);
         }
     }, [showSuccessMessage]);
+    
+    const handleUpdateVideoUrl = async () => {
+        try {
+            await updateDuaVideoUrl(newVideoUrl);
+            setVideoUrl(newVideoUrl);
+            setIsEditLinkOpen(false);
+            toast({
+                title: "Video Link Updated",
+                description: "The Dua video link has been successfully changed.",
+            });
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Could not update the video link.",
+                variant: "destructive"
+            });
+        }
+    };
+
 
     const handleMarkAttendance = async (values: DuaFormValues) => {
         const userItsId = localStorage.getItem('userItsId');
@@ -188,7 +208,7 @@ export default function DuaPage() {
                 weekId: weekId,
                 ...values,
                 markedAt: serverTimestamp(),
-            }, { merge: true }); // Merge to update existing record
+            }, { merge: true }); 
             setAttendanceMarked(true);
             setShowSuccessMessage(true);
             toast({
@@ -220,20 +240,21 @@ export default function DuaPage() {
             </div>
         );
     }
-
+    
     if (!isAccessible) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] p-4 text-center">
                 <Card className="w-full max-w-lg p-8 shadow-lg">
-                    <Lock className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                    <h1 className="text-2xl font-bold text-foreground">Dua Page is Closed</h1>
+                    <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
+                    <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
                     <p className="text-muted-foreground mt-2">
-                        This page is only available from Thursday 5:00 PM to Friday 10:00 PM every week.
+                        This page is only available for members of {TARGET_MOHALLAH_ID}.
                     </p>
                 </Card>
             </div>
         );
     }
+
 
     return (
         <div className="space-y-6">
@@ -249,27 +270,36 @@ export default function DuaPage() {
                                 Please watch the video and log your recitation counts below.
                             </CardDescription>
                         </div>
-                        {canViewResponses && (
+                        <div className="flex items-center gap-2">
+                         {currentUserRole === 'superadmin' && (
+                             <Button variant="secondary" size="sm" onClick={() => setIsEditLinkOpen(true)}>
+                                <Edit className="md:mr-2 h-4 w-4" />
+                                <span className="hidden md:inline">Edit Link</span>
+                            </Button>
+                         )}
+                         {canViewResponses && (
                              <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/dua/responses')}>
                                 <Eye className="md:mr-2 h-4 w-4" />
                                 <span className="hidden md:inline">View Submissions</span>
                             </Button>
-                        )}
+                         )}
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
                      <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
-                        <Plyr
-                            source={{
-                                type: 'video',
-                                sources: [
-                                    {
-                                        src: 'LXb3EKWsInQ',
-                                        provider: 'youtube',
-                                    },
-                                ],
-                            }}
-                        />
+                        {videoUrl ? (
+                            <Plyr
+                                source={{
+                                    type: 'video',
+                                    sources: [ { src: videoUrl, provider: 'youtube' } ],
+                                }}
+                            />
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">
+                                <FunkyLoader>Loading Video...</FunkyLoader>
+                            </div>
+                        )}
                     </div>
                 </CardContent>
             </Card>
@@ -357,15 +387,31 @@ export default function DuaPage() {
                     </Form>
                 </CardContent>
             </Card>
+            
+            <Dialog open={isEditLinkOpen} onOpenChange={setIsEditLinkOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Update Dua Video Link</DialogTitle>
+                        <DialogDescription>
+                            Paste the new YouTube video ID or full URL below.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Input 
+                            value={newVideoUrl}
+                            onChange={(e) => setNewVideoUrl(e.target.value)}
+                            placeholder="e.g., LXb3EKWsInQ or full YouTube URL"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button variant="outline">Cancel</Button>
+                        </DialogClose>
+                        <Button onClick={handleUpdateVideoUrl}>Save Changes</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
-    
-
-    
-
-    
-
-    
-
     
