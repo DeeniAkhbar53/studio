@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import Script from "next/script";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -76,7 +75,6 @@ export default function DuaPage() {
     const { toast } = useToast();
     const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
     const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
-    const iframeRef = useRef<HTMLIFrameElement>(null);
 
 
      const form = useForm<DuaFormValues>({
@@ -95,14 +93,6 @@ export default function DuaPage() {
         }
     }, []);
 
-    useEffect(() => {
-       if (iframeRef.current && (window as any).Playerjs) {
-         new (window as any).Playerjs({
-           id: iframeRef.current.id,
-           file: "https://www.youtube.com/watch?v=LXb3EKWsInQ",
-         });
-       }
-     }, []);
     
     useEffect(() => {
         // FOR TESTING: Page is always accessible.
@@ -245,14 +235,6 @@ export default function DuaPage() {
 
     return (
         <div className="space-y-6">
-             <Script src="https://cdn.playerjs.com/v1/player.js" onReady={() => {
-                if (iframeRef.current) {
-                    new (window as any).Playerjs({
-                        id: iframeRef.current.id,
-                        file: "https://www.youtube.com/watch?v=LXb3EKWsInQ"
-                    });
-                }
-             }}/>
             <Card className="shadow-lg">
                 <CardHeader>
                     <div className="flex justify-between items-start">
@@ -276,13 +258,11 @@ export default function DuaPage() {
                 <CardContent className="space-y-6">
                     <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
                          <iframe
-                            ref={iframeRef}
-                            id="player"
-                            width="100%"
-                            height="100%"
-                            allow="autoplay; fullscreen"
+                            src="https://www.youtube.com/embed/LXb3EKWsInQ"
+                            title="YouTube video player"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                             allowFullScreen
-                            className="border-0"
+                            className="w-full h-full border-0"
                         ></iframe>
                     </div>
                 </CardContent>
