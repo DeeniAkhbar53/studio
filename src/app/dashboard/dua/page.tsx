@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, Lock, Video, BookOpen, PlusCircle, MinusCircle } from "lucide-react";
 import { db } from "@/lib/firebase/firebase";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
