@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -70,6 +71,7 @@ export default function DuaPage() {
     const [isAccessible, setIsAccessible] = useState(true); // Changed for testing
     const [isLoading, setIsLoading] = useState(true);
     const [attendanceMarked, setAttendanceMarked] = useState(false);
+    const [showSuccessMessage, setShowSuccessMessage] = useState(false);
     const { toast } = useToast();
     const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
     const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
@@ -134,6 +136,7 @@ export default function DuaPage() {
 
             if (docSnap.exists()) {
                 setAttendanceMarked(true);
+                 setShowSuccessMessage(true);
                 const data = docSnap.data();
                 form.reset({
                     duaKamilCount: data.duaKamilCount,
@@ -146,6 +149,16 @@ export default function DuaPage() {
         checkExistingAttendance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAccessible]);
+
+    // Effect to hide the success message after a few seconds
+    useEffect(() => {
+        if (showSuccessMessage) {
+            const timer = setTimeout(() => {
+                setShowSuccessMessage(false);
+            }, 5000); // Hide after 5 seconds
+            return () => clearTimeout(timer);
+        }
+    }, [showSuccessMessage]);
 
     const handleMarkAttendance = async (values: DuaFormValues) => {
         const userItsId = localStorage.getItem('userItsId');
@@ -174,6 +187,7 @@ export default function DuaPage() {
                 markedAt: serverTimestamp(),
             }, { merge: true }); // Merge to update existing record
             setAttendanceMarked(true);
+            setShowSuccessMessage(true);
             toast({
                 title: "Submission Recorded",
                 description: "Your recitation counts for this week have been saved.",
@@ -224,7 +238,7 @@ export default function DuaPage() {
                 <CardHeader>
                     <div className="flex justify-between items-start">
                         <div>
-                             <CardTitle className="flex items-center text-3xl">
+                             <CardTitle className="flex items-center text-2xl md:text-3xl">
                                 <Video className="mr-3 h-8 w-8 text-primary" />
                                 Dua Recitation
                             </CardTitle>
@@ -233,8 +247,9 @@ export default function DuaPage() {
                             </CardDescription>
                         </div>
                         {canViewResponses && (
-                             <Button variant="outline" onClick={() => router.push('/dashboard/dua/responses')}>
-                                <Eye className="mr-2 h-4 w-4" /> View Submissions
+                             <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/dua/responses')}>
+                                <Eye className="md:mr-2 h-4 w-4" />
+                                <span className="hidden md:inline">View Submissions</span>
                             </Button>
                         )}
                     </div>
@@ -254,7 +269,7 @@ export default function DuaPage() {
 
             <Card className="shadow-lg">
                  <CardHeader>
-                    <CardTitle className="flex items-center text-2xl">
+                    <CardTitle className="flex items-center text-xl md:text-2xl">
                         <BookOpen className="mr-3 h-7 w-7 text-primary" />
                         Recitation Log
                     </CardTitle>
@@ -263,13 +278,13 @@ export default function DuaPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {attendanceMarked ? (
-                        <div className="flex flex-col items-center gap-3 text-green-600 border p-6 rounded-lg bg-green-50 dark:bg-green-950">
+                    {showSuccessMessage && (
+                        <div className="flex flex-col items-center gap-3 text-green-600 border p-6 rounded-lg bg-green-50 dark:bg-green-950 transition-opacity duration-300">
                             <CheckCircle className="h-12 w-12" />
                             <p className="font-semibold text-lg">Your submission for this week has been recorded.</p>
                             <p className="text-sm">You can still update the counts below if needed.</p>
                         </div>
-                    ) : null}
+                    )}
 
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(handleMarkAttendance)} className="space-y-8 mt-6">
@@ -338,4 +353,6 @@ export default function DuaPage() {
         </div>
     );
 }
+    
+
     
