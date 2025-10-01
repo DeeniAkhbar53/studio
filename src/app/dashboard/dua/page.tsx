@@ -1,14 +1,33 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Lock, Video } from "lucide-react";
+import { CheckCircle, Lock, Video, BookOpen, PlusCircle, MinusCircle } from "lucide-react";
 import { db } from "@/lib/firebase/firebase";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
-import { format } from "date-fns";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+
+const duaFormSchema = z.object({
+  duaKamilCount: z.preprocess(
+    (val) => Number(String(val)),
+    z.number().min(0, "Count must be positive.").max(7, "Count cannot exceed 7.")
+  ),
+  kahfCount: z.preprocess(
+    (val) => Number(String(val)),
+    z.number().min(0, "Count must be positive.")
+  ),
+  feedback: z.string().optional(),
+});
+
+type DuaFormValues = z.infer<typeof duaFormSchema>;
 
 // Helper function to get the current week's identifier (e.g., "2024-W35")
 const getWeekId = (date: Date) => {
@@ -19,14 +38,47 @@ const getWeekId = (date: Date) => {
     return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
 };
 
+const CounterInput = ({ field, label, description, max }: { field: any, label: string, description: string, max?: number }) => {
+    const currentValue = Number(field.value) || 0;
+    return (
+        <FormItem>
+            <FormLabel>{label}</FormLabel>
+            <div className="flex items-center gap-3">
+                <Button type="button" variant="outline" size="icon" onClick={() => field.onChange(Math.max(0, currentValue - 1))}>
+                    <MinusCircle className="h-4 w-4"/>
+                </Button>
+                <FormControl>
+                    <Input {...field} type="number" className="w-20 text-center" />
+                </FormControl>
+                 <Button type="button" variant="outline" size="icon" onClick={() => field.onChange(max ? Math.min(max, currentValue + 1) : currentValue + 1)}>
+                    <PlusCircle className="h-4 w-4"/>
+                </Button>
+            </div>
+             <FormDescription>{description}</FormDescription>
+            <FormMessage />
+        </FormItem>
+    )
+}
+
 export default function DuaPage() {
-    const [isAccessible, setIsAccessible] = useState(false);
+    const [isAccessible, setIsAccessible] = useState(true); // Changed for testing
     const [isLoading, setIsLoading] = useState(true);
     const [attendanceMarked, setAttendanceMarked] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const { toast } = useToast();
+
+     const form = useForm<DuaFormValues>({
+        resolver: zodResolver(duaFormSchema),
+        defaultValues: {
+            duaKamilCount: 0,
+            kahfCount: 0,
+            feedback: "",
+        },
+    });
     
     useEffect(() => {
+        // FOR TESTING: Page is always accessible.
+        // To re-enable time lock, uncomment the following block and set isAccessible initial state to false.
+        /*
         const checkAccessTime = () => {
             const now = new Date();
             const day = now.getDay(); // Sunday = 0, Thursday = 4, Friday = 5
@@ -49,6 +101,8 @@ export default function DuaPage() {
         const interval = setInterval(checkAccessTime, 60000);
 
         return () => clearInterval(interval);
+        */
+       setIsLoading(false); // Since we removed the check, just stop loading.
     }, []);
 
     useEffect(() => {
@@ -64,14 +118,20 @@ export default function DuaPage() {
 
             if (docSnap.exists()) {
                 setAttendanceMarked(true);
+                const data = docSnap.data();
+                form.reset({
+                    duaKamilCount: data.duaKamilCount,
+                    kahfCount: data.kahfCount,
+                    feedback: data.feedback,
+                });
             }
         };
 
         checkExistingAttendance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAccessible]);
 
-    const handleMarkAttendance = async () => {
-        setIsSubmitting(true);
+    const handleMarkAttendance = async (values: DuaFormValues) => {
         const userItsId = localStorage.getItem('userItsId');
         const userName = localStorage.getItem('userName') || 'Unknown';
 
@@ -81,7 +141,6 @@ export default function DuaPage() {
                 description: "Could not identify user. Please log in again.",
                 variant: "destructive",
             });
-            setIsSubmitting(false);
             return;
         }
 
@@ -93,30 +152,28 @@ export default function DuaPage() {
                 itsId: userItsId,
                 name: userName,
                 weekId: weekId,
+                ...values,
                 markedAt: serverTimestamp(),
-            });
+            }, { merge: true }); // Merge to update existing record
             setAttendanceMarked(true);
             toast({
-                title: "Attendance Marked",
-                description: "Your attendance for this week's Dua has been recorded.",
+                title: "Submission Recorded",
+                description: "Your recitation counts for this week have been saved.",
                 className: 'border-green-500 bg-green-50 dark:bg-green-900/30',
             });
         } catch (error) {
-            console.error("Error marking Dua attendance: ", error);
             toast({
                 title: "Submission Error",
-                description: "Could not mark your attendance. Please try again.",
+                description: "Could not save your submission. Please try again.",
                 variant: "destructive",
             });
-        } finally {
-            setIsSubmitting(false);
         }
     };
 
     if (isLoading) {
         return (
             <div className="flex h-full w-full items-center justify-center">
-                <FunkyLoader size="lg">Checking access time...</FunkyLoader>
+                <FunkyLoader size="lg">Loading page...</FunkyLoader>
             </div>
         );
     }
@@ -144,7 +201,7 @@ export default function DuaPage() {
                         Dua Recitation
                     </CardTitle>
                     <CardDescription className="pt-1">
-                        Please watch the video and mark your attendance below.
+                        Please watch the video and log your recitation counts below.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -157,28 +214,90 @@ export default function DuaPage() {
                             Your browser does not support the video tag.
                         </video>
                     </div>
+                </CardContent>
+            </Card>
 
-                    <div className="text-center pt-4">
-                        {attendanceMarked ? (
-                            <div className="flex flex-col items-center gap-3 text-green-600">
-                                <CheckCircle className="h-12 w-12" />
-                                <p className="font-semibold text-lg">Your attendance for this week has been recorded.</p>
+            <Card className="shadow-lg">
+                 <CardHeader>
+                    <CardTitle className="flex items-center text-2xl">
+                        <BookOpen className="mr-3 h-7 w-7 text-primary" />
+                        Recitation Log
+                    </CardTitle>
+                    <CardDescription className="pt-1">
+                        Enter your counts for the week. You can update this form anytime during the week.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {attendanceMarked ? (
+                        <div className="flex flex-col items-center gap-3 text-green-600 border p-6 rounded-lg bg-green-50 dark:bg-green-950">
+                            <CheckCircle className="h-12 w-12" />
+                            <p className="font-semibold text-lg">Your submission for this week has been recorded.</p>
+                            <p className="text-sm">You can still update the counts below if needed.</p>
+                        </div>
+                    ) : null}
+
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(handleMarkAttendance)} className="space-y-8 mt-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <FormField
+                                    control={form.control}
+                                    name="duaKamilCount"
+                                    render={({ field }) => (
+                                        <CounterInput
+                                            field={field}
+                                            label="Dua e Kamil"
+                                            description="Enter Tilawat Count (daily 1 for 7 days)"
+                                            max={7}
+                                        />
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="kahfCount"
+                                    render={({ field }) => (
+                                       <CounterInput
+                                            field={field}
+                                            label="Surat al Kahf"
+                                            description="Enter Tilawat Count (minimum 1 - every friday)"
+                                        />
+                                    )}
+                                />
                             </div>
-                        ) : (
-                            <Button
-                                size="lg"
-                                onClick={handleMarkAttendance}
-                                disabled={isSubmitting}
-                                className="min-w-[250px]"
-                            >
-                                {isSubmitting ? (
-                                    <FunkyLoader size="sm">Submitting...</FunkyLoader>
-                                ) : (
-                                    "Mark My Attendance"
+
+                             <FormField
+                                control={form.control}
+                                name="feedback"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Query / Feedback</FormLabel>
+                                    <FormControl>
+                                    <Textarea
+                                        placeholder="If you have any questions or feedback, please enter it here."
+                                        className="resize-y"
+                                        {...field}
+                                    />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
                                 )}
-                            </Button>
-                        )}
-                    </div>
+                            />
+
+                             <div className="flex justify-end pt-4">
+                                <Button
+                                    type="submit"
+                                    size="lg"
+                                    disabled={form.formState.isSubmitting}
+                                    className="min-w-[200px]"
+                                >
+                                    {form.formState.isSubmitting ? (
+                                        <FunkyLoader size="sm">Submitting...</FunkyLoader>
+                                    ) : (
+                                        attendanceMarked ? "Update Submission" : "Submit"
+                                    )}
+                                </Button>
+                            </div>
+                        </form>
+                    </Form>
                 </CardContent>
             </Card>
         </div>
