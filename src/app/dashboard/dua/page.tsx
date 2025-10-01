@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { UserRole, UserDesignation } from "@/types";
 import { useRouter } from "next/navigation";
+import Plyr from "plyr-react";
+import "plyr-react/plyr.css";
 
 
 const duaFormSchema = z.object({
@@ -256,14 +258,18 @@ export default function DuaPage() {
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
-                         <iframe
-                            src="https://www.youtube.com/embed/LXb3EKWsInQ"
-                            title="YouTube video player"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowFullScreen
-                            className="w-full h-full border-0"
-                        ></iframe>
+                     <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
+                        <Plyr
+                            source={{
+                                type: 'video',
+                                sources: [
+                                    {
+                                        src: 'LXb3EKWsInQ',
+                                        provider: 'youtube',
+                                    },
+                                ],
+                            }}
+                        />
                     </div>
                 </CardContent>
             </Card>
