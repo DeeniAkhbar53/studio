@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -10,7 +11,7 @@ import { ArrowLeft, Download, Eye, FileWarning, Users, UserX, PieChart, ChevronD
 import { useToast } from "@/hooks/use-toast";
 import type { User, UserRole, UserDesignation, Mohallah } from "@/types";
 import { db } from "@/lib/firebase/firebase";
-import { collectionGroup, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { format } from "date-fns";
@@ -77,19 +78,31 @@ export default function DuaResponsesPage() {
                     setCurrentUser(user);
                 }
                 
-                const [users, submissions] = await Promise.all([
-                    getUsers(),
-                    getDocs(query(collectionGroup(db, 'duaAttendance'), where('weekId', '==', getWeekId(new Date()))))
-                ]);
-
+                const users = await getUsers();
                 setAllUsers(users);
+
+                const weekId = getWeekId(new Date());
+                const submissionPromises = users.map(user => {
+                    const docRef = doc(db, 'users', user.itsId, 'duaAttendance', weekId);
+                    return getDoc(docRef);
+                });
+
+                const submissionSnapshots = await Promise.all(submissionPromises);
+
+                const subs: DuaSubmission[] = [];
+                submissionSnapshots.forEach(docSnap => {
+                    if (docSnap.exists()) {
+                        subs.push({ ...docSnap.data(), id: docSnap.id } as DuaSubmission);
+                    }
+                });
+                
+                setAllSubmissions(subs);
+
                 const teams = [...new Set(users.map(u => u.team).filter(Boolean) as string[])].sort();
                 setAvailableTeams(teams);
 
-                const subs: DuaSubmission[] = submissions.docs.map(doc => ({ ...doc.data(), id: doc.id }) as DuaSubmission);
-                setAllSubmissions(subs);
-
                 getMohallahs(setAllMohallahs);
+                
             } catch (err: any) {
                 if (err.message.includes("index")) {
                     setError("A database index is required to view this data. Please contact support.");
