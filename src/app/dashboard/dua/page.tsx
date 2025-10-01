@@ -245,7 +245,14 @@ export default function DuaPage() {
 
     return (
         <div className="space-y-6">
-             <Script src="https://cdn.playerjs.com/v1/player.js" />
+             <Script src="https://cdn.playerjs.com/v1/player.js" onReady={() => {
+                if (iframeRef.current) {
+                    new (window as any).Playerjs({
+                        id: iframeRef.current.id,
+                        file: "https://www.youtube.com/watch?v=LXb3EKWsInQ"
+                    });
+                }
+             }}/>
             <Card className="shadow-lg">
                 <CardHeader>
                     <div className="flex justify-between items-start">
@@ -367,6 +374,8 @@ export default function DuaPage() {
         </div>
     );
 }
+    
+
     
 
     
