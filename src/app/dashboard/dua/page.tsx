@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { UserRole, UserDesignation } from "@/types";
 import { useRouter } from "next/navigation";
+import ReactPlayer from 'react-player/youtube';
 
 
 const duaFormSchema = z.object({
@@ -75,6 +76,7 @@ export default function DuaPage() {
     const { toast } = useToast();
     const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
     const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
+    const [isClient, setIsClient] = useState(false);
 
 
      const form = useForm<DuaFormValues>({
@@ -87,6 +89,7 @@ export default function DuaPage() {
     });
 
     useEffect(() => {
+        setIsClient(true);
         if(typeof window !== "undefined") {
             setCurrentUserRole(localStorage.getItem('userRole') as UserRole);
             setCurrentUserDesignation(localStorage.getItem('userDesignation') as UserDesignation);
@@ -256,13 +259,16 @@ export default function DuaPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
-                        <video
-                            controls
-                            src="https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4" // Placeholder video
-                            className="w-full h-full"
-                        >
-                            Your browser does not support the video tag.
-                        </video>
+                        {isClient && (
+                            <ReactPlayer
+                                url='https://www.youtube.com/watch?v=LXb3EKWsInQ' // Placeholder video
+                                className="react-player"
+                                playing={false}
+                                controls={true}
+                                width="100%"
+                                height="100%"
+                            />
+                        )}
                     </div>
                 </CardContent>
             </Card>
