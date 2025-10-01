@@ -267,6 +267,16 @@ export default function DuaPage() {
                                 controls={true}
                                 width="100%"
                                 height="100%"
+                                config={{
+                                    youtube: {
+                                        playerVars: { 
+                                            showinfo: 0,
+                                            controls: 0,
+                                            modestbranding: 1,
+                                            rel: 0,
+                                        }
+                                    }
+                                }}
                             />
                         )}
                     </div>
@@ -359,6 +369,8 @@ export default function DuaPage() {
         </div>
     );
 }
+    
+
     
 
     
