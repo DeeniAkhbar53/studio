@@ -204,8 +204,8 @@ export default function DuaResponsesPage() {
         <Card className="shadow-lg">
             <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                  <div>
-                    <CardTitle className="text-2xl md:text-3xl">Dua Recitation Submissions</CardTitle>
-                    <CardDescription>Week: {getWeekId(new Date())}</CardDescription>
+                    <CardTitle className="text-2xl md:text-3xl">Weekly Dua</CardTitle>
+                    <CardDescription>Responses for Week: {getWeekId(new Date())}</CardDescription>
                 </div>
                  <div className="flex gap-2">
                      <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/dua')}>
