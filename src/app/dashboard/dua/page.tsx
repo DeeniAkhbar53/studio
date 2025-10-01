@@ -70,7 +70,7 @@ export default function DuaPage() {
         resolver: zodResolver(duaFormSchema),
         defaultValues: {
             duaKamilCount: 0,
-            kahfCount: 0,
+            kahfCount: 1,
             feedback: "",
         },
     });
