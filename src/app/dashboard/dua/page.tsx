@@ -293,6 +293,7 @@ export default function DuaPage() {
                      <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">
                         {videoUrl ? (
                             <Plyr
+                                key={videoUrl}
                                 source={{
                                     type: 'video',
                                     sources: [ { src: videoUrl, provider: 'youtube' } ],
