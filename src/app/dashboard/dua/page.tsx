@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { UserRole, UserDesignation } from "@/types";
 import { useRouter } from "next/navigation";
-import ReactPlayer from 'react-player/youtube';
+import ReactPlayer from 'react-player';
 
 
 const duaFormSchema = z.object({
@@ -369,6 +369,8 @@ export default function DuaPage() {
         </div>
     );
 }
+    
+
     
 
     
