@@ -17,7 +17,7 @@ interface NavItem {
 
 const ESSENTIAL_PATHS = ["/dashboard", "/dashboard/profile", "/dashboard/notifications"];
 const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
-const TARGET_MOHALLAH_ID = "Taheri Mohallah (Khaitan)"; // The ID of the allowed Mohallah
+const TARGET_MOHALLAH_ID = "ZMGsLMWcFQEM97jWD03x"; // The ID of the allowed Mohallah
 
 export const allNavItems: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: Home },
@@ -251,5 +251,3 @@ export function SidebarNav() {
     </nav>
   );
 }
-
-    

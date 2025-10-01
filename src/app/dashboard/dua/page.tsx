@@ -68,7 +68,7 @@ const CounterInput = ({ field, label, description, max }: { field: any, label: s
 }
 
 const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
-const TARGET_MOHALLAH_ID = "Taheri Mohallah (Khaitan)"; // The ID of the allowed Mohallah
+const TARGET_MOHALLAH_ID = "ZMGsLMWcFQEM97jWD03x"; // The ID of the allowed Mohallah
 
 export default function DuaPage() {
     const router = useRouter();
@@ -251,7 +251,7 @@ export default function DuaPage() {
                     <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
                     <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
                     <p className="text-muted-foreground mt-2">
-                        This page is only available for members of {TARGET_MOHALLAH_ID}.
+                        This page is only available for members of Taheri Mohallah (Khaitan).
                     </p>
                 </Card>
             </div>
