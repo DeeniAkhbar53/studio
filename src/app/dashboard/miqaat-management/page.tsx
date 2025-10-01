@@ -522,6 +522,14 @@ export default function MiqaatManagementPage() {
     setIsBulkFilterOpen(false);
     toast({ title: "Filter Applied", description: `Showing ${ids.length} specified members.` });
   };
+  
+  const handleSelectAllFiltered = () => {
+    const currentEligible = form.getValues('eligibleItsIds') || [];
+    const filteredIds = filteredUsersForForm.map(user => user.itsId);
+    const newSelectedIds = [...new Set([...currentEligible, ...filteredIds])];
+    form.setValue('eligibleItsIds', newSelectedIds);
+    toast({ title: "Selected All", description: `${filteredIds.length} filtered members have been selected.` });
+  };
 
 
   const filteredMiqaats = useMemo(() => {
@@ -839,12 +847,17 @@ export default function MiqaatManagementPage() {
                               <FormItem>
                                   <div className="flex justify-between items-center">
                                     <ShadFormLabel>Eligible Members</ShadFormLabel>
-                                    {activeBulkFilter.length > 0 && (
-                                      <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setActiveBulkFilter([])}>
-                                        <X className="h-4 w-4 mr-1" />
-                                        Clear Bulk Filter
-                                      </Button>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {activeBulkFilter.length > 0 && (
+                                            <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setActiveBulkFilter([])}>
+                                                <X className="h-4 w-4 mr-1" />
+                                                Clear Bulk Filter
+                                            </Button>
+                                        )}
+                                        <Button variant="outline" size="sm" type="button" className="h-auto py-1 px-2" onClick={handleSelectAllFiltered} disabled={activeBulkFilter.length === 0}>
+                                            Select All Filtered
+                                        </Button>
+                                    </div>
                                   </div>
                                   <div className="flex gap-2">
                                       <div className="relative flex-grow">
@@ -1212,7 +1225,7 @@ export default function MiqaatManagementPage() {
                 size={250}
                 bgColor={"#ffffff"}
                 fgColor={"#000000"}
-                level={"Q"}
+                level={"Q"} // Error correction level
                 includeMargin={true}
               />
             ) : (
@@ -1233,3 +1246,4 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
+
