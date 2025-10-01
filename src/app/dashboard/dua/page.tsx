@@ -72,7 +72,7 @@ const TARGET_MOHALLAH_ID = "Taheri Mohallah (Khaitan)"; // The ID of the allowed
 
 export default function DuaPage() {
     const router = useRouter();
-    const [isAccessible, setIsAccessible] = useState(false);
+    const [isAccessible, setIsAccessible] = useState<boolean | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [attendanceMarked, setAttendanceMarked] = useState(false);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
@@ -105,27 +105,28 @@ export default function DuaPage() {
             setCurrentUserDesignation(designation);
             setCurrentUserMohallah(mohallah);
             
-            // Check for Mohallah access first
             if (mohallah === TARGET_MOHALLAH_ID || role === 'superadmin') {
                 setIsAccessible(true);
             } else {
                 setIsAccessible(false);
             }
         }
-
-         getDuaVideoUrl().then(url => {
-            setVideoUrl(url || 'LXb3EKWsInQ'); // Default video if not set
-            setNewVideoUrl(url || 'LXb3EKWsInQ');
-        }).catch(() => {
-             setVideoUrl('LXb3EKWsInQ');
-        });
-
     }, []);
 
     
     useEffect(() => {
+       if (isAccessible === null) return; // Wait for accessibility check
+
+       if (isAccessible) {
+            getDuaVideoUrl().then(url => {
+                setVideoUrl(url || 'LXb3EKWsInQ'); // Default video if not set
+                setNewVideoUrl(url || 'LXb3EKWsInQ');
+            }).catch(() => {
+                setVideoUrl('LXb3EKWsInQ');
+            });
+       }
        setIsLoading(false); 
-    }, []);
+    }, [isAccessible]);
 
     useEffect(() => {
         if (!isAccessible) return;
@@ -136,6 +137,8 @@ export default function DuaPage() {
 
             const weekId = getWeekId(new Date());
             const attendanceDocRef = doc(db, 'users', userItsId, 'duaAttendance', weekId);
+            
+            setIsLoading(true);
             const docSnap = await getDoc(attendanceDocRef);
 
             if (docSnap.exists()) {
@@ -233,7 +236,7 @@ export default function DuaPage() {
     }, [currentUserRole, currentUserDesignation]);
 
 
-    if (isLoading) {
+    if (isLoading || isAccessible === null) {
         return (
             <div className="flex h-full w-full items-center justify-center">
                 <FunkyLoader size="lg">Loading page...</FunkyLoader>
