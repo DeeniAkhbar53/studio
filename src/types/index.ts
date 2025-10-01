@@ -210,3 +210,11 @@ export interface SystemLog {
     context?: string; // stringified JSON
     timestamp: string; // ISO string
 }
+
+// New type for Dua attendance
+export interface DuaAttendance {
+    itsId: string;
+    name: string;
+    weekId: string; // e.g., "2024-W35"
+    markedAt: string; // ISO string
+}

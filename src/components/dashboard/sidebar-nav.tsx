@@ -1,11 +1,10 @@
-
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { UserDesignation, UserRole } from "@/types";
-import { Home, User, CalendarDays, Building, BarChart3, UserCheck, ScanBarcode, Bell, Settings, Users as UsersIcon, FileText, ScrollText } from "lucide-react";
+import { Home, User, CalendarDays, Building, BarChart3, UserCheck, ScanBarcode, Bell, Settings, Users as UsersIcon, FileText, ScrollText, BookOpen } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 
 interface NavItem {
@@ -25,6 +24,11 @@ export const allNavItems: NavItem[] = [
     href: "/dashboard/notifications",
     label: "Notifications",
     icon: Bell,
+  },
+  {
+    href: "/dashboard/dua",
+    label: "Dua",
+    icon: BookOpen
   },
   {
     href: "/dashboard/mark-attendance",
@@ -110,7 +114,7 @@ export function SidebarNav() {
           parsedPageRights = tempParsed;
         }
       } catch (e) {
-        console.error("Error parsing userPageRights from localStorage:", e);
+        
       }
     }
     
@@ -137,7 +141,7 @@ export function SidebarNav() {
                   updatedParsedPageRights = tempParsed;
                 }
             } catch (e) {
-                console.error("Error parsing updated userPageRights from localStorage:", e);
+                
             }
         }
         setUserPageRights(updatedParsedPageRights);
@@ -170,7 +174,7 @@ export function SidebarNav() {
 
     return allNavItems.filter(item => {
       // Show form page to all logged-in users
-      if (item.href === '/dashboard/forms') {
+      if (item.href === '/dashboard/forms' || item.href === '/dashboard/dua') {
         return true;
       }
       
