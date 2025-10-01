@@ -7,14 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, Eye, FileWarning, Users, UserX, PieChart, ChevronDown } from "lucide-react";
+import { ArrowLeft, Download, Eye, FileWarning, Users, UserX, PieChart, ChevronDown, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { User, UserRole, UserDesignation, Mohallah } from "@/types";
 import { db } from "@/lib/firebase/firebase";
-import { collection, doc, getDoc, getDocs, query, where, Timestamp } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where, Timestamp, deleteDoc } from "firebase/firestore";
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
-import { format } from "date-fns";
+import { format, addWeeks, subWeeks, startOfWeek, endOfWeek } from "date-fns";
 import Papa from "papaparse";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import {
@@ -24,6 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
 
 interface DuaSubmission {
     id: string;
@@ -50,6 +52,19 @@ const getWeekId = (date: Date) => {
     return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
 };
 
+// Helper to get the start and end dates of a week from a weekId
+const getWeekDateRange = (weekId: string) => {
+    const [year, weekNumber] = weekId.split('-W').map(Number);
+    const firstDayOfYear = new Date(year, 0, 1);
+    const firstDayOfWeek = startOfWeek(addWeeks(firstDayOfYear, weekNumber - 1), { weekStartsOn: 0 }); // Assuming week starts on Sunday
+    const lastDayOfWeek = endOfWeek(firstDayOfWeek, { weekStartsOn: 0 });
+    return {
+        start: firstDayOfWeek,
+        end: lastDayOfWeek
+    };
+};
+
+
 export default function DuaResponsesPage() {
     const router = useRouter();
     const { toast } = useToast();
@@ -59,6 +74,7 @@ export default function DuaResponsesPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [currentWeek, setCurrentWeek] = useState(new Date());
 
     const [filters, setFilters] = useState({
         mohallahId: 'all',
@@ -67,6 +83,9 @@ export default function DuaResponsesPage() {
     });
     
     const [availableTeams, setAvailableTeams] = useState<string[]>([]);
+
+    const weekId = getWeekId(currentWeek);
+    const weekDateRange = getWeekDateRange(weekId);
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -81,29 +100,6 @@ export default function DuaResponsesPage() {
                 const users = await getUsers();
                 setAllUsers(users);
 
-                const weekId = getWeekId(new Date());
-                
-                const submissionPromises = users.map(user => {
-                    const docRef = doc(db, 'users', user.itsId, 'duaAttendance', weekId);
-                    return getDoc(docRef);
-                });
-
-                const submissionSnapshots = await Promise.all(submissionPromises);
-
-                const subs: DuaSubmission[] = [];
-                submissionSnapshots.forEach(docSnap => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        const markedAt = data.markedAt instanceof Timestamp 
-                            ? data.markedAt.toDate().toISOString() 
-                            : new Date().toISOString();
-                        
-                        subs.push({ ...data, id: docSnap.id, markedAt } as DuaSubmission);
-                    }
-                });
-                
-                setAllSubmissions(subs);
-
                 const teams = [...new Set(users.map(u => u.team).filter(Boolean) as string[])].sort();
                 setAvailableTeams(teams);
 
@@ -113,14 +109,54 @@ export default function DuaResponsesPage() {
                 if (err.message.includes("index")) {
                     setError("A database index is required to view this data. Please contact support.");
                 } else {
-                    setError("Could not load submission data.");
+                    setError("Could not load initial user and mohallah data.");
                 }
-            } finally {
-                setIsLoading(false);
+                 setIsLoading(false);
             }
         };
         fetchInitialData();
     }, []);
+
+    useEffect(() => {
+        if (!weekId) return;
+
+        const fetchSubmissionsForWeek = async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                 const submissionPromises = allUsers.map(user => {
+                    const docRef = doc(db, 'users', user.itsId, 'duaAttendance', weekId);
+                    return getDoc(docRef);
+                });
+
+                const submissionSnapshots = await Promise.all(submissionPromises);
+                
+                const subs: DuaSubmission[] = [];
+                submissionSnapshots.forEach(docSnap => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        const markedAt = data.markedAt instanceof Timestamp 
+                            ? data.markedAt.toDate().toISOString() 
+                            : new Date().toISOString();
+                        
+                        subs.push({ ...data, id: docSnap.id, itsId: docSnap.ref.parent.parent!.id, markedAt } as DuaSubmission);
+                    }
+                });
+                
+                setAllSubmissions(subs);
+
+            } catch (err) {
+                 setError("Could not load submission data for the selected week.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        if (allUsers.length > 0) {
+            fetchSubmissionsForWeek();
+        }
+
+    }, [weekId, allUsers]);
 
     const filteredSubmissions = useMemo(() => {
         if (!currentUser) return [];
@@ -177,19 +213,39 @@ export default function DuaResponsesPage() {
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `dua_submissions_${getWeekId(new Date())}.csv`;
+        link.download = `dua_submissions_${weekId}.csv`;
         link.click();
         URL.revokeObjectURL(link.href);
         toast({title: "Exported", description: "Submission data has been downloaded."});
     };
+    
+    const handleDeleteSubmission = async (submission: DuaSubmission) => {
+        try {
+            const docRef = doc(db, 'users', submission.itsId, 'duaAttendance', submission.weekId);
+            await deleteDoc(docRef);
+            setAllSubmissions(prev => prev.filter(s => s.id !== submission.id));
+            toast({
+                title: "Submission Deleted",
+                description: `Submission for ${submission.name} for week ${submission.weekId} has been removed.`,
+                variant: "destructive"
+            });
+        } catch (error) {
+            toast({
+                title: "Deletion Error",
+                description: "Could not delete the submission. Please try again.",
+                variant: "destructive",
+            });
+        }
+    };
+    
 
-    if (isLoading) {
+    if (isLoading && allUsers.length === 0) { // Only show initial big loader
         return <div className="flex h-full items-center justify-center"><FunkyLoader size="lg">Loading Submissions...</FunkyLoader></div>;
     }
     
     if (error) {
          return (
-            <div className="flex flex-col items-center justify-center h-screen p-4 text-center">
+            <div className="flex flex-col items-center justify-center min-h-[70vh] p-4 text-center">
                <FileWarning className="h-16 w-16 text-destructive mb-4" />
                <h1 className="text-2xl font-bold text-destructive">Error Loading Data</h1>
                <p className="text-muted-foreground mt-2">{error}</p>
@@ -205,12 +261,23 @@ export default function DuaResponsesPage() {
             <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                  <div>
                     <CardTitle className="text-2xl md:text-3xl">Weekly Dua</CardTitle>
-                    <CardDescription>Responses for Week: {getWeekId(new Date())}</CardDescription>
+                    <CardDescription>
+                         Responses for Week: {weekId} ({format(weekDateRange.start, 'MMM d')} - {format(weekDateRange.end, 'MMM d, yyyy')})
+                    </CardDescription>
                 </div>
-                 <div className="flex gap-2">
+                 <div className="flex items-center gap-2">
+                     <Button variant="outline" size="sm" onClick={() => setCurrentWeek(subWeeks(currentWeek, 1))} disabled={isLoading}>
+                        <ChevronLeft className="h-4 w-4" />
+                     </Button>
+                     <Button variant="outline" size="sm" onClick={() => setCurrentWeek(new Date())} disabled={isLoading || getWeekId(currentWeek) === getWeekId(new Date())}>
+                        This Week
+                     </Button>
+                     <Button variant="outline" size="sm" onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))} disabled={isLoading || getWeekId(currentWeek) === getWeekId(new Date())}>
+                        <ChevronRight className="h-4 w-4" />
+                     </Button>
                      <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/dua')}>
                         <ArrowLeft className="h-4 w-4 md:mr-2"/>
-                        <span className="hidden md:inline">Back to Dua Page</span>
+                        <span className="hidden md:inline">Back</span>
                     </Button>
                     <Button onClick={handleExport} disabled={filteredSubmissions.length === 0} size="sm">
                         <Download className="h-4 w-4 md:mr-2" />
@@ -244,12 +311,14 @@ export default function DuaResponsesPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                 {filteredSubmissions.length === 0 ? (
+                 {isLoading ? (
+                     <div className="flex h-60 items-center justify-center"><FunkyLoader size="lg">Loading Week Data...</FunkyLoader></div>
+                 ) : filteredSubmissions.length === 0 ? (
                     <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
                         <Users className="h-12 w-12 text-muted-foreground mx-auto"/>
                         <p className="text-lg font-medium text-muted-foreground">No Submissions Found</p>
                         <p className="text-sm text-muted-foreground">
-                            No relevant submissions found for the current filters.
+                            No submissions were recorded for this week.
                         </p>
                     </div>
                 ) : (
@@ -274,6 +343,19 @@ export default function DuaResponsesPage() {
                                             <p><strong>Feedback:</strong> {sub.feedback || 'N/A'}</p>
                                             <p className="text-xs text-muted-foreground">Submitted at {format(new Date(sub.markedAt), 'p')}</p>
                                         </div>
+                                         {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
+                                            <div className="flex justify-end px-2 pt-2 border-t">
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="destructive" size="sm"><Trash2 className="mr-2 h-4 w-4"/> Delete</Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the submission for {sub.name}.</AlertDialogDescription></AlertDialogHeader>
+                                                        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteSubmission(sub)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </div>
+                                         )}
                                     </AccordionContent>
                                 </AccordionItem>
                             ))}
@@ -289,6 +371,7 @@ export default function DuaResponsesPage() {
                                         <TableHead>Dua e Kamil</TableHead>
                                         <TableHead>Surat al Kahf</TableHead>
                                         <TableHead>Feedback</TableHead>
+                                        {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && <TableHead className="text-right">Actions</TableHead>}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -300,6 +383,19 @@ export default function DuaResponsesPage() {
                                             <TableCell>{sub.duaKamilCount}</TableCell>
                                             <TableCell>{sub.kahfCount}</TableCell>
                                             <TableCell className="max-w-xs truncate">{sub.feedback || 'N/A'}</TableCell>
+                                             {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
+                                                <TableCell className="text-right">
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                             <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the submission for {sub.name}.</AlertDialogDescription></AlertDialogHeader>
+                                                            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteSubmission(sub)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </TableCell>
+                                             )}
                                         </TableRow>
                                     ))}
                                 </TableBody>
