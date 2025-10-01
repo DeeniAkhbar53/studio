@@ -69,7 +69,7 @@ export default function DuaPage() {
      const form = useForm<DuaFormValues>({
         resolver: zodResolver(duaFormSchema),
         defaultValues: {
-            duaKamilCount: 0,
+            duaKamilCount: 1,
             kahfCount: 1,
             feedback: "",
         },
