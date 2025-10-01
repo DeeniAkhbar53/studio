@@ -82,6 +82,7 @@ export default function DuaResponsesPage() {
                 setAllUsers(users);
 
                 const weekId = getWeekId(new Date());
+                
                 const submissionPromises = users.map(user => {
                     const docRef = doc(db, 'users', user.itsId, 'duaAttendance', weekId);
                     return getDoc(docRef);
@@ -202,16 +203,18 @@ export default function DuaResponsesPage() {
     return (
         <Card className="shadow-lg">
             <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <CardTitle className="text-2xl">Dua Recitation Submissions</CardTitle>
+                 <div>
+                    <CardTitle className="text-2xl md:text-3xl">Dua Recitation Submissions</CardTitle>
                     <CardDescription>Week: {getWeekId(new Date())}</CardDescription>
                 </div>
                  <div className="flex gap-2">
-                     <Button variant="outline" onClick={() => router.push('/dashboard/dua')}>
-                        <ArrowLeft className="mr-2 h-4 w-4"/> Back to Dua Page
+                     <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/dua')}>
+                        <ArrowLeft className="h-4 w-4 md:mr-2"/>
+                        <span className="hidden md:inline">Back to Dua Page</span>
                     </Button>
-                    <Button onClick={handleExport} disabled={filteredSubmissions.length === 0}>
-                        <Download className="mr-2 h-4 w-4" /> Export
+                    <Button onClick={handleExport} disabled={filteredSubmissions.length === 0} size="sm">
+                        <Download className="h-4 w-4 md:mr-2" />
+                        <span className="hidden md:inline">Export</span>
                     </Button>
                 </div>
             </CardHeader>
