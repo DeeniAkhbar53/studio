@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { Miqaat, UserRole, Mohallah, User, MiqaatSession, UserDesignation } from "@/types";
-import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt, Clock, CheckCircle, XCircle, Copy, HandCoins, ChevronLeft, ChevronRight, GripVertical } from "lucide-react"; 
+import { PlusCircle, Search, Loader2, CalendarDays, ShieldAlert, Users, MoreHorizontal, Edit, Trash2, Barcode, Download, Eye, Shirt, Clock, CheckCircle, XCircle, Copy, HandCoins, ChevronLeft, ChevronRight, GripVertical, Filter, X } from "lucide-react"; 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
@@ -34,6 +34,7 @@ import { format, differenceInCalendarDays, addDays } from "date-fns";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import { FunkyLoader } from "@/components/ui/funky-loader";
+import { Textarea } from "@/components/ui/textarea";
 
 
 const miqaatSessionSchema = z.object({
@@ -145,6 +146,11 @@ export default function MiqaatManagementPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedMiqaatIds, setSelectedMiqaatIds] = useState<string[]>([]);
+  
+  // New state for bulk ITS ID filter
+  const [isBulkFilterOpen, setIsBulkFilterOpen] = useState(false);
+  const [bulkItsFilter, setBulkItsFilter] = useState("");
+  const [activeBulkFilter, setActiveBulkFilter] = useState<string[]>([]);
 
 
   const form = useForm<MiqaatFormValues>({
@@ -272,6 +278,13 @@ export default function MiqaatManagementPage() {
       if (formTeams.length > 0) {
           users = users.filter(u => u.team && formTeams.includes(u.team));
       }
+      
+      // New: Apply active bulk filter
+      if (activeBulkFilter.length > 0) {
+        const activeFilterSet = new Set(activeBulkFilter);
+        users = users.filter(user => activeFilterSet.has(user.itsId));
+      }
+
 
       if (!memberSearchTerm) return users;
       
@@ -279,12 +292,14 @@ export default function MiqaatManagementPage() {
         user.name.toLowerCase().includes(memberSearchTerm.toLowerCase()) || 
         user.itsId.includes(memberSearchTerm)
       );
-  }, [formOptions.users, memberSearchTerm, form.watch]);
+  }, [formOptions.users, memberSearchTerm, form.watch, activeBulkFilter]);
 
 
   useEffect(() => {
     if (!isDialogOpen) {
       setEditingMiqaat(null);
+      setActiveBulkFilter([]); // Reset bulk filter when dialog closes
+      setMemberSearchTerm("");
     }
     
     if (editingMiqaat && isDialogOpen) {
@@ -499,6 +514,13 @@ export default function MiqaatManagementPage() {
     }
     
     setSelectedMiqaatIds([]);
+  };
+
+  const handleApplyBulkFilter = () => {
+    const ids = bulkItsFilter.split(/[\s,;\n]+/).map(id => id.trim()).filter(Boolean);
+    setActiveBulkFilter(ids);
+    setIsBulkFilterOpen(false);
+    toast({ title: "Filter Applied", description: `Showing ${ids.length} specified members.` });
   };
 
 
@@ -815,15 +837,50 @@ export default function MiqaatManagementPage() {
                        {eligibilityType === 'specific_members' && (
                           <FormField control={form.control} name="eligibleItsIds" render={({ field }) => (
                               <FormItem>
-                                  <ShadFormLabel>Eligible Members</ShadFormLabel>
-                                  <div className="relative">
-                                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                      <Input
-                                          placeholder="Search by name, ITS..."
-                                          value={memberSearchTerm}
-                                          onChange={(e) => setMemberSearchTerm(e.target.value)}
-                                          className="pl-8 mb-2"
-                                      />
+                                  <div className="flex justify-between items-center">
+                                    <ShadFormLabel>Eligible Members</ShadFormLabel>
+                                    {activeBulkFilter.length > 0 && (
+                                      <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setActiveBulkFilter([])}>
+                                        <X className="h-4 w-4 mr-1" />
+                                        Clear Bulk Filter
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <div className="flex gap-2">
+                                      <div className="relative flex-grow">
+                                          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                          <Input
+                                              placeholder="Search by name, ITS..."
+                                              value={memberSearchTerm}
+                                              onChange={(e) => setMemberSearchTerm(e.target.value)}
+                                              className="pl-8"
+                                          />
+                                      </div>
+                                      <Dialog open={isBulkFilterOpen} onOpenChange={setIsBulkFilterOpen}>
+                                        <DialogTrigger asChild>
+                                          <Button variant="outline" type="button" size="icon">
+                                            <Filter className="h-4 w-4" />
+                                          </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                          <DialogHeader>
+                                            <DialogTitle>Bulk Filter by ITS ID</DialogTitle>
+                                            <DialogDescription>
+                                              Paste a list of ITS IDs separated by commas, spaces, or new lines. The list below will be filtered to show only these members for selection.
+                                            </DialogDescription>
+                                          </DialogHeader>
+                                          <Textarea
+                                            placeholder="52XXXXXX, 52YYYYYY, 52ZZZZZZ..."
+                                            value={bulkItsFilter}
+                                            onChange={(e) => setBulkItsFilter(e.target.value)}
+                                            rows={8}
+                                          />
+                                          <DialogFooter>
+                                            <Button variant="outline" type="button" onClick={() => setIsBulkFilterOpen(false)}>Cancel</Button>
+                                            <Button type="button" onClick={handleApplyBulkFilter}>Apply Filter</Button>
+                                          </DialogFooter>
+                                        </DialogContent>
+                                      </Dialog>
                                   </div>
                                   <ScrollArea className="rounded-md border p-3 h-60">
                                   {isLoadingUsers ? (<p className="text-sm text-muted-foreground">Loading Users...</p>) : (
