@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from './firebase';
@@ -170,7 +171,7 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
         lastLogin,
         pageRights: userData.pageRights || [],
         managedTeams: userData.managedTeams || [],
-        mohallahId: userData.mohallahId, // This is the ID of the Mohallah the user belongs to
+        mohallahId: userDoc.ref.parent.parent?.id,
         fcmTokens: userData.fcmTokens || [], // Ensure fcmTokens is included
       } as User;
     }
@@ -187,7 +188,7 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
         lastLogin,
         pageRights: userData.pageRights || [],
         managedTeams: userData.managedTeams || [],
-        mohallahId: userData.mohallahId,
+        mohallahId: userDoc.ref.parent.parent?.id,
         fcmTokens: userData.fcmTokens || [], // Ensure fcmTokens is included
       } as User;
     }
@@ -291,3 +292,4 @@ export const getUniqueTeamNames = async (): Promise<string[]> => {
         return [];
     }
 };
+
