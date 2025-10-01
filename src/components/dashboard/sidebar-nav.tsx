@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -16,6 +17,7 @@ interface NavItem {
 
 const ESSENTIAL_PATHS = ["/dashboard", "/dashboard/profile", "/dashboard/notifications"];
 const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
+const TARGET_MOHALLAH_ID = "Taheri Mohallah (Khaitan)"; // The ID of the allowed Mohallah
 
 export const allNavItems: NavItem[] = [
   { href: "/dashboard", label: "Overview", icon: Home },
@@ -97,6 +99,7 @@ export function SidebarNav() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
   const [userPageRights, setUserPageRights] = useState<string[]>([]);
+  const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -104,6 +107,7 @@ export function SidebarNav() {
     const storedRole = localStorage.getItem('userRole') as UserRole | null;
     const storedDesignation = localStorage.getItem('userDesignation') as UserDesignation | null;
     const storedPageRightsRaw = localStorage.getItem('userPageRights');
+    const storedMohallahId = localStorage.getItem('userMohallahId');
     const storedUnreadCount = parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10);
     
     let parsedPageRights: string[] = [];
@@ -121,6 +125,7 @@ export function SidebarNav() {
     setCurrentUserRole(storedRole);
     setCurrentUserDesignation(storedDesignation);
     setUserPageRights(parsedPageRights);
+    setCurrentUserMohallahId(storedMohallahId);
     setUnreadNotificationCount(storedUnreadCount);
     setIsMounted(true);
 
@@ -145,6 +150,9 @@ export function SidebarNav() {
             }
         }
         setUserPageRights(updatedParsedPageRights);
+      }
+       if (event.key === 'userMohallahId') {
+        setCurrentUserMohallahId(localStorage.getItem('userMohallahId'));
       }
       if (event.key === 'unreadNotificationCount') {
          setUnreadNotificationCount(parseInt(localStorage.getItem('unreadNotificationCount') || '0', 10));
@@ -182,8 +190,7 @@ export function SidebarNav() {
 
       // Special logic for Dua page
       if (item.href === '/dashboard/dua') {
-          // Show to everyone, but also to team leads who can view responses
-          return true; 
+          return currentUserMohallahId === TARGET_MOHALLAH_ID || resolvedCurrentUserRole === 'superadmin';
       }
       
       if (item.href === '/dashboard/forms') {
@@ -205,7 +212,7 @@ export function SidebarNav() {
       // For other items, rely on role-based access
       return roleAllowsItem;
     });
-  }, [isMounted, resolvedCurrentUserRole, userPageRights, currentUserDesignation]);
+  }, [isMounted, resolvedCurrentUserRole, userPageRights, currentUserDesignation, currentUserMohallahId]);
 
 
   if (!isMounted) {
