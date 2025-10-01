@@ -4,16 +4,19 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Lock, Video, BookOpen, PlusCircle, MinusCircle } from "lucide-react";
+import { CheckCircle, Lock, Video, BookOpen, PlusCircle, MinusCircle, Eye } from "lucide-react";
 import { db } from "@/lib/firebase/firebase";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import type { UserRole, UserDesignation } from "@/types";
+import { useRouter } from "next/navigation";
+
 
 const duaFormSchema = z.object({
   duaKamilCount: z.preprocess(
@@ -60,11 +63,17 @@ const CounterInput = ({ field, label, description, max }: { field: any, label: s
     )
 }
 
+const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
+
 export default function DuaPage() {
+    const router = useRouter();
     const [isAccessible, setIsAccessible] = useState(true); // Changed for testing
     const [isLoading, setIsLoading] = useState(true);
     const [attendanceMarked, setAttendanceMarked] = useState(false);
     const { toast } = useToast();
+    const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+    const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
+
 
      const form = useForm<DuaFormValues>({
         resolver: zodResolver(duaFormSchema),
@@ -74,6 +83,13 @@ export default function DuaPage() {
             feedback: "",
         },
     });
+
+    useEffect(() => {
+        if(typeof window !== "undefined") {
+            setCurrentUserRole(localStorage.getItem('userRole') as UserRole);
+            setCurrentUserDesignation(localStorage.getItem('userDesignation') as UserDesignation);
+        }
+    }, []);
     
     useEffect(() => {
         // FOR TESTING: Page is always accessible.
@@ -171,6 +187,14 @@ export default function DuaPage() {
             });
         }
     };
+    
+    const canViewResponses = useMemo(() => {
+        if (!currentUserRole) return false;
+        if (currentUserRole === 'superadmin' || currentUserRole === 'admin') return true;
+        if (currentUserDesignation && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation)) return true;
+        return false;
+    }, [currentUserRole, currentUserDesignation]);
+
 
     if (isLoading) {
         return (
@@ -198,13 +222,22 @@ export default function DuaPage() {
         <div className="space-y-6">
             <Card className="shadow-lg">
                 <CardHeader>
-                    <CardTitle className="flex items-center text-3xl">
-                        <Video className="mr-3 h-8 w-8 text-primary" />
-                        Dua Recitation
-                    </CardTitle>
-                    <CardDescription className="pt-1">
-                        Please watch the video and log your recitation counts below.
-                    </CardDescription>
+                    <div className="flex justify-between items-start">
+                        <div>
+                             <CardTitle className="flex items-center text-3xl">
+                                <Video className="mr-3 h-8 w-8 text-primary" />
+                                Dua Recitation
+                            </CardTitle>
+                            <CardDescription className="pt-1">
+                                Please watch the video and log your recitation counts below.
+                            </CardDescription>
+                        </div>
+                        {canViewResponses && (
+                             <Button variant="outline" onClick={() => router.push('/dashboard/dua/responses')}>
+                                <Eye className="mr-2 h-4 w-4" /> View Submissions
+                            </Button>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="aspect-video w-full rounded-lg overflow-hidden bg-black">

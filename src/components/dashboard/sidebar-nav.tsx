@@ -171,30 +171,38 @@ export function SidebarNav() {
     if (!isMounted) {
       return [];
     }
+    
+    const isTeamLead = TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation || 'Member');
+    const isAdminOrSuper = resolvedCurrentUserRole === 'admin' || resolvedCurrentUserRole === 'superadmin';
 
     return allNavItems.filter(item => {
-      // Show form page to all logged-in users
-      if (item.href === '/dashboard/forms' || item.href === '/dashboard/dua') {
+      if (ESSENTIAL_PATHS.includes(item.href)) {
+        return true;
+      }
+
+      // Special logic for Dua page
+      if (item.href === '/dashboard/dua') {
+          // Show to everyone, but also to team leads who can view responses
+          return true; 
+      }
+      
+      if (item.href === '/dashboard/forms') {
         return true;
       }
       
       const roleAllowsItem = !item.allowedRoles || item.allowedRoles.includes(resolvedCurrentUserRole);
       
-      if (ESSENTIAL_PATHS.includes(item.href)) {
+      // If user has specific page right, allow access
+      if (Array.isArray(userPageRights) && userPageRights.includes(item.href)) {
         return true;
       }
 
       // Special check for Manage Members for Team Leads
-      if (item.href === '/dashboard/manage-members') {
-        if (roleAllowsItem) return true; // Admins/Superadmins can see it
-        const isTeamLead = TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation || 'Member');
-        if (isTeamLead) return true; // Team leads can also see it
+      if (item.href === '/dashboard/manage-members' && isTeamLead && !isAdminOrSuper) {
+        return true;
       }
-      
-      if (Array.isArray(userPageRights) && userPageRights.length > 0) {
-        return userPageRights.includes(item.href);
-      }
-      
+
+      // For other items, rely on role-based access
       return roleAllowsItem;
     });
   }, [isMounted, resolvedCurrentUserRole, userPageRights, currentUserDesignation]);
