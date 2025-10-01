@@ -92,12 +92,9 @@ export function LoginForm() {
       }
 
       // First stage: check ITS ID
-      console.log(`Attempting to find user with ID: ${identityId}`);
       const user: User | null = await getUserByItsOrBgkId(identityId);
 
       if (user && user.role) {
-        console.log("User found:", JSON.stringify(user));
-        
         // Check if user is admin/superadmin and requires a password
         if ((user.role === 'admin' || user.role === 'superadmin') && user.password) {
           setUserToAuthenticate(user);
@@ -109,7 +106,6 @@ export function LoginForm() {
         }
 
       } else {
-        console.log("User not found in system for ID:", identityId);
         toast({
           variant: "destructive",
           title: "Login Failed",
@@ -118,7 +114,6 @@ export function LoginForm() {
         setIsSubmitting(false);
       }
     } catch (error) {
-      console.error("Login error during data lookup:", error);
       toast({
         variant: "destructive",
         title: "Login Error",
