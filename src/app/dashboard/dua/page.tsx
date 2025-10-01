@@ -134,6 +134,7 @@ export default function DuaPage() {
     const handleMarkAttendance = async (values: DuaFormValues) => {
         const userItsId = localStorage.getItem('userItsId');
         const userName = localStorage.getItem('userName') || 'Unknown';
+        const userBgkId = localStorage.getItem('userBgkId') || 'N/A';
 
         if (!userItsId) {
             toast({
@@ -151,6 +152,7 @@ export default function DuaPage() {
             await setDoc(attendanceDocRef, {
                 itsId: userItsId,
                 name: userName,
+                bgkId: userBgkId,
                 weekId: weekId,
                 ...values,
                 markedAt: serverTimestamp(),
