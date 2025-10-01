@@ -11,7 +11,7 @@ import { ArrowLeft, Download, Eye, FileWarning, Users, UserX, PieChart, ChevronD
 import { useToast } from "@/hooks/use-toast";
 import type { User, UserRole, UserDesignation, Mohallah } from "@/types";
 import { db } from "@/lib/firebase/firebase";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, where, Timestamp } from "firebase/firestore";
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { format } from "date-fns";
@@ -92,7 +92,12 @@ export default function DuaResponsesPage() {
                 const subs: DuaSubmission[] = [];
                 submissionSnapshots.forEach(docSnap => {
                     if (docSnap.exists()) {
-                        subs.push({ ...docSnap.data(), id: docSnap.id } as DuaSubmission);
+                        const data = docSnap.data();
+                        const markedAt = data.markedAt instanceof Timestamp 
+                            ? data.markedAt.toDate().toISOString() 
+                            : new Date().toISOString();
+                        
+                        subs.push({ ...data, id: docSnap.id, markedAt } as DuaSubmission);
                     }
                 });
                 
