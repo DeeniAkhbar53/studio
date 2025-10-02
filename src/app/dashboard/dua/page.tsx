@@ -68,7 +68,7 @@ const CounterInput = ({ field, label, description, max }: { field: any, label: s
 }
 
 const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
-const TARGET_MOHALLAH_ID = "ZMGsLMWcFQEM97jWD03x"; // The ID of the allowed Mohallah
+const TARGET_MOHALLAH_ID = "ZMGsLMWcFQEM97jWD03x";
 
 export default function DuaPage() {
     const router = useRouter();
@@ -80,6 +80,7 @@ export default function DuaPage() {
     const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
     const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
     const [currentUserMohallah, setCurrentUserMohallah] = useState<string | null>(null);
+    const [accessError, setAccessError] = useState<string | null>(null);
 
     const [videoUrl, setVideoUrl] = useState<string>("");
     const [isEditLinkOpen, setIsEditLinkOpen] = useState(false);
@@ -104,11 +105,24 @@ export default function DuaPage() {
             setCurrentUserRole(role);
             setCurrentUserDesignation(designation);
             setCurrentUserMohallah(mohallah);
-            
-            if (mohallah === TARGET_MOHALLAH_ID || role === 'superadmin') {
+
+            const isSuperAdmin = role === 'superadmin';
+            const isTaheriMohallah = mohallah === TARGET_MOHALLAH_ID;
+
+            if (!isTaheriMohallah && !isSuperAdmin) {
+                setIsAccessible(false);
+                setAccessError("This page is only available for members of Taheri Mohallah (Khaitan).");
+                return;
+            }
+
+            const currentDay = new Date().getDay(); // Sunday = 0, Thursday = 4, Saturday = 6
+            const isWithinWindow = currentDay >= 4 && currentDay <= 6; // Thursday, Friday, Saturday
+
+            if (isSuperAdmin || isWithinWindow) {
                 setIsAccessible(true);
             } else {
                 setIsAccessible(false);
+                setAccessError("This page is only open for submissions from Thursday to Saturday.");
             }
         }
     }, []);
@@ -251,7 +265,7 @@ export default function DuaPage() {
                     <ShieldAlert className="h-16 w-16 text-destructive mx-auto mb-4" />
                     <h1 className="text-2xl font-bold text-destructive">Access Denied</h1>
                     <p className="text-muted-foreground mt-2">
-                        This page is only available for members of Taheri Mohallah (Khaitan).
+                        {accessError || "You do not have permission to view this page."}
                     </p>
                 </Card>
             </div>
