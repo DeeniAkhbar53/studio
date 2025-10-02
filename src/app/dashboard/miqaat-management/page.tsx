@@ -466,7 +466,7 @@ export default function MiqaatManagementPage() {
       eligibilityType: (miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0) ? 'specific_members' : 'groups',
       mohallahIds: miqaat.mohallahIds || [],
       teams: miqaat.teams || [],
-      eligibleItsIds: miqaat.eligibleItsIds || [],
+      eligibleItsIds: [], // Always clear eligible members on duplicate
       attendanceRequirements: miqaat.attendanceRequirements || { fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false },
       barcodeData: "",
     });
@@ -1246,4 +1246,3 @@ export default function MiqaatManagementPage() {
     </div>
   );
 }
-
