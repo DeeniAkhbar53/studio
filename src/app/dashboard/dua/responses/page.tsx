@@ -39,10 +39,10 @@ interface DuaSubmission {
     markedAt: string; // ISO String
 }
 
-const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
-const TOP_LEVEL_LEADERS: UserDesignation[] = ["Major", "Captain"];
+const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major", "Commander", "Assistant Commander", "Senior Assistant Commander"];
+const TOP_LEVEL_LEADERS: UserDesignation[] = ["Major", "Captain", "Commander", "Senior Assistant Commander"];
 const MID_LEVEL_LEADERS: UserDesignation[] = ["Vice Captain"];
-const GROUP_LEVEL_LEADERS: UserDesignation[] = ["Group Leader", "Asst.Grp Leader"];
+const GROUP_LEVEL_LEADERS: UserDesignation[] = ["Group Leader", "Asst.Grp Leader", "Assistant Commander"];
 
 const getWeekId = (date: Date) => {
     const year = date.getFullYear();

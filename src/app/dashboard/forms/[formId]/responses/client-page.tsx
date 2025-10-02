@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -45,11 +46,11 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
-const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
-const TOP_LEVEL_LEADERS: UserDesignation[] = ["Major", "Captain"];
+const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major", "Commander", "Assistant Commander", "Senior Assistant Commander"];
+const TOP_LEVEL_LEADERS: UserDesignation[] = ["Major", "Captain", "Commander", "Senior Assistant Commander"];
 const MID_LEVEL_LEADERS: UserDesignation[] = ["Vice Captain"];
-const GROUP_LEVEL_LEADERS: UserDesignation[] = ["Group Leader", "Asst.Grp Leader"];
-const ALL_DESIGNATIONS: UserDesignation[] = ["Asst.Grp Leader", "Captain", "Group Leader", "J.Member", "Major", "Member", "Vice Captain"];
+const GROUP_LEVEL_LEADERS: UserDesignation[] = ["Group Leader", "Asst.Grp Leader", "Assistant Commander"];
+const ALL_DESIGNATIONS: UserDesignation[] = ["Member", "J.Member", "Asst.Grp Leader", "Group Leader", "Vice Captain", "Captain", "Major", "Idara Admin", "Senior Assistant Commander", "Assistant Commander", "Commander"];
 
 
 const StarRatingDisplay = ({ rating, max = 5 }: { rating: number; max?: number }) => {

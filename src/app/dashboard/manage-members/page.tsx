@@ -44,7 +44,7 @@ const memberSchema = z.object({
   phoneNumber: z.string().optional().or(z.literal("")),
   role: z.enum(["user", "admin", "superadmin", "attendance-marker"]),
   mohallahId: z.string().min(1, "Mohallah must be selected"),
-  designation: z.enum(["Captain", "Vice Captain", "Member", "Asst.Grp Leader", "Group Leader", "J.Member", "Major"]).optional().or(z.literal("")),
+  designation: z.enum(["Captain", "Vice Captain", "Member", "Asst.Grp Leader", "Group Leader", "J.Member", "Major", "Idara Admin", "Senior Assistant Commander", "Assistant Commander", "Commander"]).optional().or(z.literal("")),
   pageRights: z.array(z.string()).optional().default([]),
 }).refine(data => {
     if ((data.role === 'admin' || data.role === 'superadmin') && (!data.password || data.password.length < 6)) {
@@ -72,11 +72,11 @@ const ALL_ROLES: { value: UserRole, label: string }[] = [
     { value: 'superadmin', label: 'Super Admin' },
 ];
 
-const ALL_DESIGNATIONS: UserDesignation[] = ["Asst.Grp Leader", "Captain", "Group Leader", "J.Member", "Major", "Member", "Vice Captain"];
-const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
-const TOP_LEVEL_LEADERS: UserDesignation[] = ["Major", "Captain"];
+const ALL_DESIGNATIONS: UserDesignation[] = ["Member", "J.Member", "Asst.Grp Leader", "Group Leader", "Vice Captain", "Captain", "Major", "Commander", "Assistant Commander", "Senior Assistant Commander", "Idara Admin"];
+const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major", "Commander", "Assistant Commander", "Senior Assistant Commander"];
+const TOP_LEVEL_LEADERS: UserDesignation[] = ["Major", "Captain", "Commander", "Senior Assistant Commander"];
 const MID_LEVEL_LEADERS: UserDesignation[] = ["Vice Captain"];
-const GROUP_LEVEL_LEADERS: UserDesignation[] = ["Group Leader", "Asst.Grp Leader"];
+const GROUP_LEVEL_LEADERS: UserDesignation[] = ["Group Leader", "Asst.Grp Leader", "Assistant Commander"];
 
 
 const AVAILABLE_PAGE_RIGHTS: PageRightConfig[] = [
@@ -458,7 +458,7 @@ export default function ManageMembersPage() {
                     if (missingFields.length > 0) {
                         const reason = `Missing required fields: ${missingFields.join(', ')}.`;
                         failedRecords.push({ data: row, reason });
-                        console.warn(`CSV Import (Row ${index + 2}): Skipping due to missing required fields.`, { row, reason });
+                        console.warn(`CSV Import (Row ${index + 2}): Skipping due to missing required fields: ${missingFields.join(', ')}.`, { row });
                         skippedCount++;
                         continue;
                     }
@@ -551,7 +551,7 @@ export default function ManageMembersPage() {
                     } catch (dbError: any) {
                         const reason = `DB Error: ${dbError.message}`;
                         failedRecords.push({ data: row, reason });
-                        console.error(`CSV Import (Row ${index + 2}): Database error during add/update.`, { row, error: dbError });
+                        console.error(`CSV Import (Row ${index + 2}): Database error during add/update.`, { row, error: dbError?.message || dbError });
                         errorCount++;
                     }
                 }
