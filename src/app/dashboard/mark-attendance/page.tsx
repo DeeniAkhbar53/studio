@@ -338,8 +338,9 @@ export default function MarkAttendancePage() {
         return;
     }
 
+    const now = new Date();
     const sessionStartTime = new Date(currentSession.startTime);
-    if (new Date() < sessionStartTime) {
+    if (now < sessionStartTime) {
         toast({
             variant: "destructive",
             title: "Session Has Not Started",
@@ -349,7 +350,7 @@ export default function MarkAttendancePage() {
     }
 
     const sessionEndTime = new Date(currentSession.endTime);
-    if (new Date() > sessionEndTime) {
+    if (now > sessionEndTime) {
         toast({ title: "Session has ended", description: "This session is closed and no longer accepting attendance.", variant: "destructive" });
         return;
     }
