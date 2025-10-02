@@ -433,8 +433,9 @@ export default function ManageMembersPage() {
                 const failedRecords: { data: any, reason: string }[] = [];
 
                 const dataRows = results.data as any[];
+                console.log(`CSV Import: Found ${dataRows.length} rows to process.`);
 
-                for (const row of dataRows) {
+                for (const [index, row] of dataRows.entries()) {
                     const trimmedRow: {[key: string]: any} = {};
                     for (const key in row) {
                         const value = (row as any)[key];
@@ -442,27 +443,34 @@ export default function ManageMembersPage() {
                     }
 
                     if (Object.keys(trimmedRow).length === 0 || Object.values(trimmedRow).every(val => val === "" || val === null)) {
+                        console.warn(`CSV Import (Row ${index + 2}): Skipping empty row.`);
                         continue; 
                     }
 
                     const { name, itsId, mohallahName, role } = trimmedRow;
 
                     if (!name || !itsId || !mohallahName || !role) {
-                        failedRecords.push({ data: row, reason: `Missing required fields (name, itsId, mohallahName, role). Found: name='${name}', itsId='${itsId}', mohallahName='${mohallahName}', role='${role}'.` });
+                        const reason = `Missing required fields (name, itsId, mohallahName, role). Found: name='${name}', itsId='${itsId}', mohallahName='${mohallahName}', role='${role}'.`;
+                        failedRecords.push({ data: row, reason });
+                        console.warn(`CSV Import (Row ${index + 2}): Skipping due to missing required fields.`, { row, reason });
                         skippedCount++;
                         continue;
                     }
 
                     const mohallah = mohallahs.find(m => m.name.toLowerCase() === mohallahName.toLowerCase());
                     if (!mohallah) {
-                        failedRecords.push({ data: row, reason: `Mohallah "${mohallahName}" not found.` });
+                        const reason = `Mohallah "${mohallahName}" not found.`;
+                        failedRecords.push({ data: row, reason });
+                        console.warn(`CSV Import (Row ${index + 2}): Skipping, Mohallah not found.`, { row, reason });
                         skippedCount++;
                         continue;
                     }
                     const mohallahId = mohallah.id;
 
                     if (currentUserRole === 'admin' && mohallahId !== currentUserMohallahId) {
-                        failedRecords.push({ data: row, reason: `Admins can only import to their assigned Mohallah. Row skipped for Mohallah "${mohallahName}".` });
+                        const reason = `Admins can only import to their assigned Mohallah. Row skipped for Mohallah "${mohallahName}".`;
+                        failedRecords.push({ data: row, reason });
+                         console.warn(`CSV Import (Row ${index + 2}): Skipping, permission denied for admin.`, { row, reason });
                         skippedCount++;
                         continue;
                     }
@@ -493,7 +501,9 @@ export default function ManageMembersPage() {
 
                     if (!validation.success) {
                         const errorMessages = Object.values(validation.error.flatten().fieldErrors).flat().join(' ');
-                        failedRecords.push({ data: row, reason: `Validation failed: ${errorMessages}` });
+                        const reason = `Validation failed: ${errorMessages}`;
+                        failedRecords.push({ data: row, reason });
+                        console.warn(`CSV Import (Row ${index + 2}): Skipping due to validation failure.`, { row, reason: errorMessages, error: validation.error.flatten() });
                         skippedCount++;
                         continue;
                     }
@@ -533,7 +543,9 @@ export default function ManageMembersPage() {
                             addedCount++;
                         }
                     } catch (dbError: any) {
-                        failedRecords.push({ data: row, reason: `DB Error: ${dbError.message}` });
+                        const reason = `DB Error: ${dbError.message}`;
+                        failedRecords.push({ data: row, reason });
+                        console.error(`CSV Import (Row ${index + 2}): Database error during add/update.`, { row, error: dbError });
                         errorCount++;
                     }
                 }
@@ -566,11 +578,13 @@ export default function ManageMembersPage() {
                 }
 
                 if (failedRecords.length > 0) {
-                    
+                    console.group("CSV Import - Skipped/Failed Records Details");
+                    console.table(failedRecords.map(f => ({ ITS: f.data.itsId, Name: f.data.name, Reason: f.reason })));
+                    console.groupEnd();
                 }
             },
             error: (error: any) => {
-                
+                console.error("CSV PapaParse Error:", error);
                 setIsCsvProcessing(false);
                 toast({
                     title: "CSV Parsing Error",
@@ -580,7 +594,7 @@ export default function ManageMembersPage() {
             }
         });
     } catch (error) {
-        
+        console.error("CSV File Read Error:", error);
         setIsCsvProcessing(false);
         toast({
             title: "File Read Error",
@@ -1496,3 +1510,5 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    
