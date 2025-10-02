@@ -449,8 +449,14 @@ export default function ManageMembersPage() {
 
                     const { name, itsId, mohallahName, role } = trimmedRow;
 
-                    if (!name || !itsId || !mohallahName || !role) {
-                        const reason = `Missing required fields (name, itsId, mohallahName, role). Found: name='${name}', itsId='${itsId}', mohallahName='${mohallahName}', role='${role}'.`;
+                    const missingFields = [];
+                    if (!name) missingFields.push('name');
+                    if (!itsId) missingFields.push('itsId');
+                    if (!mohallahName) missingFields.push('mohallahName');
+                    if (!role) missingFields.push('role');
+
+                    if (missingFields.length > 0) {
+                        const reason = `Missing required fields: ${missingFields.join(', ')}.`;
                         failedRecords.push({ data: row, reason });
                         console.warn(`CSV Import (Row ${index + 2}): Skipping due to missing required fields.`, { row, reason });
                         skippedCount++;
@@ -1510,5 +1516,7 @@ export default function ManageMembersPage() {
     </div>
   );
 }
+
+    
 
     
