@@ -798,7 +798,7 @@ export default function ManageMembersPage() {
                             <AlertDesc>
                               Are you sure you want to delete {selectedMemberIds.length} selected member(s)? This action cannot be undone.
                             </AlertDesc>
-                          </AlertFooter>
+                          </AlertHeader>
                           <AlertFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">
@@ -1262,7 +1262,7 @@ export default function ManageMembersPage() {
                                 </AccordionTrigger>
                             </div>
                             <AccordionContent className="space-y-4 pt-0">
-                                <div className="text-sm text-muted-foreground space-y-1 px-4 pb-4">
+                                <div className="text-sm text-muted-foreground space-y-1 px-4 pb-4 pt-2">
                                     <p><strong>BGK ID:</strong> {member.bgkId || "N/A"}</p>
                                     <p><strong>Designation:</strong> {member.designation || "N/A"}</p>
                                     <p><strong>Team:</strong> {member.team || "N/A"}</p>
