@@ -609,7 +609,8 @@ export default function ManageMembersPage() {
       "Mohallah": getMohallahNameById(member.mohallahId) || "",
       "Team": member.team || "",
       "Designation": member.designation || "",
-      "Role": member.role
+      "Role": member.role,
+      "Page Rights": member.pageRights?.join(';') || "",
     }));
 
     const csv = Papa.unparse(dataToExport);
@@ -663,7 +664,7 @@ export default function ManageMembersPage() {
         const roleMatch = selectedFilterRole === 'all' || m.role === selectedFilterRole;
         const designationMatch = selectedFilterDesignation === 'all' || m.designation === selectedFilterDesignation;
         const mohallahFilterMatch = (currentUserRole !== 'admin' && selectedFilterMohallahId === 'all') || !m.mohallahId || m.mohallahId === selectedFilterMohallahId;
-        const teamFilterMatch = selectedFilterTeam === 'all' || m.team === selectedFilterTeam;
+        const teamFilterMatch = selectedFilterTeam === 'all' || !m.team || m.team === selectedFilterTeam;
 
 
         return searchTermMatch && roleMatch && designationMatch && mohallahFilterMatch && teamFilterMatch;
