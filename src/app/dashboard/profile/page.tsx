@@ -587,7 +587,7 @@ export default function ProfilePage() {
                         </li>
                         <li className="flex items-center gap-3">
                            <UserCog className="h-4 w-4 text-primary" />
-                           <span className="w-auto shrink-0">Mohallah {getMohallahName(user.mohallahId)} Captain:</span>
+                           <span className="w-32 shrink-0">Captain:</span>
                            <span className="font-medium text-foreground">{teamLeaders.captain?.name || 'N/A'}</span>
                         </li>
                     </ul>
