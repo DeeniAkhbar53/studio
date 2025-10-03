@@ -334,25 +334,28 @@ export default function ProfilePage() {
   }, [fetchProfileData]);
 
   const teamLeaders = useMemo(() => {
-    if (!user?.team || allUsers.length === 0) {
+    if (!user || allUsers.length === 0) {
         return { groupLeader: null, asstGroupLeader: null, viceCaptain: null, captain: null };
     }
 
     const myTeam = user.team;
+    const myMohallahId = user.mohallahId;
 
-    const groupLeader = allUsers.find(
+    const groupLeader = myTeam ? allUsers.find(
         u => u.team === myTeam && u.designation === GROUP_LEADER_DESIGNATION
-    ) || null;
+    ) || null : null;
     
-    const asstGroupLeader = allUsers.find(
+    const asstGroupLeader = myTeam ? allUsers.find(
         u => u.team === myTeam && u.designation === ASST_GROUP_LEADER_DESIGNATION
-    ) || null;
+    ) || null : null;
 
-    const viceCaptain = allUsers.find(
-        u => u.designation === "Vice Captain" && u.managedTeams?.includes(myTeam)
-    ) || null;
+    const viceCaptain = myTeam ? allUsers.find(
+        u => u.designation === "Vice Captain" && u.managedTeams?.includes(myTeam) && u.mohallahId === myMohallahId
+    ) || null : null;
     
-    const captain = allUsers.find(u => u.designation === "Captain") || null;
+    const captain = myMohallahId ? allUsers.find(
+        u => u.designation === "Captain" && u.mohallahId === myMohallahId
+    ) || null : null;
 
     return { groupLeader, asstGroupLeader, viceCaptain, captain };
   }, [user, allUsers]);
@@ -566,7 +569,7 @@ export default function ProfilePage() {
                 </div>
                  <div className="md:col-span-2">
                     <h3 className="font-semibold text-foreground mb-3">Team Leadership</h3>
-                    <ul className="space-y-3 text-sm text-muted-foreground">
+                     <ul className="space-y-3 text-sm text-muted-foreground">
                         <li className="flex items-center gap-3">
                             <UserCog className="h-4 w-4 text-primary" />
                             <span className="w-32 shrink-0">Group Leader:</span>
@@ -584,8 +587,8 @@ export default function ProfilePage() {
                         </li>
                         <li className="flex items-center gap-3">
                            <UserCog className="h-4 w-4 text-primary" />
-                            <span className="w-32 shrink-0">Captain:</span>
-                             <span className="font-medium text-foreground">{teamLeaders.captain?.name || 'N/A'}</span>
+                           <span className="w-auto shrink-0">Mohallah {getMohallahName(user.mohallahId)} Captain:</span>
+                           <span className="font-medium text-foreground">{teamLeaders.captain?.name || 'N/A'}</span>
                         </li>
                     </ul>
                 </div>
