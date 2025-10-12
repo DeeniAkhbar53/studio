@@ -93,7 +93,7 @@
 
 @layer base {
   html {
-    @apply md:text-[14px] text-[15px];
+    @apply md:text-[13px] text-[14px];
   }
   * {
     @apply border-border;
