@@ -1155,7 +1155,7 @@ export default function MarkAttendancePage() {
                                      {currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
                                         <div className="flex items-center space-x-2">
                                             <Label className="font-normal text-sm">Feta/Paghri</Label>
-                                            <RadioGroup onValueChange={(val) => handleApplyAllCompliance('fetaPaghri', val)} className="flex gap-2">
+                                            <RadioGroup onValueChange={(val) => handleApplyAllCompliance('fetaPaghri', val)} className="flex gap-2" id="all-feta-group">
                                                 <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id="all-feta-yes" /><Label htmlFor="all-feta-yes" className="text-xs">Y</Label></div>
                                                 <div className="flex items-center space-x-1"><RadioGroupItem value="no" id="all-feta-no" /><Label htmlFor="all-feta-no" className="text-xs">N</Label></div>
                                             </RadioGroup>
@@ -1164,7 +1164,7 @@ export default function MarkAttendancePage() {
                                      {currentMiqaatDetails?.attendanceRequirements?.koti && (
                                         <div className="flex items-center space-x-2">
                                             <Label className="font-normal text-sm">Koti</Label>
-                                            <RadioGroup onValueChange={(val) => handleApplyAllCompliance('koti', val)} className="flex gap-2">
+                                            <RadioGroup onValueChange={(val) => handleApplyAllCompliance('koti', val)} className="flex gap-2" id="all-koti-group">
                                                 <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id="all-koti-yes" /><Label htmlFor="all-koti-yes" className="text-xs">Y</Label></div>
                                                 <div className="flex items-center space-x-1"><RadioGroupItem value="no" id="all-koti-no" /><Label htmlFor="all-koti-no" className="text-xs">N</Label></div>
                                             </RadioGroup>
@@ -1173,7 +1173,7 @@ export default function MarkAttendancePage() {
                                      {currentMiqaatDetails?.attendanceRequirements?.uniform && (
                                         <div className="flex items-center space-x-2">
                                             <Label className="font-normal text-sm">Uniform</Label>
-                                            <RadioGroup onValueChange={(val) => handleApplyAllCompliance('uniform', val)} className="flex gap-2">
+                                            <RadioGroup onValueChange={(val) => handleApplyAllCompliance('uniform', val)} className="flex gap-2" id="all-uniform-group">
                                                 <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id="all-uniform-yes" /><Label htmlFor="all-uniform-yes" className="text-xs">P</Label></div>
                                                 <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id="all-uniform-no" /><Label htmlFor="all-uniform-no" className="text-xs">I</Label></div>
                                             </RadioGroup>
@@ -1182,7 +1182,7 @@ export default function MarkAttendancePage() {
                                      {currentMiqaatDetails?.attendanceRequirements?.shoes && (
                                         <div className="flex items-center space-x-2">
                                             <Label className="font-normal text-sm">Shoes</Label>
-                                            <RadioGroup onValueChange={(val) => handleApplyAllCompliance('shoes', val)} className="flex gap-2">
+                                            <RadioGroup onValueChange={(val) => handleApplyAllCompliance('shoes', val)} className="flex gap-2" id="all-shoes-group">
                                                 <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id="all-shoes-yes" /><Label htmlFor="all-shoes-yes" className="text-xs">P</Label></div>
                                                 <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id="all-shoes-no" /><Label htmlFor="all-shoes-no" className="text-xs">I</Label></div>
                                             </RadioGroup>
