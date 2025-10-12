@@ -705,13 +705,53 @@ export default function ProfilePage() {
               <AccordionContent className="px-6 pb-6">
                 {isLoadingDuaHistory ? <div className="flex items-center justify-center py-10"><FunkyLoader>Loading Dua history...</FunkyLoader></div> : duaHistoryError ? <div className="text-center py-10"><p className="text-destructive">{duaHistoryError}</p></div> : duaHistory.length > 0 ? (
                   <>
-                    <div className="overflow-x-auto">
-                      <Table><TableHeader><TableRow><TableHead>Week ID</TableHead><TableHead>Dua e Kamil</TableHead><TableHead>Surat al Kahf</TableHead><TableHead>Feedback</TableHead><TableHead className="text-right">Submitted At</TableHead></TableRow></TableHeader>
+                    <div className="hidden md:block overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Week ID</TableHead>
+                            <TableHead>Dua e Kamil</TableHead>
+                            <TableHead>Surat al Kahf</TableHead>
+                            <TableHead>Feedback</TableHead>
+                            <TableHead className="text-right">Submitted At</TableHead>
+                          </TableRow>
+                        </TableHeader>
                         <TableBody>
                           {currentDuaData.map((log) => (<TableRow key={log.id}><TableCell className="font-medium">{log.weekId}</TableCell><TableCell>{log.duaKamilCount}</TableCell><TableCell>{log.kahfCount}</TableCell><TableCell className="max-w-xs truncate">{log.feedback || 'N/A'}</TableCell><TableCell className="text-right">{format(new Date(log.markedAt), "PPp")}</TableCell></TableRow>))}
                         </TableBody>
                       </Table>
                     </div>
+
+                    <div className="md:hidden space-y-3">
+                        {currentDuaData.map((log) => (
+                            <div key={log.id} className="p-4 border rounded-lg">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-semibold text-card-foreground">{log.weekId}</p>
+                                        <p className="text-xs text-muted-foreground">{format(new Date(log.markedAt), "PPp")}</p>
+                                    </div>
+                                </div>
+                                <Separator className="my-2" />
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                    <div>
+                                        <p className="font-medium">Dua e Kamil</p>
+                                        <p className="text-muted-foreground">{log.duaKamilCount}</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-medium">Surat al Kahf</p>
+                                        <p className="text-muted-foreground">{log.kahfCount}</p>
+                                    </div>
+                                    {log.feedback && (
+                                        <div className="col-span-2">
+                                            <p className="font-medium">Feedback</p>
+                                            <p className="text-muted-foreground whitespace-pre-wrap">{log.feedback}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
                     <div className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
                         <p className="text-xs text-muted-foreground">Showing {((duaPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(duaPage * ITEMS_PER_PAGE, duaHistory.length)} of {duaHistory.length} records</p>
                         {duaTotalPages > 1 && (<div className="flex items-center space-x-2"><Button variant="outline" size="sm" onClick={() => setDuaPage(p => Math.max(p - 1, 1))} disabled={duaPage === 1}><ChevronLeft className="h-4 w-4" /> Previous</Button><span className="text-sm text-muted-foreground">Page {duaPage} of {duaTotalPages}</span><Button variant="outline" size="sm" onClick={() => setDuaPage(p => Math.min(p + 1, duaTotalPages))} disabled={duaPage === duaTotalPages}>Next <ChevronRight className="h-4 w-4" /></Button></div>)}
