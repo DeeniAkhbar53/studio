@@ -6,12 +6,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Form as UIForm, FormControl, FormMessage, FormItem, FormField, FormLabel } from "@/components/ui/form";
 import type { AttendanceRecord, User, Mohallah, Miqaat, UserDesignation, FormResponse, Form, SystemLog, DuaAttendance } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, Loader2, Lock, BookOpen } from "lucide-react";
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, Loader2, Lock, BookOpen, BarChart3, ListChecks } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -572,428 +571,213 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-        <Separator className="my-0"/>
-        <Tabs defaultValue="details" className="w-full">
-           <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
-            <TabsTrigger value="details" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Details</TabsTrigger>
-            <TabsTrigger value="attendance_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Attendance ({!isLoadingHistory && !historyError ? attendanceHistory.length : '...'})</TabsTrigger>
-            <TabsTrigger value="dua_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Dua ({!isLoadingDuaHistory && !duaHistoryError ? duaHistory.length : '...'})</TabsTrigger>
-            <TabsTrigger value="forms" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Forms ({!isLoadingFormHistory && !formHistoryError ? formHistory.length : '...'})</TabsTrigger>
-            <TabsTrigger value="login_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Logins ({!isLoadingLoginHistory && !loginHistoryError ? loginHistory.length : '...'})</TabsTrigger>
-          </TabsList>
-          <TabsContent value="details">
-            <CardContent className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
-                <div>
-                  <h3 className="font-semibold text-foreground mb-3">Contact Information</h3>
-                  <ul className="space-y-3 text-sm text-muted-foreground">
-                    <li className="flex items-center gap-3"><Mail className="h-4 w-4 text-primary" /> {user.email || "No email provided"}</li>
-                    <li className="flex items-center gap-3"><Phone className="h-4 w-4 text-primary" /> {user.phoneNumber || "Not Provided"}</li>
-                  </ul>
+        <CardContent className="p-0">
+          <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
+            <AccordionItem value="item-1">
+              <AccordionTrigger className="px-6 py-4 text-lg font-semibold">
+                <div className="flex items-center gap-3">
+                  <UserCog className="h-5 w-5 text-primary" />
+                  Details
                 </div>
-                <div>
-                  <h3 className="font-semibold text-foreground mb-3">Affiliations</h3>
-                  <ul className="space-y-3 text-sm text-muted-foreground">
-                    <li className="flex items-center gap-3"><Users className="h-4 w-4 text-primary" /> Team: {user.team || "N/A"}</li>
-                    <li className="flex items-center gap-3"><MapPin className="h-4 w-4 text-primary" /> Mohallah: {getMohallahName(user.mohallahId)}</li>
-                  </ul>
-                </div>
-                 <div className="md:col-span-2">
-                    <h3 className="font-semibold text-foreground mb-3">Team Leadership</h3>
-                     <ul className="space-y-3 text-sm text-muted-foreground">
-                        <li className="flex items-center gap-3">
-                            <UserCog className="h-4 w-4 text-primary" />
-                            <span className="w-32 shrink-0">Group Leader:</span>
-                            <span className="font-medium text-foreground">{teamLeaders.groupLeader?.name || 'N/A'}</span>
-                        </li>
-                        <li className="flex items-center gap-3">
-                            <UserCog className="h-4 w-4 text-primary" />
-                            <span className="w-32 shrink-0">Asst. Group Leader:</span>
-                            <span className="font-medium text-foreground">{teamLeaders.asstGroupLeader?.name || 'N/A'}</span>
-                        </li>
-                        <li className="flex items-center gap-3">
-                            <UserCog className="h-4 w-4 text-primary" />
-                            <span className="w-32 shrink-0">Vice Captain:</span>
-                             <span className="font-medium text-foreground">{teamLeaders.viceCaptain?.name || 'N/A'}</span>
-                        </li>
-                        <li className="flex items-center gap-3">
-                           <UserCog className="h-4 w-4 text-primary" />
-                           <span className="w-32 shrink-0">Captain:</span>
-                           <span className="font-medium text-foreground">{teamLeaders.captain?.name || 'N/A'}</span>
-                        </li>
-                    </ul>
-                </div>
-              </div>
-            </CardContent>
-          </TabsContent>
-          <TabsContent value="attendance_history">
-            <CardContent className="p-6">
-              {isLoadingHistory ? (
-                <div className="flex items-center justify-center py-10">
-                  <FunkyLoader>Loading attendance history...</FunkyLoader>
-                </div>
-              ) : historyError ? (
-                 <div className="text-center py-10">
-                  <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-4 text-lg text-destructive">{historyError}</p>
-                </div>
-              ) : attendanceHistory.length > 0 ? (
-                <>
-                {/* Mobile Accordion View */}
-                <div className="md:hidden">
-                  <Accordion type="single" collapsible className="w-full">
-                    {currentAttendanceData.map((record) => (
-                      <AccordionItem value={record.id} key={record.id}>
-                        <AccordionTrigger>
-                          <div className="flex-grow text-left">
-                            <div className="flex items-center gap-2">
-                                <p className="font-semibold text-card-foreground">{record.miqaatName}</p>
-                                <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground">{format(new Date(record.markedAt), "PP")}</p>
-                          </div>
-                          <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
-                              record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800' :
-                              record.status === 'absent' ? 'bg-red-100 text-red-800' :
-                              record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                              record.status === 'safar' ? 'bg-blue-100 text-blue-800' :
-                              'bg-gray-100 text-gray-800'
-                          )}>
-                              {record.status}
-                          </span>
-                        </AccordionTrigger>
-                        <AccordionContent className="space-y-2 pt-2">
-                          <div className="px-2 text-sm text-muted-foreground">
-                            <p><strong>Marked At:</strong> {format(new Date(record.markedAt), "p")}</p>
-                            <p><strong>Marked By:</strong> {record.markedByName || 'Self/System'}</p>
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                </div>
-
-                {/* Desktop Table View */}
-                <div className="hidden md:block overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Miqaat Name</TableHead>
-                        <TableHead>Date Marked</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Marked By</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {currentAttendanceData.map((record) => (
-                        <TableRow key={record.id}>
-                          <TableCell className="font-medium flex items-center gap-2">
-                            {record.miqaatName}
-                            <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge>
-                          </TableCell>
-                          <TableCell>{format(new Date(record.markedAt), "PP p")}</TableCell>
-                           <TableCell>
-                                <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
-                                    record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                    record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                    record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                                    record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                                )}>
-                                    {record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : 'Present'}
-                                </span>
-                           </TableCell>
-                          <TableCell className="text-right">
-                            {record.markedByName || "Self/System"}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                 <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
-                    <p className="text-xs text-muted-foreground">
-                        Showing {currentAttendanceData.length > 0 ? ((attendancePage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(attendancePage * ITEMS_PER_PAGE, attendanceHistory.length)} of {attendanceHistory.length} records
-                    </p>
-                    {attendanceTotalPages > 1 && (
-                    <div className="flex items-center space-x-2">
-                        <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setAttendancePage(prev => Math.max(prev - 1, 1))}
-                        disabled={attendancePage === 1}
-                        >
-                        <ChevronLeft className="h-4 w-4" /> Previous
-                        </Button>
-                        <span className="text-sm text-muted-foreground">
-                        Page {attendancePage} of {attendanceTotalPages}
-                        </span>
-                        <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setAttendancePage(prev => Math.min(prev + 1, attendanceTotalPages))}
-                        disabled={attendancePage === attendanceTotalPages}
-                        >
-                        Next <ChevronRight className="h-4 w-4" />
-                        </Button>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8 pt-2">
+                    <div>
+                      <h3 className="font-semibold text-foreground mb-3">Contact Information</h3>
+                      <ul className="space-y-3 text-sm text-muted-foreground">
+                        <li className="flex items-center gap-3"><Mail className="h-4 w-4 text-primary" /> {user.email || "No email provided"}</li>
+                        <li className="flex items-center gap-3"><Phone className="h-4 w-4 text-primary" /> {user.phoneNumber || "Not Provided"}</li>
+                      </ul>
                     </div>
-                    )}
-                </CardFooter>
-                </>
-              ) : (
-                <div className="text-center py-10">
-                  <CalendarClock className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <p className="mt-4 text-lg text-muted-foreground">No attendance history found.</p>
-                  <p className="text-sm text-muted-foreground">Your attendance records will appear here once you are marked present for Miqaats.</p>
+                    <div>
+                      <h3 className="font-semibold text-foreground mb-3">Affiliations</h3>
+                      <ul className="space-y-3 text-sm text-muted-foreground">
+                        <li className="flex items-center gap-3"><Users className="h-4 w-4 text-primary" /> Team: {user.team || "N/A"}</li>
+                        <li className="flex items-center gap-3"><MapPin className="h-4 w-4 text-primary" /> Mohallah: {getMohallahName(user.mohallahId)}</li>
+                      </ul>
+                    </div>
+                    <div className="md:col-span-2">
+                        <h3 className="font-semibold text-foreground mb-3">Team Leadership</h3>
+                        <ul className="space-y-3 text-sm text-muted-foreground">
+                            <li className="flex items-center gap-3">
+                                <UserCog className="h-4 w-4 text-primary" />
+                                <span className="w-32 shrink-0">Group Leader:</span>
+                                <span className="font-medium text-foreground">{teamLeaders.groupLeader?.name || 'N/A'}</span>
+                            </li>
+                            <li className="flex items-center gap-3">
+                                <UserCog className="h-4 w-4 text-primary" />
+                                <span className="w-32 shrink-0">Asst. Group Leader:</span>
+                                <span className="font-medium text-foreground">{teamLeaders.asstGroupLeader?.name || 'N/A'}</span>
+                            </li>
+                            <li className="flex items-center gap-3">
+                                <UserCog className="h-4 w-4 text-primary" />
+                                <span className="w-32 shrink-0">Vice Captain:</span>
+                                <span className="font-medium text-foreground">{teamLeaders.viceCaptain?.name || 'N/A'}</span>
+                            </li>
+                            <li className="flex items-center gap-3">
+                              <UserCog className="h-4 w-4 text-primary" />
+                              <span className="w-32 shrink-0">Captain:</span>
+                              <span className="font-medium text-foreground">{teamLeaders.captain?.name || 'N/A'}</span>
+                            </li>
+                        </ul>
+                    </div>
+                  </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-2">
+              <AccordionTrigger className="px-6 py-4 text-lg font-semibold">
+                <div className="flex items-center gap-3">
+                  <ListChecks className="h-5 w-5 text-primary" />
+                  Attendance History ({!isLoadingHistory && !historyError ? attendanceHistory.length : '...'})
                 </div>
-              )}
-            </CardContent>
-          </TabsContent>
-           <TabsContent value="dua_history">
-             <CardContent className="p-6">
-                {isLoadingDuaHistory ? (
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6">
+                {isLoadingHistory ? (
                   <div className="flex items-center justify-center py-10">
-                    <FunkyLoader>Loading Dua history...</FunkyLoader>
+                    <FunkyLoader>Loading attendance history...</FunkyLoader>
                   </div>
-                ) : duaHistoryError ? (
-                  <div className="text-center py-10">
-                    <BookOpen className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-lg text-destructive">{duaHistoryError}</p>
-                  </div>
-                ) : duaHistory.length > 0 ? (
+                ) : historyError ? (
+                  <div className="text-center py-10"><p className="text-destructive">{historyError}</p></div>
+                ) : attendanceHistory.length > 0 ? (
                   <>
-                    <div className="overflow-x-auto">
+                    <div className="hidden md:block overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Week ID</TableHead>
-                            <TableHead>Dua e Kamil</TableHead>
-                            <TableHead>Surat al Kahf</TableHead>
-                            <TableHead>Feedback</TableHead>
-                            <TableHead className="text-right">Submitted At</TableHead>
+                            <TableHead>Miqaat Name</TableHead>
+                            <TableHead>Date Marked</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Marked By</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {currentDuaData.map((log) => (
-                            <TableRow key={log.id}>
-                              <TableCell className="font-medium">{log.weekId}</TableCell>
-                              <TableCell>{log.duaKamilCount}</TableCell>
-                              <TableCell>{log.kahfCount}</TableCell>
-                              <TableCell className="max-w-xs truncate">{log.feedback || 'N/A'}</TableCell>
-                              <TableCell className="text-right">{format(new Date(log.markedAt), "PPp")}</TableCell>
+                          {currentAttendanceData.map((record) => (
+                            <TableRow key={record.id}>
+                              <TableCell className="font-medium flex items-center gap-2">{record.miqaatName}<Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></TableCell>
+                              <TableCell>{format(new Date(record.markedAt), "PP p")}</TableCell>
+                              <TableCell><span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full", record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800' : record.status === 'absent' ? 'bg-red-100 text-red-800' : record.status === 'late' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800')}>{record.status.charAt(0).toUpperCase() + record.status.slice(1)}</span></TableCell>
+                              <TableCell className="text-right">{record.markedByName || "Self/System"}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
                     </div>
-                    <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
-                        <p className="text-xs text-muted-foreground">
-                            Showing {currentDuaData.length > 0 ? ((duaPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(duaPage * ITEMS_PER_PAGE, duaHistory.length)} of {duaHistory.length} records
-                        </p>
-                        {duaTotalPages > 1 && (
-                        <div className="flex items-center space-x-2">
-                            <Button variant="outline" size="sm" onClick={() => setDuaPage(prev => Math.max(prev - 1, 1))} disabled={duaPage === 1}>
-                                <ChevronLeft className="h-4 w-4" /> Previous
-                            </Button>
-                            <span className="text-sm text-muted-foreground">Page {duaPage} of {duaTotalPages}</span>
-                            <Button variant="outline" size="sm" onClick={() => setDuaPage(prev => Math.min(prev + 1, duaTotalPages))} disabled={duaPage === duaTotalPages}>
-                                Next <ChevronRight className="h-4 w-4" />
-                            </Button>
-                        </div>
-                        )}
-                    </CardFooter>
-                  </>
-                ) : (
-                  <div className="text-center py-10">
-                    <BookOpen className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-lg text-muted-foreground">No Dua History Found</p>
-                    <p className="text-sm text-muted-foreground">This user has not submitted any weekly Dua logs.</p>
-                  </div>
-                )}
-             </CardContent>
-           </TabsContent>
-           <TabsContent value="forms">
-             <CardContent className="p-6">
-                {isLoadingFormHistory ? (
-                  <div className="flex items-center justify-center py-10">
-                    <FunkyLoader>Loading form history...</FunkyLoader>
-                  </div>
-                ) : formHistoryError ? (
-                  <div className="text-center py-10">
-                    <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-lg text-destructive">{formHistoryError}</p>
-                  </div>
-                ) : formHistory.length > 0 ? (
-                  <>
-                  {/* Mobile Accordion View */}
-                  <div className="md:hidden">
-                    <Accordion type="single" collapsible className="w-full">
-                      {currentFormsData.map((form) => (
-                        <AccordionItem value={form.id} key={form.id}>
-                          <AccordionTrigger>
-                            <div className="flex-grow text-left">
-                              <p className="font-semibold text-card-foreground">{form.title}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {form.submissionStatus === 'Filled' && form.submittedAt 
-                                    ? `Filled: ${format(new Date(form.submittedAt), "PP")}`
-                                    : `Created: ${format(new Date(form.createdAt), "PP")}`
-                                }
-                              </p>
+                     <div className="md:hidden space-y-3">
+                        {currentAttendanceData.map((record) => (
+                            <div key={record.id} className="p-3 border rounded-lg">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-semibold text-card-foreground">{record.miqaatName}</p>
+                                        <p className="text-xs text-muted-foreground">{format(new Date(record.markedAt), "PP p")}</p>
+                                    </div>
+                                    <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap", record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800' : record.status === 'absent' ? 'bg-red-100 text-red-800' : record.status === 'late' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800')}>{record.status}</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">Marked By: {record.markedByName || 'Self/System'}</p>
                             </div>
-                            <span className={cn("flex items-center gap-1.5 text-xs font-semibold", form.submissionStatus === 'Filled' ? 'text-green-600' : 'text-red-600')}>
-                                {form.submissionStatus === 'Filled' ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                                {form.submissionStatus}
-                            </span>
-                          </AccordionTrigger>
-                           <AccordionContent>
-                           </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </div>
-
-                  {/* Desktop Table View */}
-                  <div className="hidden md:block overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Form Title</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {currentFormsData.map((form) => (
-                          <TableRow key={form.id}>
-                            <TableCell className="font-medium">
-                                {form.title}
-                                <p className="text-xs text-muted-foreground line-clamp-1">{form.description}</p>
-                            </TableCell>
-                            <TableCell>
-                                {form.submissionStatus === 'Filled' && form.submittedAt
-                                ? `Filled: ${format(new Date(form.submittedAt), "PPp")}`
-                                : `Created: ${format(new Date(form.createdAt), "PPp")}`
-                                }
-                            </TableCell>
-                            <TableCell>
-                               <span className={cn("flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full w-fit", form.submissionStatus === 'Filled' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')}>
-                                  {form.submissionStatus === 'Filled' ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                                  {form.submissionStatus}
-                               </span>
-                            </TableCell>
-                          </TableRow>
                         ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                   <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
-                        <p className="text-xs text-muted-foreground">
-                            Showing {currentFormsData.length > 0 ? ((formsPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(formsPage * ITEMS_PER_PAGE, formHistory.length)} of {formHistory.length} forms
-                        </p>
-                        {formsTotalPages > 1 && (
-                        <div className="flex items-center space-x-2">
-                            <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setFormsPage(prev => Math.max(prev - 1, 1))}
-                            disabled={formsPage === 1}
-                            >
-                            <ChevronLeft className="h-4 w-4" /> Previous
-                            </Button>
-                            <span className="text-sm text-muted-foreground">
-                            Page {formsPage} of {formsTotalPages}
-                            </span>
-                            <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setFormsPage(prev => Math.min(prev + 1, formsTotalPages))}
-                            disabled={formsPage === formsTotalPages}
-                            >
-                            Next <ChevronRight className="h-4 w-4" />
-                            </Button>
-                        </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+                        <p className="text-xs text-muted-foreground">Showing {((attendancePage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(attendancePage * ITEMS_PER_PAGE, attendanceHistory.length)} of {attendanceHistory.length} records</p>
+                        {attendanceTotalPages > 1 && (
+                            <div className="flex items-center space-x-2">
+                                <Button variant="outline" size="sm" onClick={() => setAttendancePage(p => Math.max(p - 1, 1))} disabled={attendancePage === 1}><ChevronLeft className="h-4 w-4" /> Previous</Button>
+                                <span className="text-sm text-muted-foreground">Page {attendancePage} of {attendanceTotalPages}</span>
+                                <Button variant="outline" size="sm" onClick={() => setAttendancePage(p => Math.min(p + 1, attendanceTotalPages))} disabled={attendancePage === attendanceTotalPages}>Next <ChevronRight className="h-4 w-4" /></Button>
+                            </div>
                         )}
-                    </CardFooter>
+                    </div>
                   </>
                 ) : (
-                  <div className="text-center py-10">
-                    <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-lg text-muted-foreground">No Forms Found</p>
-                    <p className="text-sm text-muted-foreground">Your assigned forms will appear here.</p>
-                  </div>
+                  <div className="text-center py-10"><p className="text-muted-foreground">No attendance history found.</p></div>
                 )}
-             </CardContent>
-           </TabsContent>
-            <TabsContent value="login_history">
-             <CardContent className="p-6">
-                {isLoadingLoginHistory ? (
-                  <div className="flex items-center justify-center py-10">
-                    <FunkyLoader>Loading login history...</FunkyLoader>
-                  </div>
-                ) : loginHistoryError ? (
-                  <div className="text-center py-10">
-                    <Clock className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-lg text-destructive">{loginHistoryError}</p>
-                  </div>
-                ) : loginHistory.length > 0 ? (
-                 <>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Event</TableHead>
-                          <TableHead className="text-right">Date & Time</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {currentLoginData.map((log) => (
-                          <TableRow key={log.id}>
-                            <TableCell className="font-medium">{log.message}</TableCell>
-                            <TableCell className="text-right">{format(new Date(log.timestamp), "PP p")}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
-                        <p className="text-xs text-muted-foreground">
-                            Showing {currentLoginData.length > 0 ? ((loginPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(loginPage * ITEMS_PER_PAGE, loginHistory.length)} of {loginHistory.length} logs
-                        </p>
-                        {loginTotalPages > 1 && (
-                        <div className="flex items-center space-x-2">
-                            <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setLoginPage(prev => Math.max(prev - 1, 1))}
-                            disabled={loginPage === 1}
-                            >
-                            <ChevronLeft className="h-4 w-4" /> Previous
-                            </Button>
-                            <span className="text-sm text-muted-foreground">
-                            Page {loginPage} of {loginTotalPages}
-                            </span>
-                            <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setLoginPage(prev => Math.min(prev + 1, loginTotalPages))}
-                            disabled={loginPage === loginTotalPages}
-                            >
-                            Next <ChevronRight className="h-4 w-4" />
-                            </Button>
-                        </div>
-                        )}
-                    </CardFooter>
-                 </>
-                ) : (
-                  <div className="text-center py-10">
-                    <Clock className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-lg text-muted-foreground">No Login History</p>
-                    <p className="text-sm text-muted-foreground">This user's login events will appear here.</p>
-                  </div>
-                )}
-             </CardContent>
-           </TabsContent>
-        </Tabs>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-3">
+              <AccordionTrigger className="px-6 py-4 text-lg font-semibold">
+                <div className="flex items-center gap-3">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                    Dua History ({!isLoadingDuaHistory && !duaHistoryError ? duaHistory.length : '...'})
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6">
+                {isLoadingDuaHistory ? <div className="flex items-center justify-center py-10"><FunkyLoader>Loading Dua history...</FunkyLoader></div> : duaHistoryError ? <div className="text-center py-10"><p className="text-destructive">{duaHistoryError}</p></div> : duaHistory.length > 0 ? (
+                  <>
+                    <div className="overflow-x-auto">
+                      <Table><TableHeader><TableRow><TableHead>Week ID</TableHead><TableHead>Dua e Kamil</TableHead><TableHead>Surat al Kahf</TableHead><TableHead>Feedback</TableHead><TableHead className="text-right">Submitted At</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                          {currentDuaData.map((log) => (<TableRow key={log.id}><TableCell className="font-medium">{log.weekId}</TableCell><TableCell>{log.duaKamilCount}</TableCell><TableCell>{log.kahfCount}</TableCell><TableCell className="max-w-xs truncate">{log.feedback || 'N/A'}</TableCell><TableCell className="text-right">{format(new Date(log.markedAt), "PPp")}</TableCell></TableRow>))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+                        <p className="text-xs text-muted-foreground">Showing {((duaPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(duaPage * ITEMS_PER_PAGE, duaHistory.length)} of {duaHistory.length} records</p>
+                        {duaTotalPages > 1 && (<div className="flex items-center space-x-2"><Button variant="outline" size="sm" onClick={() => setDuaPage(p => Math.max(p - 1, 1))} disabled={duaPage === 1}><ChevronLeft className="h-4 w-4" /> Previous</Button><span className="text-sm text-muted-foreground">Page {duaPage} of {duaTotalPages}</span><Button variant="outline" size="sm" onClick={() => setDuaPage(p => Math.min(p + 1, duaTotalPages))} disabled={duaPage === duaTotalPages}>Next <ChevronRight className="h-4 w-4" /></Button></div>)}
+                    </div>
+                  </>
+                ) : <div className="text-center py-10"><p className="text-muted-foreground">No Dua submission history.</p></div>}
+              </AccordionContent>
+            </AccordionItem>
+
+             <AccordionItem value="item-4">
+              <AccordionTrigger className="px-6 py-4 text-lg font-semibold">
+                <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-primary" />
+                    Forms History ({!isLoadingFormHistory && !formHistoryError ? formHistory.length : '...'})
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6">
+                {isLoadingFormHistory ? <div className="flex items-center justify-center py-10"><FunkyLoader>Loading form history...</FunkyLoader></div> : formHistoryError ? <div className="text-center py-10"><p className="text-destructive">{formHistoryError}</p></div> : formHistory.length > 0 ? (
+                  <>
+                    <div className="hidden md:block overflow-x-auto">
+                        <Table><TableHeader><TableRow><TableHead>Form Title</TableHead><TableHead>Date</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
+                            <TableBody>
+                            {currentFormsData.map((form) => (<TableRow key={form.id}><TableCell className="font-medium">{form.title}</TableCell><TableCell>{form.submissionStatus === 'Filled' && form.submittedAt ? `Filled: ${format(new Date(form.submittedAt), "PPp")}` : `Created: ${format(new Date(form.createdAt), "PPp")}`}</TableCell><TableCell><span className={cn("flex items-center gap-1.5 px-2 py-1 text-xs font-semibold rounded-full w-fit", form.submissionStatus === 'Filled' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')}>{form.submissionStatus === 'Filled' ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}{form.submissionStatus}</span></TableCell></TableRow>))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                     <div className="md:hidden space-y-3">
+                        {currentFormsData.map((form) => (<div key={form.id} className="p-3 border rounded-lg"><div className="flex justify-between items-start"><div><p className="font-semibold text-card-foreground">{form.title}</p><p className="text-xs text-muted-foreground">{form.submissionStatus === 'Filled' && form.submittedAt ? `Filled: ${format(new Date(form.submittedAt), "PP")}` : `Created: ${format(new Date(form.createdAt), "PP")}`}</p></div><span className={cn("flex items-center gap-1.5 text-xs font-semibold", form.submissionStatus === 'Filled' ? 'text-green-600' : 'text-red-600')}>{form.submissionStatus === 'Filled' ? <CheckCircle className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}{form.submissionStatus}</span></div></div>))}
+                    </div>
+                    <div className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+                        <p className="text-xs text-muted-foreground">Showing {((formsPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(formsPage * ITEMS_PER_PAGE, formHistory.length)} of {formHistory.length} forms</p>
+                        {formsTotalPages > 1 && (<div className="flex items-center space-x-2"><Button variant="outline" size="sm" onClick={() => setFormsPage(p => Math.max(p - 1, 1))} disabled={formsPage === 1}><ChevronLeft className="h-4 w-4" /> Previous</Button><span className="text-sm text-muted-foreground">Page {formsPage} of {formsTotalPages}</span><Button variant="outline" size="sm" onClick={() => setFormsPage(p => Math.min(p + 1, formsTotalPages))} disabled={formsPage === formsTotalPages}>Next <ChevronRight className="h-4 w-4" /></Button></div>)}
+                    </div>
+                  </>
+                ) : <div className="text-center py-10"><p className="text-muted-foreground">No form history.</p></div>}
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="item-5">
+              <AccordionTrigger className="px-6 py-4 text-lg font-semibold">
+                <div className="flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-primary" />
+                    Login History ({!isLoadingLoginHistory && !loginHistoryError ? loginHistory.length : '...'})
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6">
+                {isLoadingLoginHistory ? <div className="flex items-center justify-center py-10"><FunkyLoader>Loading login history...</FunkyLoader></div> : loginHistoryError ? <div className="text-center py-10"><p className="text-destructive">{loginHistoryError}</p></div> : loginHistory.length > 0 ? (
+                  <>
+                    <div className="overflow-x-auto">
+                      <Table><TableHeader><TableRow><TableHead>Event</TableHead><TableHead className="text-right">Date & Time</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                          {currentLoginData.map((log) => (<TableRow key={log.id}><TableCell className="font-medium">{log.message}</TableCell><TableCell className="text-right">{format(new Date(log.timestamp), "PP p")}</TableCell></TableRow>))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+                        <p className="text-xs text-muted-foreground">Showing {((loginPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(loginPage * ITEMS_PER_PAGE, loginHistory.length)} of {loginHistory.length} logs</p>
+                        {loginTotalPages > 1 && (<div className="flex items-center space-x-2"><Button variant="outline" size="sm" onClick={() => setLoginPage(p => Math.max(p - 1, 1))} disabled={loginPage === 1}><ChevronLeft className="h-4 w-4" /> Previous</Button><span className="text-sm text-muted-foreground">Page {loginPage} of {loginTotalPages}</span><Button variant="outline" size="sm" onClick={() => setLoginPage(p => Math.min(p + 1, loginTotalPages))} disabled={loginPage === loginTotalPages}>Next <ChevronRight className="h-4 w-4" /></Button></div>)}
+                    </div>
+                  </>
+                ) : <div className="text-center py-10"><p className="text-muted-foreground">No login history.</p></div>}
+              </AccordionContent>
+            </AccordionItem>
+
+          </Accordion>
+        </CardContent>
       </Card>
     </div>
   );
