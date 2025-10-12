@@ -21,6 +21,7 @@ import Plyr from "plyr-react";
 import "plyr-react/plyr.css";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { getDuaVideoUrl, updateDuaVideoUrl } from "@/lib/firebase/settingsService";
+import { format, addWeeks, startOfWeek, endOfWeek } from "date-fns";
 
 
 const duaFormSchema = z.object({
@@ -43,6 +44,17 @@ const getWeekId = (date: Date) => {
     const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
     const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
     return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
+};
+
+const getWeekDateRange = (weekId: string) => {
+    const [year, weekNumber] = weekId.split('-W').map(Number);
+    const firstDayOfYear = new Date(year, 0, 1);
+    const firstDayOfWeek = startOfWeek(addWeeks(firstDayOfYear, weekNumber - 1), { weekStartsOn: 0 }); 
+    const lastDayOfWeek = endOfWeek(firstDayOfWeek, { weekStartsOn: 0 });
+    return {
+        start: firstDayOfWeek,
+        end: lastDayOfWeek
+    };
 };
 
 const CounterInput = ({ field, label, description, max }: { field: any, label: string, description: string, max?: number }) => {
@@ -85,6 +97,9 @@ export default function DuaPage() {
     const [videoUrl, setVideoUrl] = useState<string>("");
     const [isEditLinkOpen, setIsEditLinkOpen] = useState(false);
     const [newVideoUrl, setNewVideoUrl] = useState("");
+    
+    const currentWeekId = getWeekId(new Date());
+    const weekDateRange = getWeekDateRange(currentWeekId);
 
 
      const form = useForm<DuaFormValues>({
@@ -329,7 +344,7 @@ export default function DuaPage() {
                         Recitation Log
                     </CardTitle>
                     <CardDescription className="pt-1">
-                        Enter your counts for the week. You can update this form anytime during the week.
+                         Submitting for week: {currentWeekId} ({format(weekDateRange.start, 'MMM d')} - {format(weekDateRange.end, 'MMM d, yyyy')})
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
