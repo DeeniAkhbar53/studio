@@ -59,9 +59,7 @@ const reportSchema = z.object({
   miqaatId: z.string().optional(),
   day: z.string().optional(),
   sessionId: z.string().optional(),
-  itsId: z.string().optional().refine(val => !val || /^\d{8}$/.test(val), {
-    message: "ITS ID must be 8 digits if provided.",
-  }),
+  memberId: z.string().optional(), // Changed from itsId
   dateRange: z.object({
     from: z.date().optional(),
     to: z.date().optional(),
@@ -78,11 +76,11 @@ const reportSchema = z.object({
             path: ["miqaatId"],
         });
     }
-    if (data.reportType === "member_attendance" && !data.itsId) {
+    if (data.reportType === "member_attendance" && !data.memberId) {
          ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "ITS ID is required for Member Attendance report.",
-            path: ["itsId"],
+            message: "ITS or BGK ID is required for Member Attendance report.",
+            path: ["memberId"],
         });
     }
      if (data.dateRange?.from && data.dateRange?.to && data.dateRange.from > data.dateRange.to) {
@@ -149,7 +147,7 @@ export default function ReportsPage() {
       miqaatId: "",
       day: "all",
       sessionId: "all",
-      itsId: "",
+      memberId: "",
       dateRange: { from: undefined, to: undefined },
       mohallahId: "all",
       team: "all",
@@ -334,10 +332,10 @@ export default function ReportsPage() {
               id: `${selectedMiqaat.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, bgkId: userMap.get(safarEntry.userItsId)?.bgkId, team: userMap.get(safarEntry.userItsId)?.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId,
             }
           });
-      } else if (values.reportType === "member_attendance" && values.itsId) {
-            const member = userMap.get(values.itsId);
+      } else if (values.reportType === "member_attendance" && values.memberId) {
+            const member = allUsersForReport.find(u => u.itsId === values.memberId || u.bgkId === values.memberId);
             if (!member) {
-                toast({ title: "User Not Found", description: `User with ITS ID ${values.itsId} not found.`, variant: "destructive" });
+                toast({ title: "User Not Found", description: `User with ID ${values.memberId} not found.`, variant: "destructive" });
                 setIsLoading(false);
                 return;
             }
@@ -353,8 +351,8 @@ export default function ReportsPage() {
 
             const memberHistory: ReportResultItem[] = [];
             for (const miqaat of eligibleMiqaats) {
-                const attendedEntry = miqaat.attendance?.find(a => a.userItsId === values.itsId);
-                const safarEntry = miqaat.safarList?.find(s => s.userItsId === values.itsId);
+                const attendedEntry = miqaat.attendance?.find(a => a.userItsId === member.itsId);
+                const safarEntry = miqaat.safarList?.find(s => s.userItsId === member.itsId);
                 const session = miqaat.sessions?.find(s => s.id === (attendedEntry?.sessionId || safarEntry?.sessionId));
 
                 if (attendedEntry) {
@@ -779,12 +777,12 @@ export default function ReportsPage() {
                 {watchedReportType === "member_attendance" && (
                   <FormField
                     control={form.control}
-                    name="itsId"
+                    name="memberId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>ITS ID</FormLabel>
+                        <FormLabel>ITS / BGK ID</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter 8-digit ITS ID" {...field} />
+                          <Input placeholder="Enter ITS or BGK ID" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1015,7 +1013,7 @@ export default function ReportsPage() {
                 <CardDescription>
                     Displaying {filteredReportData?.length || 0} of {reportData.length} record(s) 
                     {(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && selectedMiqaatDetails && ` for Miqaat: ${selectedMiqaatDetails.name}`}
-                    {watchedReportType === "member_attendance" && form.getValues("itsId") && ` for ITS ID: ${form.getValues("itsId")}`}
+                    {watchedReportType === "member_attendance" && form.getValues("memberId") && ` for ID: ${form.getValues("memberId")}`}
                     {form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}
                     {form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.
                 </CardDescription>
