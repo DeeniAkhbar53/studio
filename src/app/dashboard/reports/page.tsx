@@ -335,21 +335,37 @@ export default function ReportsPage() {
             }
           });
       } else if (values.reportType === "member_attendance" && values.itsId) {
-          const memberHistory: ReportResultItem[] = [];
-          for (const miqaat of allMiqaats) {
-              const allUserEntries = miqaat.attendance?.filter(a => a.userItsId === values.itsId) || [];
-              allUserEntries.forEach(regularAttendance => {
-                  const session = miqaat.sessions?.find(s => s.id === regularAttendance.sessionId);
-                  memberHistory.push({ id: `${miqaat.id}-${regularAttendance.userItsId}`, userName: regularAttendance.userName, userItsId: regularAttendance.userItsId, bgkId: userMap.get(regularAttendance.userItsId)?.bgkId, team: userMap.get(regularAttendance.userItsId)?.team, miqaatName: miqaat.name, miqaatType: miqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: regularAttendance.markedAt, status: regularAttendance.status || 'present', markedByItsId: regularAttendance.markedByItsId, uniformCompliance: regularAttendance.uniformCompliance });
-              });
+            const member = userMap.get(values.itsId);
+            if (!member) {
+                toast({ title: "User Not Found", description: `User with ITS ID ${values.itsId} not found.`, variant: "destructive" });
+                setIsLoading(false);
+                return;
+            }
 
-              const safarAttendance = miqaat.safarList?.find(s => s.userItsId === values.itsId);
-              if (safarAttendance) {
-                  const session = miqaat.sessions?.find(s => s.id === safarAttendance.sessionId);
-                  memberHistory.push({ id: `${miqaat.id}-${safarAttendance.userItsId}`, userName: safarAttendance.userName, userItsId: safarAttendance.userItsId, bgkId: userMap.get(safarAttendance.userItsId)?.bgkId, team: userMap.get(safarAttendance.userItsId)?.team, miqaatName: miqaat.name, miqaatType: miqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: safarAttendance.markedAt, status: 'safar', markedByItsId: safarAttendance.markedByItsId });
-              }
-          }
-          reportResultItems = memberHistory.sort((a,b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
+            const eligibleMiqaats = allMiqaats.filter(miqaat => {
+                const isForEveryone = !miqaat.mohallahIds?.length && !miqaat.teams?.length && !miqaat.eligibleItsIds?.length;
+                if (isForEveryone) return true;
+                const eligibleById = !!miqaat.eligibleItsIds?.includes(member.itsId);
+                const eligibleByTeam = !!member.team && !!miqaat.teams?.includes(member.team);
+                const eligibleByMohallah = !!member.mohallahId && !!miqaat.mohallahIds?.includes(member.mohallahId);
+                return eligibleById || eligibleByTeam || eligibleByMohallah;
+            });
+
+            const memberHistory: ReportResultItem[] = [];
+            for (const miqaat of eligibleMiqaats) {
+                const attendedEntry = miqaat.attendance?.find(a => a.userItsId === values.itsId);
+                const safarEntry = miqaat.safarList?.find(s => s.userItsId === values.itsId);
+                const session = miqaat.sessions?.find(s => s.id === (attendedEntry?.sessionId || safarEntry?.sessionId));
+
+                if (attendedEntry) {
+                    memberHistory.push({ id: `${miqaat.id}-${attendedEntry.userItsId}`, userName: attendedEntry.userName, userItsId: attendedEntry.userItsId, bgkId: member.bgkId, team: member.team, miqaatName: miqaat.name, miqaatType: miqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: attendedEntry.markedAt, status: attendedEntry.status || 'present', markedByItsId: attendedEntry.markedByItsId, uniformCompliance: attendedEntry.uniformCompliance });
+                } else if (safarEntry) {
+                    memberHistory.push({ id: `${miqaat.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, bgkId: member.bgkId, team: member.team, miqaatName: miqaat.name, miqaatType: miqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId });
+                } else if (new Date() > new Date(miqaat.endTime)) { // Only show absent if Miqaat has ended
+                    memberHistory.push({ id: `${miqaat.id}-${member.itsId}`, userName: member.name, userItsId: member.itsId, bgkId: member.bgkId, team: member.team, miqaatName: miqaat.name, miqaatType: miqaat.type, day: undefined, sessionName: "N/A", date: miqaat.startTime, status: 'absent' });
+                }
+            }
+            reportResultItems = memberHistory.sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
 
       } else if (values.reportType === "overall_activity") {
           let allRecords: ReportResultItem[] = [];
