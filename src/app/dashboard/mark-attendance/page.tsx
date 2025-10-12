@@ -1122,6 +1122,7 @@ export default function MarkAttendancePage() {
         )}
       </Card>
       
+      {currentUserRole === 'superadmin' && (
         <Card className="shadow-lg">
             <CardHeader>
                 <CardTitle className="flex items-center"><Users2 className="mr-2 h-6 w-6 text-primary" />Bulk Attendance</CardTitle>
@@ -1244,6 +1245,7 @@ export default function MarkAttendancePage() {
                 )}
             </CardContent>
         </Card>
+      )}
       
       {failedSyncs.length > 0 && (
           <Card className="shadow-lg border-destructive">
