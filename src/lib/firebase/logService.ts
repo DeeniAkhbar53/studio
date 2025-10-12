@@ -1,3 +1,4 @@
+
 import { db } from './firebase';
 import {
   collection,
@@ -36,6 +37,27 @@ export const addLoginLog = async (
     throw error;
   }
 };
+
+export const addLogoutLog = async (
+  userName: string,
+  userItsId: string
+): Promise<string> => {
+  try {
+    const logEntry = {
+      level: 'warning' as const,
+      message: `${userName} - Auto-logged out due to inactivity.`,
+      userItsId: userItsId,
+      timestamp: serverTimestamp(),
+    };
+    const docRef = await addDoc(logsCollectionRef, logEntry);
+    return docRef.id;
+  } catch (error) {
+    console.error("Failed to add logout log:", error);
+    // We don't re-throw, as failing to log shouldn't block the logout process.
+    return "";
+  }
+};
+
 
 export const getLoginLogs = (
   onUpdate: (logs: SystemLog[]) => void,

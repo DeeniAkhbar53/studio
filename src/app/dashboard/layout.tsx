@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/dashboard/header";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
@@ -9,11 +9,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { FunkyLoader } from "@/components/ui/funky-loader";
+import { addLogoutLog } from "@/lib/firebase/logService";
 
 // FCM specific imports
 import { getMessaging, getToken, onMessage, MessagePayload } from "firebase/messaging";
 import { updateUserFcmToken } from "@/lib/firebase/userService"; 
 import { app } from "@/lib/firebase/firebase"; // Import the initialized app
+
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 export default function DashboardLayout({
   children,
@@ -24,6 +27,35 @@ export default function DashboardLayout({
   const { toast } = useToast();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [fcmTokenStatus, setFcmTokenStatus] = useState<string>("idle");
+  const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const handleLogout = useCallback((reason: 'manual' | 'inactive') => {
+    if (reason === 'inactive') {
+      const userName = localStorage.getItem('userName') || 'Unknown User';
+      const userItsId = localStorage.getItem('userItsId') || 'Unknown ITS';
+      addLogoutLog(userName, userItsId);
+      toast({
+        title: "Session Expired",
+        description: "You have been logged out due to inactivity.",
+        variant: "destructive"
+      });
+    }
+
+    if (typeof window !== "undefined") {
+      localStorage.clear();
+      router.push('/');
+    }
+  }, [router, toast]);
+
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current);
+    }
+    inactivityTimer.current = setTimeout(() => {
+      handleLogout('inactive');
+    }, INACTIVITY_TIMEOUT_MS);
+  }, [handleLogout]);
 
   useEffect(() => {
     const userRole = localStorage.getItem('userRole');
@@ -36,6 +68,32 @@ export default function DashboardLayout({
       setIsAuthenticated(true);
     }
   }, [router]);
+  
+  useEffect(() => {
+    if (isAuthenticated) {
+      const events = ['mousemove', 'keydown', 'click', 'scroll'];
+      
+      const handleActivity = () => {
+        resetInactivityTimer();
+      };
+
+      events.forEach(event => {
+        window.addEventListener(event, handleActivity);
+      });
+      
+      resetInactivityTimer(); // Start the timer initially
+
+      return () => {
+        events.forEach(event => {
+          window.removeEventListener(event, handleActivity);
+        });
+        if (inactivityTimer.current) {
+          clearTimeout(inactivityTimer.current);
+        }
+      };
+    }
+  }, [isAuthenticated, resetInactivityTimer]);
+
 
   /*
   // FCM Setup Effect - DISABLED FOR NOW
