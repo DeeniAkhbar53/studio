@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 240 20% 98%; /* Sunlit Ivory */
+    --background: 220 20% 98%; /* Original: Sunlit Ivory #F7F4EE -> HSL */
     --foreground: 215 28% 17%; /* Charcoal Mist */
 
     --card: 240 20% 100%;
