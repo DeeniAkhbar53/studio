@@ -4,33 +4,33 @@
 
 @layer base {
   :root {
-    --background: 220 27% 95%; /* #F0F2F5 Light Gray */
-    --foreground: 222 20% 25%; /* Dark Gray for text on light gray */
+    --background: 240 20% 98%; /* Sunlit Ivory */
+    --foreground: 215 28% 17%; /* Charcoal Mist */
 
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 222 20% 25%;
+    --card: 240 20% 100%;
+    --card-foreground: 215 28% 17%;
 
-    --popover: 0 0% 100%; /* White */
-    --popover-foreground: 222 20% 25%;
+    --popover: 240 20% 100%;
+    --popover-foreground: 215 28% 17%;
 
-    --primary: 45 100% 51%; /* #FFC107 Golden Yellow for buttons */
-    --primary-foreground: 20 100% 15%; /* Dark text for golden buttons */
+    --primary: 209 82% 17%; /* Midnight Blue */
+    --primary-foreground: 45 80% 98%;
 
-    --secondary: 220 27% 90%; /* Slightly darker than background */
-    --secondary-foreground: 222 20% 25%;
+    --secondary: 207 100% 19%; /* Nautical Blue */
+    --secondary-foreground: 45 80% 98%;
 
-    --muted: 220 27% 85%;
-    --muted-foreground: 220 20% 45%; /* Softer text for muted contexts */
+    --muted: 210 20% 90%;
+    --muted-foreground: 210 10% 45%;
 
-    --accent: 220 15% 65%; /* Neutral Gray for hover/accent */
-    --accent-foreground: 222 20% 25%; /* Dark text for accent */
+    --accent: 45 83% 54%; /* Golden Aura */
+    --accent-foreground: 215 28% 17%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 20% 88%; /* Light gray border */
-    --input: 220 20% 88%; /* Light gray input background */
-    --ring: 45 100% 51%; /* Golden Yellow for focus rings */
+    --border: 210 20% 88%;
+    --input: 210 20% 88%;
+    --ring: 45 83% 54%; /* Golden Aura */
 
     --radius: 0.5rem;
 
@@ -40,54 +40,54 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
 
-    /* Sidebar specific colors (can be adjusted based on primary theme) */
-    --sidebar-background: 220 20% 20%; /* Dark Blue-Gray for sidebar */
-    --sidebar-foreground: 0 0% 95%; /* Off-white/light gray for text */
-    --sidebar-primary: 45 100% 51%; /* Golden for active items in sidebar */
-    --sidebar-primary-foreground: 20 100% 15%; /* Dark text for active sidebar item */
-    --sidebar-accent: 220 20% 25%; /* Hover/accent in sidebar */
-    --sidebar-accent-foreground: 0 0% 100%; /* White text for sidebar accent hover */
-    --sidebar-border: 220 20% 25%;
-    --sidebar-ring: 260 47% 63%; /* Soft purple for focus ring in sidebar */
+    /* Sidebar specific colors */
+    --sidebar-background: 209 82% 17%; /* Midnight Blue */
+    --sidebar-foreground: 240 20% 90%;
+    --sidebar-primary: 45 83% 54%; /* Golden Aura for active items */
+    --sidebar-primary-foreground: 215 28% 12%; 
+    --sidebar-accent: 207 100% 25%; /* Lighter Nautical Blue for hover */
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 207 100% 25%;
+    --sidebar-ring: 45 83% 60%;
   }
 
   .dark {
-    --background: 220 15% 15%; /* Dark Blue-Gray */
-    --foreground: 220 10% 80%; /* Light Gray text */
+    --background: 215 28% 17%; /* Charcoal Mist */
+    --foreground: 240 20% 90%;
 
-    --card: 220 15% 20%;
-    --card-foreground: 220 10% 80%;
+    --card: 215 28% 22%;
+    --card-foreground: 240 20% 90%;
 
-    --popover: 220 15% 10%;
-    --popover-foreground: 220 10% 80%;
+    --popover: 215 28% 10%;
+    --popover-foreground: 240 20% 90%;
 
-    --primary: 45 100% 51%; /* Golden Yellow */
-    --primary-foreground: 20 100% 15%;
+    --primary: 45 83% 54%; /* Golden Aura */
+    --primary-foreground: 215 28% 12%;
 
-    --secondary: 220 15% 25%;
-    --secondary-foreground: 220 10% 80%;
+    --secondary: 207 100% 19%; /* Nautical Blue */
+    --secondary-foreground: 240 20% 98%;
 
-    --muted: 220 15% 30%;
-    --muted-foreground: 220 10% 60%;
+    --muted: 215 28% 25%;
+    --muted-foreground: 210 10% 60%;
 
-    --accent: 220 15% 40%; /* Darker Neutral Gray for dark mode hover */
+    --accent: 215 28% 30%;
     --accent-foreground: 0 0% 98%;
 
-    --destructive: 0 72% 51%; /* Slightly brighter red for dark mode */
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 15% 25%;
-    --input: 220 15% 25%;
-    --ring: 45 100% 51%; /* Golden Yellow for focus rings in dark mode */
+    --border: 215 28% 25%;
+    --input: 215 28% 25%;
+    --ring: 45 83% 54%;
     
-    --sidebar-background: 220 15% 18%; 
-    --sidebar-foreground: 0 0% 95%; /* Off-white/light gray for text */
-    --sidebar-primary: 45 100% 51%; 
-    --sidebar-primary-foreground: 20 100% 15%;
-    --sidebar-accent: 220 15% 22%; 
-    --sidebar-accent-foreground: 0 0% 100%; /* White text for dark theme sidebar accent hover */
-    --sidebar-border: 220 15% 25%;
-    --sidebar-ring: 260 60% 70%;
+    --sidebar-background: 215 28% 15%; 
+    --sidebar-foreground: 240 20% 95%;
+    --sidebar-primary: 45 83% 54%; 
+    --sidebar-primary-foreground: 215 28% 12%;
+    --sidebar-accent: 215 28% 22%; 
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 215 28% 25%;
+    --sidebar-ring: 45 83% 60%;
   }
 }
 
@@ -100,7 +100,10 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: var(--font-geist-sans);
+    font-family: var(--font-jakarta-sans);
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-averia-serif);
   }
 }
 

@@ -1,23 +1,23 @@
-
 import type {Metadata} from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Plus_Jakarta_Sans, Averia_Serif_Libre } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const jakartaSans = Plus_Jakarta_Sans({
+  variable: '--font-jakarta-sans',
   subsets: ['latin'],
 });
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const averiaSerif = Averia_Serif_Libre({
+  variable: '--font-averia-serif',
   subsets: ['latin'],
+  weight: ['400', '700'],
 });
 
 export const metadata: Metadata = {
   title: 'BGK Attendance',
   description: 'Modern Attendance Tracking System',
-  manifest: '/manifest.json', // Added manifest for PWA capabilities
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -31,7 +31,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="icon" href="https://app.burhaniguards.org/images/logo.png" type="image/png" sizes="any" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${jakartaSans.variable} ${averiaSerif.variable} antialiased`}>
         {children}
         <Toaster />
       </body>

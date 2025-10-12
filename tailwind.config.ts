@@ -9,6 +9,10 @@ export default {
   ],
   theme: {
   	extend: {
+      fontFamily: {
+        sans: ['var(--font-jakarta-sans)'],
+        serif: ['var(--font-averia-serif)'],
+      },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
@@ -59,7 +63,13 @@ export default {
   				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
-  			}
+  			},
+        // Custom ITS52 Theme Colors
+        'golden-aura': '#EABD13',
+        'midnight-blue': '#0A314D',
+        'nautical-blue': '#003B66',
+        'sunlit-ivory': '#F7F4EE',
+        'charcoal-mist': '#1F2A37',
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
