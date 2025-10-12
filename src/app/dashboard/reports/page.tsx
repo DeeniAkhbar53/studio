@@ -878,11 +878,13 @@ export default function ReportsPage() {
                 />
               </div>
 
-              <Separator />
-              <div className="space-y-4">
-                 <h3 className="text-md font-medium text-muted-foreground">Advanced Filters</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-                    
+               <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="advanced-filters">
+                  <AccordionTrigger>
+                    <h3 className="text-md font-medium text-muted-foreground hover:no-underline">Advanced Filters</h3>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start pt-4">
                         <FormField
                             control={form.control}
                             name="mohallahId"
@@ -970,7 +972,9 @@ export default function ReportsPage() {
                         )}
                     />
                  </div>
-              </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
 
               <Button type="submit" disabled={isLoading || isLoadingOptions} className="min-w-[180px]">
