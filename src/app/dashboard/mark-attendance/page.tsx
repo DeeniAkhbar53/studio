@@ -14,7 +14,7 @@ import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, Us
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { savePendingAttendance, getPendingAttendance, removePendingAttendanceRecord, cacheAllUsers, getCachedUserByItsOrBgkId, OfflineAttendanceRecord } from "@/lib/offlineService";
-import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare, UserX, HandCoins, Trash2, RefreshCw, XCircle } from "lucide-react";
+import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare, UserX, HandCoins, Trash2, RefreshCw, XCircle, Users2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { format, parse, setHours, setMinutes, setSeconds, startOfDay } from "date-fns";
 import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 type UniformComplianceState = {
     fetaPaghri: 'yes' | 'no' | 'safar';
@@ -104,6 +105,13 @@ export default function MarkAttendancePage() {
   const [failedSyncs, setFailedSyncs] = useState<FailedSyncRecord[]>([]);
   const [isSyncReportOpen, setIsSyncReportOpen] = useState(false);
   const [lastSyncReport, setLastSyncReport] = useState<{ success: number; skipped: number; failed: number } | null>(null);
+
+  // Bulk Attendance State
+  const [bulkMemberIdsInput, setBulkMemberIdsInput] = useState("");
+  const [bulkFoundMembers, setBulkFoundMembers] = useState<User[]>([]);
+  const [bulkComplianceState, setBulkComplianceState] = useState<Map<string, Partial<UniformComplianceState>>>(new Map());
+  const [isSearchingBulkMembers, setIsSearchingBulkMembers] = useState(false);
+  const [bulkMarkingError, setBulkMarkingError] = useState<string | null>(null);
 
 
   const { toast } = useToast();
@@ -695,7 +703,108 @@ export default function MarkAttendancePage() {
     const { fetaPaghri, koti, uniform, shoes, nazrulMaqam } = currentMiqaatDetails.attendanceRequirements;
     return fetaPaghri || koti || uniform || shoes || nazrulMaqam;
   }, [currentMiqaatDetails]);
+  
+  const handleBulkMemberSearch = async () => {
+    if (!selectedMiqaatId || !currentSessionDetails) {
+        toast({ title: "Selection Required", description: "Please select a Miqaat and session first.", variant: "destructive" });
+        return;
+    }
+    if (!bulkMemberIdsInput.trim()) {
+        toast({ title: "Input Required", description: "Please paste ITS or BGK IDs to search.", variant: "destructive" });
+        return;
+    }
+    
+    setIsSearchingBulkMembers(true);
+    setBulkFoundMembers([]);
+    setBulkComplianceState(new Map());
+    setBulkMarkingError(null);
 
+    const ids = bulkMemberIdsInput.split(/[\s,;\n]+/).map(id => id.trim()).filter(Boolean);
+    const uniqueIds = [...new Set(ids)];
+
+    const foundMembers: User[] = [];
+    const notFoundIds: string[] = [];
+
+    for (const id of uniqueIds) {
+        try {
+            const member = isOffline ? await getCachedUserByItsOrBgkId(id) : await getUserByItsOrBgkId(id);
+            if (member) {
+                foundMembers.push(member);
+            } else {
+                notFoundIds.push(id);
+            }
+        } catch (error) {
+            console.error(`Error finding member with ID ${id}:`, error);
+            notFoundIds.push(id);
+        }
+    }
+    
+    if (notFoundIds.length > 0) {
+        setBulkMarkingError(`Could not find members for the following IDs: ${notFoundIds.join(', ')}.`);
+    }
+
+    const initialCompliance = new Map<string, Partial<UniformComplianceState>>();
+    foundMembers.forEach(member => {
+        initialCompliance.set(member.itsId, { fetaPaghri: 'no', koti: 'no', uniform: 'improper', shoes: 'improper' });
+    });
+
+    setBulkFoundMembers(foundMembers);
+    setBulkComplianceState(initialCompliance);
+    setIsSearchingBulkMembers(false);
+  };
+  
+    const handleBulkComplianceChange = (itsId: string, field: keyof UniformComplianceState, value: any) => {
+        setBulkComplianceState(prev => {
+            const newState = new Map(prev);
+            const userState = newState.get(itsId) || {};
+            newState.set(itsId, { ...userState, [field]: value });
+            return newState;
+        });
+    };
+    
+    const handleApplyAllCompliance = (field: keyof UniformComplianceState, value: any) => {
+        setBulkComplianceState(prev => {
+            const newState = new Map();
+            bulkFoundMembers.forEach(member => {
+                const userState = prev.get(member.itsId) || {};
+                newState.set(member.itsId, { ...userState, [field]: value });
+            });
+            return newState;
+        });
+    };
+
+    const handleBulkMarkAttendance = async () => {
+        if (bulkFoundMembers.length === 0 || !currentSessionDetails) return;
+
+        setIsSaving(true);
+        let successCount = 0;
+        let failedCount = 0;
+
+        for (const member of bulkFoundMembers) {
+            try {
+                // Ensure there is compliance data for the member
+                const complianceData = bulkComplianceState.get(member.itsId);
+                await finalizeAttendance(member, complianceData as UniformComplianceState);
+                successCount++;
+            } catch (error) {
+                console.error(`Failed to mark attendance for ${member.name}:`, error);
+                failedCount++;
+            }
+        }
+
+        toast({
+            title: "Bulk Marking Complete",
+            description: `Successfully marked ${successCount} members. Failed to mark ${failedCount}.`,
+            variant: failedCount > 0 ? "destructive" : "default"
+        });
+
+        // Reset bulk state after completion
+        setBulkMemberIdsInput("");
+        setBulkFoundMembers([]);
+        setBulkComplianceState(new Map());
+        setBulkMarkingError(null);
+        setIsSaving(false);
+    };
 
   if (isAuthorized === null) {
     return (
@@ -1012,6 +1121,62 @@ export default function MarkAttendancePage() {
             </CardFooter>
         )}
       </Card>
+      
+        <Card className="shadow-lg">
+            <CardHeader>
+                <CardTitle className="flex items-center"><Users2 className="mr-2 h-6 w-6 text-primary" />Bulk Attendance</CardTitle>
+                <CardDescription>Paste a list of ITS or BGK IDs (separated by comma, space, or new line) to mark attendance for multiple members at once.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                 <div className="space-y-2">
+                    <Label htmlFor="bulk-member-ids">Member IDs</Label>
+                    <Textarea
+                        id="bulk-member-ids"
+                        placeholder="52000001, 52000002&#10;52000003"
+                        value={bulkMemberIdsInput}
+                        onChange={(e) => setBulkMemberIdsInput(e.target.value)}
+                        disabled={!selectedMiqaatId || !currentSessionDetails || isSearchingBulkMembers || isSaving}
+                        rows={4}
+                    />
+                </div>
+                <Button onClick={handleBulkMemberSearch} disabled={!selectedMiqaatId || !currentSessionDetails || !bulkMemberIdsInput || isSearchingBulkMembers || isSaving}>
+                    {isSearchingBulkMembers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserSearch className="mr-2 h-4 w-4" />}
+                    Find Members
+                </Button>
+                {bulkMarkingError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><ShadAlertTitle>Error</ShadAlertTitle><ShadAlertDesc>{bulkMarkingError}</ShadAlertDesc></Alert>}
+                
+                {bulkFoundMembers.length > 0 && (
+                    <div className="space-y-4 pt-4">
+                        <h4 className="font-semibold">Found {bulkFoundMembers.length} Members</h4>
+                         <div className="max-h-80 overflow-y-auto rounded-md border p-4 space-y-4">
+                           {bulkFoundMembers.map(member => (
+                            <div key={member.itsId} className="p-3 border rounded-lg space-y-3">
+                                <p className="font-medium">{member.name} ({member.itsId})</p>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                  {currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
+                                     <RadioGroup value={bulkComplianceState.get(member.itsId)?.fetaPaghri || 'no'} onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'fetaPaghri', val)} className="flex gap-4"><Label>Feta/Paghri</Label><RadioGroupItem value="yes" id={`feta-yes-${member.itsId}`} /><Label htmlFor={`feta-yes-${member.itsId}`}>Y</Label><RadioGroupItem value="no" id={`feta-no-${member.itsId}`} /><Label htmlFor={`feta-no-${member.itsId}`}>N</Label></RadioGroup>
+                                  )}
+                                  {currentMiqaatDetails?.attendanceRequirements?.koti && (
+                                     <RadioGroup value={bulkComplianceState.get(member.itsId)?.koti || 'no'} onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'koti', val)} className="flex gap-4"><Label>Koti</Label><RadioGroupItem value="yes" id={`koti-yes-${member.itsId}`} /><Label htmlFor={`koti-yes-${member.itsId}`}>Y</Label><RadioGroupItem value="no" id={`koti-no-${member.itsId}`} /><Label htmlFor={`koti-no-${member.itsId}`}>N</Label></RadioGroup>
+                                  )}
+                                   {currentMiqaatDetails?.attendanceRequirements?.uniform && (
+                                     <RadioGroup value={bulkComplianceState.get(member.itsId)?.uniform || 'improper'} onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'uniform', val)} className="flex gap-4"><Label>Uniform</Label><RadioGroupItem value="proper" id={`uniform-yes-${member.itsId}`} /><Label htmlFor={`uniform-yes-${member.itsId}`}>P</Label><RadioGroupItem value="improper" id={`uniform-no-${member.itsId}`} /><Label htmlFor={`uniform-no-${member.itsId}`}>I</Label></RadioGroup>
+                                  )}
+                                   {currentMiqaatDetails?.attendanceRequirements?.shoes && (
+                                     <RadioGroup value={bulkComplianceState.get(member.itsId)?.shoes || 'improper'} onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'shoes', val)} className="flex gap-4"><Label>Shoes</Label><RadioGroupItem value="proper" id={`shoes-yes-${member.itsId}`} /><Label htmlFor={`shoes-yes-${member.itsId}`}>P</Label><RadioGroupItem value="improper" id={`shoes-no-${member.itsId}`} /><Label htmlFor={`shoes-no-${member.itsId}`}>I</Label></RadioGroup>
+                                  )}
+                                </div>
+                            </div>
+                           ))}
+                         </div>
+                        <Button onClick={handleBulkMarkAttendance} disabled={isSaving}>
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+                            Mark All ({bulkFoundMembers.length}) as Present
+                        </Button>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
       
       {failedSyncs.length > 0 && (
           <Card className="shadow-lg border-destructive">
