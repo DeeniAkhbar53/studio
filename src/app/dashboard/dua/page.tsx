@@ -341,7 +341,7 @@ export default function DuaPage() {
                  <CardHeader>
                     <CardTitle className="flex items-center text-xl md:text-2xl">
                         <BookOpen className="mr-3 h-7 w-7 text-primary" />
-                        Recitation Log
+                        Weekly Dua
                     </CardTitle>
                     <CardDescription className="pt-1">
                          Submitting for week: {currentWeekId} ({format(weekDateRange.start, 'MMM d')} - {format(weekDateRange.end, 'MMM d, yyyy')})
