@@ -23,6 +23,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 type UniformComplianceState = {
     fetaPaghri: 'yes' | 'no' | 'safar';
@@ -1123,128 +1124,138 @@ export default function MarkAttendancePage() {
       </Card>
       
       {currentUserRole === 'superadmin' && (
-        <Card className="shadow-lg">
-            <CardHeader>
-                <CardTitle className="flex items-center"><Users2 className="mr-2 h-6 w-6 text-primary" />Bulk Attendance</CardTitle>
-                <CardDescription>Paste a list of ITS or BGK IDs (separated by comma, space, or new line) to mark attendance for multiple members at once.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <div className="space-y-2">
-                    <Label htmlFor="bulk-member-ids">Member IDs</Label>
-                    <Textarea
-                        id="bulk-member-ids"
-                        placeholder="52000001, 52000002\n52000003"
-                        value={bulkMemberIdsInput}
-                        onChange={(e) => setBulkMemberIdsInput(e.target.value)}
-                        disabled={!selectedMiqaatId || !currentSessionDetails || isSearchingBulkMembers || isSaving}
-                        rows={4}
-                    />
-                </div>
-                <Button onClick={handleBulkMemberSearch} disabled={!selectedMiqaatId || !currentSessionDetails || !bulkMemberIdsInput || isSearchingBulkMembers || isSaving}>
-                    {isSearchingBulkMembers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserSearch className="mr-2 h-4 w-4" />}
-                    Find Members
-                </Button>
-                {bulkMarkingError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><ShadAlertTitle>Error</ShadAlertTitle><ShadAlertDesc>{bulkMarkingError}</ShadAlertDesc></Alert>}
-                
-                {bulkFoundMembers.length > 0 && (
-                    <div className="space-y-4 pt-4">
-                        <h4 className="font-semibold">Found {bulkFoundMembers.length} Members</h4>
-                         {miqaatHasAttendanceRequirements && (
-                            <div className="p-3 border-b bg-muted/50 rounded-t-lg">
-                                <h5 className="font-semibold mb-2">Apply to All ({bulkFoundMembers.length} members)</h5>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                     {currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
-                                        <div className="flex items-center space-x-2">
-                                            <Label className="font-normal text-sm">Feta/Paghri</Label>
-                                            <RadioGroup onValueChange={(val) => handleApplyAllCompliance('fetaPaghri', val)} className="flex gap-2" id="all-feta-group">
-                                                <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id="all-feta-yes" /><Label htmlFor="all-feta-yes" className="text-xs">Y</Label></div>
-                                                <div className="flex items-center space-x-1"><RadioGroupItem value="no" id="all-feta-no" /><Label htmlFor="all-feta-no" className="text-xs">N</Label></div>
-                                            </RadioGroup>
-                                        </div>
-                                    )}
-                                     {currentMiqaatDetails?.attendanceRequirements?.koti && (
-                                        <div className="flex items-center space-x-2">
-                                            <Label className="font-normal text-sm">Koti</Label>
-                                            <RadioGroup onValueChange={(val) => handleApplyAllCompliance('koti', val)} className="flex gap-2" id="all-koti-group">
-                                                <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id="all-koti-yes" /><Label htmlFor="all-koti-yes" className="text-xs">Y</Label></div>
-                                                <div className="flex items-center space-x-1"><RadioGroupItem value="no" id="all-koti-no" /><Label htmlFor="all-koti-no" className="text-xs">N</Label></div>
-                                            </RadioGroup>
-                                        </div>
-                                    )}
-                                     {currentMiqaatDetails?.attendanceRequirements?.uniform && (
-                                        <div className="flex items-center space-x-2">
-                                            <Label className="font-normal text-sm">Uniform</Label>
-                                            <RadioGroup onValueChange={(val) => handleApplyAllCompliance('uniform', val)} className="flex gap-2" id="all-uniform-group">
-                                                <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id="all-uniform-yes" /><Label htmlFor="all-uniform-yes" className="text-xs">P</Label></div>
-                                                <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id="all-uniform-no" /><Label htmlFor="all-uniform-no" className="text-xs">I</Label></div>
-                                            </RadioGroup>
-                                        </div>
-                                    )}
-                                     {currentMiqaatDetails?.attendanceRequirements?.shoes && (
-                                        <div className="flex items-center space-x-2">
-                                            <Label className="font-normal text-sm">Shoes</Label>
-                                            <RadioGroup onValueChange={(val) => handleApplyAllCompliance('shoes', val)} className="flex gap-2" id="all-shoes-group">
-                                                <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id="all-shoes-yes" /><Label htmlFor="all-shoes-yes" className="text-xs">P</Label></div>
-                                                <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id="all-shoes-no" /><Label htmlFor="all-shoes-no" className="text-xs">I</Label></div>
-                                            </RadioGroup>
-                                        </div>
-                                    )}
-                                </div>
+        <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="bulk-attendance">
+                <Card className="shadow-lg">
+                    <AccordionTrigger className="w-full p-0">
+                        <CardHeader className="flex flex-row justify-between items-center w-full p-6">
+                            <div>
+                                <CardTitle className="flex items-center"><Users2 className="mr-2 h-6 w-6 text-primary" />Bulk Attendance</CardTitle>
+                                <CardDescription>Mark attendance for multiple members at once.</CardDescription>
                             </div>
-                        )}
-                         <div className="max-h-80 overflow-y-auto rounded-md border p-4 space-y-4">
-                           {bulkFoundMembers.map(member => (
-                            <div key={member.itsId} className="p-3 border rounded-lg space-y-3">
-                                <p className="font-medium">{member.name} ({member.itsId})</p>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                  {currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
-                                    <div className="flex items-center space-x-2">
-                                     <Label className="font-normal text-sm">Feta/Paghri</Label>
-                                      <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'fetaPaghri', val)} value={bulkComplianceState.get(member.itsId)?.fetaPaghri || 'no'} className="flex gap-2">
-                                        <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id={`feta-yes-${member.itsId}`} /><Label htmlFor={`feta-yes-${member.itsId}`} className="text-xs">Y</Label></div>
-                                        <div className="flex items-center space-x-1"><RadioGroupItem value="no" id={`feta-no-${member.itsId}`} /><Label htmlFor={`feta-no-${member.itsId}`} className="text-xs">N</Label></div>
-                                      </RadioGroup>
-                                    </div>
-                                  )}
-                                  {currentMiqaatDetails?.attendanceRequirements?.koti && (
-                                    <div className="flex items-center space-x-2">
-                                     <Label className="font-normal text-sm">Koti</Label>
-                                      <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'koti', val)} value={bulkComplianceState.get(member.itsId)?.koti || 'no'} className="flex gap-2">
-                                        <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id={`koti-yes-${member.itsId}`} /><Label htmlFor={`koti-yes-${member.itsId}`} className="text-xs">Y</Label></div>
-                                        <div className="flex items-center space-x-1"><RadioGroupItem value="no" id={`koti-no-${member.itsId}`} /><Label htmlFor={`koti-no-${member.itsId}`} className="text-xs">N</Label></div>
-                                      </RadioGroup>
-                                    </div>
-                                  )}
-                                   {currentMiqaatDetails?.attendanceRequirements?.uniform && (
-                                     <div className="flex items-center space-x-2">
-                                      <Label className="font-normal text-sm">Uniform</Label>
-                                      <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'uniform', val)} value={bulkComplianceState.get(member.itsId)?.uniform || 'improper'} className="flex gap-2">
-                                         <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id={`uniform-yes-${member.itsId}`} /><Label htmlFor={`uniform-yes-${member.itsId}`} className="text-xs">P</Label></div>
-                                         <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id={`uniform-no-${member.itsId}`} /><Label htmlFor={`uniform-no-${member.itsId}`} className="text-xs">I</Label></div>
-                                      </RadioGroup>
-                                     </div>
-                                  )}
-                                   {currentMiqaatDetails?.attendanceRequirements?.shoes && (
-                                     <div className="flex items-center space-x-2">
-                                      <Label className="font-normal text-sm">Shoes</Label>
-                                      <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'shoes', val)} value={bulkComplianceState.get(member.itsId)?.shoes || 'improper'} className="flex gap-2">
-                                         <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id={`shoes-yes-${member.itsId}`} /><Label htmlFor={`shoes-yes-${member.itsId}`} className="text-xs">P</Label></div>
-                                         <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id={`shoes-no-${member.itsId}`} /><Label htmlFor={`shoes-no-${member.itsId}`} className="text-xs">I</Label></div>
-                                      </RadioGroup>
-                                     </div>
-                                  )}
-                                </div>
+                        </CardHeader>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                        <CardContent className="space-y-4 pt-0">
+                            <div className="space-y-2">
+                                <Label htmlFor="bulk-member-ids">Member IDs</Label>
+                                <Textarea
+                                    id="bulk-member-ids"
+                                    placeholder="52000001, 52000002\n52000003"
+                                    value={bulkMemberIdsInput}
+                                    onChange={(e) => setBulkMemberIdsInput(e.target.value)}
+                                    disabled={!selectedMiqaatId || !currentSessionDetails || isSearchingBulkMembers || isSaving}
+                                    rows={4}
+                                />
                             </div>
-                           ))}
-                         </div>
-                        <Button onClick={handleBulkMarkAttendance} disabled={isSaving}>
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
-                            Mark All ({bulkFoundMembers.length}) as Present
-                        </Button>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+                            <Button onClick={handleBulkMemberSearch} disabled={!selectedMiqaatId || !currentSessionDetails || !bulkMemberIdsInput || isSearchingBulkMembers || isSaving}>
+                                {isSearchingBulkMembers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserSearch className="mr-2 h-4 w-4" />}
+                                Find Members
+                            </Button>
+                            {bulkMarkingError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><ShadAlertTitle>Error</ShadAlertTitle><ShadAlertDesc>{bulkMarkingError}</ShadAlertDesc></Alert>}
+                            
+                            {bulkFoundMembers.length > 0 && (
+                                <div className="space-y-4 pt-4">
+                                    <h4 className="font-semibold">Found {bulkFoundMembers.length} Members</h4>
+                                     {miqaatHasAttendanceRequirements && (
+                                        <div className="p-3 border-b bg-muted/50 rounded-t-lg">
+                                            <h5 className="font-semibold mb-2">Apply to All ({bulkFoundMembers.length} members)</h5>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                 {currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
+                                                    <div className="flex items-center space-x-2">
+                                                        <Label className="font-normal text-sm">Feta/Paghri</Label>
+                                                        <RadioGroup onValueChange={(val) => handleApplyAllCompliance('fetaPaghri', val)} className="flex gap-2" id="all-feta-group">
+                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id="all-feta-yes" /><Label htmlFor="all-feta-yes" className="text-xs">Y</Label></div>
+                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="no" id="all-feta-no" /><Label htmlFor="all-feta-no" className="text-xs">N</Label></div>
+                                                        </RadioGroup>
+                                                    </div>
+                                                )}
+                                                 {currentMiqaatDetails?.attendanceRequirements?.koti && (
+                                                    <div className="flex items-center space-x-2">
+                                                        <Label className="font-normal text-sm">Koti</Label>
+                                                        <RadioGroup onValueChange={(val) => handleApplyAllCompliance('koti', val)} className="flex gap-2" id="all-koti-group">
+                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id="all-koti-yes" /><Label htmlFor="all-koti-yes" className="text-xs">Y</Label></div>
+                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="no" id="all-koti-no" /><Label htmlFor="all-koti-no" className="text-xs">N</Label></div>
+                                                        </RadioGroup>
+                                                    </div>
+                                                )}
+                                                 {currentMiqaatDetails?.attendanceRequirements?.uniform && (
+                                                    <div className="flex items-center space-x-2">
+                                                        <Label className="font-normal text-sm">Uniform</Label>
+                                                        <RadioGroup onValueChange={(val) => handleApplyAllCompliance('uniform', val)} className="flex gap-2" id="all-uniform-group">
+                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id="all-uniform-yes" /><Label htmlFor="all-uniform-yes" className="text-xs">P</Label></div>
+                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id="all-uniform-no" /><Label htmlFor="all-uniform-no" className="text-xs">I</Label></div>
+                                                        </RadioGroup>
+                                                    </div>
+                                                )}
+                                                 {currentMiqaatDetails?.attendanceRequirements?.shoes && (
+                                                    <div className="flex items-center space-x-2">
+                                                        <Label className="font-normal text-sm">Shoes</Label>
+                                                        <RadioGroup onValueChange={(val) => handleApplyAllCompliance('shoes', val)} className="flex gap-2" id="all-shoes-group">
+                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id="all-shoes-yes" /><Label htmlFor="all-shoes-yes" className="text-xs">P</Label></div>
+                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id="all-shoes-no" /><Label htmlFor="all-shoes-no" className="text-xs">I</Label></div>
+                                                        </RadioGroup>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                     <div className="max-h-80 overflow-y-auto rounded-md border p-4 space-y-4">
+                                       {bulkFoundMembers.map(member => (
+                                        <div key={member.itsId} className="p-3 border rounded-lg space-y-3">
+                                            <p className="font-medium">{member.name} ({member.itsId})</p>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                              {currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
+                                                <div className="flex items-center space-x-2">
+                                                 <Label className="font-normal text-sm">Feta/Paghri</Label>
+                                                  <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'fetaPaghri', val)} value={bulkComplianceState.get(member.itsId)?.fetaPaghri || 'no'} className="flex gap-2">
+                                                    <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id={`feta-yes-${member.itsId}`} /><Label htmlFor={`feta-yes-${member.itsId}`} className="text-xs">Y</Label></div>
+                                                    <div className="flex items-center space-x-1"><RadioGroupItem value="no" id={`feta-no-${member.itsId}`} /><Label htmlFor={`feta-no-${member.itsId}`} className="text-xs">N</Label></div>
+                                                  </RadioGroup>
+                                                </div>
+                                              )}
+                                              {currentMiqaatDetails?.attendanceRequirements?.koti && (
+                                                <div className="flex items-center space-x-2">
+                                                 <Label className="font-normal text-sm">Koti</Label>
+                                                  <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'koti', val)} value={bulkComplianceState.get(member.itsId)?.koti || 'no'} className="flex gap-2">
+                                                    <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id={`koti-yes-${member.itsId}`} /><Label htmlFor={`koti-yes-${member.itsId}`} className="text-xs">Y</Label></div>
+                                                    <div className="flex items-center space-x-1"><RadioGroupItem value="no" id={`koti-no-${member.itsId}`} /><Label htmlFor={`koti-no-${member.itsId}`} className="text-xs">N</Label></div>
+                                                  </RadioGroup>
+                                                </div>
+                                              )}
+                                               {currentMiqaatDetails?.attendanceRequirements?.uniform && (
+                                                 <div className="flex items-center space-x-2">
+                                                  <Label className="font-normal text-sm">Uniform</Label>
+                                                  <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'uniform', val)} value={bulkComplianceState.get(member.itsId)?.uniform || 'improper'} className="flex gap-2">
+                                                     <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id={`uniform-yes-${member.itsId}`} /><Label htmlFor={`uniform-yes-${member.itsId}`} className="text-xs">P</Label></div>
+                                                     <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id={`uniform-no-${member.itsId}`} /><Label htmlFor={`uniform-no-${member.itsId}`} className="text-xs">I</Label></div>
+                                                  </RadioGroup>
+                                                 </div>
+                                              )}
+                                               {currentMiqaatDetails?.attendanceRequirements?.shoes && (
+                                                 <div className="flex items-center space-x-2">
+                                                  <Label className="font-normal text-sm">Shoes</Label>
+                                                  <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'shoes', val)} value={bulkComplianceState.get(member.itsId)?.shoes || 'improper'} className="flex gap-2">
+                                                     <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id={`shoes-yes-${member.itsId}`} /><Label htmlFor={`shoes-yes-${member.itsId}`} className="text-xs">P</Label></div>
+                                                     <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id={`shoes-no-${member.itsId}`} /><Label htmlFor={`shoes-no-${member.itsId}`} className="text-xs">I</Label></div>
+                                                  </RadioGroup>
+                                                 </div>
+                                              )}
+                                            </div>
+                                        </div>
+                                       ))}
+                                     </div>
+                                    <Button onClick={handleBulkMarkAttendance} disabled={isSaving}>
+                                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+                                        Mark All ({bulkFoundMembers.length}) as Present
+                                    </Button>
+                                </div>
+                            )}
+                        </CardContent>
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
+        </Accordion>
       )}
       
       {failedSyncs.length > 0 && (
@@ -1526,3 +1537,5 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
+
+      
