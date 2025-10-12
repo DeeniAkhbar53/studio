@@ -1,9 +1,10 @@
 
+
 'use server';
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp, Timestamp } from 'firebase/firestore';
-import type { User, UserRole, UserDesignation } from '@/types';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
+import type { User, UserRole, UserDesignation, DuaAttendance } from '@/types';
 
 export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'fcmTokens' > & { avatarUrl?: string };
 
@@ -293,3 +294,28 @@ export const getUniqueTeamNames = async (): Promise<string[]> => {
     }
 };
 
+export const getDuaAttendanceForUser = async (userItsId: string): Promise<DuaAttendance[]> => {
+    try {
+        const userDocRef = doc(db, 'users', userItsId);
+        const duaAttendanceColRef = collection(userDocRef, 'duaAttendance');
+        const q = query(duaAttendanceColRef, orderBy('weekId', 'desc'));
+        
+        const querySnapshot = await getDocs(q);
+        const history: DuaAttendance[] = [];
+        querySnapshot.forEach(docSnapshot => {
+            const data = docSnapshot.data();
+            const markedAt = data.markedAt instanceof Timestamp
+                              ? data.markedAt.toDate().toISOString()
+                              : new Date().toISOString();
+            history.push({ 
+                id: docSnapshot.id, 
+                ...data,
+                markedAt
+            } as DuaAttendance);
+        });
+        return history;
+    } catch (error) {
+        console.error(`Error fetching Dua attendance for user ${userItsId}:`, error);
+        throw error;
+    }
+};

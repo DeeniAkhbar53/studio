@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'user' | 'admin' | 'superadmin' | 'attendance-marker';
 export type UserDesignation = 'Captain' | 'Vice Captain' | 'Member' | 'Asst.Grp Leader' | 'Group Leader' | 'J.Member' | 'Major' | 'Idara Admin' | 'Senior Assistant Commander' | 'Assistant Commander' | 'Commander';
 
@@ -213,8 +214,12 @@ export interface SystemLog {
 
 // New type for Dua attendance
 export interface DuaAttendance {
+    id: string;
     itsId: string;
     name: string;
     weekId: string; // e.g., "2024-W35"
+    duaKamilCount: number;
+    kahfCount: number;
+    feedback?: string;
     markedAt: string; // ISO string
 }

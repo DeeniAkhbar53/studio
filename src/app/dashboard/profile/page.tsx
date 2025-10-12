@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -9,13 +10,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Form as UIForm, FormControl, FormMessage, FormItem, FormField, FormLabel } from "@/components/ui/form";
-import type { AttendanceRecord, User, Mohallah, Miqaat, UserDesignation, FormResponse, Form, SystemLog } from "@/types";
-import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
+import type { AttendanceRecord, User, Mohallah, Miqaat, UserDesignation, FormResponse, Form, SystemLog, DuaAttendance } from "@/types";
+import { Edit3, Mail, Phone, ShieldCheck, Users, MapPin, CalendarClock, UserCog, FileText, Check, X, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, Loader2, Lock, BookOpen } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { getUserByItsOrBgkId, getUsers, updateUser } from "@/lib/firebase/userService";
+import { getUserByItsOrBgkId, getUsers, updateUser, getDuaAttendanceForUser } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getMiqaats } from "@/lib/firebase/miqaatService";
 import { getFormResponsesForUser, getForms } from "@/lib/firebase/formService";
@@ -66,6 +67,7 @@ export default function ProfilePage() {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [formHistory, setFormHistory] = useState<FormHistoryStatus[]>([]);
   const [loginHistory, setLoginHistory] = useState<SystemLog[]>([]);
+  const [duaHistory, setDuaHistory] = useState<DuaAttendance[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -76,10 +78,14 @@ export default function ProfilePage() {
   
   const [isLoadingLoginHistory, setIsLoadingLoginHistory] = useState(false);
   const [loginHistoryError, setLoginHistoryError] = useState<string | null>(null);
+  
+  const [isLoadingDuaHistory, setIsLoadingDuaHistory] = useState(false);
+  const [duaHistoryError, setDuaHistoryError] = useState<string | null>(null);
 
   const [attendancePage, setAttendancePage] = useState(1);
   const [formsPage, setFormsPage] = useState(1);
   const [loginPage, setLoginPage] = useState(1);
+  const [duaPage, setDuaPage] = useState(1);
 
   const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
 
@@ -297,6 +303,21 @@ export default function ProfilePage() {
             } finally {
                 if (isMounted) setIsLoadingLoginHistory(false);
             }
+            
+            // Fetch Dua History
+            setIsLoadingDuaHistory(true);
+            setDuaHistoryError(null);
+            try {
+                const fetchedDuaLogs = await getDuaAttendanceForUser(fetchedUser.itsId);
+                 if (isMounted) {
+                    setDuaHistory(fetchedDuaLogs);
+                }
+            } catch (duaError: any) {
+                console.error("Failed to fetch Dua history:", duaError);
+                setDuaHistoryError("Could not load Dua submission history.");
+            } finally {
+                if (isMounted) setIsLoadingDuaHistory(false);
+            }
 
 
         } else {
@@ -304,6 +325,7 @@ export default function ProfilePage() {
               setIsLoadingHistory(false);
               setIsLoadingFormHistory(false);
               setIsLoadingLoginHistory(false);
+              setIsLoadingDuaHistory(false);
             }
         }
       } catch (error) {
@@ -313,6 +335,7 @@ export default function ProfilePage() {
             setHistoryError("Could not load user profile.");
             setFormHistoryError("Could not load user profile.");
             setLoginHistoryError("Could not load user profile.");
+            setDuaHistoryError("Could not load user profile.");
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -421,6 +444,13 @@ export default function ProfilePage() {
         const startIndex = (loginPage - 1) * ITEMS_PER_PAGE;
         return loginHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
     }, [loginHistory, loginPage]);
+    
+    // Pagination logic for Dua History
+    const duaTotalPages = Math.ceil(duaHistory.length / ITEMS_PER_PAGE);
+    const currentDuaData = useMemo(() => {
+        const startIndex = (duaPage - 1) * ITEMS_PER_PAGE;
+        return duaHistory.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [duaHistory, duaPage]);
 
   if (isLoading && !user) {
     return (
@@ -547,6 +577,7 @@ export default function ProfilePage() {
            <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
             <TabsTrigger value="details" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Details</TabsTrigger>
             <TabsTrigger value="attendance_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Attendance ({!isLoadingHistory && !historyError ? attendanceHistory.length : '...'})</TabsTrigger>
+            <TabsTrigger value="dua_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Dua ({!isLoadingDuaHistory && !duaHistoryError ? duaHistory.length : '...'})</TabsTrigger>
             <TabsTrigger value="forms" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Forms ({!isLoadingFormHistory && !formHistoryError ? formHistory.length : '...'})</TabsTrigger>
             <TabsTrigger value="login_history" className="relative rounded-none border-b-2 border-b-transparent bg-transparent px-4 pb-3 pt-4 font-semibold text-muted-foreground shadow-none transition-none data-[state=active]:border-b-primary data-[state=active]:text-foreground data-[state=active]:shadow-none">Logins ({!isLoadingLoginHistory && !loginHistoryError ? loginHistory.length : '...'})</TabsTrigger>
           </TabsList>
@@ -718,6 +749,69 @@ export default function ProfilePage() {
               )}
             </CardContent>
           </TabsContent>
+           <TabsContent value="dua_history">
+             <CardContent className="p-6">
+                {isLoadingDuaHistory ? (
+                  <div className="flex items-center justify-center py-10">
+                    <FunkyLoader>Loading Dua history...</FunkyLoader>
+                  </div>
+                ) : duaHistoryError ? (
+                  <div className="text-center py-10">
+                    <BookOpen className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <p className="mt-4 text-lg text-destructive">{duaHistoryError}</p>
+                  </div>
+                ) : duaHistory.length > 0 ? (
+                  <>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Week ID</TableHead>
+                            <TableHead>Dua e Kamil</TableHead>
+                            <TableHead>Surat al Kahf</TableHead>
+                            <TableHead>Feedback</TableHead>
+                            <TableHead className="text-right">Submitted At</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {currentDuaData.map((log) => (
+                            <TableRow key={log.id}>
+                              <TableCell className="font-medium">{log.weekId}</TableCell>
+                              <TableCell>{log.duaKamilCount}</TableCell>
+                              <TableCell>{log.kahfCount}</TableCell>
+                              <TableCell className="max-w-xs truncate">{log.feedback || 'N/A'}</TableCell>
+                              <TableCell className="text-right">{format(new Date(log.markedAt), "PPp")}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+                        <p className="text-xs text-muted-foreground">
+                            Showing {currentDuaData.length > 0 ? ((duaPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(duaPage * ITEMS_PER_PAGE, duaHistory.length)} of {duaHistory.length} records
+                        </p>
+                        {duaTotalPages > 1 && (
+                        <div className="flex items-center space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => setDuaPage(prev => Math.max(prev - 1, 1))} disabled={duaPage === 1}>
+                                <ChevronLeft className="h-4 w-4" /> Previous
+                            </Button>
+                            <span className="text-sm text-muted-foreground">Page {duaPage} of {duaTotalPages}</span>
+                            <Button variant="outline" size="sm" onClick={() => setDuaPage(prev => Math.min(prev + 1, duaTotalPages))} disabled={duaPage === duaTotalPages}>
+                                Next <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        )}
+                    </CardFooter>
+                  </>
+                ) : (
+                  <div className="text-center py-10">
+                    <BookOpen className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <p className="mt-4 text-lg text-muted-foreground">No Dua History Found</p>
+                    <p className="text-sm text-muted-foreground">This user has not submitted any weekly Dua logs.</p>
+                  </div>
+                )}
+             </CardContent>
+           </TabsContent>
            <TabsContent value="forms">
              <CardContent className="p-6">
                 {isLoadingFormHistory ? (
