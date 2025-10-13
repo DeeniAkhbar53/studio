@@ -282,8 +282,6 @@ export const updateUserLastLogin = async (user: User, sessionId: string): Promis
 
 export const clearUserSession = async (userItsId: string): Promise<void> => {
   try {
-    // We don't need the full user object from the DB if we already know the ITS ID.
-    // We can query the collection group to find the user document directly.
     const membersCollectionGroup = collectionGroup(db, 'members');
     const q = query(membersCollectionGroup, where("itsId", "==", userItsId), limit(1));
     const querySnapshot = await getDocs(q);
@@ -293,8 +291,7 @@ export const clearUserSession = async (userItsId: string): Promise<void> => {
       return;
     }
     
-    const userDoc = querySnapshot.docs[0];
-    const userDocRef = userDoc.ref; // This is the full path to the document
+    const userDocRef = querySnapshot.docs[0].ref;
 
     await updateDoc(userDocRef, {
       sessionId: deleteField(),
