@@ -287,9 +287,9 @@ export const clearUserSession = async (userItsId: string, mohallahId: string): P
       return;
     }
     const userDocRef = doc(db, 'mohallahs', user.mohallahId, 'members', user.id);
-    // Use an object with a dot path to remove a field
     await updateDoc(userDocRef, {
-      sessionId: null
+      sessionId: null,
+      lastLogin: null
     });
   } catch (error) {
     console.error("Failed to clear user session in DB:", error);
