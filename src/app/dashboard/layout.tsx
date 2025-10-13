@@ -34,7 +34,6 @@ export default function DashboardLayout({
     const userItsId = localStorage.getItem('userItsId');
     const userName = localStorage.getItem('userName') || 'Unknown User';
     const sessionId = localStorage.getItem('sessionId');
-    const userMohallahId = localStorage.getItem('userMohallahId');
 
     if (reason === 'inactive' && userItsId && sessionId) {
       await addLogoutLog(userName, userItsId, sessionId);
@@ -51,10 +50,10 @@ export default function DashboardLayout({
       });
     }
 
-    if (userItsId && userMohallahId && sessionId) {
+    if (userItsId) {
       // Clear the session from the database
       try {
-        await clearUserSession(userItsId, userMohallahId);
+        await clearUserSession(userItsId);
       } catch (error) {
         console.error("Failed to clear user session from database:", error);
       }

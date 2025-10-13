@@ -1,8 +1,9 @@
 
+
 'use server';
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp, Timestamp, orderBy, FieldPath } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp, Timestamp, orderBy, FieldPath, deleteField } from 'firebase/firestore';
 import type { User, UserRole, UserDesignation, DuaAttendance } from '@/types';
 
 export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'fcmTokens' > & { avatarUrl?: string };
@@ -279,21 +280,30 @@ export const updateUserLastLogin = async (user: User, sessionId: string): Promis
     }
 };
 
-export const clearUserSession = async (userItsId: string, mohallahId: string): Promise<void> => {
+export const clearUserSession = async (userItsId: string): Promise<void> => {
   try {
-    const user = await getUserByItsOrBgkId(userItsId);
-    if (!user || !user.id || !user.mohallahId) {
+    // We don't need the full user object from the DB if we already know the ITS ID.
+    // We can query the collection group to find the user document directly.
+    const membersCollectionGroup = collectionGroup(db, 'members');
+    const q = query(membersCollectionGroup, where("itsId", "==", userItsId), limit(1));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
       console.warn("Could not find user to clear session for:", userItsId);
       return;
     }
-    const userDocRef = doc(db, 'mohallahs', user.mohallahId, 'members', user.id);
+    
+    const userDoc = querySnapshot.docs[0];
+    const userDocRef = userDoc.ref; // This is the full path to the document
+
     await updateDoc(userDocRef, {
-      sessionId: null,
-      lastLogin: null
+      sessionId: deleteField(),
+      lastLogin: deleteField()
     });
+
   } catch (error) {
     console.error("Failed to clear user session in DB:", error);
-    // Do not re-throw, as this shouldn't block logout flow.
+    // Do not re-throw, as this shouldn't block the logout flow.
   }
 };
 
