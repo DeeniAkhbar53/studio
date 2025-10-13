@@ -51,8 +51,8 @@ export default function DashboardLayout({
     }
 
     if (userItsId) {
-      // Clear the session from the database
       try {
+        // IMPORTANT: Clear the database session *before* clearing local storage.
         await clearUserSession(userItsId);
       } catch (error) {
         console.error("Failed to clear user session from database:", error);
