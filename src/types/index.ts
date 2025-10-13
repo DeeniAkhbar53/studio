@@ -1,5 +1,4 @@
 
-
 export type UserRole = 'user' | 'admin' | 'superadmin' | 'attendance-marker';
 export type UserDesignation = 'Captain' | 'Vice Captain' | 'Member' | 'Asst.Grp Leader' | 'Group Leader' | 'J.Member' | 'Major' | 'Idara Admin' | 'Senior Assistant Commander' | 'Assistant Commander' | 'Commander';
 
@@ -20,6 +19,7 @@ export type User = {
   pageRights?: string[];
   fcmTokens?: string[]; // For storing FCM registration tokens
   lastLogin?: string; // ISO string, updated on login
+  sessionId?: string; // Unique ID for the current active session
 };
 
 export type MiqaatSession = {
@@ -210,6 +210,8 @@ export interface SystemLog {
     message: string;
     context?: string; // stringified JSON
     timestamp: string; // ISO string
+    sessionId?: string;
+    sessionStatus?: 'Active' | 'Inactive';
 }
 
 // New type for Dua attendance

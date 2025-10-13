@@ -45,8 +45,9 @@ export function LoginForm() {
   });
 
   const proceedToLogin = async (user: User) => {
+    const sessionId = `${user.itsId}-${Date.now()}`;
     // This will trigger the onUserLogin cloud function
-    await updateUserLastLogin(user);
+    await updateUserLastLogin(user, sessionId);
 
     if (typeof window !== "undefined") {
       localStorage.setItem('userRole', user.role);
@@ -58,6 +59,7 @@ export function LoginForm() {
       localStorage.setItem('userDesignation', user.designation || 'Member');
       localStorage.setItem('userPageRights', JSON.stringify(user.pageRights || []));
       localStorage.setItem('unreadNotificationCount', '0');
+      localStorage.setItem('sessionId', sessionId); // Store session ID
       window.dispatchEvent(new CustomEvent('notificationsUpdated'));
     }
 

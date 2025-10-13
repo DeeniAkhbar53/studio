@@ -10,6 +10,7 @@ import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { addLogoutLog } from "@/lib/firebase/logService";
+import { clearUserSession } from "@/lib/firebase/userService";
 
 // FCM specific imports
 import { getMessaging, getToken, onMessage, MessagePayload } from "firebase/messaging";
@@ -29,16 +30,28 @@ export default function DashboardLayout({
   const [fcmTokenStatus, setFcmTokenStatus] = useState<string>("idle");
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const handleLogout = useCallback((reason: 'manual' | 'inactive') => {
-    if (reason === 'inactive') {
-      const userName = localStorage.getItem('userName') || 'Unknown User';
-      const userItsId = localStorage.getItem('userItsId') || 'Unknown ITS';
-      addLogoutLog(userName, userItsId);
+  const handleLogout = useCallback(async (reason: 'manual' | 'inactive') => {
+    const userItsId = localStorage.getItem('userItsId');
+    const userName = localStorage.getItem('userName') || 'Unknown User';
+    const sessionId = localStorage.getItem('sessionId');
+    const userMohallahId = localStorage.getItem('userMohallahId');
+
+    if (reason === 'inactive' && userItsId && sessionId) {
+      await addLogoutLog(userName, userItsId, sessionId);
       toast({
         title: "Session Expired",
         description: "You have been logged out due to inactivity.",
         variant: "destructive"
       });
+    }
+
+    if (userItsId && userMohallahId && sessionId) {
+      // Clear the session from the database
+      try {
+        await clearUserSession(userItsId, userMohallahId);
+      } catch (error) {
+        console.error("Failed to clear user session from database:", error);
+      }
     }
 
     if (typeof window !== "undefined") {
