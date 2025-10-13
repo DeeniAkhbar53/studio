@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -12,6 +13,7 @@ import { format } from "date-fns";
 import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { FunkyLoader } from "@/components/ui/funky-loader";
+import { Badge } from "@/components/ui/badge";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -155,7 +157,14 @@ export default function LoginLogsPage() {
                     <div key={log.id} className="flex items-center gap-4 rounded-lg border p-4">
                         {getLogLevelIcon(log.level)}
                         <div className="flex-grow">
-                            <p className="font-semibold text-card-foreground">{log.message}</p>
+                            <div className="flex items-center gap-2">
+                                <p className="font-semibold text-card-foreground">{log.message}</p>
+                                {log.sessionStatus && (
+                                    <Badge variant={log.sessionStatus === 'Active' ? 'default' : 'destructive'}>
+                                        {log.sessionStatus}
+                                    </Badge>
+                                )}
+                            </div>
                             <p className="text-xs text-muted-foreground mt-1">{format(new Date(log.timestamp), "PPpp")}</p>
                         </div>
                     </div>
@@ -183,5 +192,3 @@ export default function LoginLogsPage() {
     </div>
   );
 }
-
-    
