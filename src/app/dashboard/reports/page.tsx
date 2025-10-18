@@ -8,10 +8,11 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck, Users, UserX, HandCoins, Printer } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck, Users, UserX, HandCoins, Printer, X } from "lucide-react";
 import type { DateRange } from "react-day-picker";
-import { toPng } from "html-to-image";
 import jsPDF from 'jspdf';
+import { toPng } from 'html-to-image';
+
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -128,7 +129,6 @@ const ALL_STATUSES: AttendanceRecord['status'][] = ["present", "late", "early", 
 const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData; generatorName: string }) => {
     const { toast } = useToast();
     const pdfExportRef = useRef<HTMLDivElement>(null);
-    const [isDownloading, setIsDownloading] = useState(false);
 
     const attendanceStats = useMemo(() => {
         return data.attendanceHistory.reduce((acc, record) => {
@@ -152,18 +152,26 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
             printWindow.document.write(
                 '<html><head><title>Member Report - ' + data.user.name + '</title>' +
                 '<style>' +
-                'body { font-family: sans-serif; }' +
-                'table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; page-break-inside: auto; }' +
+                'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 0; }' +
+                '.container { padding: 2rem; }' +
+                'h1, h2 { color: #0A314D; border-bottom: 2px solid #EABD13; padding-bottom: 0.5rem; margin-bottom: 1rem; }' +
+                'h1 { font-size: 2rem; } h2 { font-size: 1.5rem; }' +
+                '.header { background-color: #0A314D; color: white; padding: 1rem; border-radius: 8px 8px 0 0; }' +
+                '.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center; margin-bottom: 2rem; }' +
+                '.summary > div { background-color: #fff; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }' +
+                '.summary p { margin: 0; }' +
+                '.summary .label { font-size: 0.9rem; color: #6c757d; }' +
+                '.summary .value { font-size: 1.5rem; font-weight: bold; color: #0A314D; }' +
+                'table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; page-break-inside: auto; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }' +
                 'tr { page-break-inside: avoid; page-break-after: auto; }' +
                 'thead { display: table-header-group; }' +
-                'tfoot { display: table-footer-group; }' +
-                'th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }' +
-                'th { background-color: #f2f2f2; }' +
-                'h1, h2 { border-bottom: 2px solid #ccc; padding-bottom: 0.5rem; margin-bottom: 1rem; }' +
+                'th, td { border: 1px solid #dee2e6; padding: 0.75rem; text-align: left; }' +
+                'th { background-color: #e9ecef; color: #495057; }' +
+                'tbody tr:nth-child(odd) { background-color: #f8f9fa; }' +
                 '</style>' +
-                '</head><body>' +
+                '</head><body><div class="container">' +
                 printContent +
-                '</body></html>'
+                '</div></body></html>'
             );
             printWindow.document.close();
             printWindow.focus();
@@ -215,33 +223,28 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                 
                 <PaginatedTable title="Attendance History" data={data.attendanceHistory} headers={["Miqaat", "Date", "Status"]} renderRow={(rec: any) => (<><td>{rec.miqaatName}</td><td>{format(new Date(rec.markedAt), "PP p")}</td><td>{rec.status}</td></>)} />
                 <PaginatedTable title="Dua Submissions" data={data.duaHistory} headers={["Week ID", "Dua e Kamil", "Surat al Kahf", "Submitted"]} renderRow={(rec: any) => (<><td>{rec.weekId}</td><td>{rec.duaKamilCount}</td><td>{rec.kahfCount}</td><td>{format(new Date(rec.markedAt), "PP p")}</td></>)} />
-                <PaginatedTable title="Form History" data={data.formHistory} headers={["Form Title", "Status", "Date"]} renderRow={(rec: any) => (<><td>{rec.title}</td><td>{rec.submissionStatus}</td><td>{rec.submissionStatus === 'Filled' ? format(new Date(rec.submittedAt), "PP p") : 'N/A'}</td></>)} />
-                <PaginatedTable title="Login History" data={data.loginHistory} headers={["Event", "Date & Time"]} renderRow={(rec: any) => (<><td>{rec.message}</td><td>{format(new Date(rec.timestamp), "PP p")}</td></>)} />
+                <PaginatedTable title="Form History" data={data.formHistory} headers={["Form Title", "Status", "Date"]} renderRow={(rec: any) => (<><td>{rec.title}</td><td>{rec.submissionStatus}</td><td>{rec.submissionStatus === 'Filled' && rec.submittedAt ? format(new Date(rec.submittedAt), "PP p") : 'N/A'}</td></>)} />
 
             </CardContent>
             
             <div style={{ position: 'absolute', left: '-9999px', top: 'auto', width: '800px', backgroundColor: 'white', color: 'black', padding: '2rem' }} ref={pdfExportRef}>
                 <div className="space-y-6">
-                    <div className="text-center border-b pb-4">
+                     <div className="header text-center">
                         <h1 className="text-3xl font-bold">{data.user.name}</h1>
                         <p className="text-sm">ITS: {data.user.itsId} / BGK: {data.user.bgkId || 'N/A'}</p>
                         <p className="text-sm">{data.user.designation || "Member"} &middot; {data.user.team || "No Team"}</p>
                     </div>
                     
-                    <div className="p-4 border rounded-lg">
-                        <h2 className="text-xl font-semibold mb-2">Attendance Summary</h2>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', textAlign: 'center' }}>
-                            <div><p>Present</p><p className="font-bold text-lg">{attendanceStats.present}</p></div>
-                            <div><p>Late</p><p className="font-bold text-lg">{attendanceStats.late}</p></div>
-                            <div><p>Absent</p><p className="font-bold text-lg">{attendanceStats.absent}</p></div>
-                            <div><p>Total</p><p className="font-bold text-lg">{data.attendanceHistory.length}</p></div>
-                        </div>
+                    <div className="summary">
+                        <div><p className="label">Present</p><p className="value">{attendanceStats.present}</p></div>
+                        <div><p className="label">Late</p><p className="value">{attendanceStats.late}</p></div>
+                        <div><p className="label">Absent</p><p className="value">{attendanceStats.absent}</p></div>
+                        <div><p className="label">Total</p><p className="value">{data.attendanceHistory.length}</p></div>
                     </div>
 
                     {data.attendanceHistory.length > 0 && <FullTable title="Attendance History" data={data.attendanceHistory} headers={["#", "Miqaat", "Date", "Status"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.miqaatName}</td><td>{format(new Date(rec.markedAt), "PP p")}</td><td>{rec.status}</td></>)} />}
                     {data.duaHistory.length > 0 && <FullTable title="Dua Submissions" data={data.duaHistory} headers={["#", "Week ID", "Dua Kamil", "Surat Kahf", "Submitted"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.weekId}</td><td>{rec.duaKamilCount}</td><td>{rec.kahfCount}</td><td>{format(new Date(rec.markedAt), "PP p")}</td></>)} />}
                     {data.formHistory.length > 0 && <FullTable title="Form History" data={data.formHistory} headers={["#", "Form Title", "Status", "Date"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.title}</td><td>{rec.submissionStatus}</td><td>{rec.submissionStatus === 'Filled' && rec.submittedAt ? format(new Date(rec.submittedAt), "PP p") : 'N/A'}</td></>)} />}
-                    {data.loginHistory.length > 0 && <FullTable title="Login History" data={data.loginHistory} headers={["#", "Event", "Date & Time"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.message}</td><td>{format(new Date(rec.timestamp), "PP p")}</td></>)} />}
                 </div>
             </div>
         </Card>
@@ -281,7 +284,7 @@ const PaginatedTable = ({ title, data, headers, renderRow }: { title: string, da
     );
 };
 
-// New component for the PDF export view (no pagination)
+// New component for the PDF/Print export view (no pagination)
 const FullTable = ({ title, data, headers, renderRow }: { title: string, data: any[], headers: string[], renderRow: (item: any, index: number) => React.ReactNode }) => (
     <div className="space-y-2">
         <h2 className="text-xl font-semibold">{title}</h2>
