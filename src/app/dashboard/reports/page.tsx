@@ -126,7 +126,7 @@ const ALL_STATUSES: AttendanceRecord['status'][] = ["present", "late", "early", 
 
 const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData; generatorName: string }) => {
     const { toast } = useToast();
-    const reportRef = useRef<HTMLDivElement>(null);
+    const pdfExportRef = useRef<HTMLDivElement>(null);
     const [isDownloading, setIsDownloading] = useState(false);
 
     const attendanceStats = useMemo(() => {
@@ -139,14 +139,14 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
     }, [data.attendanceHistory]);
     
     const handleExportPDF = async () => {
-        if (!reportRef.current) {
+        if (!pdfExportRef.current) {
             toast({ title: "Error", description: "Could not find the report content to export.", variant: "destructive" });
             return;
         }
         setIsDownloading(true);
 
         try {
-            const dataUrl = await toPng(reportRef.current, { cacheBust: true, pixelRatio: 2, backgroundColor: '#ffffff' });
+            const dataUrl = await toPng(pdfExportRef.current, { cacheBust: true, pixelRatio: 2, backgroundColor: '#ffffff' });
             
             const pdf = new jsPDF({
                 orientation: 'portrait',
@@ -160,27 +160,25 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
             const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
             let heightLeft = imgHeight;
             let position = 0;
-            const pageMargin = 20;
 
             pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, imgHeight);
             heightLeft -= pdfHeight;
-            let pageNumber = 1;
 
-            while (heightLeft >= 0) {
-                position = heightLeft - imgHeight;
+            while (heightLeft > 0) {
+                position = -pdfHeight + (imgHeight - heightLeft);
                 pdf.addPage();
-                pageNumber++;
                 pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, imgHeight);
                 heightLeft -= pdfHeight;
             }
             
             // Add footer to all pages
-            for (let i = 1; i <= pdf.getNumberOfPages(); i++) {
+            const totalPages = pdf.getNumberOfPages();
+            for (let i = 1; i <= totalPages; i++) {
                 pdf.setPage(i);
                 pdf.setFontSize(8);
                 pdf.setTextColor(150);
-                const footerText = `Page ${i} of ${pdf.getNumberOfPages()} | Printed by: ${generatorName} on ${format(new Date(), 'PP p')}`;
-                pdf.text(footerText, pageMargin, pdfHeight - 10);
+                const footerText = `Page ${i} of ${totalPages} | Printed by: ${generatorName} on ${format(new Date(), 'PP p')}`;
+                pdf.text(footerText, 20, pdfHeight - 10);
             }
 
             pdf.save(`member-report-${data.user.itsId}.pdf`);
@@ -206,7 +204,7 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
                     <Button variant="outline" onClick={() => window.print()} size="sm" className="w-full sm:w-auto">
-                        <Printer className="mr-2 h-4 w-4" /> Print Report
+                        <Printer className="mr-2 h-4 w-4" /> Print
                     </Button>
                     <Button onClick={handleExportPDF} disabled={isDownloading} size="sm" className="w-full sm:w-auto">
                       {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
@@ -214,8 +212,8 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                     </Button>
                 </div>
             </CardHeader>
-            <CardContent ref={reportRef} className="p-6 space-y-8">
-                {/* User Info Section */}
+            <CardContent className="p-6 space-y-8">
+                 {/* Visible UI Section */}
                 <Card>
                     <CardHeader className="flex flex-row items-center gap-4">
                         <Avatar className="h-20 w-20">
@@ -230,43 +228,53 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                     </CardHeader>
                 </Card>
 
-                {/* Attendance Summary */}
                  <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">Attendance Summary</CardTitle>
-                    </CardHeader>
+                    <CardHeader><CardTitle className="text-lg">Attendance Summary</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                        <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
-                            <p className="text-sm text-green-800 dark:text-green-200">Present</p>
-                            <p className="text-2xl font-bold text-green-900 dark:text-green-100">{attendanceStats.present}</p>
-                        </div>
-                         <div className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
-                            <p className="text-sm text-yellow-800 dark:text-yellow-200">Late</p>
-                            <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{attendanceStats.late}</p>
-                        </div>
-                         <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-                            <p className="text-sm text-red-800 dark:text-red-200">Absent</p>
-                            <p className="text-2xl font-bold text-red-900 dark:text-red-100">{attendanceStats.absent}</p>
-                        </div>
-                        <div className="p-2 rounded-lg bg-background">
-                            <p className="text-sm text-muted-foreground">Total Events</p>
-                            <p className="text-2xl font-bold">{data.attendanceHistory.length}</p>
-                        </div>
+                        <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30"><p className="text-sm text-green-800 dark:text-green-200">Present</p><p className="text-2xl font-bold text-green-900 dark:text-green-100">{attendanceStats.present}</p></div>
+                         <div className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30"><p className="text-sm text-yellow-800 dark:text-yellow-200">Late</p><p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{attendanceStats.late}</p></div>
+                         <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30"><p className="text-sm text-red-800 dark:text-red-200">Absent</p><p className="text-2xl font-bold text-red-900 dark:text-red-100">{attendanceStats.absent}</p></div>
+                        <div className="p-2 rounded-lg bg-background"><p className="text-sm text-muted-foreground">Total Events</p><p className="text-2xl font-bold">{data.attendanceHistory.length}</p></div>
                     </CardContent>
                 </Card>
                 
-                {/* Paginated History Tables */}
                 <PaginatedTable title="Attendance History" data={data.attendanceHistory} headers={["Miqaat", "Date", "Status"]} renderRow={(rec: any) => (<><td>{rec.miqaatName}</td><td>{format(new Date(rec.markedAt), "PP p")}</td><td>{rec.status}</td></>)} />
                 <PaginatedTable title="Dua Submissions" data={data.duaHistory} headers={["Week ID", "Dua e Kamil", "Surat al Kahf", "Submitted"]} renderRow={(rec: any) => (<><td>{rec.weekId}</td><td>{rec.duaKamilCount}</td><td>{rec.kahfCount}</td><td>{format(new Date(rec.markedAt), "PP p")}</td></>)} />
                 <PaginatedTable title="Form History" data={data.formHistory} headers={["Form Title", "Status", "Date"]} renderRow={(rec: any) => (<><td>{rec.title}</td><td>{rec.submissionStatus}</td><td>{rec.submissionStatus === 'Filled' ? format(new Date(rec.submittedAt), "PP p") : 'N/A'}</td></>)} />
                 <PaginatedTable title="Login History" data={data.loginHistory} headers={["Event", "Date & Time"]} renderRow={(rec: any) => (<><td>{rec.message}</td><td>{format(new Date(rec.timestamp), "PP p")}</td></>)} />
 
             </CardContent>
+            
+             {/* Hidden Div for PDF Export */}
+            <div className="absolute -left-[9999px] top-auto w-[800px] bg-white text-black p-8" ref={pdfExportRef}>
+                <div className="space-y-6">
+                    <div className="text-center border-b pb-4">
+                        <h1 className="text-3xl font-bold">{data.user.name}</h1>
+                        <p className="text-sm">ITS: {data.user.itsId} / BGK: {data.user.bgkId || 'N/A'}</p>
+                        <p className="text-sm">{data.user.designation || "Member"} &middot; {data.user.team || "No Team"}</p>
+                    </div>
+                    
+                    <div className="p-4 border rounded-lg">
+                        <h2 className="text-xl font-semibold mb-2">Attendance Summary</h2>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', textAlign: 'center' }}>
+                            <div><p>Present</p><p className="font-bold text-lg">{attendanceStats.present}</p></div>
+                            <div><p>Late</p><p className="font-bold text-lg">{attendanceStats.late}</p></div>
+                            <div><p>Absent</p><p className="font-bold text-lg">{attendanceStats.absent}</p></div>
+                            <div><p>Total</p><p className="font-bold text-lg">{data.attendanceHistory.length}</p></div>
+                        </div>
+                    </div>
+
+                    {data.attendanceHistory.length > 0 && <FullTable title="Attendance History" data={data.attendanceHistory} headers={["#", "Miqaat", "Date", "Status"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.miqaatName}</td><td>{format(new Date(rec.markedAt), "PP p")}</td><td>{rec.status}</td></>)} />}
+                    {data.duaHistory.length > 0 && <FullTable title="Dua Submissions" data={data.duaHistory} headers={["#", "Week ID", "Dua Kamil", "Surat Kahf", "Submitted"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.weekId}</td><td>{rec.duaKamilCount}</td><td>{rec.kahfCount}</td><td>{format(new Date(rec.markedAt), "PP p")}</td></>)} />}
+                    {data.formHistory.length > 0 && <FullTable title="Form History" data={data.formHistory} headers={["#", "Form Title", "Status", "Date"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.title}</td><td>{rec.submissionStatus}</td><td>{rec.submissionStatus === 'Filled' ? format(new Date(rec.submittedAt), "PP p") : 'N/A'}</td></>)} />}
+                    {data.loginHistory.length > 0 && <FullTable title="Login History" data={data.loginHistory} headers={["#", "Event", "Date & Time"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.message}</td><td>{format(new Date(rec.timestamp), "PP p")}</td></>)} />}
+                </div>
+            </div>
         </Card>
     );
 };
 
-const PaginatedTable = ({ title, data, headers, renderRow }: { title: string, data: any[], headers: string[], renderRow: (item: any) => React.ReactNode }) => {
+const PaginatedTable = ({ title, data, headers, renderRow }: { title: string, data: any[], headers: string[], renderRow: (item: any, index: number) => React.ReactNode }) => {
     const ITEMS_PER_PAGE = 5;
     const [currentPage, setCurrentPage] = useState(1);
     const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
@@ -285,7 +293,7 @@ const PaginatedTable = ({ title, data, headers, renderRow }: { title: string, da
             <CardContent>
                 <Table>
                     <TableHeader><TableRow>{headers.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
-                    <TableBody>{currentData.map((item, index) => <TableRow key={item.id || index}>{renderRow(item)}</TableRow>)}</TableBody>
+                    <TableBody>{currentData.map((item, index) => <TableRow key={item.id || index}>{renderRow(item, ((currentPage - 1) * ITEMS_PER_PAGE) + index)}</TableRow>)}</TableBody>
                 </Table>
             </CardContent>
              {totalPages > 1 && (
@@ -298,6 +306,35 @@ const PaginatedTable = ({ title, data, headers, renderRow }: { title: string, da
         </Card>
     );
 };
+
+// New component for the PDF export view (no pagination)
+const FullTable = ({ title, data, headers, renderRow }: { title: string, data: any[], headers: string[], renderRow: (item: any, index: number) => React.ReactNode }) => (
+    <div className="space-y-2">
+        <h2 className="text-xl font-semibold">{title}</h2>
+        <table className="w-full text-sm border-collapse" style={{ border: '1px solid #ddd' }}>
+            <thead>
+                <tr className="bg-gray-100">
+                    {headers.map(h => <th key={h} className="p-2 border text-left font-semibold">{h}</th>)}
+                </tr>
+            </thead>
+            <tbody>
+                {data.map((item, index) => (
+                    <tr key={item.id || index} className="border-t">
+                        {renderRow(item, index)}
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+         <style>{`
+            table, th, td {
+                border: 1px solid #ddd;
+            }
+            td, th {
+                padding: 8px;
+            }
+        `}</style>
+    </div>
+);
 
 
 export default function ReportsPage() {
@@ -455,7 +492,6 @@ export default function ReportsPage() {
     setSelectedIds([]);
     
     if (values.reportType === "member_attendance" && values.memberId) {
-        // Handle Member Profile Report
         try {
             const member = allUsers.find(u => u.itsId === values.memberId || u.bgkId === values.memberId);
             if (!member) {
@@ -464,9 +500,7 @@ export default function ReportsPage() {
                 return;
             }
 
-            // Fetch all data in parallel
             const [attendanceHistory, duaHistory, formHistory, loginHistory] = await Promise.all([
-                // Attendance
                 (async () => {
                     const eligibleMiqaats = allMiqaats.filter(miqaat => {
                         const isForEveryone = !miqaat.mohallahIds?.length && !miqaat.teams?.length && !miqaat.eligibleItsIds?.length;
@@ -476,10 +510,8 @@ export default function ReportsPage() {
                         const eligibleByMohallah = !!member.mohallahId && !!miqaat.mohallahIds?.includes(member.mohallahId);
                         return eligibleById || eligibleByTeam || eligibleByMohallah;
                     });
-
                     const attendedMiqaatSessionKeys = new Set<string>();
                     const records: AttendanceRecord[] = [];
-
                     eligibleMiqaats.forEach(miqaat => {
                         (miqaat.attendance || []).filter(a => a.userItsId === member.itsId).forEach(entry => {
                             attendedMiqaatSessionKeys.add(`${miqaat.id}-${entry.sessionId || 'main'}`);
@@ -490,7 +522,6 @@ export default function ReportsPage() {
                             records.push({ id: `safar-${miqaat.id}-${entry.userItsId}-${entry.sessionId || 'main'}`, miqaatId: miqaat.id, miqaatName: miqaat.name, miqaatType: miqaat.type, userItsId: entry.userItsId, userName: entry.userName, markedAt: entry.markedAt, markedByName: allUsers.find(u => u.itsId === entry.markedByItsId)?.name || entry.markedByItsId, status: 'safar' });
                         });
                     });
-
                     eligibleMiqaats.forEach(miqaat => {
                         if (new Date() > new Date(miqaat.endTime)) {
                             const sessions = (miqaat.sessions && miqaat.sessions.length > 0) ? miqaat.sessions : [{ id: 'main', startTime: miqaat.startTime, name: 'Main Session', day: 1, endTime: miqaat.endTime }];
@@ -502,14 +533,9 @@ export default function ReportsPage() {
                             });
                         }
                     });
-                    
                     return records.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());
                 })(),
-
-                // Dua
                 getDuaAttendanceForUser(member.itsId),
-
-                // Forms
                 (async () => {
                      const [allForms, userResponses] = await Promise.all([ getForms(), getFormResponsesForUser(member.itsId) ]);
                      const userResponseMap = new Map(userResponses.map(res => [res.formId, res]));
@@ -526,8 +552,6 @@ export default function ReportsPage() {
                             submittedAt: userResponseMap.get(form.id)?.submittedAt,
                         })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
                 })(),
-
-                // Login Logs
                 getLoginLogsForUser(member.itsId)
             ]);
 
@@ -554,23 +578,22 @@ export default function ReportsPage() {
     let reportResultItems: ReportResultItem[] = [];
 
     try {
-      const allUsersForReport = await getUsers(); // Fetch latest user data for report generation
+      const allUsersForReport = await getUsers();
       const userMap = new Map(allUsersForReport.map(u => [u.itsId, u]));
-      const selectedMiqaat = allMiqaats.find(m => m.id === values.miqaatId);
+      
+      const isSpecificMemberMiqaat = selectedMiqaatForForm?.eligibleItsIds && selectedMiqaatForForm.eligibleItsIds.length > 0;
 
-      const isSpecificMemberMiqaat = selectedMiqaat?.eligibleItsIds && selectedMiqaat.eligibleItsIds.length > 0;
-
-      if (values.reportType === "miqaat_summary" && selectedMiqaat) {
-          const attendanceRecords = selectedMiqaat.attendance || [];
-          const safarRecords = selectedMiqaat.safarList || [];
+      if (values.reportType === "miqaat_summary" && selectedMiqaatForForm) {
+          const attendanceRecords = selectedMiqaatForForm.attendance || [];
+          const safarRecords = selectedMiqaatForForm.safarList || [];
           
           let eligibleUsers: User[];
           if (isSpecificMemberMiqaat) {
-              eligibleUsers = allUsersForReport.filter(user => selectedMiqaat.eligibleItsIds!.includes(user.itsId));
-          } else if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
-              eligibleUsers = allUsersForReport.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
-          } else if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
-              eligibleUsers = allUsersForReport.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
+              eligibleUsers = allUsersForReport.filter(user => selectedMiqaatForForm.eligibleItsIds!.includes(user.itsId));
+          } else if (selectedMiqaatForForm.mohallahIds && selectedMiqaatForForm.mohallahIds.length > 0) {
+              eligibleUsers = allUsersForReport.filter(user => user.mohallahId && selectedMiqaatForForm.mohallahIds!.includes(user.mohallahId));
+          } else if (selectedMiqaatForForm.teams && selectedMiqaatForForm.teams.length > 0) {
+              eligibleUsers = allUsersForReport.filter(user => user.team && selectedMiqaatForForm.teams!.includes(user.team));
           } else {
               eligibleUsers = allUsersForReport; // Open to all
           }
@@ -580,22 +603,22 @@ export default function ReportsPage() {
               
               if (allUserEntries.length > 0) {
                   const regularEntry = allUserEntries[0];
-                  const session = selectedMiqaat.sessions?.find(s => s.id === regularEntry.sessionId);
-                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: regularEntry.markedAt, status: regularEntry.status || 'present', markedByItsId: regularEntry.markedByItsId, uniformCompliance: regularEntry.uniformCompliance };
+                  const session = selectedMiqaatForForm.sessions?.find(s => s.id === regularEntry.sessionId);
+                  return { id: `${selectedMiqaatForForm.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaatForForm.name, miqaatType: selectedMiqaatForForm.type, day: session?.day, sessionName: session?.name || 'Main', date: regularEntry.markedAt, status: regularEntry.status || 'present', markedByItsId: regularEntry.markedByItsId, uniformCompliance: regularEntry.uniformCompliance };
               }
 
               const safarEntry = safarRecords.find(s => s.userItsId === user.itsId);
               if (safarEntry) {
-                   const session = selectedMiqaat.sessions?.find(s => s.id === safarEntry.sessionId);
-                  return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar' as const, markedByItsId: safarEntry.markedByItsId };
+                   const session = selectedMiqaatForForm.sessions?.find(s => s.id === safarEntry.sessionId);
+                  return { id: `${selectedMiqaatForForm.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaatForForm.name, miqaatType: selectedMiqaatForForm.type, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar' as const, markedByItsId: safarEntry.markedByItsId };
               }
-              return { id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: undefined, sessionName: 'N/A', date: selectedMiqaat.startTime, status: 'absent' as const };
+              return { id: `${selectedMiqaatForForm.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaatForForm.name, miqaatType: selectedMiqaatForForm.type, day: undefined, sessionName: 'N/A', date: selectedMiqaatForForm.startTime, status: 'absent' as const };
           });
           
           if (!isSpecificMemberMiqaat) {
             allUsersForReport.forEach(user => {
               if (!eligibleUsers.some(eu => eu.id === user.id) && !combinedRecords.some(cr => cr.userItsId === user.itsId)) {
-                combinedRecords.push({ id: `${selectedMiqaat.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: undefined, sessionName: 'N/A', date: selectedMiqaat.startTime, status: 'not-eligible' as const, });
+                combinedRecords.push({ id: `${selectedMiqaatForForm.id}-${user.itsId}`, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaatForForm.name, miqaatType: selectedMiqaatForForm.type, day: undefined, sessionName: 'N/A', date: selectedMiqaatForForm.startTime, status: 'not-eligible' as const, });
               }
             });
           }
@@ -621,12 +644,12 @@ export default function ReportsPage() {
           });
 
 
-      } else if (values.reportType === "miqaat_safar_list" && selectedMiqaat) {
-          const safarList = selectedMiqaat.safarList || [];
+      } else if (values.reportType === "miqaat_safar_list" && selectedMiqaatForForm) {
+          const safarList = selectedMiqaatForForm.safarList || [];
           reportResultItems = safarList.map(safarEntry => {
-            const session = selectedMiqaat.sessions?.find(s => s.id === safarEntry.sessionId);
+            const session = selectedMiqaatForForm.sessions?.find(s => s.id === safarEntry.sessionId);
             return {
-              id: `${selectedMiqaat.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, bgkId: userMap.get(safarEntry.userItsId)?.bgkId, team: userMap.get(safarEntry.userItsId)?.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId,
+              id: `${selectedMiqaatForForm.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, bgkId: userMap.get(safarEntry.userItsId)?.bgkId, team: userMap.get(safarEntry.userItsId)?.team, miqaatName: selectedMiqaatForForm.name, miqaatType: selectedMiqaatForForm.type, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId,
             }
           });
       } else if (values.reportType === "overall_activity") {
@@ -647,25 +670,25 @@ export default function ReportsPage() {
           }
           reportResultItems = allRecords;
 
-      } else if (values.reportType === "non_attendance_miqaat" && selectedMiqaat) {
+      } else if (values.reportType === "non_attendance_miqaat" && selectedMiqaatForForm) {
           const attendedItsIds = new Set([
-            ...(selectedMiqaat.attendance || []).map(a => a.userItsId),
-            ...(selectedMiqaat.safarList || []).map(s => s.userItsId)
+            ...(selectedMiqaatForForm.attendance || []).map(a => a.userItsId),
+            ...(selectedMiqaatForForm.safarList || []).map(s => s.userItsId)
           ]);
         
           let eligibleUsers: User[];
           if (isSpecificMemberMiqaat) {
-            eligibleUsers = allUsersForReport.filter(user => selectedMiqaat.eligibleItsIds!.includes(user.itsId));
-          } else if (selectedMiqaat.mohallahIds && selectedMiqaat.mohallahIds.length > 0) {
-            eligibleUsers = allUsersForReport.filter(user => user.mohallahId && selectedMiqaat.mohallahIds!.includes(user.mohallahId));
-          } else if (selectedMiqaat.teams && selectedMiqaat.teams.length > 0) {
-            eligibleUsers = allUsersForReport.filter(user => user.team && selectedMiqaat.teams!.includes(user.team));
+            eligibleUsers = allUsersForReport.filter(user => selectedMiqaatForForm.eligibleItsIds!.includes(user.itsId));
+          } else if (selectedMiqaatForForm.mohallahIds && selectedMiqaatForForm.mohallahIds.length > 0) {
+            eligibleUsers = allUsersForReport.filter(user => user.mohallahId && selectedMiqaatForForm.mohallahIds!.includes(user.mohallahId));
+          } else if (selectedMiqaatForForm.teams && selectedMiqaatForForm.teams.length > 0) {
+            eligibleUsers = allUsersForReport.filter(user => user.team && selectedMiqaatForForm.teams!.includes(user.team));
           } else {
               eligibleUsers = allUsersForReport;
           }
 
           const nonAttendantUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
-          reportResultItems = nonAttendantUsers.map(user => ({ id: user.id, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: undefined, sessionName: "N/A", date: new Date(selectedMiqaat.startTime).toISOString(), status: "absent", }));
+          reportResultItems = nonAttendantUsers.map(user => ({ id: user.id, userName: user.name, userItsId: user.itsId, bgkId: user.bgkId, team: user.team, miqaatName: selectedMiqaatForForm.name, miqaatType: selectedMiqaatForForm.type, day: undefined, sessionName: "N/A", date: new Date(selectedMiqaatForForm.startTime).toISOString(), status: "absent", }));
       }
 
       let filteredData = [...reportResultItems];
@@ -1279,7 +1302,7 @@ export default function ReportsPage() {
               <div className="flex-grow">
                   <CardTitle>Report Results</CardTitle>
                   <Separator className="my-2" />
-                  <CardDescription>Displaying {filteredReportData?.length || 0} of {reportData.length} record(s){(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && selectedMiqaatDetails && ` for Miqaat: ${selectedMiqaatForForm?.name}`}{watchedReportType === "member_attendance" && form.getValues("memberId") && ` for ID: ${form.getValues("memberId")}`}{form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}{form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.</CardDescription>
+                  <CardDescription>Displaying {filteredReportData?.length || 0} of {reportData.length} record(s){(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && selectedMiqaatForForm && ` for Miqaat: ${selectedMiqaatForForm?.name}`}{watchedReportType === "member_attendance" && form.getValues("memberId") && ` for ID: ${form.getValues("memberId")}`}{form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}{form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.</CardDescription>
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
                   <Button variant="outline" onClick={() => window.print()} size="sm" className="w-full sm:w-auto"><Printer className="mr-2 h-4 w-4" />Print</Button>
@@ -1628,3 +1651,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
