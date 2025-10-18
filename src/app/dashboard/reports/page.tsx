@@ -152,13 +152,13 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
             printWindow.document.write(
                 '<html><head><title>Member Report - ' + data.user.name + '</title>' +
                 '<style>' +
-                'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f8f9fa; margin: 0; padding: 0; }' +
+                'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #fff; margin: 0; padding: 0; }' +
                 '.container { padding: 2rem; }' +
                 'h1, h2 { color: #0A314D; border-bottom: 2px solid #EABD13; padding-bottom: 0.5rem; margin-bottom: 1rem; }' +
                 'h1 { font-size: 2rem; } h2 { font-size: 1.5rem; }' +
-                '.header { background-color: #0A314D; color: white; padding: 1rem; border-radius: 8px 8px 0 0; }' +
+                '.header { background-color: #0A314D; color: white; padding: 1rem; border-radius: 8px 8px 0 0; text-align: center; }' +
                 '.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center; margin-bottom: 2rem; }' +
-                '.summary > div { background-color: #fff; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }' +
+                '.summary > div { background-color: #f8f9fa; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6; }' +
                 '.summary p { margin: 0; }' +
                 '.summary .label { font-size: 0.9rem; color: #6c757d; }' +
                 '.summary .value { font-size: 1.5rem; font-weight: bold; color: #0A314D; }' +
@@ -229,7 +229,7 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
             
             <div style={{ position: 'absolute', left: '-9999px', top: 'auto', width: '800px', backgroundColor: 'white', color: 'black', padding: '2rem' }} ref={pdfExportRef}>
                 <div className="space-y-6">
-                     <div className="header text-center">
+                     <div className="header">
                         <h1 className="text-3xl font-bold">{data.user.name}</h1>
                         <p className="text-sm">ITS: {data.user.itsId} / BGK: {data.user.bgkId || 'N/A'}</p>
                         <p className="text-sm">{data.user.designation || "Member"} &middot; {data.user.team || "No Team"}</p>
