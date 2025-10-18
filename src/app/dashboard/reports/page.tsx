@@ -156,7 +156,9 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                 '.container { padding: 2rem; }' +
                 'h1, h2 { color: #0A314D; border-bottom: 2px solid #EABD13; padding-bottom: 0.5rem; margin-bottom: 1rem; }' +
                 'h1 { font-size: 2rem; } h2 { font-size: 1.5rem; }' +
-                '.header { background-color: #0A314D; color: white; padding: 1rem; border-radius: 8px 8px 0 0; text-align: center; }' +
+                '.header { background-color: #0A314D; color: #fff; padding: 1.5rem; border-radius: 8px 8px 0 0; text-align: center; }' +
+                '.header h1 { color: #fff; border-bottom: 1px solid #EABD13; font-size: 2.5rem; margin-bottom: 0.5rem; }' +
+                '.header p { margin: 0.25rem 0; opacity: 0.9; }' +
                 '.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center; margin-bottom: 2rem; }' +
                 '.summary > div { background-color: #f8f9fa; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6; }' +
                 '.summary p { margin: 0; }' +
