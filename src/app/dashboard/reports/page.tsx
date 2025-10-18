@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -153,21 +154,14 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                 '<style>' +
                 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #fff; margin: 0; padding: 0; }' +
                 '.container { padding: 2rem; }' +
-                'h1, h2 { color: #0A314D; border-bottom: 2px solid #EABD13; padding-bottom: 0.5rem; margin-bottom: 1rem; }' +
-                'h1 { font-size: 2rem; } h2 { font-size: 1.5rem; }' +
-                '.header { background-color: #0A314D; color: #fff; padding: 1.5rem; border-radius: 8px 8px 0 0; text-align: center; }' +
-                '.header h1 { color: #fff; border-bottom: 1px solid #EABD13; font-size: 2.5rem; margin-bottom: 0.5rem; }' +
+                'h2 { font-size: 1.5rem; color: #0A314D; border-bottom: 2px solid #EABD13; padding-bottom: 0.5rem; margin-top: 2rem; margin-bottom: 1rem; }' +
+                '.header { background-color: #0A314D; color: white; padding: 1.5rem; border-radius: 8px 8px 0 0; text-align: center; }' +
+                '.header h1 { color: #fff; border-bottom: 1px solid #EABD13; font-size: 2.5rem; margin: 0; padding-bottom: 0.5rem; }' +
                 '.header p { margin: 0.25rem 0; opacity: 0.9; }' +
-                '.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center; margin-bottom: 2rem; }' +
-                '.summary > div { padding: 1rem; border-radius: 8px; }' +
-                '.summary p { margin: 0; }' +
-                '.summary .label { font-size: 0.9rem; }' +
-                '.summary .value { font-size: 1.5rem; font-weight: bold; }' +
-                '.summary .present { background-color: #e6f4ea; border: 1px solid #c8e6c9; } .summary .present .label { color: #2e7d32; } .summary .present .value { color: #1b5e20; }' +
-                '.summary .late { background-color: #fff8e1; border: 1px solid #ffecb3; } .summary .late .label { color: #ffa000; } .summary .late .value { color: #f57f17; }' +
-                '.summary .absent { background-color: #ffebee; border: 1px solid #ffcdd2; } .summary .absent .label { color: #c62828; } .summary .absent .value { color: #b71c1c; }' +
-                '.summary .total { background-color: #f8f9fa; border: 1px solid #dee2e6; } .summary .total .label { color: #6c757d; } .summary .total .value { color: #343a40; }' +
-                'table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; page-break-inside: auto; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }' +
+                '.summary { text-align: center; padding: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #eee; }' +
+                '.summary span { margin: 0 1rem; font-size: 1rem; }' +
+                '.summary span b { color: #0A314D; }' +
+                'table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; page-break-inside: auto; background-color: #fff; }' +
                 'tr { page-break-inside: avoid; page-break-after: auto; }' +
                 'thead { display: table-header-group; }' +
                 'th, td { border: 1px solid #dee2e6; padding: 0.75rem; text-align: left; }' +
@@ -241,10 +235,10 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                     </div>
                     
                     <div className="summary">
-                        <div className="present"><p className="label">Present</p><p className="value">{attendanceStats.present}</p></div>
-                        <div className="late"><p className="label">Late</p><p className="value">{attendanceStats.late}</p></div>
-                        <div className="absent"><p className="label">Absent</p><p className="value">{attendanceStats.absent}</p></div>
-                        <div className="total"><p className="label">Total</p><p className="value">{data.attendanceHistory.length}</p></div>
+                      <span>Present: <b>{attendanceStats.present}</b></span> |
+                      <span>Late: <b>{attendanceStats.late}</b></span> |
+                      <span>Absent: <b>{attendanceStats.absent}</b></span> |
+                      <span>Total: <b>{data.attendanceHistory.length}</b></span>
                     </div>
 
                     {data.attendanceHistory.length > 0 && <FullTable title="Attendance History" data={data.attendanceHistory} headers={["#", "Miqaat", "Date", "Status"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.miqaatName}</td><td>{format(new Date(rec.markedAt), "PP p")}</td><td>{rec.status}</td></>)} />}
