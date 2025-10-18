@@ -105,6 +105,33 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-averia-serif);
   }
+  @media print {
+    body {
+      background-color: white !important;
+      color: black !important;
+    }
+    .print-hide {
+      display: none !important;
+    }
+    .printable-content {
+      display: block !important;
+      width: 100% !important;
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    main > div > *:not(.printable-content) {
+      display: none !important;
+    }
+    .printable-content .md\:hidden {
+      display: block !important; /* Ensure mobile views are printed */
+    }
+    .printable-content .hidden {
+      display: block !important;
+    }
+  }
 }
 
 @layer utilities {

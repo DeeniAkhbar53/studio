@@ -7,9 +7,10 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChartHorizontal, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck, Users, UserX, HandCoins } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck, Users, UserX, HandCoins, Printer } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { toPng } from "html-to-image";
+import jsPDF from 'jspdf';
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -20,13 +21,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohallah, UserDesignation, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem, MiqaatSession } from "@/types";
+import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohallah, UserDesignation, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem, MiqaatSession, Form as FormType, FormResponse, SystemLog, DuaAttendance } from "@/types";
 import { getMiqaats, batchMarkSafarInMiqaat } from "@/lib/firebase/miqaatService";
-import { getUsers } from "@/lib/firebase/userService";
+import { getUsers, getDuaAttendanceForUser } from "@/lib/firebase/userService";
+import { getLoginLogsForUser } from "@/lib/firebase/logService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
+import { getFormResponsesForUser, getForms } from "@/lib/firebase/formService";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -50,6 +53,7 @@ import { allNavItems } from "@/components/dashboard/sidebar-nav";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 
 const reportSchema = z.object({
@@ -59,7 +63,7 @@ const reportSchema = z.object({
   miqaatId: z.string().optional(),
   day: z.string().optional(),
   sessionId: z.string().optional(),
-  memberId: z.string().optional(), // Changed from itsId
+  memberId: z.string().optional(),
   dateRange: z.object({
     from: z.date().optional(),
     to: z.date().optional(),
@@ -79,7 +83,7 @@ const reportSchema = z.object({
     if (data.reportType === "member_attendance" && !data.memberId) {
          ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "ITS or BGK ID is required for Member Attendance report.",
+            message: "ITS or BGK ID is required for Member Report.",
             path: ["memberId"],
         });
     }
@@ -104,15 +108,203 @@ type SummaryStats = {
     safar: number;
     attendancePercentage: number;
 };
+interface MemberProfileData {
+    user: User;
+    attendanceHistory: AttendanceRecord[];
+    duaHistory: DuaAttendance[];
+    formHistory: FormHistoryStatus[];
+    loginHistory: SystemLog[];
+}
+interface FormHistoryStatus extends Form {
+  submissionStatus: 'Filled' | 'Not Filled';
+  submittedAt?: string;
+}
 
 const ALL_DESIGNATIONS: UserDesignation[] = ["Asst.Grp Leader", "Captain", "Group Leader", "J.Member", "Major", "Member", "Vice Captain"];
 const ALL_STATUSES: AttendanceRecord['status'][] = ["present", "late", "early", "absent", "safar", "not-eligible"];
+
+
+const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData, generatorName: string }) => {
+    const { toast } = useToast();
+    const reportRef = useRef<HTMLDivElement>(null);
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const attendanceStats = useMemo(() => {
+        return data.attendanceHistory.reduce((acc, record) => {
+            if (record.status === 'present' || record.status === 'early') acc.present++;
+            else if (record.status === 'late') acc.late++;
+            else if (record.status === 'absent') acc.absent++;
+            return acc;
+        }, { present: 0, late: 0, absent: 0 });
+    }, [data.attendanceHistory]);
+    
+    const handleExportPDF = async () => {
+        if (!reportRef.current) {
+            toast({ title: "Error", description: "Could not find the report content to export.", variant: "destructive" });
+            return;
+        }
+        setIsDownloading(true);
+
+        try {
+            const dataUrl = await toPng(reportRef.current, { cacheBust: true, pixelRatio: 2, backgroundColor: '#ffffff' });
+            
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'px',
+                format: 'a4',
+            });
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgProps = pdf.getImageProperties(dataUrl);
+            const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            let heightLeft = imgHeight;
+            let position = 0;
+            const pageMargin = 20;
+
+            pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, imgHeight);
+            heightLeft -= pdfHeight;
+            let pageNumber = 1;
+
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pageNumber++;
+                pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, imgHeight);
+                heightLeft -= pdfHeight;
+            }
+            
+            // Add footer to all pages
+            for (let i = 1; i <= pdf.getNumberOfPages(); i++) {
+                pdf.setPage(i);
+                pdf.setFontSize(8);
+                pdf.setTextColor(150);
+                const footerText = `Page ${i} of ${pdf.getNumberOfPages()} | Printed by: ${generatorName} on ${format(new Date(), 'PP p')}`;
+                pdf.text(footerText, pageMargin, pdfHeight - 10);
+            }
+
+            pdf.save(`member-report-${data.user.itsId}.pdf`);
+            toast({ title: "PDF Exported", description: "The member profile report has been downloaded." });
+
+        } catch (error) {
+            console.error("Failed to export PDF:", error);
+            toast({ title: "Export Failed", description: "There was an error generating the PDF.", variant: "destructive" });
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
+    return (
+        <Card className="shadow-lg mt-6" id="printable-area">
+             <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print-hide">
+                <div className="flex-grow">
+                    <CardTitle>Member Profile Report</CardTitle>
+                    <Separator className="my-2" />
+                    <CardDescription>
+                        A comprehensive summary for {data.user.name} ({data.user.itsId}).
+                    </CardDescription>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
+                    <Button variant="outline" onClick={() => window.print()} size="sm" className="w-full sm:w-auto">
+                        <Printer className="mr-2 h-4 w-4" /> Print Report
+                    </Button>
+                    <Button onClick={handleExportPDF} disabled={isDownloading} size="sm" className="w-full sm:w-auto">
+                      {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                       Export PDF
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent ref={reportRef} className="p-6 space-y-8">
+                {/* User Info Section */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center gap-4">
+                        <Avatar className="h-20 w-20">
+                            <AvatarImage src={data.user.avatarUrl} alt={data.user.name} />
+                            <AvatarFallback>{data.user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <CardTitle className="text-2xl">{data.user.name}</CardTitle>
+                            <CardDescription>ITS: {data.user.itsId} / BGK: {data.user.bgkId || 'N/A'}</CardDescription>
+                             <p className="text-sm text-muted-foreground mt-1">{data.user.designation || "Member"} &middot; {data.user.team || "No Team"}</p>
+                        </div>
+                    </CardHeader>
+                </Card>
+
+                {/* Attendance Summary */}
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Attendance Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                        <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
+                            <p className="text-sm text-green-800 dark:text-green-200">Present</p>
+                            <p className="text-2xl font-bold text-green-900 dark:text-green-100">{attendanceStats.present}</p>
+                        </div>
+                         <div className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
+                            <p className="text-sm text-yellow-800 dark:text-yellow-200">Late</p>
+                            <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{attendanceStats.late}</p>
+                        </div>
+                         <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
+                            <p className="text-sm text-red-800 dark:text-red-200">Absent</p>
+                            <p className="text-2xl font-bold text-red-900 dark:text-red-100">{attendanceStats.absent}</p>
+                        </div>
+                        <div className="p-2 rounded-lg bg-background">
+                            <p className="text-sm text-muted-foreground">Total Events</p>
+                            <p className="text-2xl font-bold">{data.attendanceHistory.length}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                
+                {/* Paginated History Tables */}
+                <PaginatedTable title="Attendance History" data={data.attendanceHistory} headers={["Miqaat", "Date", "Status"]} renderRow={(rec: any) => (<><td>{rec.miqaatName}</td><td>{format(new Date(rec.markedAt), "PP p")}</td><td>{rec.status}</td></>)} />
+                <PaginatedTable title="Dua Submissions" data={data.duaHistory} headers={["Week ID", "Dua e Kamil", "Surat al Kahf", "Submitted"]} renderRow={(rec: any) => (<><td>{rec.weekId}</td><td>{rec.duaKamilCount}</td><td>{rec.kahfCount}</td><td>{format(new Date(rec.markedAt), "PP p")}</td></>)} />
+                <PaginatedTable title="Form History" data={data.formHistory} headers={["Form Title", "Status", "Date"]} renderRow={(rec: any) => (<><td>{rec.title}</td><td>{rec.submissionStatus}</td><td>{rec.submissionStatus === 'Filled' ? format(new Date(rec.submittedAt), "PP p") : 'N/A'}</td></>)} />
+                <PaginatedTable title="Login History" data={data.loginHistory} headers={["Event", "Date & Time"]} renderRow={(rec: any) => (<><td>{rec.message}</td><td>{format(new Date(rec.timestamp), "PP p")}</td></>)} />
+
+            </CardContent>
+        </Card>
+    );
+};
+
+const PaginatedTable = ({ title, data, headers, renderRow }: { title: string, data: any[], headers: string[], renderRow: (item: any) => React.ReactNode }) => {
+    const ITEMS_PER_PAGE = 5;
+    const [currentPage, setCurrentPage] = useState(1);
+    const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
+    const currentData = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        return data.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [data, currentPage]);
+    
+    if (data.length === 0) return null;
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-lg">{title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader><TableRow>{headers.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
+                    <TableBody>{currentData.map((item, index) => <TableRow key={item.id || index}>{renderRow(item)}</TableRow>)}</TableBody>
+                </Table>
+            </CardContent>
+             {totalPages > 1 && (
+                <CardFooter className="justify-end gap-2 pt-4">
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</Button>
+                    <span className="text-sm text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+                </CardFooter>
+            )}
+        </Card>
+    );
+};
 
 
 export default function ReportsPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [reportData, setReportData] = useState<ReportResultItem[] | null>(null);
+  const [memberProfileData, setMemberProfileData] = useState<MemberProfileData | null>(null);
   const [reportSearchTerm, setReportSearchTerm] = useState("");
   const [reportSummary, setReportSummary] = useState<SummaryStats | null>(null);
   const [chartData, setChartData] = useState<ChartDataItem[] | null>(null);
@@ -123,9 +315,9 @@ export default function ReportsPage() {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   
   const [isLoadingOptions, setIsLoadingOptions] = useState(true);
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
-  const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
-  const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>('');
+
   const [miqaatTypeFilter, setMiqaatTypeFilter] = useState<'local' | 'international' | 'all'>('all');
 
 
@@ -160,6 +352,7 @@ export default function ReportsPage() {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
     const mohallahId = typeof window !== "undefined" ? localStorage.getItem('userMohallahId') : null;
     const itsId = typeof window !== "undefined" ? localStorage.getItem('userItsId') : null;
+    const name = typeof window !== "undefined" ? localStorage.getItem('userName') : '';
     const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
     const pageRights = JSON.parse(pageRightsRaw || '[]');
     const navItem = allNavItems.find(item => item.href === '/dashboard/reports');
@@ -170,9 +363,7 @@ export default function ReportsPage() {
       
       if (hasRoleAccess || hasPageRight) {
         setIsAuthorized(true);
-        setCurrentUserRole(role);
-        setCurrentUserMohallahId(mohallahId);
-        setCurrentUserItsId(itsId);
+        setCurrentUserName(name || '');
         if (role === 'admin' && mohallahId) {
             form.setValue('mohallahId', mohallahId);
         }
@@ -190,42 +381,50 @@ export default function ReportsPage() {
   useEffect(() => {
     if (!isAuthorized) return;
     setIsLoadingOptions(true);
-    const unsubMiqaats = getMiqaats(setAllMiqaats);
-    const unsubMohallahs = getMohallahs(setAllMohallahs);
     
-    getUsers().then(users => {
-        setAllUsers(users);
-    }).catch(err => {
-        console.error("Failed to fetch teams for reports page", err);
-    }).finally(() => {
-        setIsLoadingOptions(false);
-    });
-
-    return () => {
-        unsubMiqaats();
-        unsubMohallahs();
+    const fetchData = async () => {
+        try {
+            const [users, miqaats, mohallahs] = await Promise.all([
+                getUsers(),
+                new Promise<Miqaat[]>(resolve => getMiqaats(resolve)),
+                new Promise<Mohallah[]>(resolve => getMohallahs(resolve)),
+            ]);
+            setAllUsers(users);
+            setAllMiqaats(miqaats);
+            setAllMohallahs(mohallahs);
+            const currentUserData = users.find(u => u.itsId === localStorage.getItem('userItsId'));
+            if(currentUserData) setCurrentUser(currentUserData);
+        } catch(err) {
+            console.error("Failed to fetch initial data for reports page", err);
+            toast({ title: "Error", description: "Could not load necessary data.", variant: "destructive" });
+        } finally {
+            setIsLoadingOptions(false);
+        }
     };
-  }, [isAuthorized]);
+    fetchData();
+  }, [isAuthorized, toast]);
 
   const { availableMiqaats, availableMohallahs, availableTeams } = useMemo(() => {
+    if (!currentUser) return { availableMiqaats: [], availableMohallahs: [], availableTeams: [] };
+
     let roleFilteredMiqaats = allMiqaats;
     if (miqaatTypeFilter !== 'all') {
       roleFilteredMiqaats = roleFilteredMiqaats.filter(m => m.type === miqaatTypeFilter);
     }
     
-    if (currentUserRole === 'superadmin') {
+    if (currentUser.role === 'superadmin') {
       const allTeams = [...new Set(allUsers.map(u => u.team).filter(Boolean) as string[])].sort();
       return { availableMiqaats: roleFilteredMiqaats, availableMohallahs: allMohallahs, availableTeams: allTeams };
     }
-    if (currentUserRole === 'admin' && currentUserMohallahId) {
-      const filteredMiqaatsForAdmin = roleFilteredMiqaats.filter(m => !m.mohallahIds?.length || m.mohallahIds.includes(currentUserMohallahId));
-      const filteredMohallahs = allMohallahs.filter(m => m.id === currentUserMohallahId);
-      const usersInMohallah = allUsers.filter(u => u.mohallahId === currentUserMohallahId);
+    if (currentUser.role === 'admin' && currentUser.mohallahId) {
+      const filteredMiqaatsForAdmin = roleFilteredMiqaats.filter(m => !m.mohallahIds?.length || m.mohallahIds.includes(currentUser.mohallahId!));
+      const filteredMohallahs = allMohallahs.filter(m => m.id === currentUser.mohallahId);
+      const usersInMohallah = allUsers.filter(u => u.mohallahId === currentUser.mohallahId);
       const teamsInMohallah = [...new Set(usersInMohallah.map(u => u.team).filter(Boolean) as string[])].sort();
       return { availableMiqaats: filteredMiqaatsForAdmin, availableMohallahs: filteredMohallahs, availableTeams: teamsInMohallah };
     }
     return { availableMiqaats: [], availableMohallahs: [], availableTeams: [] };
-  }, [currentUserRole, currentUserMohallahId, allMiqaats, allMohallahs, allUsers, miqaatTypeFilter]);
+  }, [currentUser, allMiqaats, allMohallahs, allUsers, miqaatTypeFilter]);
 
 
   const watchedReportType = form.watch("reportType");
@@ -249,11 +448,109 @@ export default function ReportsPage() {
   const onSubmit = async (values: ReportFormValues) => {
     setIsLoading(true);
     setReportData(null);
+    setMemberProfileData(null);
     setReportSearchTerm("");
     setChartData(null);
     setReportSummary(null);
     setSelectedIds([]);
     
+    if (values.reportType === "member_attendance" && values.memberId) {
+        // Handle Member Profile Report
+        try {
+            const member = allUsers.find(u => u.itsId === values.memberId || u.bgkId === values.memberId);
+            if (!member) {
+                toast({ title: "User Not Found", description: `User with ID ${values.memberId} not found.`, variant: "destructive" });
+                setIsLoading(false);
+                return;
+            }
+
+            // Fetch all data in parallel
+            const [attendanceHistory, duaHistory, formHistory, loginHistory] = await Promise.all([
+                // Attendance
+                (async () => {
+                    const eligibleMiqaats = allMiqaats.filter(miqaat => {
+                        const isForEveryone = !miqaat.mohallahIds?.length && !miqaat.teams?.length && !miqaat.eligibleItsIds?.length;
+                        if (isForEveryone) return true;
+                        const eligibleById = !!miqaat.eligibleItsIds?.includes(member.itsId);
+                        const eligibleByTeam = !!member.team && !!miqaat.teams?.includes(member.team);
+                        const eligibleByMohallah = !!member.mohallahId && !!miqaat.mohallahIds?.includes(member.mohallahId);
+                        return eligibleById || eligibleByTeam || eligibleByMohallah;
+                    });
+
+                    const attendedMiqaatSessionKeys = new Set<string>();
+                    const records: AttendanceRecord[] = [];
+
+                    eligibleMiqaats.forEach(miqaat => {
+                        (miqaat.attendance || []).filter(a => a.userItsId === member.itsId).forEach(entry => {
+                            attendedMiqaatSessionKeys.add(`${miqaat.id}-${entry.sessionId || 'main'}`);
+                            records.push({ id: `${miqaat.id}-${entry.userItsId}-${entry.sessionId || 'main'}`, miqaatId: miqaat.id, miqaatName: miqaat.name, miqaatType: miqaat.type, userItsId: entry.userItsId, userName: entry.userName, markedAt: entry.markedAt, markedByName: allUsers.find(u => u.itsId === entry.markedByItsId)?.name || entry.markedByItsId, status: entry.status || 'present', uniformCompliance: entry.uniformCompliance });
+                        });
+                        (miqaat.safarList || []).filter(s => s.userItsId === member.itsId).forEach(entry => {
+                            attendedMiqaatSessionKeys.add(`${miqaat.id}-${entry.sessionId || 'main'}`);
+                            records.push({ id: `safar-${miqaat.id}-${entry.userItsId}-${entry.sessionId || 'main'}`, miqaatId: miqaat.id, miqaatName: miqaat.name, miqaatType: miqaat.type, userItsId: entry.userItsId, userName: entry.userName, markedAt: entry.markedAt, markedByName: allUsers.find(u => u.itsId === entry.markedByItsId)?.name || entry.markedByItsId, status: 'safar' });
+                        });
+                    });
+
+                    eligibleMiqaats.forEach(miqaat => {
+                        if (new Date() > new Date(miqaat.endTime)) {
+                            const sessions = (miqaat.sessions && miqaat.sessions.length > 0) ? miqaat.sessions : [{ id: 'main', startTime: miqaat.startTime, name: 'Main Session', day: 1, endTime: miqaat.endTime }];
+                            sessions.forEach(session => {
+                                const sessionKey = `${miqaat.id}-${session.id}`;
+                                if (!attendedMiqaatSessionKeys.has(sessionKey)) {
+                                    records.push({ id: `absent-${sessionKey}-${member.itsId}`, miqaatId: miqaat.id, miqaatName: miqaat.name, miqaatType: miqaat.type, userItsId: member.itsId, userName: member.name, markedAt: session.startTime, status: 'absent' });
+                                }
+                            });
+                        }
+                    });
+                    
+                    return records.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());
+                })(),
+
+                // Dua
+                getDuaAttendanceForUser(member.itsId),
+
+                // Forms
+                (async () => {
+                     const [allForms, userResponses] = await Promise.all([ getForms(), getFormResponsesForUser(member.itsId) ]);
+                     const userResponseMap = new Map(userResponses.map(res => [res.formId, res]));
+                     return allForms.filter(form => {
+                            const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
+                            if (isForEveryone) return true;
+                            const eligibleById = !!form.eligibleItsIds?.includes(member.itsId);
+                            const eligibleByTeam = !!member.team && !!form.teams?.includes(member.team);
+                            const eligibleByMohallah = !!member.mohallahId && !!form.mohallahIds?.includes(member.mohallahId);
+                            return eligibleById || eligibleByTeam || eligibleByMohallah;
+                        }).map(form => ({
+                            ...form,
+                            submissionStatus: userResponseMap.has(form.id) ? 'Filled' : 'Not Filled',
+                            submittedAt: userResponseMap.get(form.id)?.submittedAt,
+                        })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                })(),
+
+                // Login Logs
+                getLoginLogsForUser(member.itsId)
+            ]);
+
+            setMemberProfileData({
+                user: member,
+                attendanceHistory,
+                duaHistory,
+                formHistory,
+                loginHistory
+            });
+            
+            toast({ title: "Member Report Generated", description: `Profile for ${member.name} is ready.` });
+
+        } catch (error) {
+            console.error("Error generating member profile report:", error);
+            toast({ title: "Report Failed", description: "Could not generate the member profile report.", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
+        }
+        return; 
+    }
+
+
     let reportResultItems: ReportResultItem[] = [];
 
     try {
@@ -332,39 +629,6 @@ export default function ReportsPage() {
               id: `${selectedMiqaat.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, bgkId: userMap.get(safarEntry.userItsId)?.bgkId, team: userMap.get(safarEntry.userItsId)?.team, miqaatName: selectedMiqaat.name, miqaatType: selectedMiqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId,
             }
           });
-      } else if (values.reportType === "member_attendance" && values.memberId) {
-            const member = allUsersForReport.find(u => u.itsId === values.memberId || u.bgkId === values.memberId);
-            if (!member) {
-                toast({ title: "User Not Found", description: `User with ID ${values.memberId} not found.`, variant: "destructive" });
-                setIsLoading(false);
-                return;
-            }
-
-            const eligibleMiqaats = allMiqaats.filter(miqaat => {
-                const isForEveryone = !miqaat.mohallahIds?.length && !miqaat.teams?.length && !miqaat.eligibleItsIds?.length;
-                if (isForEveryone) return true;
-                const eligibleById = !!miqaat.eligibleItsIds?.includes(member.itsId);
-                const eligibleByTeam = !!member.team && !!miqaat.teams?.includes(member.team);
-                const eligibleByMohallah = !!member.mohallahId && !!miqaat.mohallahIds?.includes(member.mohallahId);
-                return eligibleById || eligibleByTeam || eligibleByMohallah;
-            });
-
-            const memberHistory: ReportResultItem[] = [];
-            for (const miqaat of eligibleMiqaats) {
-                const attendedEntry = miqaat.attendance?.find(a => a.userItsId === member.itsId);
-                const safarEntry = miqaat.safarList?.find(s => s.userItsId === member.itsId);
-                const session = miqaat.sessions?.find(s => s.id === (attendedEntry?.sessionId || safarEntry?.sessionId));
-
-                if (attendedEntry) {
-                    memberHistory.push({ id: `${miqaat.id}-${attendedEntry.userItsId}`, userName: attendedEntry.userName, userItsId: attendedEntry.userItsId, bgkId: member.bgkId, team: member.team, miqaatName: miqaat.name, miqaatType: miqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: attendedEntry.markedAt, status: attendedEntry.status || 'present', markedByItsId: attendedEntry.markedByItsId, uniformCompliance: attendedEntry.uniformCompliance });
-                } else if (safarEntry) {
-                    memberHistory.push({ id: `${miqaat.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, bgkId: member.bgkId, team: member.team, miqaatName: miqaat.name, miqaatType: miqaat.type, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId });
-                } else if (new Date() > new Date(miqaat.endTime)) { // Only show absent if Miqaat has ended
-                    memberHistory.push({ id: `${miqaat.id}-${member.itsId}`, userName: member.name, userItsId: member.itsId, bgkId: member.bgkId, team: member.team, miqaatName: miqaat.name, miqaatType: miqaat.type, day: undefined, sessionName: "N/A", date: miqaat.startTime, status: 'absent' });
-                }
-            }
-            reportResultItems = memberHistory.sort((a, b) => new Date(b.date!).getTime() - new Date(a.date!).getTime());
-
       } else if (values.reportType === "overall_activity") {
           let allRecords: ReportResultItem[] = [];
           for (const miqaat of allMiqaats) {
@@ -406,10 +670,10 @@ export default function ReportsPage() {
 
       let filteredData = [...reportResultItems];
       
-      if (currentUserRole === 'admin' && currentUserMohallahId) {
+      if (currentUser?.role === 'admin' && currentUser.mohallahId) {
           filteredData = filteredData.filter(record => {
               const userDetails = userMap.get(record.userItsId);
-              return userDetails?.mohallahId === currentUserMohallahId;
+              return userDetails?.mohallahId === currentUser.mohallahId;
           });
       }
 
@@ -606,7 +870,7 @@ export default function ReportsPage() {
     
     setIsBulkMarking(true);
     try {
-      const markerId = currentUserItsId;
+      const markerId = currentUser?.itsId;
       if (!markerId) {
         throw new Error("Could not identify the person marking attendance.");
       }
@@ -694,7 +958,7 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center"><BarChart className="mr-2 h-5 w-5 text-primary"/>Generate Attendance Report</CardTitle>
+          <CardTitle className="flex items-center"><BarChart className="mr-2 h-5 w-5 text-primary"/>Generate Report</CardTitle>
           <Separator className="my-2" />
           <CardDescription>Select criteria to generate a detailed attendance report from the system data.</CardDescription>
         </CardHeader>
@@ -721,7 +985,7 @@ export default function ReportsPage() {
                           <SelectItem value="miqaat_summary">Miqaat Summary (Roster)</SelectItem>
                           <SelectItem value="miqaat_safar_list">Miqaat Safar List</SelectItem>
                           <SelectItem value="non_attendance_miqaat">Miqaat Non-Attendance</SelectItem>
-                          <SelectItem value="member_attendance">Member Full History</SelectItem>
+                          <SelectItem value="member_attendance">Member Report</SelectItem>
                           <SelectItem value="overall_activity">Overall Activity Log</SelectItem>
                         </SelectContent>
                       </Select>
@@ -905,7 +1169,7 @@ export default function ReportsPage() {
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Filter by Mohallah</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingOptions || currentUserRole === 'admin'}>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingOptions || currentUser?.role === 'admin'}>
                                     <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder={isLoadingOptions ? "Loading..." : "All Mohallahs"} />
@@ -916,7 +1180,7 @@ export default function ReportsPage() {
                                         {availableMohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
-                                 {currentUserRole === 'admin' && <FormDescription>Admins can only see reports for their own Mohallah.</FormDescription>}
+                                 {currentUser?.role === 'admin' && <FormDescription>Admins can only see reports for their own Mohallah.</FormDescription>}
                                 <FormMessage />
                                 </FormItem>
                             )}
@@ -1003,28 +1267,22 @@ export default function ReportsPage() {
           </Form>
         </CardContent>
       </Card>
+      
+      {memberProfileData && (
+          <MemberProfileReport data={memberProfileData} generatorName={currentUserName}/>
+      )}
 
-      {reportData && (
-        <Card className="shadow-lg mt-6">
-          <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {reportData && !memberProfileData && (
+        <Card className="shadow-lg mt-6 printable-content">
+          <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print-hide">
             <div className="flex-grow">
                 <CardTitle>Report Results</CardTitle>
                 <Separator className="my-2" />
-                <CardDescription>
-                    Displaying {filteredReportData?.length || 0} of {reportData.length} record(s) 
-                    {(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && selectedMiqaatDetails && ` for Miqaat: ${selectedMiqaatDetails.name}`}
-                    {watchedReportType === "member_attendance" && form.getValues("memberId") && ` for ID: ${form.getValues("memberId")}`}
-                    {form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}
-                    {form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.
-                </CardDescription>
+                <CardDescription>Displaying {filteredReportData?.length || 0} of {reportData.length} record(s){(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && selectedMiqaatDetails && ` for Miqaat: ${selectedMiqaatDetails.name}`}{watchedReportType === "member_attendance" && form.getValues("memberId") && ` for ID: ${form.getValues("memberId")}`}{form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}{form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.</CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
-                {isNonAttendanceReport && selectedIds.length > 0 && (
-                  <Button onClick={handleBulkMarkAsSafar} disabled={isBulkMarking} size="sm" className="w-full sm:w-auto">
-                    {isBulkMarking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}
-                    Mark ({selectedIds.length}) as Safar
-                  </Button>
-                )}
+                <Button variant="outline" onClick={() => window.print()} size="sm" className="w-full sm:w-auto"><Printer className="mr-2 h-4 w-4" />Print</Button>
+                {isNonAttendanceReport && selectedIds.length > 0 && (<Button onClick={handleBulkMarkAsSafar} disabled={isBulkMarking} size="sm" className="w-full sm:w-auto">{isBulkMarking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}Mark ({selectedIds.length}) as Safar</Button>)}
                 {canShowGraphButton && (
                   <Dialog open={isGraphDialogOpen} onOpenChange={setIsGraphDialogOpen}>
                     <DialogTrigger asChild>
@@ -1346,7 +1604,7 @@ export default function ReportsPage() {
         </Card>
       )}
 
-      {!isLoading && reportData === null && !isLoadingOptions && (
+      {!isLoading && reportData === null && memberProfileData === null && !isLoadingOptions && (
          <Card className="shadow-lg mt-6">
             <CardContent className="py-10 flex flex-col items-center justify-center">
                 <AlertTriangle className="h-10 w-10 text-muted-foreground mb-3" />
