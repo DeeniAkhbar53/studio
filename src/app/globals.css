@@ -106,25 +106,21 @@
     font-family: var(--font-averia-serif);
   }
   @media print {
-    body {
-      background-color: white !important;
-      color: black !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+    body.printing * {
+      visibility: hidden;
     }
+    body.printing .print-container, body.printing .print-container * {
+      visibility: visible;
+    }
+    body.printing .print-container {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+    }
+
     .print-hide {
       display: none !important;
-    }
-    main {
-      padding: 0 !important;
-      overflow: visible !important;
-    }
-    .printable-content {
-      display: block !important;
-    }
-     .printable-content > * {
-      box-shadow: none !important;
-      border: none !important;
     }
   }
 }
