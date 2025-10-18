@@ -139,40 +139,80 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
         }, { present: 0, late: 0, absent: 0 });
     }, [data.attendanceHistory]);
     
-    
     const handlePrint = () => {
-        const printContent = pdfExportRef.current?.innerHTML;
-        if (!printContent) {
-            toast({ title: "Print Error", description: "Could not find report content to print.", variant: "destructive" });
-            return;
-        }
-
         const printWindow = window.open('', '_blank');
         if (printWindow) {
-            printWindow.document.write(
-                '<html><head><title>Member Report - ' + data.user.name + '</title>' +
-                '<style>' +
-                'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #fff; margin: 0; padding: 0; }' +
-                '.container { padding: 2rem; }' +
-                'h2 { font-size: 1.5rem; color: #0A314D; border-bottom: 2px solid #EABD13; padding-bottom: 0.5rem; margin-top: 2rem; margin-bottom: 1rem; }' +
-                '.header { background-color: #0A314D; color: white; padding: 1.5rem; border-radius: 8px 8px 0 0; text-align: center; }' +
-                '.header h1 { color: #fff; border-bottom: 1px solid #EABD13; font-size: 2rem; margin: 0; padding-bottom: 0.5rem; }' +
-                '.header p { margin: 0.25rem 0; opacity: 0.9; }' +
-                '.summary { text-align: center; padding: 1rem; margin: 1rem 0; border-bottom: 1px solid #eee; }' +
-                '.summary span { margin: 0 1rem; font-size: 1rem; }' +
-                '.summary span b { color: #0A314D; }' +
-                'table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; page-break-inside: auto; background-color: #fff; }' +
-                'tr { page-break-inside: avoid; page-break-after: auto; }' +
-                'thead { display: table-header-group; }' +
-                'th, td { border: 1px solid #dee2e6; padding: 0.75rem; text-align: left; }' +
-                'th { background-color: #e9ecef; color: #495057; }' +
-                'tbody tr:nth-child(odd) { background-color: #f8f9fa; }' +
-                '</style>' +
-                '</head><body><div class="container">' +
-                printContent +
-                '</div></body></html>'
+            const printDocument = printWindow.document;
+            const tables = {
+                'Attendance History': data.attendanceHistory,
+                'Dua Submissions': data.duaHistory,
+                'Form History': data.formHistory,
+            };
+
+            const tableHeaders: { [key: string]: string[] } = {
+                'Attendance History': ['#', 'Miqaat', 'Date', 'Status'],
+                'Dua Submissions': ['#', 'Week ID', 'Dua Kamil', 'Surat Kahf', 'Submitted'],
+                'Form History': ['#', 'Form Title', 'Status', 'Date'],
+            };
+            
+            const tableRowRenderers: { [key: string]: (item: any, index: number) => string } = {
+                'Attendance History': (item, i) => `<td>${i + 1}</td><td>${item.miqaatName}</td><td>${format(new Date(item.markedAt), "PP p")}</td><td>${item.status}</td>`,
+                'Dua Submissions': (item, i) => `<td>${i + 1}</td><td>${item.weekId}</td><td>${item.duaKamilCount}</td><td>${item.kahfCount}</td><td>${format(new Date(item.markedAt), "PP p")}</td>`,
+                'Form History': (item, i) => `<td>${i + 1}</td><td>${item.title}</td><td>${item.submissionStatus}</td><td>${item.submissionStatus === 'Filled' && item.submittedAt ? format(new Date(item.submittedAt), "PP p") : 'N/A'}</td>`,
+            };
+
+            const tableHtml = Object.entries(tables).map(([title, tableData]) => {
+                if (!tableData || tableData.length === 0) return '';
+                return `
+                    <div class="table-container">
+                        <h2>${title}</h2>
+                        <table>
+                            <thead>
+                                <tr>${tableHeaders[title].map(h => `<th>${h}</th>`).join('')}</tr>
+                            </thead>
+                            <tbody>
+                                ${tableData.map((item, i) => `<tr>${tableRowRenderers[title](item, i)}</tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }).join('');
+            
+            printDocument.write('<html><head><title>Member Report - ' + data.user.name + '</title>' +
+            `<style>
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #fff; margin: 0; padding: 0; }
+                .container { padding: 1.5rem; }
+                .header { background-color: #0A314D; color: white; padding: 1.5rem; text-align: center; border-radius: 8px; }
+                .header h1 { font-size: 1.75rem; margin: 0; padding-bottom: 0.25rem; }
+                .header p { margin: 0.1rem 0; font-size: 0.9rem; opacity: 0.9; }
+                .summary { text-align: center; padding: 1rem 0; display: flex; justify-content: center; gap: 1.5rem; border-bottom: 1px solid #eee; margin-bottom: 2rem; }
+                .summary span { font-size: 1rem; }
+                .summary span b { color: #0A314D; font-size: 1.2rem; display: block; margin-bottom: 0.25rem; }
+                .table-container { margin-bottom: 2rem; page-break-inside: avoid; }
+                h2 { font-size: 1.25rem; color: #0A314D; border-bottom: 2px solid #EABD13; padding-bottom: 0.5rem; margin-top: 2rem; margin-bottom: 1rem; }
+                table { width: 100%; border-collapse: collapse; }
+                thead { display: table-header-group; }
+                th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #dee2e6; }
+                th { background-color: #f8f9fa; color: #495057; font-weight: 600; }
+                tbody tr:nth-child(even) { background-color: #f8f9fa; }
+            </style>` +
+            '</head><body><div class="container">' +
+            `<div class="header">
+                <h1>${data.user.name}</h1>
+                <p>ITS: ${data.user.itsId} / BGK: ${data.user.bgkId || 'N/A'}</p>
+                <p>${data.user.designation || "Member"} &middot; ${data.user.team || "No Team"}</p>
+                <p style="font-size: 0.8rem; opacity: 0.8; padding-top: 1rem;">Report Generated by: ${generatorName} on ${format(new Date(), "PP p")}</p>
+            </div>
+            <div class="summary">
+              <span><b>${attendanceStats.present}</b>Present</span>
+              <span><b>${attendanceStats.late}</b>Late</span>
+              <span><b>${attendanceStats.absent}</b>Absent</span>
+              <span><b>${data.attendanceHistory.length}</b>Total Events</span>
+            </div>`
+             + tableHtml +
+            '</div></body></html>'
             );
-            printWindow.document.close();
+            printDocument.close();
             printWindow.focus();
             printWindow.print();
             printWindow.close();
@@ -225,27 +265,6 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                 <PaginatedTable title="Form History" data={data.formHistory} headers={["Form Title", "Status", "Date"]} renderRow={(rec: any) => (<><td>{rec.title}</td><td>{rec.submissionStatus}</td><td>{rec.submissionStatus === 'Filled' && rec.submittedAt ? format(new Date(rec.submittedAt), "PP p") : 'N/A'}</td></>)} />
 
             </CardContent>
-            
-             <div style={{ position: 'absolute', left: '-9999px', top: 'auto', width: '800px', backgroundColor: 'white', color: 'black', padding: '2rem' }} ref={pdfExportRef}>
-                <div className="space-y-6">
-                     <div className="header">
-                        <h1 className="text-3xl font-bold">{data.user.name}</h1>
-                        <p className="text-sm">ITS: {data.user.itsId} / BGK: {data.user.bgkId || 'N/A'}</p>
-                        <p className="text-sm">{data.user.designation || "Member"} &middot; {data.user.team || "No Team"}</p>
-                    </div>
-                    
-                    <div className="summary">
-                      <span>Present: <b>{attendanceStats.present}</b></span> |
-                      <span>Late: <b>{attendanceStats.late}</b></span> |
-                      <span>Absent: <b>{attendanceStats.absent}</b></span> |
-                      <span>Total: <b>{data.attendanceHistory.length}</b></span>
-                    </div>
-
-                    {data.attendanceHistory.length > 0 && <FullTable title="Attendance History" data={data.attendanceHistory} headers={["#", "Miqaat", "Date", "Status"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.miqaatName}</td><td>{format(new Date(rec.markedAt), "PP p")}</td><td>{rec.status}</td></>)} />}
-                    {data.duaHistory.length > 0 && <FullTable title="Dua Submissions" data={data.duaHistory} headers={["#", "Week ID", "Dua Kamil", "Surat Kahf", "Submitted"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.weekId}</td><td>{rec.duaKamilCount}</td><td>{rec.kahfCount}</td><td>{format(new Date(rec.markedAt), "PP p")}</td></>)} />}
-                    {data.formHistory.length > 0 && <FullTable title="Form History" data={data.formHistory} headers={["#", "Form Title", "Status", "Date"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.title}</td><td>{rec.submissionStatus}</td><td>{rec.submissionStatus === 'Filled' && rec.submittedAt ? format(new Date(rec.submittedAt), "PP p") : 'N/A'}</td></>)} />}
-                </div>
-            </div>
         </Card>
     );
 };
@@ -895,25 +914,44 @@ export default function ReportsPage() {
     }
   };
 
-  const handlePrint = () => {
-    const printContent = printRef.current?.innerHTML;
-    if (!printContent) {
-        toast({title: "Print Error", description: "Report content not found.", variant: "destructive"});
-        return;
-    }
-    const printWindow = window.open('', '_blank');
-    if(printWindow) {
-        printWindow.document.write('<html><head><title>Print Report</title>');
-        printWindow.document.write('<style>body{font-family: sans-serif;} table{width: 100%; border-collapse: collapse; margin-bottom: 1rem;} th, td{border: 1px solid #ddd; padding: 8px; text-align: left;} th{background-color: #f2f2f2;} h1, h2 {border-bottom: 2px solid #ccc; padding-bottom: 0.5rem; margin-bottom: 1rem;}</style>');
-        printWindow.document.write('</head><body>');
-        printWindow.document.write(printContent);
-        printWindow.document.write('</body></html>');
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-        printWindow.close();
-    }
-  };
+    const handlePrint = () => {
+        const printContent = printRef.current?.innerHTML;
+        if (!printContent) {
+            toast({title: "Print Error", description: "Report content not found.", variant: "destructive"});
+            return;
+        }
+        const printWindow = window.open('', '_blank');
+        if(printWindow) {
+            const reportType = form.getValues("reportType").replace(/_/g, ' ');
+            const miqaatName = selectedMiqaatForForm ? ` of ${selectedMiqaatForForm.name}` : '';
+            const title = `Report: ${reportType.charAt(0).toUpperCase() + reportType.slice(1)}${miqaatName}`;
+
+            printWindow.document.write('<html><head><title>Print Report</title>');
+            printWindow.document.write(`<style>
+                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #fff; margin: 0; padding: 0; }
+                .container { padding: 1.5rem; }
+                .header { text-align: center; margin-bottom: 2rem; border-bottom: 1px solid #eee; padding-bottom: 1rem; }
+                .header h1 { font-size: 1.5rem; text-transform: uppercase; margin: 0; color: #0A314D; }
+                .header p { margin: 0.25rem 0; font-size: 0.8rem; color: #6c757d; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+                thead { display: table-header-group; }
+                th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #dee2e6; }
+                th { background-color: #f8f9fa; color: #495057; font-weight: 600; }
+                tbody tr:nth-child(even) { background-color: #f8f9fa; }
+            </style>`);
+            printWindow.document.write('</head><body><div class="container">');
+            printWindow.document.write(`<div class="header">
+                <h1>${title}</h1>
+                <p>Generated by: ${currentUserName} on ${format(new Date(), 'PP p')}</p>
+            </div>`);
+            printWindow.document.write(printContent);
+            printWindow.document.write('</div></body></html>');
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+        }
+    };
 
 
   const chartConfig = {
@@ -1614,29 +1652,39 @@ export default function ReportsPage() {
           </Card>
         )}
       
-      <div className="hidden print-block" ref={printRef}>
-        {reportData && !memberProfileData && (
-          <div>
-            <h1>Report: {form.getValues("reportType").replace(/_/g, ' ')}</h1>
-            <p>Generated by: {currentUserName} on {format(new Date(), 'PP p')}</p>
-            <hr />
-            <FullTable
-              title="Report Results"
-              data={filteredReportData || []}
-              headers={["#", "Name", "ITS", "Miqaat", "Date", "Status"]}
-              renderRow={(rec:any, i:number) => (
-                <>
-                  <td>{i + 1}</td>
-                  <td>{rec.userName}</td>
-                  <td>{rec.userItsId}</td>
-                  <td>{rec.miqaatName}</td>
-                  <td>{rec.date ? format(new Date(rec.date), "PP p") : "N/A"}</td>
-                  <td>{rec.status}</td>
-                </>
-              )}
-            />
-          </div>
-        )}
+      <div className="hidden">
+        <div ref={printRef}>
+            {filteredReportData && (
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                             <TableHead>Sr.No.</TableHead>
+                          <TableHead>Member Name</TableHead>
+                          <TableHead>ITS ID</TableHead>
+                          <TableHead>Team</TableHead>
+                          <TableHead>Miqaat</TableHead>
+                          <TableHead>Date / Time</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Marked By</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filteredReportData.map((record, index) => (
+                            <TableRow key={`${record.id}-${record.date || index}`}>
+                                <TableCell>{index + 1}</TableCell>
+                                <TableCell>{record.userName}</TableCell>
+                                <TableCell>{record.userItsId}</TableCell>
+                                <TableCell>{record.team || 'N/A'}</TableCell>
+                                <TableCell>{record.miqaatName}</TableCell>
+                                <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
+                                <TableCell>{record.status}</TableCell>
+                                <TableCell>{record.markedByItsId || "N/A"}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            )}
+        </div>
       </div>
 
       {!isLoading && reportData === null && memberProfileData === null && !isLoadingOptions && (
