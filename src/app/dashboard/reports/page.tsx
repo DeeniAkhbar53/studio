@@ -29,7 +29,7 @@ import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getFormResponsesForUser, getForms } from "@/lib/firebase/formService";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -985,7 +985,7 @@ export default function ReportsPage() {
                           <SelectItem value="miqaat_summary">Miqaat Summary (Roster)</SelectItem>
                           <SelectItem value="miqaat_safar_list">Miqaat Safar List</SelectItem>
                           <SelectItem value="non_attendance_miqaat">Miqaat Non-Attendance</SelectItem>
-                          <SelectItem value="member_attendance">Member Report</SelectItem>
+                          <SelectItem value="member_attendance">Member Profile Report</SelectItem>
                           <SelectItem value="overall_activity">Overall Activity Log</SelectItem>
                         </SelectContent>
                       </Select>
