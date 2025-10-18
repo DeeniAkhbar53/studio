@@ -106,21 +106,18 @@
     font-family: var(--font-averia-serif);
   }
   @media print {
-    body.printing * {
+    body {
       visibility: hidden;
     }
-    body.printing .print-container, body.printing .print-container * {
+    .print-block {
       visibility: visible;
-    }
-    body.printing .print-container {
       position: absolute;
       left: 0;
       top: 0;
       width: 100%;
     }
-
     .print-hide {
-      display: none !important;
+      display: none;
     }
   }
 }

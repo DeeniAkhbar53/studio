@@ -29,7 +29,7 @@ import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getFormResponsesForUser, getForms } from "@/lib/firebase/formService";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -171,7 +171,6 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                 heightLeft -= pdfHeight;
             }
             
-            // Add footer to all pages
             const totalPages = pdf.getNumberOfPages();
             for (let i = 1; i <= totalPages; i++) {
                 pdf.setPage(i);
@@ -191,6 +190,38 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
             setIsDownloading(false);
         }
     };
+    
+    const handlePrint = () => {
+        const printContent = pdfExportRef.current?.innerHTML;
+        if (!printContent) {
+            toast({ title: "Print Error", description: "Could not find report content to print.", variant: "destructive" });
+            return;
+        }
+
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write(
+                '<html><head><title>Member Report - ' + data.user.name + '</title>' +
+                '<style>' +
+                'body { font-family: sans-serif; }' +
+                'table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; page-break-inside: auto; }' +
+                'tr { page-break-inside: avoid; page-break-after: auto; }' +
+                'thead { display: table-header-group; }' +
+                'tfoot { display: table-footer-group; }' +
+                'th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }' +
+                'th { background-color: #f2f2f2; }' +
+                'h1, h2 { border-bottom: 2px solid #ccc; padding-bottom: 0.5rem; margin-bottom: 1rem; }' +
+                '</style>' +
+                '</head><body>' +
+                printContent +
+                '</body></html>'
+            );
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            printWindow.close();
+        }
+    };
 
     return (
         <Card className="shadow-lg mt-6" id="printable-area">
@@ -203,7 +234,7 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                     </CardDescription>
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
-                    <Button variant="outline" onClick={() => window.print()} size="sm" className="w-full sm:w-auto">
+                    <Button variant="outline" onClick={handlePrint} size="sm" className="w-full sm:w-auto">
                         <Printer className="mr-2 h-4 w-4" /> Print
                     </Button>
                     <Button onClick={handleExportPDF} disabled={isDownloading} size="sm" className="w-full sm:w-auto">
@@ -213,7 +244,6 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                 </div>
             </CardHeader>
             <CardContent className="p-6 space-y-8">
-                 {/* Visible UI Section */}
                 <Card>
                     <CardHeader className="flex flex-row items-center gap-4">
                         <Avatar className="h-20 w-20">
@@ -245,8 +275,7 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
 
             </CardContent>
             
-             {/* Hidden Div for PDF Export */}
-            <div className="absolute -left-[9999px] top-auto w-[800px] bg-white text-black p-8" ref={pdfExportRef}>
+            <div style={{ position: 'absolute', left: '-9999px', top: 'auto', width: '800px', backgroundColor: 'white', color: 'black', padding: '2rem' }} ref={pdfExportRef}>
                 <div className="space-y-6">
                     <div className="text-center border-b pb-4">
                         <h1 className="text-3xl font-bold">{data.user.name}</h1>
@@ -266,7 +295,7 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
 
                     {data.attendanceHistory.length > 0 && <FullTable title="Attendance History" data={data.attendanceHistory} headers={["#", "Miqaat", "Date", "Status"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.miqaatName}</td><td>{format(new Date(rec.markedAt), "PP p")}</td><td>{rec.status}</td></>)} />}
                     {data.duaHistory.length > 0 && <FullTable title="Dua Submissions" data={data.duaHistory} headers={["#", "Week ID", "Dua Kamil", "Surat Kahf", "Submitted"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.weekId}</td><td>{rec.duaKamilCount}</td><td>{rec.kahfCount}</td><td>{format(new Date(rec.markedAt), "PP p")}</td></>)} />}
-                    {data.formHistory.length > 0 && <FullTable title="Form History" data={data.formHistory} headers={["#", "Form Title", "Status", "Date"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.title}</td><td>{rec.submissionStatus}</td><td>{rec.submissionStatus === 'Filled' ? format(new Date(rec.submittedAt), "PP p") : 'N/A'}</td></>)} />}
+                    {data.formHistory.length > 0 && <FullTable title="Form History" data={data.formHistory} headers={["#", "Form Title", "Status", "Date"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.title}</td><td>{rec.submissionStatus}</td><td>{rec.submissionStatus === 'Filled' && rec.submittedAt ? format(new Date(rec.submittedAt), "PP p") : 'N/A'}</td></>)} />}
                     {data.loginHistory.length > 0 && <FullTable title="Login History" data={data.loginHistory} headers={["#", "Event", "Date & Time"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.message}</td><td>{format(new Date(rec.timestamp), "PP p")}</td></>)} />}
                 </div>
             </div>
@@ -367,7 +396,7 @@ export default function ReportsPage() {
   const [isBulkMarking, setIsBulkMarking] = useState(false);
 
   const chartRef = useRef<HTMLDivElement>(null);
-  const printRef = useRef<HTMLDivElement>(null); // Ref for the hidden print area
+  const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   const form = useForm<ReportFormValues>({
@@ -834,7 +863,6 @@ export default function ReportsPage() {
             row.uniformCompliance?.shoes ?? "N/A",
           );
         } else {
-            // For reports that are not miqaat specific, add placeholders
             rowData.push("N/A", "N/A");
         }
         
@@ -936,23 +964,18 @@ export default function ReportsPage() {
 
     const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Print Report</title>
-            <style>
-              body { font-family: sans-serif; }
-              table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-              th { background-color: #f2f2f2; }
-              h1, h2 { border-bottom: 2px solid #ccc; padding-bottom: 0.5rem; margin-bottom: 1rem; }
-            </style>
-          </head>
-          <body>
-            ${printContent}
-          </body>
-        </html>
-      `);
+      printWindow.document.write(
+          '<html><head><title>Print Report</title>' +
+          '<style>' +
+          'body { font-family: sans-serif; }' +
+          'table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }' +
+          'th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }' +
+          'th { background-color: #f2f2f2; }' +
+          'h1, h2 { border-bottom: 2px solid #ccc; padding-bottom: 0.5rem; margin-bottom: 1rem; }' +
+          '</style></head><body>' +
+          printContent +
+          '</body></html>'
+      );
       printWindow.document.close();
       printWindow.focus();
       printWindow.print();
@@ -976,8 +999,8 @@ export default function ReportsPage() {
   const canShowGraphButton = (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity") && chartData && chartData.length > 0;
   
   const dynamicChartHeight = useMemo(() => {
-    if (chartType !== 'horizontal_bar' || !chartData) return 400; // Default height
-    return Math.max(400, chartData.length * 40); // 40px per bar, with a minimum of 400px
+    if (chartType !== 'horizontal_bar' || !chartData) return 400;
+    return Math.max(400, chartData.length * 40);
   }, [chartData, chartType]);
   
   const isNonAttendanceReport = watchedReportType === 'non_attendance_miqaat';
@@ -1029,7 +1052,7 @@ export default function ReportsPage() {
                       <FormLabel>Report Type</FormLabel>
                       <Select onValueChange={(value) => {
                         field.onChange(value);
-                        form.setValue('miqaatId', ''); // Reset miqaat on report type change
+                        form.setValue('miqaatId', '');
                       }} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -1040,7 +1063,7 @@ export default function ReportsPage() {
                           <SelectItem value="miqaat_summary">Miqaat Summary (Roster)</SelectItem>
                           <SelectItem value="miqaat_safar_list">Miqaat Safar List</SelectItem>
                           <SelectItem value="non_attendance_miqaat">Miqaat Non-Attendance</SelectItem>
-                          <SelectItem value="member_attendance">Member Report</SelectItem>
+                          <SelectItem value="member_attendance">Member Profile Report</SelectItem>
                           <SelectItem value="overall_activity">Overall Activity Log</SelectItem>
                         </SelectContent>
                       </Select>
@@ -1056,7 +1079,7 @@ export default function ReportsPage() {
                           value={miqaatTypeFilter}
                           onValueChange={(value) => {
                               setMiqaatTypeFilter(value as 'local' | 'international' | 'all');
-                              form.setValue('miqaatId', ''); // Reset miqaat selection
+                              form.setValue('miqaatId', '');
                           }}
                           className="flex space-x-4 pt-2"
                       >
@@ -1327,14 +1350,13 @@ export default function ReportsPage() {
           <MemberProfileReport data={memberProfileData} generatorName={currentUserName}/>
       )}
 
-      <div className="printable-content">
-        {reportData && !memberProfileData && (
+      {reportData && !memberProfileData && (
           <Card className="shadow-lg mt-6">
             <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print-hide">
               <div className="flex-grow">
                   <CardTitle>Report Results</CardTitle>
                   <Separator className="my-2" />
-                  <CardDescription>Displaying {filteredReportData?.length || 0} of {reportData.length} record(s){(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && selectedMiqaatForForm && ` for Miqaat: ${selectedMiqaatForForm?.name}`}{watchedReportType === "member_attendance" && form.getValues("memberId") && ` for ID: ${form.getValues("memberId")}`}{form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}{form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.</CardDescription>
+                  <CardDescription>Displaying {filteredReportData?.length || 0} of {reportData.length} record(s){(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && selectedMiqaatForForm && ` for Miqaat: ${selectedMiqaatForForm.name}`}{watchedReportType === "member_attendance" && form.getValues("memberId") && ` for ID: ${form.getValues("memberId")}`}{form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}{form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.</CardDescription>
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
                   <Button variant="outline" onClick={handlePrint} size="sm" className="w-full sm:w-auto"><Printer className="mr-2 h-4 w-4" />Print</Button>
@@ -1659,10 +1681,8 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         )}
-      </div>
-
-      {/* Hidden container for printing */}
-      <div className="hidden print:block" ref={printRef}>
+      
+      <div className="hidden print-block" ref={printRef}>
         {reportData && !memberProfileData && (
           <div>
             <h1>Report: {form.getValues("reportType").replace(/_/g, ' ')}</h1>
@@ -1672,7 +1692,7 @@ export default function ReportsPage() {
               title="Report Results"
               data={filteredReportData || []}
               headers={["#", "Name", "ITS", "Miqaat", "Date", "Status"]}
-              renderRow={(rec, i) => (
+              renderRow={(rec:any, i:number) => (
                 <>
                   <td>{i + 1}</td>
                   <td>{rec.userName}</td>
@@ -1684,19 +1704,6 @@ export default function ReportsPage() {
               )}
             />
           </div>
-        )}
-        {memberProfileData && (
-           <div className="space-y-6">
-                <div className="text-center border-b pb-4">
-                    <h1 className="text-3xl font-bold">{memberProfileData.user.name}</h1>
-                    <p className="text-sm">ITS: {memberProfileData.user.itsId} / BGK: {memberProfileData.user.bgkId || 'N/A'}</p>
-                    <p className="text-sm">{memberProfileData.user.designation || "Member"} &middot; {memberProfileData.user.team || "No Team"}</p>
-                </div>
-                {memberProfileData.attendanceHistory.length > 0 && <FullTable title="Attendance History" data={memberProfileData.attendanceHistory} headers={["#", "Miqaat", "Date", "Status"]} renderRow={(rec, i) => (<><td>{i+1}</td><td>{rec.miqaatName}</td><td>{format(new Date(rec.markedAt), "PP p")}</td><td>{rec.status}</td></>)} />}
-                {memberProfileData.duaHistory.length > 0 && <FullTable title="Dua Submissions" data={memberProfileData.duaHistory} headers={["#", "Week ID", "Dua Kamil", "Surat Kahf", "Submitted"]} renderRow={(rec, i) => (<><td>{i+1}</td><td>{rec.weekId}</td><td>{rec.duaKamilCount}</td><td>{rec.kahfCount}</td><td>{format(new Date(rec.markedAt), "PP p")}</td></>)} />}
-                {memberProfileData.formHistory.length > 0 && <FullTable title="Form History" data={memberProfileData.formHistory} headers={["#", "Form Title", "Status", "Date"]} renderRow={(rec, i) => (<><td>{i+1}</td><td>{rec.title}</td><td>{rec.submissionStatus}</td><td>{rec.submissionStatus === 'Filled' ? format(new Date(rec.submittedAt), "PP p") : 'N/A'}</td></>)} />}
-                {memberProfileData.loginHistory.length > 0 && <FullTable title="Login History" data={memberProfileData.loginHistory} headers={["#", "Event", "Date & Time"]} renderRow={(rec, i) => (<><td>{i+1}</td><td>{rec.message}</td><td>{format(new Date(rec.timestamp), "PP p")}</td></>)} />}
-           </div>
         )}
       </div>
 
