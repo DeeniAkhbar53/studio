@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Bell, LogOut, Menu, UserCircle, Settings, HelpCircle, FileText, X } from "lucide-react";
+import { Bell, LogOut, Menu, UserCircle, Settings, HelpCircle, FileText, X, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,6 +11,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { SidebarNav } from "./sidebar-nav";
@@ -47,6 +50,29 @@ export function Header() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [theme, setTheme] = useState("light");
+
+  useEffect(() => {
+    // Theme logic
+    const storedTheme = localStorage.getItem("theme") || "system";
+    setTheme(storedTheme);
+    if (storedTheme === "dark" || (storedTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
+  const handleSetTheme = (newTheme: "light" | "dark" | "system") => {
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+    if (newTheme === "dark" || (newTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  };
+
 
   useEffect(() => {
     const loadAuthData = async () => {
@@ -258,6 +284,16 @@ export function Header() {
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>Profile</DropdownMenuItem>
+           <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              Theme
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onClick={() => handleSetTheme('light')}>Light</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSetTheme('dark')}>Dark</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleSetTheme('system')}>System</DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />

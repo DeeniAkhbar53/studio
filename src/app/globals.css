@@ -4,33 +4,33 @@
 
 @layer base {
   :root {
-    --background: 220 20% 98%; /* Original: Sunlit Ivory #F7F4EE -> HSL */
-    --foreground: 215 28% 17%; /* Charcoal Mist */
+    --background: 220 20% 98%;
+    --foreground: 215 28% 17%;
 
     --card: 240 20% 100%;
     --card-foreground: 215 28% 17%;
 
     --popover: 240 20% 100%;
     --popover-foreground: 215 28% 17%;
+    
+    --primary: 221 44% 49%; /* #3F51B5 Deep Blue */
+    --primary-foreground: 0 0% 100%;
 
-    --primary: 209 82% 17%; /* Midnight Blue */
-    --primary-foreground: 45 80% 98%;
+    --secondary: 260 21% 63%; /* #9575CD Soft Purple */
+    --secondary-foreground: 0 0% 100%;
 
-    --secondary: 207 100% 19%; /* Nautical Blue */
-    --secondary-foreground: 45 80% 98%;
+    --muted: 220 13% 91%; /* #F0F2F5 Light Gray */
+    --muted-foreground: 215 28% 45%;
 
-    --muted: 210 20% 90%;
-    --muted-foreground: 210 10% 45%;
-
-    --accent: 45 83% 54%; /* Golden Aura */
+    --accent: 220 13% 91%;
     --accent-foreground: 215 28% 17%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 210 20% 88%;
-    --input: 210 20% 88%;
-    --ring: 45 83% 54%; /* Golden Aura */
+    --border: 220 13% 85%;
+    --input: 220 13% 88%;
+    --ring: 221 44% 49%;
 
     --radius: 0.5rem;
 
@@ -52,33 +52,33 @@
   }
 
   .dark {
-    --background: 215 28% 17%; /* Charcoal Mist */
-    --foreground: 240 20% 90%;
+    --background: 220 10% 10%;
+    --foreground: 220 10% 90%;
+    
+    --card: 220 10% 15%;
+    --card-foreground: 220 10% 90%;
+    
+    --popover: 220 10% 12%;
+    --popover-foreground: 220 10% 90%;
 
-    --card: 215 28% 22%;
-    --card-foreground: 240 20% 90%;
+    --primary: 221 44% 59%; /* Lighter Deep Blue */
+    --primary-foreground: 0 0% 100%;
 
-    --popover: 215 28% 10%;
-    --popover-foreground: 240 20% 90%;
+    --secondary: 260 21% 73%; /* Lighter Soft Purple */
+    --secondary-foreground: 220 10% 10%;
 
-    --primary: 45 83% 54%; /* Golden Aura */
-    --primary-foreground: 215 28% 12%;
+    --muted: 220 10% 20%;
+    --muted-foreground: 220 10% 65%;
+    
+    --accent: 220 10% 20%;
+    --accent-foreground: 220 10% 90%;
 
-    --secondary: 207 100% 19%; /* Nautical Blue */
-    --secondary-foreground: 240 20% 98%;
-
-    --muted: 215 28% 25%;
-    --muted-foreground: 210 10% 60%;
-
-    --accent: 215 28% 30%;
-    --accent-foreground: 0 0% 98%;
-
-    --destructive: 0 72% 51%;
+    --destructive: 0 63% 51%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 215 28% 25%;
-    --input: 215 28% 25%;
-    --ring: 45 83% 54%;
+    --border: 220 10% 25%;
+    --input: 220 10% 25%;
+    --ring: 221 44% 59%;
     
     --sidebar-background: 215 28% 15%; 
     --sidebar-foreground: 240 20% 95%;
