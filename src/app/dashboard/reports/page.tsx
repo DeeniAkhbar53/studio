@@ -156,9 +156,9 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                 '.container { padding: 2rem; }' +
                 'h2 { font-size: 1.5rem; color: #0A314D; border-bottom: 2px solid #EABD13; padding-bottom: 0.5rem; margin-top: 2rem; margin-bottom: 1rem; }' +
                 '.header { background-color: #0A314D; color: white; padding: 1.5rem; border-radius: 8px 8px 0 0; text-align: center; }' +
-                '.header h1 { color: #fff; border-bottom: 1px solid #EABD13; font-size: 2.5rem; margin: 0; padding-bottom: 0.5rem; }' +
+                '.header h1 { color: #fff; border-bottom: 1px solid #EABD13; font-size: 2rem; margin: 0; padding-bottom: 0.5rem; }' +
                 '.header p { margin: 0.25rem 0; opacity: 0.9; }' +
-                '.summary { text-align: center; padding: 1rem; margin-bottom: 1rem; border-bottom: 1px solid #eee; }' +
+                '.summary { text-align: center; padding: 1rem; margin: 1rem 0; border-bottom: 1px solid #eee; }' +
                 '.summary span { margin: 0 1rem; font-size: 1rem; }' +
                 '.summary span b { color: #0A314D; }' +
                 'table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; page-break-inside: auto; background-color: #fff; }' +
@@ -498,7 +498,7 @@ export default function ReportsPage() {
                             sessions.forEach(session => {
                                 const sessionKey = `${miqaat.id}-${session.id}`;
                                 if (!attendedMiqaatSessionKeys.has(sessionKey)) {
-                                    records.push({ id: `absent-${sessionKey}-${member.itsId}`, miqaatId: miqaat.id, miqaatName: miqaat.name, miqaatType: miqaat.type, userItsId: member.itsId, userName: member.name, markedAt: session.startTime, status: 'absent' });
+                                    records.push({ id: `absent-${sessionKey}-${member.itsId}`, miqaatId: miqaat.id, miqaatName: miqaat.name, miqaatType: miqaat.type, userItsId: member.itsId, userName: member.name, markedAt: session.startTime, status: 'absent' as const });
                                 }
                             });
                         }
