@@ -208,9 +208,9 @@ export default function ManageNotificationsPage() {
                 <CardTitle className="flex items-center"><BellRing className="mr-2 h-6 w-6 text-primary" />Manage Notifications</CardTitle>
                 <CardDescription className="mt-1">Create and publish new notifications for specific user groups or all users.</CardDescription>
             </div>
-             <Button onClick={handlePostNotification} disabled={isSubmitting || isLoading} size="sm">
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                Post Notification
+             <Button onClick={handlePostNotification} disabled={true} size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Coming Soon
             </Button>
           </div>
         </CardHeader>
@@ -223,7 +223,7 @@ export default function ManageNotificationsPage() {
               onChange={(e) => setNewNotificationTitle(e.target.value)}
               placeholder="Enter notification title"
               className="mt-1"
-              disabled={isSubmitting}
+              disabled={true}
             />
           </div>
           <div>
@@ -234,12 +234,12 @@ export default function ManageNotificationsPage() {
               onChange={(e) => setNewNotificationContent(e.target.value)}
               placeholder="Enter notification details..."
               className="mt-1 min-h-[100px]"
-              disabled={isSubmitting}
+              disabled={true}
             />
           </div>
           <div>
             <Label htmlFor="notification-audience">Target Audience</Label>
-            <Select value={newNotificationAudience} onValueChange={(value) => setNewNotificationAudience(value as 'all' | UserRole)} disabled={isSubmitting}>
+            <Select value={newNotificationAudience} onValueChange={(value) => setNewNotificationAudience(value as 'all' | UserRole)} disabled={true}>
               <SelectTrigger id="notification-audience" className="mt-1">
                 <SelectValue placeholder="Select target audience" />
               </SelectTrigger>
