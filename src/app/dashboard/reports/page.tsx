@@ -124,7 +124,7 @@ const ALL_DESIGNATIONS: UserDesignation[] = ["Asst.Grp Leader", "Captain", "Grou
 const ALL_STATUSES: AttendanceRecord['status'][] = ["present", "late", "early", "absent", "safar", "not-eligible"];
 
 
-const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData, generatorName: string }) => {
+const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData; generatorName: string }) => {
     const { toast } = useToast();
     const reportRef = useRef<HTMLDivElement>(null);
     const [isDownloading, setIsDownloading] = useState(false);
@@ -956,7 +956,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg">
+      <Card className="shadow-lg print-hide">
         <CardHeader>
           <CardTitle className="flex items-center"><BarChart className="mr-2 h-5 w-5 text-primary"/>Generate Report</CardTitle>
           <Separator className="my-2" />
@@ -985,7 +985,7 @@ export default function ReportsPage() {
                           <SelectItem value="miqaat_summary">Miqaat Summary (Roster)</SelectItem>
                           <SelectItem value="miqaat_safar_list">Miqaat Safar List</SelectItem>
                           <SelectItem value="non_attendance_miqaat">Miqaat Non-Attendance</SelectItem>
-                          <SelectItem value="member_attendance">Member Profile Report</SelectItem>
+                          <SelectItem value="member_attendance">Member Report</SelectItem>
                           <SelectItem value="overall_activity">Overall Activity Log</SelectItem>
                         </SelectContent>
                       </Select>
@@ -1272,340 +1272,342 @@ export default function ReportsPage() {
           <MemberProfileReport data={memberProfileData} generatorName={currentUserName}/>
       )}
 
-      {reportData && !memberProfileData && (
-        <Card className="shadow-lg mt-6 printable-content">
-          <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print-hide">
-            <div className="flex-grow">
-                <CardTitle>Report Results</CardTitle>
-                <Separator className="my-2" />
-                <CardDescription>Displaying {filteredReportData?.length || 0} of {reportData.length} record(s){(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && selectedMiqaatDetails && ` for Miqaat: ${selectedMiqaatDetails.name}`}{watchedReportType === "member_attendance" && form.getValues("memberId") && ` for ID: ${form.getValues("memberId")}`}{form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}{form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.</CardDescription>
-            </div>
-            <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
-                <Button variant="outline" onClick={() => window.print()} size="sm" className="w-full sm:w-auto"><Printer className="mr-2 h-4 w-4" />Print</Button>
-                {isNonAttendanceReport && selectedIds.length > 0 && (<Button onClick={handleBulkMarkAsSafar} disabled={isBulkMarking} size="sm" className="w-full sm:w-auto">{isBulkMarking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}Mark ({selectedIds.length}) as Safar</Button>)}
-                {canShowGraphButton && (
-                  <Dialog open={isGraphDialogOpen} onOpenChange={setIsGraphDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                          <BarChart className="mr-2 h-4 w-4" /> Generate Graph
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="w-[95vw] max-w-4xl h-[90vh] flex flex-col">
-                        <DialogHeader>
-                            <DialogTitle>Report Graph</DialogTitle>
-                            <DialogDescription>
-                                Visualize the attendance data from your report.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="py-4 flex-1 flex flex-col gap-4 min-h-0">
-                            <div className="mb-4 p-4 border rounded-lg flex flex-col md:flex-row gap-4 items-center justify-between">
-                                <div className="flex flex-col sm:flex-row gap-4 items-center">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="chart-type">Chart Type</Label>
-                                        <Select value={chartType} onValueChange={(v) => setChartType(v as ChartType)}>
-                                            <SelectTrigger id="chart-type" className="w-full sm:w-[180px]">
-                                                <SelectValue placeholder="Select type" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="vertical_bar">Vertical Bar</SelectItem>
-                                                <SelectItem value="horizontal_bar">Horizontal Bar</SelectItem>
-                                                <SelectItem value="pie">Pie Chart (by Miqaat)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2 self-start pt-2 sm:pt-0">
-                                        <Label>Download Options</Label>
-                                        <div className="flex gap-4 pt-2">
-                                            <div className="flex items-center space-x-2">
-                                                <Checkbox id="include-title" checked={downloadOptions.includeTitle} onCheckedChange={(c) => setDownloadOptions(prev => ({...prev, includeTitle: !!c}))} />
-                                                <Label htmlFor="include-title" className="text-sm font-normal">Include Title</Label>
-                                            </div>
-                                            <div className="flex items-center space-x-2">
-                                                <Checkbox id="include-legend" checked={downloadOptions.includeLegend} onCheckedChange={(c) => setDownloadOptions(prev => ({...prev, includeLegend: !!c}))} />
-                                                <Label htmlFor="include-legend" className="text-sm font-normal">Include Legend</Label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <Button onClick={handleDownloadChart} disabled={isDownloading} className="w-full md:w-auto">
-                                    {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                                    Download as PNG
-                                </Button>
-                            </div>
-
-                            <div ref={chartRef} className="bg-background p-4 rounded-lg flex-1 overflow-auto">
-                                {downloadOptions.includeTitle && <h3 className="text-lg font-semibold text-center mb-4">{form.getValues("reportType").replace(/_/g, ' ')} Report</h3>}
-                                {chartData && chartData.length > 0 ? (
-                                    <ChartContainer config={chartConfig} className="w-full" style={{ height: `${dynamicChartHeight}px`, minHeight: '400px' }}>
-                                        {chartType === 'vertical_bar' && (
-                                            <RechartsBarChart accessibilityLayer data={chartData}>
-                                                <CartesianGrid vertical={false} />
-                                                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} angle={-45} textAnchor="end" interval={0} height={120} />
-                                                <YAxis />
-                                                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-                                                {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
-                                                <Bar dataKey="present" fill="var(--color-present)" radius={4} stackId="a" />
-                                                <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
-                                            </RechartsBarChart>
-                                        )}
-                                        {chartType === 'horizontal_bar' && (
-                                             <RechartsBarChart accessibilityLayer data={chartData} layout="vertical">
-                                                <CartesianGrid horizontal={false} />
-                                                <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={8} width={150} interval={0} />
-                                                <XAxis type="number" />
-                                                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
-                                                {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
-                                                <Bar dataKey="present" fill="var(--color-present)" radius={4} stackId="a" />
-                                                <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
-                                            </RechartsBarChart>
-                                        )}
-                                        {chartType === 'pie' && (
-                                           <ResponsiveContainer width="100%" height="100%">
-                                            <RechartsPieChart>
-                                                 <ChartTooltip cursor={false} content={<ChartTooltipContent nameKey="name" indicator="dot" />} />
-                                                 <Pie data={pieChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={'80%'} label>
-                                                    {pieChartData.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={pieChartColors[index % pieChartColors.length]} />
-                                                    ))}
-                                                 </Pie>
-                                                  {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
-                                            </RechartsPieChart>
-                                            </ResponsiveContainer>
-                                        )}
-                                    </ChartContainer>
-                                ) : (
-                                    <div className="flex items-center justify-center min-h-[400px] text-muted-foreground">
-                                        <p>No data to display in chart.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </DialogContent>
-                  </Dialog>
-                )}
-                <Button variant="outline" onClick={handleExport} disabled={!filteredReportData || filteredReportData.length === 0 || isLoading} size="sm" className="w-full sm:w-auto">
-                  <Download className="mr-2 h-4 w-4" /> Export CSV
-                </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {reportSummary && watchedReportType === 'miqaat_summary' && (
-                <Card className="mb-6 bg-muted/30">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Miqaat Summary</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
-                            <div className="p-2 rounded-lg bg-background">
-                                <p className="text-sm text-muted-foreground">Eligible</p>
-                                <p className="text-2xl font-bold">{reportSummary.totalEligible}</p>
-                            </div>
-                            <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
-                                <p className="text-sm text-green-800 dark:text-green-200">Present</p>
-                                <p className="text-2xl font-bold text-green-900 dark:text-green-100">{reportSummary.present}</p>
-                            </div>
-                            <div className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
-                                <p className="text-sm text-yellow-800 dark:text-yellow-200">Late</p>
-                                <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{reportSummary.late}</p>
-                            </div>
-                             <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                                <p className="text-sm text-blue-800 dark:text-blue-200">Early</p>
-                                <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{reportSummary.early}</p>
-                            </div>
-                            <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
-                                <p className="text-sm text-red-800 dark:text-red-200">Absent</p>
-                                <p className="text-2xl font-bold text-red-900 dark:text-red-100">{reportSummary.absent}</p>
-                            </div>
-                            <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-                                <p className="text-sm text-indigo-800 dark:text-indigo-200">Safar</p>
-                                <p className="text-2xl font-bold text-indigo-900 dark:text-indigo-100">{reportSummary.safar}</p>
-                            </div>
-                        </div>
-                         <div className="mt-4 text-center">
-                                <p className="text-lg font-semibold">{reportSummary.attendancePercentage.toFixed(1)}%</p>
-                                <p className="text-sm text-muted-foreground">Attendance Rate (Present+Late+Early / Eligible)</p>
-                            </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            <div className="relative mb-4">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search report results by name, ITS, or BGK ID..."
-                className="pl-8 w-full md:w-1/2 lg:w-1/3"
-                value={reportSearchTerm}
-                onChange={(e) => setReportSearchTerm(e.target.value)}
-              />
-            </div>
-            
-            {filteredReportData && filteredReportData.length > 0 ? (
-             <>
-                <div className="md:hidden">
-                  <Accordion type="single" collapsible className="w-full">
-                    {filteredReportData.map((record, index) => (
-                      <AccordionItem value={`${record.id}-${record.date || index}`} key={`${record.id}-${record.date || index}`}>
-                        <div className="flex items-center w-full">
-                          {isNonAttendanceReport && (
-                            <div className="pl-4 py-4">
-                              <Checkbox
-                                id={`mobile-select-${record.userItsId}`}
-                                checked={selectedIds.includes(record.userItsId)}
-                                onCheckedChange={(checked) => {
-                                  setSelectedIds(prev => checked ? [...prev, record.userItsId] : prev.filter(id => id !== record.userItsId));
-                                }}
-                                aria-label={`Select member ${record.userName}`}
-                              />
-                            </div>
-                          )}
-                          <AccordionTrigger className={cn("flex-grow", !isNonAttendanceReport && "pl-4")}>
-                            <div className="flex items-center gap-4 flex-grow text-left">
-                              <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
-                              <div className="flex-grow">
-                                <p className="font-semibold text-card-foreground">{record.userName}</p>
-                                <p className="text-xs text-muted-foreground">ITS: {record.userItsId}</p>
+      <div className="printable-content">
+        {reportData && !memberProfileData && (
+          <Card className="shadow-lg mt-6">
+            <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print-hide">
+              <div className="flex-grow">
+                  <CardTitle>Report Results</CardTitle>
+                  <Separator className="my-2" />
+                  <CardDescription>Displaying {filteredReportData?.length || 0} of {reportData.length} record(s){(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && selectedMiqaatDetails && ` for Miqaat: ${selectedMiqaatForForm?.name}`}{watchedReportType === "member_attendance" && form.getValues("memberId") && ` for ID: ${form.getValues("memberId")}`}{form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}{form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.</CardDescription>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
+                  <Button variant="outline" onClick={() => window.print()} size="sm" className="w-full sm:w-auto"><Printer className="mr-2 h-4 w-4" />Print</Button>
+                  {isNonAttendanceReport && selectedIds.length > 0 && (<Button onClick={handleBulkMarkAsSafar} disabled={isBulkMarking} size="sm" className="w-full sm:w-auto">{isBulkMarking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}Mark ({selectedIds.length}) as Safar</Button>)}
+                  {canShowGraphButton && (
+                    <Dialog open={isGraphDialogOpen} onOpenChange={setIsGraphDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                            <BarChart className="mr-2 h-4 w-4" /> Generate Graph
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="w-[95vw] max-w-4xl h-[90vh] flex flex-col">
+                          <DialogHeader>
+                              <DialogTitle>Report Graph</DialogTitle>
+                              <DialogDescription>
+                                  Visualize the attendance data from your report.
+                              </DialogDescription>
+                          </DialogHeader>
+                          <div className="py-4 flex-1 flex flex-col gap-4 min-h-0">
+                              <div className="mb-4 p-4 border rounded-lg flex flex-col md:flex-row gap-4 items-center justify-between">
+                                  <div className="flex flex-col sm:flex-row gap-4 items-center">
+                                      <div className="space-y-2">
+                                          <Label htmlFor="chart-type">Chart Type</Label>
+                                          <Select value={chartType} onValueChange={(v) => setChartType(v as ChartType)}>
+                                              <SelectTrigger id="chart-type" className="w-full sm:w-[180px]">
+                                                  <SelectValue placeholder="Select type" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                  <SelectItem value="vertical_bar">Vertical Bar</SelectItem>
+                                                  <SelectItem value="horizontal_bar">Horizontal Bar</SelectItem>
+                                                  <SelectItem value="pie">Pie Chart (by Miqaat)</SelectItem>
+                                              </SelectContent>
+                                          </Select>
+                                      </div>
+                                      <div className="space-y-2 self-start pt-2 sm:pt-0">
+                                          <Label>Download Options</Label>
+                                          <div className="flex gap-4 pt-2">
+                                              <div className="flex items-center space-x-2">
+                                                  <Checkbox id="include-title" checked={downloadOptions.includeTitle} onCheckedChange={(c) => setDownloadOptions(prev => ({...prev, includeTitle: !!c}))} />
+                                                  <Label htmlFor="include-title" className="text-sm font-normal">Include Title</Label>
+                                              </div>
+                                              <div className="flex items-center space-x-2">
+                                                  <Checkbox id="include-legend" checked={downloadOptions.includeLegend} onCheckedChange={(c) => setDownloadOptions(prev => ({...prev, includeLegend: !!c}))} />
+                                                  <Label htmlFor="include-legend" className="text-sm font-normal">Include Legend</Label>
+                                              </div>
+                                          </div>
+                                      </div>
+                                  </div>
+                                  <Button onClick={handleDownloadChart} disabled={isDownloading} className="w-full md:w-auto">
+                                      {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                                      Download as PNG
+                                  </Button>
                               </div>
-                              <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
-                                record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800' :
-                                record.status === 'absent' ? 'bg-red-100 text-red-800' :
-                                record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                                record.status === 'safar' ? 'bg-blue-100 text-blue-800' :
-                                'bg-gray-100 text-gray-800'
-                              )}>
-                                {record.status}
-                              </span>
-                            </div>
-                          </AccordionTrigger>
-                        </div>
-                        <AccordionContent className="space-y-2 pt-2">
-                          <div className="px-2 text-sm text-muted-foreground">
-                            <div><strong>BGK ID:</strong> {record.bgkId || "N/A"}</div>
-                            <div><strong>Team:</strong> {record.team || "N/A"}</div>
-                            <div><strong>Miqaat:</strong> {record.miqaatName}</div>
-                            <div><strong>Type:</strong> <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></div>
-                            <div><strong>Session:</strong> {record.sessionName || "N/A"}</div>
-                            <div><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</div>
-                            {(watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
-                              <div><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</div>
-                            }
-                            {record.uniformCompliance && (
-                              <>
-                                {reportMiqaatType === 'local' && <div><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri ?? 'N/A'}</div>}
-                                {reportMiqaatType === 'local' && <div><strong>Koti:</strong> {record.uniformCompliance.koti ?? 'N/A'}</div>}
-                                {reportMiqaatType === 'international' && <div><strong>Uniform:</strong> {record.uniformCompliance.uniform ?? 'N/A'}</div>}
-                                {reportMiqaatType === 'international' && <div><strong>Shoes:</strong> {record.uniformCompliance.shoes ?? 'N/A'}</div>}
-                                <div><strong>Nazrul Maqam:</strong> {record.uniformCompliance.nazrulMaqam ? `${record.uniformCompliance.nazrulMaqam.amount} ${record.uniformCompliance.nazrulMaqam.currency}` : 'N/A'}</div>
-                              </>
-                            )}
+
+                              <div ref={chartRef} className="bg-background p-4 rounded-lg flex-1 overflow-auto">
+                                  {downloadOptions.includeTitle && <h3 className="text-lg font-semibold text-center mb-4">{form.getValues("reportType").replace(/_/g, ' ')} Report</h3>}
+                                  {chartData && chartData.length > 0 ? (
+                                      <ChartContainer config={chartConfig} className="w-full" style={{ height: `${dynamicChartHeight}px`, minHeight: '400px' }}>
+                                          {chartType === 'vertical_bar' && (
+                                              <RechartsBarChart accessibilityLayer data={chartData}>
+                                                  <CartesianGrid vertical={false} />
+                                                  <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} angle={-45} textAnchor="end" interval={0} height={120} />
+                                                  <YAxis />
+                                                  <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                                                  {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
+                                                  <Bar dataKey="present" fill="var(--color-present)" radius={4} stackId="a" />
+                                                  <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
+                                              </RechartsBarChart>
+                                          )}
+                                          {chartType === 'horizontal_bar' && (
+                                               <RechartsBarChart accessibilityLayer data={chartData} layout="vertical">
+                                                  <CartesianGrid horizontal={false} />
+                                                  <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} tickMargin={8} width={150} interval={0} />
+                                                  <XAxis type="number" />
+                                                  <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                                                  {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
+                                                  <Bar dataKey="present" fill="var(--color-present)" radius={4} stackId="a" />
+                                                  <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
+                                              </RechartsBarChart>
+                                          )}
+                                          {chartType === 'pie' && (
+                                             <ResponsiveContainer width="100%" height="100%">
+                                              <RechartsPieChart>
+                                                   <ChartTooltip cursor={false} content={<ChartTooltipContent nameKey="name" indicator="dot" />} />
+                                                   <Pie data={pieChartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={'80%'} label>
+                                                      {pieChartData.map((entry, index) => (
+                                                          <Cell key={`cell-${index}`} fill={pieChartColors[index % pieChartColors.length]} />
+                                                      ))}
+                                                   </Pie>
+                                                    {downloadOptions.includeLegend && <ChartLegend content={<ChartLegendContent />} />}
+                                              </RechartsPieChart>
+                                              </ResponsiveContainer>
+                                          )}
+                                      </ChartContainer>
+                                  ) : (
+                                      <div className="flex items-center justify-center min-h-[400px] text-muted-foreground">
+                                          <p>No data to display in chart.</p>
+                                      </div>
+                                  )}
+                              </div>
                           </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                  <Button variant="outline" onClick={handleExport} disabled={!filteredReportData || filteredReportData.length === 0 || isLoading} size="sm" className="w-full sm:w-auto">
+                    <Download className="mr-2 h-4 w-4" /> Export CSV
+                  </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {reportSummary && watchedReportType === 'miqaat_summary' && (
+                  <Card className="mb-6 bg-muted/30">
+                      <CardHeader>
+                          <CardTitle className="text-lg">Miqaat Summary</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
+                              <div className="p-2 rounded-lg bg-background">
+                                  <p className="text-sm text-muted-foreground">Eligible</p>
+                                  <p className="text-2xl font-bold">{reportSummary.totalEligible}</p>
+                              </div>
+                              <div className="p-2 rounded-lg bg-green-100 dark:bg-green-900/30">
+                                  <p className="text-sm text-green-800 dark:text-green-200">Present</p>
+                                  <p className="text-2xl font-bold text-green-900 dark:text-green-100">{reportSummary.present}</p>
+                              </div>
+                              <div className="p-2 rounded-lg bg-yellow-100 dark:bg-yellow-900/30">
+                                  <p className="text-sm text-yellow-800 dark:text-yellow-200">Late</p>
+                                  <p className="text-2xl font-bold text-yellow-900 dark:text-yellow-100">{reportSummary.late}</p>
+                              </div>
+                               <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30">
+                                  <p className="text-sm text-blue-800 dark:text-blue-200">Early</p>
+                                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{reportSummary.early}</p>
+                              </div>
+                              <div className="p-2 rounded-lg bg-red-100 dark:bg-red-900/30">
+                                  <p className="text-sm text-red-800 dark:text-red-200">Absent</p>
+                                  <p className="text-2xl font-bold text-red-900 dark:text-red-100">{reportSummary.absent}</p>
+                              </div>
+                              <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
+                                  <p className="text-sm text-indigo-800 dark:text-indigo-200">Safar</p>
+                                  <p className="text-2xl font-bold text-indigo-900 dark:text-indigo-100">{reportSummary.safar}</p>
+                              </div>
+                          </div>
+                           <div className="mt-4 text-center">
+                                  <p className="text-lg font-semibold">{reportSummary.attendancePercentage.toFixed(1)}%</p>
+                                  <p className="text-sm text-muted-foreground">Attendance Rate (Present+Late+Early / Eligible)</p>
+                              </div>
+                      </CardContent>
+                  </Card>
+              )}
 
-
-                <div className="hidden md:block overflow-x-auto border rounded-lg">
-                    <Table>
-                    <TableHeader>
-                        <TableRow>
-                          {isNonAttendanceReport && (
-                            <TableHead className="w-[50px]">
-                              <Checkbox
-                                onCheckedChange={handleSelectAllOnPage}
-                                checked={filteredReportData.length > 0 && selectedIds.length === filteredReportData.length}
-                                aria-label="Select all"
-                              />
-                            </TableHead>
-                          )}
-                        <TableHead className="w-[50px]">Sr.No.</TableHead>
-                        <TableHead>Member Name</TableHead>
-                        <TableHead>ITS ID</TableHead>
-                        <TableHead>BGK ID</TableHead>
-                        <TableHead>Team</TableHead>
-                        <TableHead>Miqaat</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Session</TableHead>
-                        <TableHead>Date / Time</TableHead>
-                        <TableHead>Status</TableHead>
-                        {reportMiqaatType === 'local' ? ( <>
-                            <TableHead>Feta/Paghri</TableHead>
-                            <TableHead>Koti</TableHead>
-                        </> ) : reportMiqaatType === 'international' ? ( <>
-                            <TableHead>Uniform</TableHead>
-                            <TableHead>Shoes</TableHead>
-                        </> ) : null}
-                        <TableHead>N.Maqam Amount</TableHead>
-                        <TableHead>N.Maqam Currency</TableHead>
-                        { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
-                            <TableHead className="text-right">Marked By</TableHead>
-                        }
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filteredReportData.map((record, index) => (
-                        <TableRow key={`${record.id}-${record.date || index}`}>
+              <div className="relative mb-4 print-hide">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search report results by name, ITS, or BGK ID..."
+                  className="pl-8 w-full md:w-1/2 lg:w-1/3"
+                  value={reportSearchTerm}
+                  onChange={(e) => setReportSearchTerm(e.target.value)}
+                />
+              </div>
+              
+              {filteredReportData && filteredReportData.length > 0 ? (
+               <>
+                  <div className="md:hidden">
+                    <Accordion type="single" collapsible className="w-full">
+                      {filteredReportData.map((record, index) => (
+                        <AccordionItem value={`${record.id}-${record.date || index}`} key={`${record.id}-${record.date || index}`}>
+                          <div className="flex items-center w-full">
                             {isNonAttendanceReport && (
-                                <TableCell>
-                                    <Checkbox
-                                    checked={selectedIds.includes(record.userItsId)}
-                                    onCheckedChange={(checked) => {
-                                        setSelectedIds(prev => checked ? [...prev, record.userItsId] : prev.filter(id => id !== record.userItsId));
-                                    }}
-                                    aria-label={`Select row for ${record.userName}`}
-                                    />
-                                </TableCell>
+                              <div className="pl-4 py-4">
+                                <Checkbox
+                                  id={`mobile-select-${record.userItsId}`}
+                                  checked={selectedIds.includes(record.userItsId)}
+                                  onCheckedChange={(checked) => {
+                                    setSelectedIds(prev => checked ? [...prev, record.userItsId] : prev.filter(id => id !== record.userItsId));
+                                  }}
+                                  aria-label={`Select member ${record.userName}`}
+                                />
+                              </div>
                             )}
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell className="font-medium">{record.userName}</TableCell>
-                            <TableCell>{record.userItsId}</TableCell>
-                            <TableCell>{record.bgkId || 'N/A'}</TableCell>
-                            <TableCell>{record.team || 'N/A'}</TableCell>
-                            <TableCell>{record.miqaatName}</TableCell>
-                            <TableCell><Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></TableCell>
-                             <TableCell>{record.sessionName || 'N/A'}</TableCell>
-                            <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
-                            <TableCell>
-                                <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
-                                    record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                    record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                    record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                                    record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                    'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                            <AccordionTrigger className={cn("flex-grow", !isNonAttendanceReport && "pl-4")}>
+                              <div className="flex items-center gap-4 flex-grow text-left">
+                                <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
+                                <div className="flex-grow">
+                                  <p className="font-semibold text-card-foreground">{record.userName}</p>
+                                  <p className="text-xs text-muted-foreground">ITS: {record.userItsId}</p>
+                                </div>
+                                <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
+                                  record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800' :
+                                  record.status === 'absent' ? 'bg-red-100 text-red-800' :
+                                  record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
+                                  record.status === 'safar' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-gray-100 text-gray-800'
                                 )}>
-                                    {record.status}
+                                  {record.status}
                                 </span>
-                            </TableCell>
-                            {reportMiqaatType === 'local' && <>
-                                <TableCell>{record.uniformCompliance?.fetaPaghri ?? 'N/A'}</TableCell>
-                                <TableCell>{record.uniformCompliance?.koti ?? 'N/A'}</TableCell>
-                            </>}
-                             {reportMiqaatType === 'international' && <>
-                                <TableCell>{record.uniformCompliance?.uniform ?? 'N/A'}</TableCell>
-                                <TableCell>{record.uniformCompliance?.shoes ?? 'N/A'}</TableCell>
-                            </>}
-                            <TableCell>{record.uniformCompliance?.nazrulMaqam?.amount ?? 'N/A'}</TableCell>
-                            <TableCell>{record.uniformCompliance?.nazrulMaqam?.currency ?? 'N/A'}</TableCell>
-                            { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
-                                <TableCell className="text-right">{record.markedByItsId || "N/A"}</TableCell>
-                            }
-                        </TableRow>
-                        ))}
-                    </TableBody>
-                    </Table>
-                </div>
-             </>
-            ) : (
-              <div className="text-center text-muted-foreground py-6">No records found matching your search term.</div>
-            )}
-            {!filteredReportData && <div className="text-center text-muted-foreground py-6">No data found for the selected criteria.</div>}
-          </CardContent>
-        </Card>
-      )}
+                              </div>
+                            </AccordionTrigger>
+                          </div>
+                          <AccordionContent className="space-y-2 pt-2">
+                            <div className="px-2 text-sm text-muted-foreground">
+                              <div><strong>BGK ID:</strong> {record.bgkId || "N/A"}</div>
+                              <div><strong>Team:</strong> {record.team || "N/A"}</div>
+                              <div><strong>Miqaat:</strong> {record.miqaatName}</div>
+                              <div><strong>Type:</strong> <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></div>
+                              <div><strong>Session:</strong> {record.sessionName || "N/A"}</div>
+                              <div><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</div>
+                              {(watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
+                                <div><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</div>
+                              }
+                              {record.uniformCompliance && (
+                                <>
+                                  {reportMiqaatType === 'local' && <div><strong>Feta/Paghri:</strong> {record.uniformCompliance.fetaPaghri ?? 'N/A'}</div>}
+                                  {reportMiqaatType === 'local' && <div><strong>Koti:</strong> {record.uniformCompliance.koti ?? 'N/A'}</div>}
+                                  {reportMiqaatType === 'international' && <div><strong>Uniform:</strong> {record.uniformCompliance.uniform ?? 'N/A'}</div>}
+                                  {reportMiqaatType === 'international' && <div><strong>Shoes:</strong> {record.uniformCompliance.shoes ?? 'N/A'}</div>}
+                                  <div><strong>Nazrul Maqam:</strong> {record.uniformCompliance.nazrulMaqam ? `${record.uniformCompliance.nazrulMaqam.amount} ${record.uniformCompliance.nazrulMaqam.currency}` : 'N/A'}</div>
+                                </>
+                              )}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </div>
+
+
+                  <div className="hidden md:block overflow-x-auto border rounded-lg">
+                      <Table>
+                      <TableHeader>
+                          <TableRow>
+                            {isNonAttendanceReport && (
+                              <TableHead className="w-[50px]">
+                                <Checkbox
+                                  onCheckedChange={handleSelectAllOnPage}
+                                  checked={filteredReportData.length > 0 && selectedIds.length === filteredReportData.length}
+                                  aria-label="Select all"
+                                />
+                              </TableHead>
+                            )}
+                          <TableHead className="w-[50px]">Sr.No.</TableHead>
+                          <TableHead>Member Name</TableHead>
+                          <TableHead>ITS ID</TableHead>
+                          <TableHead>BGK ID</TableHead>
+                          <TableHead>Team</TableHead>
+                          <TableHead>Miqaat</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Session</TableHead>
+                          <TableHead>Date / Time</TableHead>
+                          <TableHead>Status</TableHead>
+                          {reportMiqaatType === 'local' ? ( <>
+                              <TableHead>Feta/Paghri</TableHead>
+                              <TableHead>Koti</TableHead>
+                          </> ) : reportMiqaatType === 'international' ? ( <>
+                              <TableHead>Uniform</TableHead>
+                              <TableHead>Shoes</TableHead>
+                          </> ) : null}
+                          <TableHead>N.Maqam Amount</TableHead>
+                          <TableHead>N.Maqam Currency</TableHead>
+                          { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
+                              <TableHead className="text-right">Marked By</TableHead>
+                          }
+                          </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                          {filteredReportData.map((record, index) => (
+                          <TableRow key={`${record.id}-${record.date || index}`}>
+                              {isNonAttendanceReport && (
+                                  <TableCell>
+                                      <Checkbox
+                                      checked={selectedIds.includes(record.userItsId)}
+                                      onCheckedChange={(checked) => {
+                                          setSelectedIds(prev => checked ? [...prev, record.userItsId] : prev.filter(id => id !== record.userItsId));
+                                      }}
+                                      aria-label={`Select row for ${record.userName}`}
+                                      />
+                                  </TableCell>
+                              )}
+                              <TableCell>{index + 1}</TableCell>
+                              <TableCell className="font-medium">{record.userName}</TableCell>
+                              <TableCell>{record.userItsId}</TableCell>
+                              <TableCell>{record.bgkId || 'N/A'}</TableCell>
+                              <TableCell>{record.team || 'N/A'}</TableCell>
+                              <TableCell>{record.miqaatName}</TableCell>
+                              <TableCell><Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></TableCell>
+                               <TableCell>{record.sessionName || 'N/A'}</TableCell>
+                              <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
+                              <TableCell>
+                                  <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
+                                      record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                      record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                      record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                      record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                  )}>
+                                      {record.status}
+                                  </span>
+                              </TableCell>
+                              {reportMiqaatType === 'local' && <>
+                                  <TableCell>{record.uniformCompliance?.fetaPaghri ?? 'N/A'}</TableCell>
+                                  <TableCell>{record.uniformCompliance?.koti ?? 'N/A'}</TableCell>
+                              </>}
+                               {reportMiqaatType === 'international' && <>
+                                  <TableCell>{record.uniformCompliance?.uniform ?? 'N/A'}</TableCell>
+                                  <TableCell>{record.uniformCompliance?.shoes ?? 'N/A'}</TableCell>
+                              </>}
+                              <TableCell>{record.uniformCompliance?.nazrulMaqam?.amount ?? 'N/A'}</TableCell>
+                              <TableCell>{record.uniformCompliance?.nazrulMaqam?.currency ?? 'N/A'}</TableCell>
+                              { (watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
+                                  <TableCell className="text-right">{record.markedByItsId || "N/A"}</TableCell>
+                              }
+                          </TableRow>
+                          ))}
+                      </TableBody>
+                      </Table>
+                  </div>
+               </>
+              ) : (
+                <div className="text-center text-muted-foreground py-6">No records found matching your search term.</div>
+              )}
+              {!filteredReportData && <div className="text-center text-muted-foreground py-6">No data found for the selected criteria.</div>}
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {!isLoading && reportData === null && memberProfileData === null && !isLoadingOptions && (
-         <Card className="shadow-lg mt-6">
+         <Card className="shadow-lg mt-6 print-hide">
             <CardContent className="py-10 flex flex-col items-center justify-center">
                 <AlertTriangle className="h-10 w-10 text-muted-foreground mb-3" />
                 <div className="text-center text-muted-foreground">
@@ -1615,7 +1617,7 @@ export default function ReportsPage() {
          </Card>
       )}
       {(isLoadingOptions && reportData === null) && (
-        <Card className="shadow-lg mt-6">
+        <Card className="shadow-lg mt-6 print-hide">
             <CardContent className="py-10 flex justify-center items-center">
                 <FunkyLoader>
                     Loading report options...

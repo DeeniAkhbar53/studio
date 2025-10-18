@@ -260,7 +260,7 @@ export default function DashboardLayout({
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
-      <aside className="hidden border-r bg-sidebar md:block">
+      <aside className="hidden border-r bg-sidebar md:block print-hide">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-20 items-center border-b px-4 lg:px-6">
             <Link href="/dashboard" className="flex items-center gap-2 font-semibold text-sidebar-primary">
@@ -284,7 +284,7 @@ export default function DashboardLayout({
         <main className="flex-1 overflow-y-auto bg-background p-4 md:p-6 lg:p-8">
           {children}
         </main>
-        <footer className="border-t bg-card py-3 px-6 text-muted-foreground mt-auto">
+        <footer className="border-t bg-card py-3 px-6 text-muted-foreground mt-auto print-hide">
           <div className="text-left">
             <p className="text-xs">&copy; {new Date().getFullYear()} BGK Attendance. All rights reserved.</p>
             <p className="text-xs text-muted-foreground/80 mt-0.5">Designed and Managed by Shabbir Shakir</p>
