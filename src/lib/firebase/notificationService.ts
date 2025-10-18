@@ -17,6 +17,8 @@ import {
   limit
 } from 'firebase/firestore';
 import type { NotificationItem, UserRole } from '@/types';
+import { addAuditLog } from './auditLogService';
+
 
 const notificationsCollectionRef = collection(db, 'notifications');
 
@@ -31,6 +33,11 @@ export const addNotification = async (notificationData: NotificationDataForAdd):
       createdAt: serverTimestamp(),
       readBy: [], // Initialize readBy as an empty array
     });
+    
+    const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+    const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+    await addAuditLog('notification_created', { itsId: actorItsId, name: actorName }, 'info', { title: notificationData.title, audience: notificationData.targetAudience });
+
     return docRef.id;
   } catch (error) {
     
@@ -134,7 +141,15 @@ export const markNotificationAsRead = async (notificationId: string, userItsId: 
 export const deleteNotification = async (notificationId: string): Promise<void> => {
   try {
     const notificationDocRef = doc(db, 'notifications', notificationId);
+    const docToDelete = await getDoc(notificationDocRef);
+    const title = docToDelete.data()?.title || 'Unknown';
+
     await deleteDoc(notificationDocRef);
+    
+    const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+    const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+    await addAuditLog('notification_deleted', { itsId: actorItsId, name: actorName }, 'warning', { notificationId, title });
+
   } catch (error) {
     
     throw error;

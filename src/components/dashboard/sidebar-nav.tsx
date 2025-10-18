@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { UserDesignation, UserRole } from "@/types";
-import { Home, User, CalendarDays, Building, BarChart3, UserCheck, ScanBarcode, Bell, Settings, Users as UsersIcon, FileText, ScrollText, BookOpen } from "lucide-react";
+import { Home, User, CalendarDays, Building, BarChart3, UserCheck, ScanBarcode, Bell, Settings, Users as UsersIcon, FileText, ScrollText, BookOpen, Shield } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 
 interface NavItem {
@@ -77,6 +77,12 @@ export const allNavItems: NavItem[] = [
     href: "/dashboard/login-logs",
     label: "Login Logs",
     icon: ScrollText,
+    allowedRoles: ['superadmin']
+  },
+  {
+    href: "/dashboard/audit-logs",
+    label: "Audit Logs",
+    icon: Shield,
     allowedRoles: ['superadmin']
   },
 ];

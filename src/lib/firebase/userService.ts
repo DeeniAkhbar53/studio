@@ -5,6 +5,7 @@
 import { db } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
 import type { User, UserRole, UserDesignation, DuaAttendance } from '@/types';
+import { addAuditLog } from './auditLogService';
 
 export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'fcmTokens' > & { avatarUrl?: string };
 
@@ -44,6 +45,16 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
     }
 
     const docRef = await addDoc(membersCollectionRef, payloadForFirestore);
+
+    // Add Audit Log
+    const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+    const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+    await addAuditLog('user_created', { itsId: actorItsId, name: actorName }, 'info', {
+      targetUserId: userData.itsId,
+      targetUserName: userData.name,
+      role: userData.role
+    });
+
     return { ...payloadForFirestore, id: docRef.id } as User;
   } catch (error) {
     
@@ -99,8 +110,19 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
       updatePayload.managedTeams = [];
     }
 
+    const originalUser = await getDoc(userDocRef);
 
     await updateDoc(userDocRef, updatePayload);
+
+    // Add Audit Log
+    const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+    const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+    await addAuditLog('user_updated', { itsId: actorItsId, name: actorName }, 'info', {
+      targetUserId: originalUser.data()?.itsId,
+      targetUserName: originalUser.data()?.name,
+      changes: updatePayload
+    });
+
   } catch (error) {
     
     throw error;
@@ -113,7 +135,23 @@ export const deleteUser = async (userId: string, mohallahId: string): Promise<vo
   }
   try {
     const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
+    const userToDelete = await getDoc(userDocRef);
+
+    if (!userToDelete.exists()) {
+        throw new Error("User to delete not found.");
+    }
+    const userData = userToDelete.data();
+
     await deleteDoc(userDocRef);
+
+    // Add Audit Log
+    const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+    const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+    await addAuditLog('user_deleted', { itsId: actorItsId, name: actorName }, 'warning', {
+      targetUserId: userData.itsId,
+      targetUserName: userData.name
+    });
+
   } catch (error) {
     
     throw error;

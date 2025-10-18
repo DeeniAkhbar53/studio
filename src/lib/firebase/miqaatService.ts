@@ -1,6 +1,7 @@
 import { db } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion, onSnapshot, Unsubscribe, writeBatch, runTransaction } from 'firebase/firestore';
 import type { Miqaat, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem, MiqaatSession } from '@/types';
+import { addAuditLog } from './auditLogService';
 
 const miqaatsCollectionRef = collection(db, 'miqaats');
 
@@ -90,6 +91,10 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
 
     const docRef = await addDoc(miqaatsCollectionRef, firestorePayload);
 
+    const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+    const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+    await addAuditLog('miqaat_created', { itsId: actorItsId, name: actorName }, 'info', { miqaatId: docRef.id, miqaatName: miqaatData.name });
+
     return { ...miqaatData, id: docRef.id, createdAt: new Date().toISOString(), attendance: [], safarList: [], attendedUserItsIds: [] } as Miqaat;
 
   } catch (error) {
@@ -132,6 +137,11 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
      }
 
     await updateDoc(miqaatDoc, firestorePayload);
+
+    const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+    const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+    await addAuditLog('miqaat_updated', { itsId: actorItsId, name: actorName }, 'info', { miqaatId, miqaatName: miqaatData.name, changes: miqaatData });
+
   } catch (error) {
     
     throw error;
@@ -141,7 +151,15 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
 export const deleteMiqaat = async (miqaatId: string): Promise<void> => {
     try {
         const miqaatDoc = doc(db, 'miqaats', miqaatId);
+        const docToDelete = await getDoc(miqaatDoc);
+        const miqaatName = docToDelete.data()?.name || 'Unknown';
+
         await deleteDoc(miqaatDoc);
+
+        const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+        const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+        await addAuditLog('miqaat_deleted', { itsId: actorItsId, name: actorName }, 'critical', { miqaatId, miqaatName });
+
     } catch (error) {
         
         throw error;

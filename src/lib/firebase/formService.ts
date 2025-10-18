@@ -22,6 +22,7 @@ import {
   collectionGroup
 } from 'firebase/firestore';
 import type { Form, FormQuestion, FormResponse } from '@/types';
+import { addAuditLog } from './auditLogService';
 
 const formsCollectionRef = collection(db, 'forms');
 
@@ -44,6 +45,11 @@ export const addForm = async (formData: FormForAdd): Promise<Form> => {
       endDate: formData.endDate || null,
       imageUrl: formData.imageUrl || null,
     });
+    
+    const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+    const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+    await addAuditLog('form_created', { itsId: actorItsId, name: actorName }, 'info', { formId: docRef.id, formTitle: formData.title });
+
 
     const newForm: Form = {
       ...(formData as Omit<Form, 'id' | 'createdAt' | 'status'>),
@@ -135,6 +141,11 @@ export const updateForm = async (formId: string, formData: FormForUpdate): Promi
             ...formData,
             updatedAt: serverTimestamp() // Add timestamp on every update
         });
+
+        const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+        const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+        await addAuditLog('form_updated', { itsId: actorItsId, name: actorName }, 'info', { formId, formTitle: formData.title, changes: formData });
+
     } catch (error) {
         console.error("Error updating form: ", error);
         throw error;
@@ -145,6 +156,11 @@ export const updateFormStatus = async (formId: string, status: 'open' | 'closed'
     try {
         const formDocRef = doc(db, 'forms', formId);
         await updateDoc(formDocRef, { status });
+
+        const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+        const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+        await addAuditLog('form_status_changed', { itsId: actorItsId, name: actorName }, 'warning', { formId, newStatus: status });
+
     } catch (error) {
         console.error(`Error updating form status for ${formId}:`, error);
         throw error;
@@ -157,6 +173,9 @@ export const deleteForm = async (formId: string): Promise<void> => {
     const responsesRef = collection(formDocRef, 'responses');
     
     try {
+        const formToDelete = await getDoc(formDocRef);
+        const formTitle = formToDelete.data()?.title || 'Unknown';
+        
         // Efficiently delete the subcollection of responses
         const responsesSnapshot = await getDocs(responsesRef);
         const batch = writeBatch(db);
@@ -167,6 +186,11 @@ export const deleteForm = async (formId: string): Promise<void> => {
 
         // Delete the main form document
         await deleteDoc(formDocRef);
+        
+        const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+        const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+        await addAuditLog('form_deleted', { itsId: actorItsId, name: actorName }, 'critical', { formId, formTitle });
+
     } catch (error) {
         console.error(`Error deleting form ${formId} and its responses: `, error);
         throw error;
@@ -294,6 +318,13 @@ export const deleteFormResponse = async (formId: string, responseId: string): Pr
             if (!formDoc.exists()) {
                 throw new Error("Form does not exist!");
             }
+            
+            const responseDoc = await transaction.get(responseRef);
+            if (!responseDoc.exists()) {
+                throw new Error("Response does not exist!");
+            }
+            const responseData = responseDoc.data();
+
             // Decrement the responseCount on the parent form document
             const currentCount = formDoc.data().responseCount || 0;
             if (currentCount > 0) {
@@ -301,6 +332,10 @@ export const deleteFormResponse = async (formId: string, responseId: string): Pr
             }
             // Delete the specific response document
             transaction.delete(responseRef);
+
+             const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+             const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+             addAuditLog('form_response_deleted', { itsId: actorItsId, name: actorName }, 'warning', { formId, responseId, submittedBy: responseData.submittedBy });
         });
     } catch (error) {
         console.error(`Error deleting response ${responseId} from form ${formId}:`, error);

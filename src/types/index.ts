@@ -223,3 +223,14 @@ export interface DuaAttendance {
     feedback?: string;
     markedAt: string; // ISO string
 }
+
+// New type for Audit Logs
+export interface AuditLog {
+    id: string;
+    actorItsId: string;
+    actorName: string;
+    action: string; // e.g., "user_created", "miqaat_deleted"
+    level: 'info' | 'warning' | 'error' | 'critical';
+    timestamp: string; // ISO string
+    context?: any; // To store extra data like { userId: '...', userName: '...' }
+}

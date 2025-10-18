@@ -1,6 +1,8 @@
 
+
 import { db } from './firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { addAuditLog } from './auditLogService';
 
 const settingsCollectionRef = 'app_settings';
 const duaPageSettingsDocRef = doc(db, settingsCollectionRef, 'duaPage');
@@ -28,6 +30,9 @@ export const getDuaVideoUrl = async (): Promise<string | null> => {
  */
 export const updateDuaVideoUrl = async (newUrl: string): Promise<void> => {
     try {
+        const originalDoc = await getDoc(duaPageSettingsDocRef);
+        const oldUrl = originalDoc.data()?.videoUrl || 'N/A';
+        
         // Extract video ID if a full URL is pasted
         let videoId = newUrl;
         if (newUrl.includes("youtube.com/watch?v=")) {
@@ -41,6 +46,11 @@ export const updateDuaVideoUrl = async (newUrl: string): Promise<void> => {
             videoUrl: videoId,
             updatedAt: serverTimestamp()
         }, { merge: true });
+        
+        const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+        const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+        await addAuditLog('setting_updated', { itsId: actorItsId, name: actorName }, 'warning', { setting: 'DuaVideoUrl', oldUrl, newUrl: videoId });
+
     } catch (error) {
         console.error("Error updating Dua video URL:", error);
         throw error;
