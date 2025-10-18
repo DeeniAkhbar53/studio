@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -29,6 +30,7 @@ export default function ManageNotificationsPage() {
   const [newNotificationContent, setNewNotificationContent] = useState("");
   const [newNotificationAudience, setNewNotificationAudience] = useState<'all' | UserRole>('all');
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -61,8 +63,10 @@ export default function ManageNotificationsPage() {
   useEffect(() => {
     if (!isAuthorized) return;
     const itsId = localStorage.getItem('userItsId');
+    const name = localStorage.getItem('userName');
     const role = localStorage.getItem('userRole') as UserRole | null;
     setCurrentUserItsId(itsId);
+    setCurrentUserName(name);
     setCurrentUserRole(role);
   }, [isAuthorized]);
 
@@ -144,8 +148,13 @@ export default function ManageNotificationsPage() {
   };
 
   const handleDeleteNotification = async (id: string) => {
+    if (!currentUserItsId || !currentUserName) {
+       toast({ title: "Error", description: "Could not identify current user to perform deletion.", variant: "destructive" });
+       return;
+    }
+
     try {
-      await deleteNotification(id);
+      await deleteNotification(id, { itsId: currentUserItsId, name: currentUserName });
       toast({
         title: "Notification Deleted",
         description: "The notification has been removed.",
