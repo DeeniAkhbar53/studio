@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -138,58 +139,6 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
         }, { present: 0, late: 0, absent: 0 });
     }, [data.attendanceHistory]);
     
-    const handleExportPDF = async () => {
-        if (!pdfExportRef.current) {
-            toast({ title: "Error", description: "Could not find the report content to export.", variant: "destructive" });
-            return;
-        }
-        setIsDownloading(true);
-
-        try {
-            const dataUrl = await toPng(pdfExportRef.current, { cacheBust: true, pixelRatio: 2, backgroundColor: '#ffffff' });
-            
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'px',
-                format: 'a4',
-            });
-
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const imgProps = pdf.getImageProperties(dataUrl);
-            const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
-            let heightLeft = imgHeight;
-            let position = 0;
-
-            pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, imgHeight);
-            heightLeft -= pdfHeight;
-
-            while (heightLeft > 0) {
-                position = -pdfHeight + (imgHeight - heightLeft);
-                pdf.addPage();
-                pdf.addImage(dataUrl, 'PNG', 0, position, pdfWidth, imgHeight);
-                heightLeft -= pdfHeight;
-            }
-            
-            const totalPages = pdf.getNumberOfPages();
-            for (let i = 1; i <= totalPages; i++) {
-                pdf.setPage(i);
-                pdf.setFontSize(8);
-                pdf.setTextColor(150);
-                const footerText = `Page ${i} of ${totalPages} | Printed by: ${generatorName} on ${format(new Date(), 'PP p')}`;
-                pdf.text(footerText, 20, pdfHeight - 10);
-            }
-
-            pdf.save(`member-report-${data.user.itsId}.pdf`);
-            toast({ title: "PDF Exported", description: "The member profile report has been downloaded." });
-
-        } catch (error) {
-            console.error("Failed to export PDF:", error);
-            toast({ title: "Export Failed", description: "There was an error generating the PDF.", variant: "destructive" });
-        } finally {
-            setIsDownloading(false);
-        }
-    };
     
     const handlePrint = () => {
         const printContent = pdfExportRef.current?.innerHTML;
@@ -236,10 +185,6 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                 <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto shrink-0">
                     <Button variant="outline" onClick={handlePrint} size="sm" className="w-full sm:w-auto">
                         <Printer className="mr-2 h-4 w-4" /> Print
-                    </Button>
-                    <Button onClick={handleExportPDF} disabled={isDownloading} size="sm" className="w-full sm:w-auto">
-                      {isDownloading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                       Export PDF
                     </Button>
                 </div>
             </CardHeader>
@@ -354,14 +299,7 @@ const FullTable = ({ title, data, headers, renderRow }: { title: string, data: a
                 ))}
             </tbody>
         </table>
-         <style>{`
-            table, th, td {
-                border: 1px solid #ddd;
-            }
-            td, th {
-                padding: 8px;
-            }
-        `}</style>
+         <style>{'table, th, td { border: 1px solid #ddd; } td, th { padding: 8px; }'}</style>
     </div>
 );
 
@@ -958,28 +896,20 @@ export default function ReportsPage() {
   const handlePrint = () => {
     const printContent = printRef.current?.innerHTML;
     if (!printContent) {
-      toast({ title: "Print Error", description: "Report content not found.", variant: "destructive" });
-      return;
+        toast({title: "Print Error", description: "Report content not found.", variant: "destructive"});
+        return;
     }
-
     const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(
-          '<html><head><title>Print Report</title>' +
-          '<style>' +
-          'body { font-family: sans-serif; }' +
-          'table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }' +
-          'th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }' +
-          'th { background-color: #f2f2f2; }' +
-          'h1, h2 { border-bottom: 2px solid #ccc; padding-bottom: 0.5rem; margin-bottom: 1rem; }' +
-          '</style></head><body>' +
-          printContent +
-          '</body></html>'
-      );
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
+    if(printWindow) {
+        printWindow.document.write('<html><head><title>Print Report</title>');
+        printWindow.document.write('<style>body{font-family: sans-serif;} table{width: 100%; border-collapse: collapse; margin-bottom: 1rem;} th, td{border: 1px solid #ddd; padding: 8px; text-align: left;} th{background-color: #f2f2f2;} h1, h2 {border-bottom: 2px solid #ccc; padding-bottom: 0.5rem; margin-bottom: 1rem;}</style>');
+        printWindow.document.write('</head><body>');
+        printWindow.document.write(printContent);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+        printWindow.close();
     }
   };
 
