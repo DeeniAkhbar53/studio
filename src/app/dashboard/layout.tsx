@@ -10,6 +10,7 @@ import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { addLogoutLog } from "@/lib/firebase/logService";
+import { clearUserSession, getUserByItsOrBgkId } from "@/lib/firebase/userService";
 
 // FCM specific imports
 import { getMessaging, getToken, onMessage, MessagePayload } from "firebase/messaging";
@@ -29,16 +30,33 @@ export default function DashboardLayout({
   const [fcmTokenStatus, setFcmTokenStatus] = useState<string>("idle");
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const handleLogout = useCallback((reason: 'manual' | 'inactive') => {
-    if (reason === 'inactive') {
-      const userName = localStorage.getItem('userName') || 'Unknown User';
-      const userItsId = localStorage.getItem('userItsId') || 'Unknown ITS';
-      addLogoutLog(userName, userItsId);
+  const handleLogout = useCallback(async (reason: 'manual' | 'inactive' | 'invalid_session') => {
+    const userItsId = localStorage.getItem('userItsId');
+    const userName = localStorage.getItem('userName') || 'Unknown User';
+    const sessionId = localStorage.getItem('sessionId');
+
+    if (reason === 'inactive' && userItsId && sessionId) {
+      await addLogoutLog(userName, userItsId, sessionId);
       toast({
         title: "Session Expired",
         description: "You have been logged out due to inactivity.",
         variant: "destructive"
       });
+    } else if (reason === 'invalid_session') {
+       toast({
+        title: "Session Invalidated",
+        description: "Your session has ended, possibly because you logged in on another device.",
+        variant: "destructive"
+      });
+    }
+
+    if (userItsId) {
+      try {
+        // IMPORTANT: Clear the database session *before* clearing local storage.
+        await clearUserSession(userItsId);
+      } catch (error) {
+        console.error("Failed to clear user session from database:", error);
+      }
     }
 
     if (typeof window !== "undefined") {
@@ -58,15 +76,35 @@ export default function DashboardLayout({
   }, [handleLogout]);
 
   useEffect(() => {
-    const userRole = localStorage.getItem('userRole');
-    const userItsId = localStorage.getItem('userItsId');
+    const validateSession = async () => {
+        const userItsId = localStorage.getItem('userItsId');
+        const localSessionId = localStorage.getItem('sessionId');
 
-    if (!userRole || !userItsId) {
-      setIsAuthenticated(false);
-      router.push('/');
-    } else {
-      setIsAuthenticated(true);
-    }
+        if (!userItsId || !localSessionId) {
+            setIsAuthenticated(false);
+            router.push('/');
+            return;
+        }
+
+        try {
+            const user = await getUserByItsOrBgkId(userItsId);
+            if (user && user.sessionId === localSessionId) {
+                // Session is valid
+                setIsAuthenticated(true);
+            } else {
+                // Session is invalid (different ID or user has no ID in DB)
+                setIsAuthenticated(false);
+                handleLogout('invalid_session');
+            }
+        } catch (error) {
+            console.error("Session validation error:", error);
+            setIsAuthenticated(false);
+            handleLogout('invalid_session');
+        }
+    };
+    
+    validateSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
   
   useEffect(() => {

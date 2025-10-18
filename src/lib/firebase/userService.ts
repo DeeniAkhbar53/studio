@@ -3,7 +3,7 @@
 'use server';
 
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp, Timestamp, orderBy, FieldPath, deleteField } from 'firebase/firestore';
 import type { User, UserRole, UserDesignation, DuaAttendance } from '@/types';
 import { addAuditLog } from './auditLogService';
 
@@ -284,7 +284,7 @@ export const updateUserFcmToken = async (userItsId: string, userMohallahId: stri
 };
 
 // New function to update the lastLogin timestamp and create a log entry
-export const updateUserLastLogin = async (user: User): Promise<void> => {
+export const updateUserLastLogin = async (user: User, sessionId: string): Promise<void> => {
     try {
         if (!user.id || !user.mohallahId) {
             throw new Error("User ID and Mohallah ID are required to update last login.");
@@ -292,10 +292,11 @@ export const updateUserLastLogin = async (user: User): Promise<void> => {
         
         const batch = writeBatch(db);
 
-        // 1. Update the user's lastLogin field
+        // 1. Update the user's lastLogin and sessionId fields
         const userDocRef = doc(db, 'mohallahs', user.mohallahId, 'members', user.id);
         batch.update(userDocRef, {
-            lastLogin: serverTimestamp()
+            lastLogin: serverTimestamp(),
+            sessionId: sessionId
         });
 
         // 2. Create a new document in the login_logs collection
@@ -303,7 +304,9 @@ export const updateUserLastLogin = async (user: User): Promise<void> => {
         batch.set(logDocRef, {
             level: 'info',
             message: `${user.name} - logged in.`,
-            userItsId: user.itsId, // Direct field for querying
+            userItsId: user.itsId,
+            sessionId: sessionId,
+            sessionStatus: 'Active',
             timestamp: serverTimestamp(),
         });
         
@@ -313,6 +316,30 @@ export const updateUserLastLogin = async (user: User): Promise<void> => {
         
         // We don't re-throw here because failing to log a login should not prevent the user from logging in.
     }
+};
+
+export const clearUserSession = async (userItsId: string): Promise<void> => {
+  try {
+    const membersCollectionGroup = collectionGroup(db, 'members');
+    const q = query(membersCollectionGroup, where("itsId", "==", userItsId), limit(1));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      console.warn("Could not find user to clear session for:", userItsId);
+      return;
+    }
+    
+    const userDocRef = querySnapshot.docs[0].ref;
+
+    await updateDoc(userDocRef, {
+      sessionId: deleteField(),
+      lastLogin: deleteField()
+    });
+
+  } catch (error) {
+    console.error("Failed to clear user session in DB:", error);
+    // Do not re-throw, as this shouldn't block the logout flow.
+  }
 };
 
 
