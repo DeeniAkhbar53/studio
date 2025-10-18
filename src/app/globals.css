@@ -52,13 +52,13 @@
   }
 
   .dark {
-    --background: 220 10% 10%;
+    --background: 215 28% 15%; /* Darker than sidebar */
     --foreground: 220 10% 90%;
     
-    --card: 220 10% 15%;
+    --card: 215 28% 17%; /* Slightly lighter than background */
     --card-foreground: 220 10% 90%;
     
-    --popover: 220 10% 12%;
+    --popover: 215 28% 12%;
     --popover-foreground: 220 10% 90%;
 
     --primary: 221 44% 59%; /* Lighter Deep Blue */
@@ -67,17 +67,17 @@
     --secondary: 260 21% 73%; /* Lighter Soft Purple */
     --secondary-foreground: 220 10% 10%;
 
-    --muted: 220 10% 20%;
+    --muted: 215 28% 22%;
     --muted-foreground: 220 10% 65%;
     
-    --accent: 220 10% 20%;
+    --accent: 215 28% 22%;
     --accent-foreground: 220 10% 90%;
 
     --destructive: 0 63% 51%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 10% 25%;
-    --input: 220 10% 25%;
+    --border: 215 28% 25%;
+    --input: 215 28% 25%;
     --ring: 221 44% 59%;
     
     --sidebar-background: 215 28% 15%; 
