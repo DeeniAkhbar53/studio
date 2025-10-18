@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -160,10 +159,14 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                 '.header h1 { color: #fff; border-bottom: 1px solid #EABD13; font-size: 2.5rem; margin-bottom: 0.5rem; }' +
                 '.header p { margin: 0.25rem 0; opacity: 0.9; }' +
                 '.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center; margin-bottom: 2rem; }' +
-                '.summary > div { background-color: #f8f9fa; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6; }' +
+                '.summary > div { padding: 1rem; border-radius: 8px; }' +
                 '.summary p { margin: 0; }' +
-                '.summary .label { font-size: 0.9rem; color: #6c757d; }' +
-                '.summary .value { font-size: 1.5rem; font-weight: bold; color: #0A314D; }' +
+                '.summary .label { font-size: 0.9rem; }' +
+                '.summary .value { font-size: 1.5rem; font-weight: bold; }' +
+                '.summary .present { background-color: #e6f4ea; border: 1px solid #c8e6c9; } .summary .present .label { color: #2e7d32; } .summary .present .value { color: #1b5e20; }' +
+                '.summary .late { background-color: #fff8e1; border: 1px solid #ffecb3; } .summary .late .label { color: #ffa000; } .summary .late .value { color: #f57f17; }' +
+                '.summary .absent { background-color: #ffebee; border: 1px solid #ffcdd2; } .summary .absent .label { color: #c62828; } .summary .absent .value { color: #b71c1c; }' +
+                '.summary .total { background-color: #f8f9fa; border: 1px solid #dee2e6; } .summary .total .label { color: #6c757d; } .summary .total .value { color: #343a40; }' +
                 'table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; page-break-inside: auto; background-color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }' +
                 'tr { page-break-inside: avoid; page-break-after: auto; }' +
                 'thead { display: table-header-group; }' +
@@ -229,7 +232,7 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
 
             </CardContent>
             
-            <div style={{ position: 'absolute', left: '-9999px', top: 'auto', width: '800px', backgroundColor: 'white', color: 'black', padding: '2rem' }} ref={pdfExportRef}>
+             <div style={{ position: 'absolute', left: '-9999px', top: 'auto', width: '800px', backgroundColor: 'white', color: 'black', padding: '2rem' }} ref={pdfExportRef}>
                 <div className="space-y-6">
                      <div className="header">
                         <h1 className="text-3xl font-bold">{data.user.name}</h1>
@@ -238,10 +241,10 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                     </div>
                     
                     <div className="summary">
-                        <div><p className="label">Present</p><p className="value">{attendanceStats.present}</p></div>
-                        <div><p className="label">Late</p><p className="value">{attendanceStats.late}</p></div>
-                        <div><p className="label">Absent</p><p className="value">{attendanceStats.absent}</p></div>
-                        <div><p className="label">Total</p><p className="value">{data.attendanceHistory.length}</p></div>
+                        <div className="present"><p className="label">Present</p><p className="value">{attendanceStats.present}</p></div>
+                        <div className="late"><p className="label">Late</p><p className="value">{attendanceStats.late}</p></div>
+                        <div className="absent"><p className="label">Absent</p><p className="value">{attendanceStats.absent}</p></div>
+                        <div className="total"><p className="label">Total</p><p className="value">{data.attendanceHistory.length}</p></div>
                     </div>
 
                     {data.attendanceHistory.length > 0 && <FullTable title="Attendance History" data={data.attendanceHistory} headers={["#", "Miqaat", "Date", "Status"]} renderRow={(rec: any, i) => (<><td>{i+1}</td><td>{rec.miqaatName}</td><td>{format(new Date(rec.markedAt), "PP p")}</td><td>{rec.status}</td></>)} />}
@@ -998,7 +1001,7 @@ export default function ReportsPage() {
                           <SelectItem value="miqaat_summary">Miqaat Summary (Roster)</SelectItem>
                           <SelectItem value="miqaat_safar_list">Miqaat Safar List</SelectItem>
                           <SelectItem value="non_attendance_miqaat">Miqaat Non-Attendance</SelectItem>
-                          <SelectItem value="member_attendance">Member Profile Report</SelectItem>
+                          <SelectItem value="member_attendance">Member Report</SelectItem>
                           <SelectItem value="overall_activity">Overall Activity Log</SelectItem>
                         </SelectContent>
                       </Select>
