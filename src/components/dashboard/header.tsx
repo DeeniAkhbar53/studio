@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Bell, LogOut, Menu, UserCircle, Settings, HelpCircle, FileText, X, Moon, Sun } from "lucide-react";
+import { Bell, LogOut, Menu, UserCircle, Settings, HelpCircle, FileText, X, Moon, Sun, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -283,13 +283,19 @@ export function Header() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleSetTheme('light')}>
-                Light
+                <Sun className="mr-2 h-4 w-4" />
+                <span>Light</span>
+                {theme === 'light' && <Check className="ml-auto h-4 w-4" />}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSetTheme('dark')}>
-                Dark
+                <Moon className="mr-2 h-4 w-4" />
+                <span>Dark</span>
+                {theme === 'dark' && <Check className="ml-auto h-4 w-4" />}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleSetTheme('system')}>
-                System
+                <Settings className="mr-2 h-4 w-4" />
+                <span>System</span>
+                {theme === 'system' && <Check className="ml-auto h-4 w-4" />}
             </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
