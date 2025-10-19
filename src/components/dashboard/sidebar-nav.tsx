@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -48,6 +47,12 @@ export const allNavItems: NavItem[] = [
     href: "/dashboard/manage-mohallahs",
     label: "Manage Mohallahs",
     icon: Building,
+    allowedRoles: ['admin', 'superadmin']
+  },
+  {
+    href: "/dashboard/manage-teams",
+    label: "Manage Teams",
+    icon: UsersIcon,
     allowedRoles: ['admin', 'superadmin']
   },
   {
@@ -214,6 +219,12 @@ export function SidebarNav() {
       if (item.href === '/dashboard/manage-members' && isTeamLead && !isAdminOrSuper) {
         return true;
       }
+      
+      // Special check for Manage Teams for Captains
+      if (item.href === '/dashboard/manage-teams' && currentUserDesignation === 'Captain') {
+          return true;
+      }
+
 
       // For other items, rely on role-based access
       return roleAllowsItem;
