@@ -17,7 +17,7 @@ import { FunkyLoader } from '@/components/ui/funky-loader';
 import { allNavItems } from '@/components/dashboard/sidebar-nav';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 const MemberCard: React.FC<{ member: User; onMoveMember: (memberId: string, newTeam: string | null) => void; teams: string[] }> = ({ member, onMoveMember, teams }) => {
@@ -275,82 +275,87 @@ export default function ManageTeamsPage() {
           </CardHeader>
         </Card>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {/* Unassigned Column */}
-            <Card className="flex flex-col border-dashed">
-                <CardHeader className="bg-muted/50">
-                    <CardTitle className="text-base">Unassigned ({unassignedMembers.length})</CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 flex-1">
-                    <ScrollArea className="h-96 pr-3">
-                    {unassignedMembers.map(member => (
-                        <MemberCard key={member.id} member={member} onMoveMember={handleMoveMember} teams={teamNames} />
-                    ))}
-                    </ScrollArea>
-                </CardContent>
+        <Accordion type="single" collapsible className="w-full space-y-4" defaultValue="unassigned">
+            <Card>
+                 <AccordionItem value="unassigned" className="border-b-0">
+                    <AccordionTrigger className="p-4 hover:no-underline">
+                        <CardTitle className="text-base">Unassigned ({unassignedMembers.length})</CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4">
+                        <ScrollArea className="h-96 pr-3">
+                        {unassignedMembers.map(member => (
+                            <MemberCard key={member.id} member={member} onMoveMember={handleMoveMember} teams={teamNames} />
+                        ))}
+                        </ScrollArea>
+                    </AccordionContent>
+                </AccordionItem>
             </Card>
 
-            {/* Team Columns */}
             {teamNames.map(teamName => (
-                <Card key={teamName} className="flex flex-col">
-                <CardHeader className="bg-muted/50 flex flex-row items-center justify-between py-4">
-                    <CardTitle className="text-base">{teamName} ({teams[teamName].length})</CardTitle>
-                    <div className="flex items-center gap-1">
-                        <Dialog open={isRenameTeamOpen && teamToRename === teamName} onOpenChange={(isOpen) => {
-                            if (!isOpen) setTeamToRename(null);
-                            setIsRenameTeamOpen(isOpen);
-                        }}>
-                            <DialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                                    setTeamToRename(teamName);
-                                    setRenamedTeamName(teamName);
-                                    setIsRenameTeamOpen(true);
-                                }}>
-                                    <Edit className="h-4 w-4" />
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>Rename Team</DialogTitle>
-                                </DialogHeader>
-                                <Input value={renamedTeamName} onChange={(e) => setRenamedTeamName(e.target.value)} />
-                                <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsRenameTeamOpen(false)}>Cancel</Button>
-                                    <Button onClick={handleRenameTeam}>Save</Button>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                        <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This will delete the team "{teamName}". This action is only possible if the team has no members.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteTeam(teamName)}>Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                        </AlertDialog>
-                    </div>
-                </CardHeader>
-                <CardContent className="p-3 flex-1">
-                    <ScrollArea className="h-96 pr-3">
-                    {teams[teamName].map(member => (
-                        <MemberCard key={member.id} member={member} onMoveMember={handleMoveMember} teams={teamNames} />
-                    ))}
-                    </ScrollArea>
-                </CardContent>
+                 <Card key={teamName}>
+                    <AccordionItem value={teamName} className="border-b-0">
+                        <AccordionTrigger className="p-4 hover:no-underline">
+                             <div className="flex items-center justify-between w-full pr-2">
+                                <CardTitle className="text-base">{teamName} ({teams[teamName].length})</CardTitle>
+                                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                    <Dialog open={isRenameTeamOpen && teamToRename === teamName} onOpenChange={(isOpen) => {
+                                        if (!isOpen) setTeamToRename(null);
+                                        setIsRenameTeamOpen(isOpen);
+                                    }}>
+                                        <DialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {
+                                                e.stopPropagation();
+                                                setTeamToRename(teamName);
+                                                setRenamedTeamName(teamName);
+                                                setIsRenameTeamOpen(true);
+                                            }}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle>Rename Team</DialogTitle>
+                                            </DialogHeader>
+                                            <Input value={renamedTeamName} onChange={(e) => setRenamedTeamName(e.target.value)} />
+                                            <DialogFooter>
+                                                <Button variant="outline" onClick={() => setIsRenameTeamOpen(false)}>Cancel</Button>
+                                                <Button onClick={handleRenameTeam}>Save</Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
+                                    <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This will delete the team "{teamName}". This action is only possible if the team has no members.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteTeam(teamName)}>Delete</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 pb-4">
+                            <ScrollArea className="h-96 pr-3">
+                                {teams[teamName].map(member => (
+                                    <MemberCard key={member.id} member={member} onMoveMember={handleMoveMember} teams={teamNames} />
+                                ))}
+                            </ScrollArea>
+                        </AccordionContent>
+                    </AccordionItem>
                 </Card>
             ))}
-        </div>
+        </Accordion>
       </div>
   );
 }
