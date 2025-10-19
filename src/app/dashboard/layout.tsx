@@ -16,7 +16,7 @@ import { getMessaging, getToken, onMessage, MessagePayload } from "firebase/mess
 import { updateUserFcmToken } from "@/lib/firebase/userService"; 
 import { app } from "@/lib/firebase/firebase"; // Import the initialized app
 
-const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 export default function DashboardLayout({
   children,
@@ -71,7 +71,7 @@ export default function DashboardLayout({
   
   useEffect(() => {
     if (isAuthenticated) {
-      const events = ['mousemove', 'keydown', 'click', 'scroll'];
+      const events: (keyof WindowEventMap)[] = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
       
       const handleActivity = () => {
         resetInactivityTimer();
