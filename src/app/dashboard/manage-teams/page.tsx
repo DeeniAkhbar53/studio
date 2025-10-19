@@ -1,10 +1,8 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { TouchBackend } from 'react-dnd-touch-backend';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -22,17 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 
 
-const ItemTypes = {
-  MEMBER: 'member',
-};
-
-interface MemberCardProps {
-  member: User;
-  onMoveMember: (memberId: string, newTeam: string | null) => void;
-  teams: string[];
-}
-
-const MemberCard: React.FC<MemberCardProps> = ({ member, onMoveMember, teams }) => {
+const MemberCard: React.FC<{ member: User; onMoveMember: (memberId: string, newTeam: string | null) => void; teams: string[] }> = ({ member, onMoveMember, teams }) => {
   const [isMoveDialogOpen, setIsMoveDialogOpen] = useState(false);
   const [targetTeam, setTargetTeam] = useState<string | null>(null);
 
@@ -285,87 +273,84 @@ export default function ManageTeamsPage() {
               </Dialog>
             </div>
           </CardHeader>
-          <CardContent>
-            <ScrollArea className="w-full whitespace-nowrap">
-              <div className="flex gap-6 pb-4">
-                {/* Unassigned Column */}
-                <Card className="w-80 shrink-0 border-dashed">
-                  <CardHeader className="bg-muted/50">
-                    <CardTitle className="text-base">Unassigned ({unassignedMembers.length})</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3 min-h-60">
-                     <ScrollArea className="h-96 pr-3">
-                      {unassignedMembers.map(member => (
-                        <MemberCard key={member.id} member={member} onMoveMember={handleMoveMember} teams={teamNames} />
-                      ))}
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-
-                {/* Team Columns */}
-                {teamNames.map(teamName => (
-                  <Card key={teamName} className="w-80 shrink-0">
-                    <CardHeader className="bg-muted/50 flex flex-row items-center justify-between py-4">
-                      <CardTitle className="text-base">{teamName} ({teams[teamName].length})</CardTitle>
-                      <div className="flex items-center gap-1">
-                          <Dialog open={isRenameTeamOpen && teamToRename === teamName} onOpenChange={(isOpen) => {
-                              if (!isOpen) setTeamToRename(null);
-                              setIsRenameTeamOpen(isOpen);
-                          }}>
-                              <DialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
-                                      setTeamToRename(teamName);
-                                      setRenamedTeamName(teamName);
-                                      setIsRenameTeamOpen(true);
-                                  }}>
-                                      <Edit className="h-4 w-4" />
-                                  </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                  <DialogHeader>
-                                      <DialogTitle>Rename Team</DialogTitle>
-                                  </DialogHeader>
-                                  <Input value={renamedTeamName} onChange={(e) => setRenamedTeamName(e.target.value)} />
-                                  <DialogFooter>
-                                      <Button variant="outline" onClick={() => setIsRenameTeamOpen(false)}>Cancel</Button>
-                                      <Button onClick={handleRenameTeam}>Save</Button>
-                                  </DialogFooter>
-                              </DialogContent>
-                          </Dialog>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        This will delete the team "{teamName}". This action is only possible if the team has no members.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteTeam(teamName)}>Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-3 min-h-60">
-                      <ScrollArea className="h-96 pr-3">
-                        {teams[teamName].map(member => (
-                          <MemberCard key={member.id} member={member} onMoveMember={handleMoveMember} teams={teamNames} />
-                        ))}
-                      </ScrollArea>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </ScrollArea>
-          </CardContent>
         </Card>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {/* Unassigned Column */}
+            <Card className="flex flex-col border-dashed">
+                <CardHeader className="bg-muted/50">
+                    <CardTitle className="text-base">Unassigned ({unassignedMembers.length})</CardTitle>
+                </CardHeader>
+                <CardContent className="p-3 flex-1">
+                    <ScrollArea className="h-96 pr-3">
+                    {unassignedMembers.map(member => (
+                        <MemberCard key={member.id} member={member} onMoveMember={handleMoveMember} teams={teamNames} />
+                    ))}
+                    </ScrollArea>
+                </CardContent>
+            </Card>
+
+            {/* Team Columns */}
+            {teamNames.map(teamName => (
+                <Card key={teamName} className="flex flex-col">
+                <CardHeader className="bg-muted/50 flex flex-row items-center justify-between py-4">
+                    <CardTitle className="text-base">{teamName} ({teams[teamName].length})</CardTitle>
+                    <div className="flex items-center gap-1">
+                        <Dialog open={isRenameTeamOpen && teamToRename === teamName} onOpenChange={(isOpen) => {
+                            if (!isOpen) setTeamToRename(null);
+                            setIsRenameTeamOpen(isOpen);
+                        }}>
+                            <DialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                                    setTeamToRename(teamName);
+                                    setRenamedTeamName(teamName);
+                                    setIsRenameTeamOpen(true);
+                                }}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Rename Team</DialogTitle>
+                                </DialogHeader>
+                                <Input value={renamedTeamName} onChange={(e) => setRenamedTeamName(e.target.value)} />
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setIsRenameTeamOpen(false)}>Cancel</Button>
+                                    <Button onClick={handleRenameTeam}>Save</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                        <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This will delete the team "{teamName}". This action is only possible if the team has no members.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteTeam(teamName)}>Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-3 flex-1">
+                    <ScrollArea className="h-96 pr-3">
+                    {teams[teamName].map(member => (
+                        <MemberCard key={member.id} member={member} onMoveMember={handleMoveMember} teams={teamNames} />
+                    ))}
+                    </ScrollArea>
+                </CardContent>
+                </Card>
+            ))}
+        </div>
       </div>
   );
 }
