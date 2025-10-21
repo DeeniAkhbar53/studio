@@ -52,10 +52,9 @@ const pageTitles: { [key: string]: string } = {
 };
 
 const colorThemes = [
-  { name: 'default', label: 'Default Blue', color: 'hsl(221 44% 49%)' },
-  { name: 'purple', label: 'Royal Purple', color: 'hsl(262 80% 50%)' },
-  { name: 'golden', label: 'Golden Aura', color: 'hsl(45 83% 54%)' },
-  { name: 'zinc', label: 'Neutral Zinc', color: 'hsl(240 5.9% 10%)' },
+  { name: 'default', label: 'Blue', color: '#0A314D' },
+  { name: 'purple', label: 'Purple', color: '#552645' },
+  { name: 'gray', label: 'Gray', color: '#516F7E' },
 ];
 
 
@@ -74,7 +73,7 @@ export function Header() {
   useEffect(() => {
     const savedTheme = localStorage.getItem("colorTheme") || "default";
     setColorTheme(savedTheme);
-    document.body.classList.remove('theme-default', 'theme-purple', 'theme-golden', 'theme-zinc');
+    document.body.classList.remove('theme-default', 'theme-purple', 'theme-gray');
     if (savedTheme !== "default") {
         document.body.classList.add(`theme-${savedTheme}`);
     }
@@ -83,7 +82,7 @@ export function Header() {
   const handleSetColorTheme = (newTheme: string) => {
     setColorTheme(newTheme);
     localStorage.setItem("colorTheme", newTheme);
-    document.body.classList.remove('theme-default', 'theme-purple', 'theme-golden', 'theme-zinc');
+    document.body.classList.remove('theme-default', 'theme-purple', 'theme-gray');
     if (newTheme !== "default") {
         document.body.classList.add(`theme-${newTheme}`);
     }
