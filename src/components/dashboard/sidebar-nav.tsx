@@ -55,7 +55,8 @@ export const allNavItems: NavItem[] = [
         { href: "/dashboard/manage-mohallahs", label: "Manage Mohallahs", allowedRoles: ['admin', 'superadmin'] },
         { href: "/dashboard/manage-members", label: "Manage Members", allowedRoles: ['admin', 'superadmin'], requiresTeamLead: true },
         { href: "/dashboard/manage-teams", label: "Manage Teams", allowedRoles: ['admin', 'superadmin'], requiresCaptain: true },
-        { href: "/dashboard/manage-notifications", label: "Manage Notifications", allowedRoles: ['admin', 'superadmin'] }
+        { href: "/dashboard/manage-notifications", label: "Manage Notifications", allowedRoles: ['admin', 'superadmin'] },
+        { href: "/dashboard/settings", label: "Settings", allowedRoles: ['superadmin'] }
       ]
     },
     {

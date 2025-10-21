@@ -11,16 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { NotificationItem, UserRole } from "@/types";
-import { PlusCircle, Trash2, BellRing, Loader2, ShieldAlert, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { PlusCircle, Trash2, BellRing, Loader2, ShieldAlert, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { addNotification, deleteNotification } from "@/lib/firebase/notificationService";
 import { db } from "@/lib/firebase/firebase"; 
 import { collection, query, orderBy, getDocs, Timestamp } from "firebase/firestore";
 import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
 import { FunkyLoader } from "@/components/ui/funky-loader";
-import { getFeatureFlags, updateFeatureFlag } from "@/lib/firebase/settingsService";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -37,8 +34,6 @@ export default function ManageNotificationsPage() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [featureFlags, setFeatureFlags] = useState({ isThemeFeatureNew: true });
-  const [isLoadingFlags, setIsLoadingFlags] = useState(true);
 
   const { toast } = useToast();
 
@@ -72,15 +67,6 @@ export default function ManageNotificationsPage() {
     setCurrentUserItsId(itsId);
     setCurrentUserName(name);
     setCurrentUserRole(role);
-    
-    if (role === 'superadmin') {
-      setIsLoadingFlags(true);
-      getFeatureFlags().then(flags => {
-        setFeatureFlags(flags);
-        setIsLoadingFlags(false);
-      }).catch(() => setIsLoadingFlags(false));
-    }
-
   }, [isAuthorized]);
 
   const fetchAllNotifications = useCallback(async () => {
@@ -173,17 +159,6 @@ export default function ManageNotificationsPage() {
     }
   };
 
-  const handleFlagChange = async (flagName: keyof typeof featureFlags, value: boolean) => {
-    setFeatureFlags(prev => ({ ...prev, [flagName]: value }));
-    try {
-      await updateFeatureFlag(flagName, value);
-      toast({ title: "Setting Updated", description: "The feature flag has been changed." });
-    } catch (error) {
-      toast({ title: "Update Failed", description: "Could not save the setting.", variant: "destructive" });
-      setFeatureFlags(prev => ({ ...prev, [flagName]: !value })); // Revert on error
-    }
-  };
-  
   const canManage = currentUserRole === 'admin' || currentUserRole === 'superadmin';
   const totalPages = Math.ceil(notifications.length / ITEMS_PER_PAGE);
   const currentNotifications = useMemo(() => {
@@ -194,7 +169,7 @@ export default function ManageNotificationsPage() {
   const handlePreviousPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
   const handleNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
   
-  if (isAuthorized === null || (currentUserRole === 'superadmin' && isLoadingFlags)) {
+  if (isAuthorized === null) {
     return <div className="flex h-full w-full items-center justify-center"><FunkyLoader size="lg" /></div>;
   }
 
@@ -211,28 +186,6 @@ export default function ManageNotificationsPage() {
 
   return (
     <div className="space-y-6">
-      {currentUserRole === 'superadmin' && (
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center"><Sparkles className="mr-2 h-6 w-6 text-primary" />Feature Flags</CardTitle>
-            <CardDescription className="mt-1">Toggle experimental or new features for all users.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div className="space-y-0.5">
-                <Label htmlFor="theme-badge-switch" className="text-base">Theme Customization Badge</Label>
-                <p className="text-sm text-muted-foreground">Show the "New" badge on the theme/appearance feature.</p>
-              </div>
-              <Switch
-                id="theme-badge-switch"
-                checked={featureFlags.isThemeFeatureNew}
-                onCheckedChange={(checked) => handleFlagChange('isThemeFeatureNew', checked)}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {canManage && (
         <Card className="shadow-lg">
           <CardHeader>
