@@ -10,13 +10,13 @@ import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { addLogoutLog } from "@/lib/firebase/logService";
+import { getFeatureFlags } from "@/lib/firebase/settingsService";
 
 // FCM specific imports
 import { getMessaging, getToken, onMessage, MessagePayload } from "firebase/messaging";
 import { updateUserFcmToken } from "@/lib/firebase/userService"; 
 import { app } from "@/lib/firebase/firebase"; // Import the initialized app
 
-const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 export default function DashboardLayout({
   children,
@@ -28,6 +28,15 @@ export default function DashboardLayout({
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [fcmTokenStatus, setFcmTokenStatus] = useState<string>("idle");
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
+  const [inactivityTimeout, setInactivityTimeout] = useState(10 * 60 * 1000); // Default 10 minutes
+
+  useEffect(() => {
+    getFeatureFlags().then(flags => {
+        if (flags.inactivityTimeout) {
+            setInactivityTimeout(flags.inactivityTimeout * 60 * 1000);
+        }
+    });
+  }, []);
 
   const handleLogout = useCallback((reason: 'manual' | 'inactive') => {
     if (reason === 'inactive') {
@@ -54,8 +63,8 @@ export default function DashboardLayout({
     }
     inactivityTimer.current = setTimeout(() => {
       handleLogout('inactive');
-    }, INACTIVITY_TIMEOUT_MS);
-  }, [handleLogout]);
+    }, inactivityTimeout);
+  }, [handleLogout, inactivityTimeout]);
 
   useEffect(() => {
     const userRole = localStorage.getItem('userRole');

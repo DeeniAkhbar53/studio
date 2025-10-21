@@ -8,6 +8,41 @@ import { addAuditLog } from './auditLogService';
 const settingsCollectionRef = 'app_settings';
 const featureFlagsDocRef = doc(db, settingsCollectionRef, 'featureFlags');
 const duaPageSettingsDocRef = doc(db, settingsCollectionRef, 'duaPage');
+const appConfigDocRef = doc(db, settingsCollectionRef, 'appConfig');
+
+
+// --- GENERAL APP SETTINGS ---
+
+export const getSettings = async (): Promise<{ [key: string]: any }> => {
+    try {
+        const docSnap = await getDoc(appConfigDocRef);
+        if (docSnap.exists()) {
+            return docSnap.data();
+        }
+        return { inactivityTimeout: 10, defaultTheme: 'blue' }; // Default values
+    } catch (error) {
+        console.error("Error fetching general settings:", error);
+        return { inactivityTimeout: 10, defaultTheme: 'blue' };
+    }
+};
+
+export const updateSetting = async (settingName: string, value: any): Promise<void> => {
+     try {
+        await setDoc(appConfigDocRef, { 
+            [settingName]: value,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+        
+        const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+        const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+        await addAuditLog('app_setting_updated', { itsId: actorItsId, name: actorName }, 'warning', { setting: settingName, newValue: value });
+
+    } catch (error) {
+        console.error(`Error updating app setting "${settingName}":`, error);
+        throw error;
+    }
+};
+
 
 // --- DUA PAGE SETTINGS ---
 
@@ -72,18 +107,20 @@ export const getFeatureFlags = async (): Promise<{ [key: string]: boolean }> => 
     try {
         const docSnap = await getDoc(featureFlagsDocRef);
         if (docSnap.exists()) {
-            // Return all flags, ensuring a default for themeNewBadge if it's missing
+            // Return all flags, ensuring a default for new flags if they're missing
             return {
                 isThemeFeatureNew: true, // Default to true if not set
+                isDuaPageEnabled: true,
+                isFormsEnabled: true,
                 ...docSnap.data(),
             };
         }
         // If the document doesn't exist, return default values
-        return { isThemeFeatureNew: true };
+        return { isThemeFeatureNew: true, isDuaPageEnabled: true, isFormsEnabled: true };
     } catch (error) {
         console.error("Error fetching feature flags:", error);
         // On error, return default values to prevent breaking the UI
-        return { isThemeFeatureNew: true };
+        return { isThemeFeatureNew: true, isDuaPageEnabled: true, isFormsEnabled: true };
     }
 };
 

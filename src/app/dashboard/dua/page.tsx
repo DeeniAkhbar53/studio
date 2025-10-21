@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Lock, Video, BookOpen, PlusCircle, MinusCircle, Eye, Edit, ShieldAlert } from "lucide-react";
+import { CheckCircle, Lock, Video, BookOpen, PlusCircle, MinusCircle, Eye, ShieldAlert } from "lucide-react";
 import { db } from "@/lib/firebase/firebase";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -19,8 +19,7 @@ import type { UserRole, UserDesignation } from "@/types";
 import { useRouter } from "next/navigation";
 import Plyr from "plyr-react";
 import "plyr-react/plyr.css";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { getDuaVideoUrl, updateDuaVideoUrl } from "@/lib/firebase/settingsService";
+import { getDuaVideoUrl } from "@/lib/firebase/settingsService";
 import { format, addWeeks, startOfWeek, endOfWeek } from "date-fns";
 
 
@@ -95,8 +94,6 @@ export default function DuaPage() {
     const [accessError, setAccessError] = useState<string | null>(null);
 
     const [videoUrl, setVideoUrl] = useState<string>("");
-    const [isEditLinkOpen, setIsEditLinkOpen] = useState(false);
-    const [newVideoUrl, setNewVideoUrl] = useState("");
     
     const currentWeekId = getWeekId(new Date());
     const weekDateRange = getWeekDateRange(currentWeekId);
@@ -149,7 +146,6 @@ export default function DuaPage() {
        if (isAccessible) {
             getDuaVideoUrl().then(url => {
                 setVideoUrl(url || 'LXb3EKWsInQ'); // Default video if not set
-                setNewVideoUrl(url || 'LXb3EKWsInQ');
             }).catch(() => {
                 setVideoUrl('LXb3EKWsInQ');
             });
@@ -195,24 +191,6 @@ export default function DuaPage() {
             return () => clearTimeout(timer);
         }
     }, [showSuccessMessage]);
-    
-    const handleUpdateVideoUrl = async () => {
-        try {
-            await updateDuaVideoUrl(newVideoUrl);
-            setVideoUrl(newVideoUrl);
-            setIsEditLinkOpen(false);
-            toast({
-                title: "Video Link Updated",
-                description: "The Dua video link has been successfully changed.",
-            });
-        } catch (error) {
-            toast({
-                title: "Error",
-                description: "Could not update the video link.",
-                variant: "destructive"
-            });
-        }
-    };
 
 
     const handleMarkAttendance = async (values: DuaFormValues) => {
@@ -302,20 +280,12 @@ export default function DuaPage() {
                                 Please watch the video and log your recitation counts below.
                             </CardDescription>
                         </div>
-                        <div className="flex items-center gap-2">
-                         {currentUserRole === 'superadmin' && (
-                             <Button variant="secondary" size="sm" onClick={() => setIsEditLinkOpen(true)}>
-                                <Edit className="md:mr-2 h-4 w-4" />
-                                <span className="hidden md:inline">Edit Link</span>
-                            </Button>
-                         )}
                          {canViewResponses && (
                              <Button variant="outline" size="sm" onClick={() => router.push('/dashboard/dua/responses')}>
                                 <Eye className="md:mr-2 h-4 w-4" />
                                 <span className="hidden md:inline">View Submissions</span>
                             </Button>
                          )}
-                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -420,30 +390,6 @@ export default function DuaPage() {
                     </Form>
                 </CardContent>
             </Card>
-            
-            <Dialog open={isEditLinkOpen} onOpenChange={setIsEditLinkOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Update Dua Video Link</DialogTitle>
-                        <DialogDescription>
-                            Paste the new YouTube video ID or full URL below.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <Input 
-                            value={newVideoUrl}
-                            onChange={(e) => setNewVideoUrl(e.target.value)}
-                            placeholder="e.g., LXb3EKWsInQ or full YouTube URL"
-                        />
-                    </div>
-                    <DialogFooter>
-                        <DialogClose asChild>
-                            <Button variant="outline">Cancel</Button>
-                        </DialogClose>
-                        <Button onClick={handleUpdateVideoUrl}>Save Changes</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }
