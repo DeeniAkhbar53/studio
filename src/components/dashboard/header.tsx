@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Bell, LogOut, Menu, UserCircle, Settings, HelpCircle, FileText, X, Moon, Sun, Check, Palette } from "lucide-react";
+import { Bell, LogOut, Menu, UserCircle, Settings, HelpCircle, FileText, X, Moon, Sun, Check, Palette, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -53,7 +53,7 @@ const pageTitles: { [key: string]: string } = {
 };
 
 const colorThemes = [
-    { name: 'default', label: 'Blue', color: '#0A314D' },
+    { name: 'blue', label: 'Blue', color: '#0A314D' },
     { name: 'purple', label: 'Purple', color: '#552645' },
     { name: 'gray', label: 'Gray', color: '#516F7E' },
 ];
@@ -65,17 +65,17 @@ export function Header() {
   const { setTheme, theme } = useTheme();
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [unrespondedForms, setUnrespondedForms] = useState<FormType[]>([]);
-  const [colorTheme, setColorTheme] = useState('default');
+  const [colorTheme, setColorTheme] = useState('blue');
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("colorTheme") || "default";
+    const savedTheme = localStorage.getItem("colorTheme") || "blue";
     setColorTheme(savedTheme);
-    document.body.classList.remove('theme-default', 'theme-purple', 'theme-gray');
-    if (savedTheme !== "default") {
+    document.body.classList.remove('theme-blue', 'theme-purple', 'theme-gray');
+    if (savedTheme !== "blue") {
         document.body.classList.add(`theme-${savedTheme}`);
     }
   }, []);
@@ -83,8 +83,8 @@ export function Header() {
   const handleSetColorTheme = (newTheme: string) => {
     setColorTheme(newTheme);
     localStorage.setItem("colorTheme", newTheme);
-    document.body.classList.remove('theme-default', 'theme-purple', 'theme-gray');
-    if (newTheme !== "default") {
+    document.body.classList.remove('theme-blue', 'theme-purple', 'theme-gray');
+    if (newTheme !== "blue") {
         document.body.classList.add(`theme-${newTheme}`);
     }
   };
@@ -246,6 +246,10 @@ export function Header() {
             </div>
             <div className="border-t p-4 mt-auto">
               <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                     <span className="text-sm font-medium text-muted-foreground">Appearance</span>
+                     <span className="text-xs font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">New</span>
+                  </div>
                   <div>
                     <span className="text-sm font-medium text-muted-foreground">Mode</span>
                     <DropdownMenuRadioGroup value={theme} onValueChange={setTheme} className="flex items-center gap-2 mt-2">
@@ -319,8 +323,12 @@ export function Header() {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button variant="ghost" size="icon" className="rounded-full relative">
                 <Settings className="h-5 w-5" />
+                <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                </span>
                 <span className="sr-only">Settings and Theme</span>
             </Button>
         </DropdownMenuTrigger>
@@ -348,7 +356,7 @@ export function Header() {
                     <DropdownMenuSubContent>
                         <DropdownMenuRadioGroup value={colorTheme} onValueChange={handleSetColorTheme} className="grid grid-cols-3 gap-2 p-2">
                             {colorThemes.map((ct) => (
-                                <DropdownMenuRadioItem key={ct.name} value={ct.name} className="flex items-center justify-center p-0 h-6 w-6 rounded-full border-2 border-transparent focus:border-primary focus:ring-0 focus:ring-offset-0">
+                                <DropdownMenuRadioItem key={ct.name} value={ct.name} className="flex items-center justify-center p-0 h-8 w-8 rounded-md border-2 border-transparent focus:border-primary focus:ring-0 focus:ring-offset-0">
                                      <div className={cn("h-6 w-6 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-1 ring-offset-background")} style={{backgroundColor: ct.color}}>
                                         {colorTheme === ct.name && <Check className="h-4 w-4 text-white" />}
                                     </div>
