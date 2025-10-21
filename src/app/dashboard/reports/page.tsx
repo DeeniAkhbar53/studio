@@ -25,7 +25,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohallah, UserDesignation, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem, MiqaatSession, Form as FormType, FormResponse, SystemLog, DuaAttendance } from "@/types";
 import { getMiqaats, batchMarkSafarInMiqaat } from "@/lib/firebase/miqaatService";
-import { getUsers, getDuaAttendanceForUser } from "@/lib/firebase/userService";
+import { getUsers, getDuaAttendanceForUser, getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getLoginLogsForUser } from "@/lib/firebase/logService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getFormResponsesForUser, getForms } from "@/lib/firebase/formService";
@@ -51,7 +51,7 @@ import {
   Pie,
   Cell,
 } from "@/components/ui/chart";
-import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
+import { findNavItem } from "@/components/dashboard/sidebar-nav";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { Badge } from "@/components/ui/badge";
@@ -387,7 +387,7 @@ export default function ReportsPage() {
   useEffect(() => {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
     const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
-    const pageRights = JSON.parse(pageRightsRaw || '[]');
+    const pageRights = pageRightsRaw ? JSON.parse(pageRightsRaw) : [];
     const navItem = findNavItem('/dashboard/reports');
     
     if (navItem) {
@@ -1644,4 +1644,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
