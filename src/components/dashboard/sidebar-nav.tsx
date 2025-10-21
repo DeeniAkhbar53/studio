@@ -29,7 +29,6 @@ interface NavItem {
   subpages: NavSubItem[];
 }
 
-// Re-structured navigation based on user's JSON
 export const allNavItems: NavItem[] = [
     {
       title: "Dashboard",
@@ -160,8 +159,15 @@ export function SidebarNav() {
     };
   }, []);
   
+  const getIsActive = (href: string, currentPath: string) => {
+    if (href === "/dashboard") {
+      return currentPath === href;
+    }
+    return currentPath.startsWith(href);
+  };
+  
   useEffect(() => {
-    const activeParent = allNavItems.find(item => item.subpages.some(sub => sub.href === pathname || pathname.startsWith(sub.href + '/')));
+    const activeParent = allNavItems.find(item => item.subpages.some(sub => getIsActive(sub.href, pathname)));
     setActiveAccordionItem(activeParent?.title);
   }, [pathname]);
   
@@ -219,7 +225,7 @@ export function SidebarNav() {
                 <AccordionContent className="pt-1">
                   <ul className="flex w-full min-w-0 flex-col gap-1 pl-4 border-l border-sidebar-border ml-5 py-2">
                     {visibleSubpages.map((subpage) => {
-                      const isActive = pathname === subpage.href || pathname.startsWith(subpage.href + '/');
+                      const isActive = getIsActive(subpage.href, pathname);
                       const badgeCount = subpage.href === "/dashboard/notifications" ? unreadNotificationCount : 0;
                       return (
                         <li key={subpage.href}>
