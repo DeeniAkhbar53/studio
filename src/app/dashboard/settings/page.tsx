@@ -48,6 +48,10 @@ export default function SettingsPage() {
     try {
       await updateFeatureFlag(flagName, value);
       toast({ title: "Setting Updated", description: "The feature flag has been changed." });
+      // Dispatch a custom event to notify other components (like the header)
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent('featureFlagsUpdated'));
+      }
     } catch (error) {
       toast({ title: "Update Failed", description: "Could not save the setting.", variant: "destructive" });
       setFeatureFlags(prev => ({ ...prev, [flagName]: !value })); // Revert on error

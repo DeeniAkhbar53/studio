@@ -1,0 +1,418 @@
+
+"use client";
+
+import { Bell, LogOut, Menu, UserCircle, Settings, HelpCircle, FileText, X, Moon, Sun, Check, Palette, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem
+} from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { SidebarNav } from "./sidebar-nav";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { useEffect, useState, useCallback } from "react";
+import type { NotificationItem, UserRole, Form as FormType, User } from "@/types";
+import Image from "next/image";
+import { db } from "@/lib/firebase/firebase";
+import { collection, query, where, orderBy, onSnapshot, Timestamp, limit, Unsubscribe } from "firebase/firestore";
+import { getForms, getFormResponsesForUser } from "@/lib/firebase/formService";
+import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
+import { useTheme } from "next-themes";
+import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { getFeatureFlags } from "@/lib/firebase/settingsService";
+
+
+const pageTitles: { [key: string]: string } = {
+  "/dashboard": "Overview",
+  "/dashboard/overview": "Overview",
+  "/dashboard/profile": "Profile",
+  "/dashboard/notifications": "Notifications",
+  "/dashboard/mark-attendance": "Mark Attendance",
+  "/dashboard/miqaats": "Miqaats",
+  "/dashboard/miqaat-management": "Miqaat Management",
+  "/dashboard/dua": "Dua",
+  "/dashboard/manage-mohallahs": "Manage Mohallahs",
+  "/dashboard/manage-members": "Manage Members",
+  "/dashboard/manage-teams": "Manage Teams",
+  "/dashboard/manage-notifications": "Manage Notifications",
+  "/dashboard/reports": "Reports",
+  "/dashboard/forms": "Forms / Surveys",
+  "/dashboard/login-logs": "Login Logs",
+  "/dashboard/audit-logs": "Audit Logs",
+  "/dashboard/settings": "Settings",
+};
+
+const colorThemes = [
+    { name: 'blue', label: 'Blue', color: '#0A314D' },
+    { name: 'purple', label: 'Purple', color: '#552645' },
+    { name: 'gray', label: 'Gray', color: '#516F7E' },
+];
+
+
+export function Header() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { setTheme, theme } = useTheme();
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [unrespondedForms, setUnrespondedForms] = useState<FormType[]>([]);
+  const [colorTheme, setColorTheme] = useState('blue');
+  const [showThemeNewBadge, setShowThemeNewBadge] = useState(true);
+  
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("colorTheme") || "blue";
+    setColorTheme(savedTheme);
+    document.body.classList.remove('theme-blue', 'theme-purple', 'theme-gray');
+    if (savedTheme !== "blue") {
+        document.body.classList.add(`theme-${savedTheme}`);
+    }
+  }, []);
+
+  const handleSetColorTheme = (newTheme: string) => {
+    setColorTheme(newTheme);
+    localStorage.setItem("colorTheme", newTheme);
+    document.body.classList.remove('theme-blue', 'theme-purple', 'theme-gray');
+    if (newTheme !== "blue") {
+        document.body.classList.add(`theme-${newTheme}`);
+    }
+  };
+
+  const fetchFeatureFlag = useCallback(async () => {
+    const flags = await getFeatureFlags();
+    setShowThemeNewBadge(flags.isThemeFeatureNew);
+  }, []);
+
+  useEffect(() => {
+    const loadAuthData = async () => {
+      if (typeof window !== "undefined") {
+        const itsId = localStorage.getItem('userItsId');
+        const role = localStorage.getItem('userRole') as UserRole | null;
+        setCurrentUserItsId(itsId);
+        setCurrentUserRole(role);
+        if (itsId) {
+            try {
+                const user = await getUserByItsOrBgkId(itsId);
+                setCurrentUser(user);
+            } catch (error) {
+                console.error("Header: Failed to fetch user details", error);
+            }
+        }
+      }
+    };
+    
+    loadAuthData();
+    fetchFeatureFlag();
+
+    const handleStorageChange = (event: StorageEvent) => {
+      if (typeof window !== "undefined") {
+        if (event.key === 'userItsId' || event.key === 'userRole') {
+          loadAuthData();
+        }
+      }
+    };
+
+    // Listen for custom event from settings page
+    window.addEventListener('featureFlagsUpdated', fetchFeatureFlag);
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('featureFlagsUpdated', fetchFeatureFlag);
+    };
+  }, [fetchFeatureFlag]);
+
+
+  useEffect(() => {
+    if (!currentUserItsId || !currentUserRole || !currentUser) {
+      setUnreadNotificationCount(0);
+      setUnrespondedForms([]);
+      return;
+    }
+  
+    let unsubNotifications: Unsubscribe | null = null;
+  
+    const checkNotifications = async () => {
+      // 1. Standard Notifications
+      const notificationsCollectionRef = collection(db, 'notifications');
+      const qAll = query(
+        notificationsCollectionRef,
+        where('targetAudience', '==', 'all'),
+        orderBy('createdAt', 'desc'),
+        limit(50)
+      );
+      
+      unsubNotifications = onSnapshot(qAll, async (querySnapshot) => {
+        let standardUnreadCount = 0;
+        const allDocs = querySnapshot.docs;
+
+        for (const doc of allDocs) {
+            const data = doc.data();
+            if (!data.readBy?.includes(currentUserItsId)) {
+                standardUnreadCount++;
+            }
+        }
+
+        // 2. Form Notifications
+        let formsUnreadCount = 0;
+        let newUnrespondedForms: FormType[] = [];
+        try {
+            const allForms = await getForms();
+            const userResponses = await getFormResponsesForUser(currentUser.itsId);
+            const respondedFormIds = new Set(userResponses.map(r => r.formId));
+
+            newUnrespondedForms = allForms.filter(form => {
+                if (form.status !== 'open' || respondedFormIds.has(form.id)) {
+                    return false;
+                }
+                if (form.endDate && new Date(form.endDate) < new Date()) {
+                    return false;
+                }
+                const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
+                if (isForEveryone) return true;
+                
+                const eligibleById = !!form.eligibleItsIds?.includes(currentUser.itsId);
+                const eligibleByTeam = !!currentUser.team && !!form.teams?.includes(currentUser.team);
+                const eligibleByMohallah = !!currentUser.mohallahId && !!form.mohallahIds?.includes(currentUser.mohallahId);
+                return eligibleById || eligibleByTeam || eligibleByMohallah;
+            });
+            
+            formsUnreadCount = newUnrespondedForms.length;
+            setUnrespondedForms(newUnrespondedForms);
+
+        } catch (error) {
+            console.error("Error checking for new forms:", error);
+        }
+        
+        const totalUnread = standardUnreadCount + formsUnreadCount;
+        setUnreadNotificationCount(totalUnread);
+        localStorage.setItem('unreadNotificationCount', totalUnread.toString());
+        window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+      }, (error) => {
+        console.error("Error in notification snapshot listener:", error);
+      });
+    };
+
+    checkNotifications();
+
+    return () => {
+      if (unsubNotifications) unsubNotifications();
+    };
+  }, [currentUser, currentUserItsId, currentUserRole]);
+
+
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      localStorage.clear();
+    }
+    setCurrentUser(null);
+    setCurrentUserItsId(null);
+    setCurrentUserRole(null);
+    setUnreadNotificationCount(0);
+    setUnrespondedForms([]);
+    
+    if (typeof window !== "undefined") {
+       window.dispatchEvent(new CustomEvent('notificationsUpdated')); 
+    }
+    router.push("/");
+  };
+
+  const currentPageTitle = pageTitles[pathname] || "Dashboard";
+
+  return (
+    <header className="flex h-16 items-center gap-4 border-b bg-card px-4 md:px-6">
+      <div className="md:hidden">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="icon">
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle navigation menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="flex flex-col p-0 bg-card">
+            <SheetHeader className="p-4 border-b">
+              <SheetTitle className="sr-only">Main Navigation Menu</SheetTitle>
+               <Link href="/dashboard" className="flex items-center gap-2 text-lg font-semibold text-primary">
+                <Image
+                  src="/logo.png"
+                  alt="BGK Attendance Logo"
+                  width={32}
+                  height={32}
+                  className="h-8 w-8"
+                />
+                <span>BGK Attendance</span>
+              </Link>
+            </SheetHeader>
+            <div style={{ '--sidebar-foreground': 'hsl(var(--card-foreground))' } as React.CSSProperties} className="flex-grow overflow-y-auto">
+              <SidebarNav />
+            </div>
+            <div className="border-t p-4 mt-auto">
+              <Accordion type="single" collapsible>
+                <AccordionItem value="appearance" className="border-b-0">
+                  <AccordionTrigger className="hover:no-underline py-2">
+                    <div className="flex items-center justify-between w-full">
+                       <span className="text-sm font-medium text-muted-foreground">Appearance</span>
+                       {showThemeNewBadge && <span className="text-xs font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">New</span>}
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-4 space-y-4">
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Mode</span>
+                      <DropdownMenuRadioGroup value={theme} onValueChange={setTheme} className="flex items-center gap-2 mt-2">
+                        <Button variant={theme === 'light' ? 'secondary' : 'ghost'} size="sm" className="flex-1 h-8 w-8" onClick={() => setTheme('light')}><Sun className="h-4 w-4" /></Button>
+                        <Button variant={theme === 'dark' ? 'secondary' : 'ghost'} size="sm" className="flex-1 h-8 w-8" onClick={() => setTheme('dark')}><Moon className="h-4 w-4" /></Button>
+                        <Button variant={theme === 'system' ? 'secondary' : 'ghost'} size="sm" className="flex-1 h-8 w-8" onClick={() => setTheme('system')}>System</Button>
+                      </DropdownMenuRadioGroup>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Color Theme (Beta)</span>
+                      <div className="flex items-center justify-around gap-2 mt-2">
+                         {colorThemes.map((ct) => (
+                          <button
+                            key={ct.name}
+                            onClick={() => handleSetColorTheme(ct.name)}
+                            className={cn("h-6 w-6 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+                            style={{ backgroundColor: ct.color }}
+                            aria-label={`Select ${ct.label} theme`}
+                          >
+                            {colorTheme === ct.name && <Check className="h-4 w-4 text-white" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      <div className="flex-1">
+        <h1 className="text-xl font-semibold">{currentPageTitle}</h1>
+      </div>
+
+      <div className="hidden md:flex flex-1 ml-auto max-w-sm">
+        {/* Search functionality can be added here later */}
+      </div>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="rounded-full relative">
+            <Bell className="h-5 w-5" />
+            {unreadNotificationCount > 0 && (
+              <span className="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-card" />
+            )}
+            <span className="sr-only">Toggle notifications</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-80">
+          <DropdownMenuLabel>New Forms</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {unrespondedForms.length > 0 ? (
+            unrespondedForms.slice(0, 5).map(form => (
+              <DropdownMenuItem key={form.id} asChild>
+                <button
+                  onClick={() => router.push('/dashboard/forms')}
+                  className="w-full text-left cursor-pointer"
+                >
+                  <div className="font-semibold flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-primary" />
+                    {form.title}
+                  </div>
+                </button>
+              </DropdownMenuItem>
+            ))
+          ) : (
+             <DropdownMenuItem disabled>No new forms at this time.</DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="rounded-full relative">
+                <Settings className="h-5 w-5" />
+                 {showThemeNewBadge && (
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                    </span>
+                )}
+                <span className="sr-only">Settings and Theme</span>
+            </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Appearance</DropdownMenuLabel>
+            <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                    {theme === 'dark' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
+                    <span>Mode</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                    <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setTheme("light")}>Light</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("dark")}>Dark</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("system")}>System</DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                    <Palette className="mr-2 h-4 w-4" />
+                    <span>Color Theme (Beta)</span>
+                </DropdownMenuSubTrigger>
+                 <DropdownMenuPortal>
+                    <DropdownMenuSubContent>
+                        <DropdownMenuRadioGroup value={colorTheme} onValueChange={handleSetColorTheme} className="grid grid-cols-3 gap-2 p-2">
+                            {colorThemes.map((ct) => (
+                                <DropdownMenuRadioItem key={ct.name} value={ct.name} className="flex items-center justify-center p-0 h-8 w-8 rounded-md border-2 border-transparent focus:border-primary focus:ring-0 focus:ring-offset-0">
+                                     <div className={cn("h-6 w-6 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-1 ring-offset-background")} style={{backgroundColor: ct.color}}>
+                                        {colorTheme === ct.name && <Check className="h-4 w-4 text-white" />}
+                                    </div>
+                                </DropdownMenuRadioItem>
+                            ))}
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+            </DropdownMenuSub>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="rounded-full">
+            <UserCircle className="h-6 w-6" />
+            <span className="sr-only">Toggle user menu</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>Profile</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </header>
+  );
+}
