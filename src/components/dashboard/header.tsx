@@ -32,6 +32,8 @@ import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
 
 const pageTitles: { [key: string]: string } = {
   "/dashboard": "Overview",
@@ -245,36 +247,42 @@ export function Header() {
               <SidebarNav />
             </div>
             <div className="border-t p-4 mt-auto">
-              <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                     <span className="text-sm font-medium text-muted-foreground">Appearance</span>
-                     <span className="text-xs font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">New</span>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-muted-foreground">Mode</span>
-                    <DropdownMenuRadioGroup value={theme} onValueChange={setTheme} className="flex items-center gap-2 mt-2">
-                      <Button variant={theme === 'light' ? 'secondary' : 'ghost'} size="sm" className="flex-1 h-8 w-8" onClick={() => setTheme('light')}><Sun className="h-4 w-4" /></Button>
-                      <Button variant={theme === 'dark' ? 'secondary' : 'ghost'} size="sm" className="flex-1 h-8 w-8" onClick={() => setTheme('dark')}><Moon className="h-4 w-4" /></Button>
-                      <Button variant={theme === 'system' ? 'secondary' : 'ghost'} size="sm" className="flex-1 h-8 w-8" onClick={() => setTheme('system')}>System</Button>
-                    </DropdownMenuRadioGroup>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-muted-foreground">Theme (Beta)</span>
-                    <div className="flex items-center justify-around gap-2 mt-2">
-                       {colorThemes.map((ct) => (
-                        <button
-                          key={ct.name}
-                          onClick={() => handleSetColorTheme(ct.name)}
-                          className={cn("h-6 w-6 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
-                          style={{ backgroundColor: ct.color }}
-                          aria-label={`Select ${ct.label} theme`}
-                        >
-                          {colorTheme === ct.name && <Check className="h-4 w-4 text-white" />}
-                        </button>
-                      ))}
+              <Accordion type="single" collapsible>
+                <AccordionItem value="appearance" className="border-b-0">
+                  <AccordionTrigger className="hover:no-underline py-2">
+                    <div className="flex items-center justify-between w-full">
+                       <span className="text-sm font-medium text-muted-foreground">Appearance</span>
+                       <span className="text-xs font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">New</span>
                     </div>
-                  </div>
-              </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-4 space-y-4">
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Mode</span>
+                      <DropdownMenuRadioGroup value={theme} onValueChange={setTheme} className="flex items-center gap-2 mt-2">
+                        <Button variant={theme === 'light' ? 'secondary' : 'ghost'} size="sm" className="flex-1 h-8 w-8" onClick={() => setTheme('light')}><Sun className="h-4 w-4" /></Button>
+                        <Button variant={theme === 'dark' ? 'secondary' : 'ghost'} size="sm" className="flex-1 h-8 w-8" onClick={() => setTheme('dark')}><Moon className="h-4 w-4" /></Button>
+                        <Button variant={theme === 'system' ? 'secondary' : 'ghost'} size="sm" className="flex-1 h-8 w-8" onClick={() => setTheme('system')}>System</Button>
+                      </DropdownMenuRadioGroup>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-muted-foreground">Theme (Beta)</span>
+                      <div className="flex items-center justify-around gap-2 mt-2">
+                         {colorThemes.map((ct) => (
+                          <button
+                            key={ct.name}
+                            onClick={() => handleSetColorTheme(ct.name)}
+                            className={cn("h-6 w-6 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+                            style={{ backgroundColor: ct.color }}
+                            aria-label={`Select ${ct.label} theme`}
+                          >
+                            {colorTheme === ct.name && <Check className="h-4 w-4 text-white" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </div>
           </SheetContent>
         </Sheet>
