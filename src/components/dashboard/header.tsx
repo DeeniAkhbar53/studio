@@ -33,6 +33,7 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { getFeatureFlags } from "@/lib/firebase/settingsService";
 
 
 const pageTitles: { [key: string]: string } = {
@@ -68,6 +69,7 @@ export function Header() {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [unrespondedForms, setUnrespondedForms] = useState<FormType[]>([]);
   const [colorTheme, setColorTheme] = useState('blue');
+  const [showThemeNewBadge, setShowThemeNewBadge] = useState(true);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
@@ -109,7 +111,14 @@ export function Header() {
         }
       }
     };
+    
+    const fetchFeatureFlag = async () => {
+        const flags = await getFeatureFlags();
+        setShowThemeNewBadge(flags.isThemeFeatureNew);
+    };
+
     loadAuthData();
+    fetchFeatureFlag();
 
     const handleStorageChange = (event: StorageEvent) => {
       if (typeof window !== "undefined") {
@@ -252,7 +261,7 @@ export function Header() {
                   <AccordionTrigger className="hover:no-underline py-2">
                     <div className="flex items-center justify-between w-full">
                        <span className="text-sm font-medium text-muted-foreground">Appearance</span>
-                       <span className="text-xs font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">New</span>
+                       {showThemeNewBadge && <span className="text-xs font-semibold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">New</span>}
                     </div>
                   </AccordionTrigger>
                   <AccordionContent className="pt-4 space-y-4">
@@ -265,7 +274,7 @@ export function Header() {
                       </DropdownMenuRadioGroup>
                     </div>
                     <div>
-                      <span className="text-sm font-medium text-muted-foreground">Theme (Beta)</span>
+                      <span className="text-sm font-medium text-muted-foreground">Color Theme (Beta)</span>
                       <div className="flex items-center justify-around gap-2 mt-2">
                          {colorThemes.map((ct) => (
                           <button
@@ -333,10 +342,12 @@ export function Header() {
         <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full relative">
                 <Settings className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
-                </span>
+                 {showThemeNewBadge && (
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                    </span>
+                )}
                 <span className="sr-only">Settings and Theme</span>
             </Button>
         </DropdownMenuTrigger>

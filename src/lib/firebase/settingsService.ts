@@ -1,11 +1,15 @@
 
+'use server';
 
 import { db } from './firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { addAuditLog } from './auditLogService';
 
 const settingsCollectionRef = 'app_settings';
+const featureFlagsDocRef = doc(db, settingsCollectionRef, 'featureFlags');
 const duaPageSettingsDocRef = doc(db, settingsCollectionRef, 'duaPage');
+
+// --- DUA PAGE SETTINGS ---
 
 /**
  * Fetches the YouTube video URL for the Dua page from settings.
@@ -53,6 +57,55 @@ export const updateDuaVideoUrl = async (newUrl: string): Promise<void> => {
 
     } catch (error) {
         console.error("Error updating Dua video URL:", error);
+        throw error;
+    }
+};
+
+
+// --- FEATURE FLAG SETTINGS ---
+
+/**
+ * Fetches all feature flags from settings.
+ * @returns {Promise<{[key: string]: boolean}>} An object of feature flags.
+ */
+export const getFeatureFlags = async (): Promise<{ [key: string]: boolean }> => {
+    try {
+        const docSnap = await getDoc(featureFlagsDocRef);
+        if (docSnap.exists()) {
+            // Return all flags, ensuring a default for themeNewBadge if it's missing
+            return {
+                isThemeFeatureNew: true, // Default to true if not set
+                ...docSnap.data(),
+            };
+        }
+        // If the document doesn't exist, return default values
+        return { isThemeFeatureNew: true };
+    } catch (error) {
+        console.error("Error fetching feature flags:", error);
+        // On error, return default values to prevent breaking the UI
+        return { isThemeFeatureNew: true };
+    }
+};
+
+
+/**
+ * Updates a specific feature flag.
+ * @param {string} flagName - The name of the flag to update (e.g., 'isThemeFeatureNew').
+ * @param {boolean} value - The new boolean value for the flag.
+ */
+export const updateFeatureFlag = async (flagName: string, value: boolean): Promise<void> => {
+    try {
+        await setDoc(featureFlagsDocRef, { 
+            [flagName]: value,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+        
+        const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+        const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+        await addAuditLog('feature_flag_updated', { itsId: actorItsId, name: actorName }, 'warning', { flag: flagName, newValue: value });
+
+    } catch (error) {
+        console.error(`Error updating feature flag "${flagName}":`, error);
         throw error;
     }
 };
