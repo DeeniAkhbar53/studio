@@ -261,7 +261,7 @@ export function Header() {
                         <button
                           key={ct.name}
                           onClick={() => handleSetColorTheme(ct.name)}
-                          className={cn("w-full h-8 rounded-md flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+                          className={cn("w-full h-8 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
                           style={{ backgroundColor: ct.color }}
                           aria-label={`Select ${ct.label} theme`}
                         >
