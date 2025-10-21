@@ -31,6 +31,7 @@ import { getForms, getFormResponsesForUser } from "@/lib/firebase/formService";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
 const pageTitles: { [key: string]: string } = {
   "/dashboard": "Overview",
@@ -240,8 +241,36 @@ export function Header() {
                 <span>BGK Attendance</span>
               </Link>
             </SheetHeader>
-            <div style={{ '--sidebar-foreground': 'hsl(var(--card-foreground))' } as React.CSSProperties}>
+            <div style={{ '--sidebar-foreground': 'hsl(var(--card-foreground))' } as React.CSSProperties} className="flex-grow overflow-y-auto">
               <SidebarNav />
+            </div>
+            <div className="border-t p-4 mt-auto">
+              <div className="space-y-4">
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Mode</span>
+                    <DropdownMenuRadioGroup value={theme} onValueChange={setTheme} className="flex items-center gap-2 mt-2">
+                      <Button variant={theme === 'light' ? 'secondary' : 'ghost'} size="icon" className="flex-1" onClick={() => setTheme('light')}><Sun className="h-4 w-4" /></Button>
+                      <Button variant={theme === 'dark' ? 'secondary' : 'ghost'} size="icon" className="flex-1" onClick={() => setTheme('dark')}><Moon className="h-4 w-4" /></Button>
+                      <Button variant={theme === 'system' ? 'secondary' : 'ghost'} size="icon" className="flex-1" onClick={() => setTheme('system')}>System</Button>
+                    </DropdownMenuRadioGroup>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-muted-foreground">Theme</span>
+                    <div className="flex items-center gap-2 mt-2">
+                       {colorThemes.map((ct) => (
+                        <button
+                          key={ct.name}
+                          onClick={() => handleSetColorTheme(ct.name)}
+                          className={cn("w-full h-8 rounded-md flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+                          style={{ backgroundColor: ct.color }}
+                          aria-label={`Select ${ct.label} theme`}
+                        >
+                          {colorTheme === ct.name && <Check className="h-4 w-4 text-white" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+              </div>
             </div>
           </SheetContent>
         </Sheet>
