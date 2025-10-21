@@ -28,18 +28,25 @@ import { getForms, getFormResponsesForUser } from "@/lib/firebase/formService";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 
 const pageTitles: { [key: string]: string } = {
-  "/dashboard": "Dashboard",
+  "/dashboard": "Overview",
+  "/dashboard/overview": "Overview",
   "/dashboard/profile": "Profile",
+  "/dashboard/notifications": "Notifications",
+  "/dashboard/mark-attendance": "Mark Attendance",
+  "/dashboard/miqaats": "Miqaats",
   "/dashboard/miqaat-management": "Miqaats",
+  "/dashboard/dua": "Dua",
   "/dashboard/manage-mohallahs": "Manage Mohallahs",
   "/dashboard/manage-members": "Manage Members",
-  "/dashboard/reports": "Reports",
-  "/dashboard/scan-attendance": "Scan QR",
-  "/dashboard/mark-attendance": "Mark Attendance",
-  "/dashboard/notifications": "Notifications",
+  "/dashboard/manage-teams": "Manage Teams",
   "/dashboard/manage-notifications": "Manage Notifications",
+  "/dashboard/reports": "Reports",
+  "/dashboard/forms-surveys": "Forms / Surveys",
   "/dashboard/forms": "Forms / Surveys",
+  "/dashboard/login-logs": "Login Logs",
+  "/dashboard/audit-logs": "Audit Logs",
 };
+
 
 export function Header() {
   const pathname = usePathname();
