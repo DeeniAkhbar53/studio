@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { UserDesignation, UserRole } from "@/types";
 import { Home, User, CalendarDays, Building, BarChart3, UserCheck, Bell, Settings, Users as UsersIcon, FileText, ScrollText, BookOpen, Shield, ChevronDown } from "lucide-react";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -51,7 +51,7 @@ export const allNavItems: NavItem[] = [
     },
     {
       title: "Management",
-      icon,
+      icon: Settings,
       subpages: [
         { href: "/dashboard/manage-mohallahs", label: "Manage Mohallahs", allowedRoles: ['admin', 'superadmin'] },
         { href: "/dashboard/manage-members", label: "Manage Members", allowedRoles: ['admin', 'superadmin'], requiresTeamLead: true },
@@ -70,13 +70,6 @@ export const allNavItems: NavItem[] = [
       ]
     }
 ];
-
-const iconMap: { [key: string]: React.ElementType } = {
-  home: Home,
-  "user-check": UserCheck,
-  settings: Settings,
-  "bar-chart-2": BarChart3,
-};
 
 // Helper to find a nav item by its href, searching through the nested structure
 export function findNavItem(href: string): NavSubItem | undefined {
@@ -205,7 +198,7 @@ export function SidebarNav() {
       <nav className="flex flex-col gap-1 p-2 text-sm font-medium">
         <Accordion type="single" collapsible value={activeAccordionItem} onValueChange={setActiveAccordionItem} className="w-full">
           {allNavItems.map((item) => {
-            const Icon = iconMap[item.icon as keyof typeof iconMap] || Settings;
+            const Icon = item.icon;
             const visibleSubpages = item.subpages.filter(hasAccess);
 
             if (visibleSubpages.length === 0) return null;
@@ -257,12 +250,3 @@ export function SidebarNav() {
     </TooltipProvider>
   );
 }
-
-// Simplified SidebarNav component with refined logic
-const iconMapping: { [key: string]: React.ElementType } = {
-  home: Home,
-  "user-check": UserCheck,
-  settings: Settings,
-  "bar-chart-2": BarChart3,
-  // Add other icons from the JSON if needed
-};
