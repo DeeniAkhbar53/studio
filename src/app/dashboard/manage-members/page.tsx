@@ -27,7 +27,7 @@ import Papa from 'papaparse';
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FunkyLoader } from "@/components/ui/funky-loader";
@@ -153,7 +153,7 @@ export default function ManageMembersPage() {
       setCurrentUserRole(role);
       setCurrentUserDesignation(designation);
 
-      const navItem = allNavItems.find(item => item.href === '/dashboard/manage-members');
+      const navItem = findNavItem('/dashboard/manage-members');
       if (navItem) {
         const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
         const hasPageRight = pageRights.includes(navItem.href);
@@ -1516,7 +1516,3 @@ export default function ManageMembersPage() {
     </div>
   );
 }
-
-    
-
-    

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel as ShadF
 import { getMohallahs, addMohallah, updateMohallahName, deleteMohallah as fbDeleteMohallah } from "@/lib/firebase/mohallahService";
 import { getUsers } from "@/lib/firebase/userService"; 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
-import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 
@@ -48,7 +49,7 @@ export default function ManageMohallahsPage() {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
     const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
     const pageRights = JSON.parse(pageRightsRaw || '[]');
-    const navItem = allNavItems.find(item => item.href === '/dashboard/manage-mohallahs');
+    const navItem = findNavItem('/dashboard/manage-mohallahs');
     
     if (navItem) {
       const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');

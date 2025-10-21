@@ -11,7 +11,7 @@ import { db } from "@/lib/firebase/firebase";
 import { collection, query, orderBy, onSnapshot, Timestamp } from "firebase/firestore";
 import { Loader2, ShieldAlert, Shield, Trash2, AlertTriangle, FileWarning, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
-import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 
@@ -27,9 +27,9 @@ export default function AuditLogsPage() {
 
   useEffect(() => {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
-    const navItem = allNavItems.find(item => item.href === '/dashboard/audit-logs');
+    const navItem = findNavItem('/dashboard/audit-logs');
     
-    if (navItem?.allowedRoles?.includes(role || 'user')) {
+    if (navItem && navItem.allowedRoles?.includes(role || 'user')) {
       setIsAuthorized(true);
     } else {
       setIsAuthorized(false);

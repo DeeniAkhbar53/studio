@@ -14,7 +14,7 @@ import { getUsers, updateUser } from '@/lib/firebase/userService';
 import { createTeam, renameTeam, deleteTeam } from '@/lib/firebase/teamService';
 import { Plus, Trash2, Edit, Loader2, Users as UsersIcon, ShieldAlert, GripVertical, UserPlus, Move } from 'lucide-react';
 import { FunkyLoader } from '@/components/ui/funky-loader';
-import { allNavItems } from '@/components/dashboard/sidebar-nav';
+import { allNavItems, findNavItem } from '@/components/dashboard/sidebar-nav';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -92,11 +92,11 @@ export default function ManageTeamsPage() {
     const role = localStorage.getItem('userRole') as UserRole | null;
     const designation = localStorage.getItem('userDesignation') as UserDesignation | null;
 
-    const navItem = allNavItems.find(item => item.href === '/dashboard/manage-teams');
+    const navItem = findNavItem('/dashboard/manage-teams');
     const hasRoleAccess = navItem?.allowedRoles?.includes(role || 'user');
     const hasDesignationAccess = designation === 'Captain';
     
-    if (hasRoleAccess || hasDesignationAccess) {
+    if (navItem && (hasRoleAccess || hasDesignationAccess)) {
       setIsAuthorized(true);
     } else {
       setIsAuthorized(false);

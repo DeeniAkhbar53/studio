@@ -16,7 +16,7 @@ import { format } from "date-fns";
 import { addNotification, deleteNotification } from "@/lib/firebase/notificationService";
 import { db } from "@/lib/firebase/firebase"; 
 import { collection, query, orderBy, getDocs, Timestamp } from "firebase/firestore";
-import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 
 const ITEMS_PER_PAGE = 10;
@@ -41,7 +41,7 @@ export default function ManageNotificationsPage() {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
     const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
     const pageRights = JSON.parse(pageRightsRaw || '[]');
-    const navItem = allNavItems.find(item => item.href === '/dashboard/manage-notifications');
+    const navItem = findNavItem('/dashboard/manage-notifications');
     
     if (navItem) {
       const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');

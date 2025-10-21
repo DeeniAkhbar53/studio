@@ -23,7 +23,7 @@ import { getUsers } from "@/lib/firebase/userService";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -202,7 +202,7 @@ export default function MiqaatManagementPage() {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
     const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
     const pageRights = JSON.parse(pageRightsRaw || '[]');
-    const navItem = allNavItems.find(item => item.href === '/dashboard/miqaat-management');
+    const navItem = findNavItem('/dashboard/miqaat-management');
     
     if (navItem) {
       const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');

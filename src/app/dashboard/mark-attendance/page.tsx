@@ -20,7 +20,7 @@ import { format, parse, setHours, setMinutes, setSeconds, startOfDay } from "dat
 import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -121,7 +121,7 @@ export default function MarkAttendancePage() {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
     const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
     const pageRights = JSON.parse(pageRightsRaw || '[]');
-    const navItem = allNavItems.find(item => item.href === '/dashboard/mark-attendance');
+    const navItem = findNavItem('/dashboard/mark-attendance');
     
     if (navItem) {
       const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
@@ -1537,5 +1537,3 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
-
-      
