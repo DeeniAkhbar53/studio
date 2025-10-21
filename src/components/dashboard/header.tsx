@@ -53,9 +53,9 @@ const pageTitles: { [key: string]: string } = {
 };
 
 const colorThemes = [
-  { name: 'default', label: 'Blue', color: '#0A314D' },
-  { name: 'purple', label: 'Purple', color: '#552645' },
-  { name: 'gray', label: 'Gray', color: '#516F7E' },
+    { name: 'default', label: 'Blue', color: '#0A314D' },
+    { name: 'purple', label: 'Purple', color: '#552645' },
+    { name: 'gray', label: 'Gray', color: '#516F7E' },
 ];
 
 
@@ -255,7 +255,7 @@ export function Header() {
                     </DropdownMenuRadioGroup>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-muted-foreground">Theme</span>
+                    <span className="text-sm font-medium text-muted-foreground">Theme (Beta)</span>
                     <div className="flex items-center justify-around gap-2 mt-2">
                        {colorThemes.map((ct) => (
                         <button
@@ -342,13 +342,13 @@ export function Header() {
             <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                     <Palette className="mr-2 h-4 w-4" />
-                    <span>Color Theme</span>
+                    <span>Color Theme (Beta)</span>
                 </DropdownMenuSubTrigger>
                  <DropdownMenuPortal>
                     <DropdownMenuSubContent>
                         <DropdownMenuRadioGroup value={colorTheme} onValueChange={handleSetColorTheme} className="grid grid-cols-3 gap-2 p-2">
                             {colorThemes.map((ct) => (
-                                <DropdownMenuRadioItem key={ct.name} value={ct.name} className="flex items-center justify-center p-0 h-8 w-8 rounded-full border-2 border-transparent focus:border-primary focus:ring-0 focus:ring-offset-0">
+                                <DropdownMenuRadioItem key={ct.name} value={ct.name} className="flex items-center justify-center p-0 h-6 w-6 rounded-full border-2 border-transparent focus:border-primary focus:ring-0 focus:ring-offset-0">
                                      <div className={cn("h-6 w-6 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-1 ring-offset-background")} style={{backgroundColor: ct.color}}>
                                         {colorTheme === ct.name && <Check className="h-4 w-4 text-white" />}
                                     </div>
