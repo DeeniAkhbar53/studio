@@ -104,24 +104,31 @@ export const updateDuaVideoUrl = async (newUrl: string): Promise<void> => {
  * @returns {Promise<{[key: string]: boolean}>} An object of feature flags.
  */
 export const getFeatureFlags = async (): Promise<{ [key: string]: boolean }> => {
+    const defaultFlags = { 
+        isThemeFeatureNew: true, 
+        isDuaPageEnabled: true, 
+        isFormsEnabled: true, 
+        isBarcodeScanningEnabled: true 
+    };
+
     try {
         const docSnap = await getDoc(featureFlagsDocRef);
         if (docSnap.exists()) {
-            // Return all flags, ensuring a default for new flags if they're missing
-            return {
-                isThemeFeatureNew: true, // Default to true if not set
-                isDuaPageEnabled: true,
-                isFormsEnabled: true,
-                isBarcodeScanningEnabled: true,
-                ...docSnap.data(),
+            const data = docSnap.data();
+            // Explicitly pick only the boolean flags to avoid passing Timestamps
+            const flags = {
+                isThemeFeatureNew: data.isThemeFeatureNew ?? defaultFlags.isThemeFeatureNew,
+                isDuaPageEnabled: data.isDuaPageEnabled ?? defaultFlags.isDuaPageEnabled,
+                isFormsEnabled: data.isFormsEnabled ?? defaultFlags.isFormsEnabled,
+                isBarcodeScanningEnabled: data.isBarcodeScanningEnabled ?? defaultFlags.isBarcodeScanningEnabled,
             };
+            return flags;
         }
-        // If the document doesn't exist, return default values
-        return { isThemeFeatureNew: true, isDuaPageEnabled: true, isFormsEnabled: true, isBarcodeScanningEnabled: true };
+        return defaultFlags;
     } catch (error) {
         console.error("Error fetching feature flags:", error);
         // On error, return default values to prevent breaking the UI
-        return { isThemeFeatureNew: true, isDuaPageEnabled: true, isFormsEnabled: true, isBarcodeScanningEnabled: true };
+        return defaultFlags;
     }
 };
 
