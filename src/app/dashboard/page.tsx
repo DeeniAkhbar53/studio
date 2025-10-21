@@ -1024,7 +1024,7 @@ export default function DashboardOverviewPage() {
               <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground break-words">{stat.title}</CardTitle>
-                  <stat.icon className="h-5 w-5 text-accent shrink-0" />
+                  <stat.icon className="h-5 w-5 text-primary shrink-0" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-foreground break-all">
