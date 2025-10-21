@@ -93,43 +93,51 @@
   .theme-green {
     --primary: 142.1 76.2% 36.3%;
     --primary-foreground: 142.1 76.2% 96.3%;
+    --secondary: 142.1 76.2% 46.3%;
+    --secondary-foreground: 142.1 76.2% 96.3%;
     --ring: 142.1 76.2% 36.3%;
 
-    --sidebar-background: 140 82% 17%;
-    --sidebar-accent: 140 100% 25%;
-    --sidebar-border: 140 100% 25%;
+    --sidebar-primary: 142.1 76.2% 36.3%;
+    --sidebar-primary-foreground: 142.1 76.2% 96.3%;
+    --sidebar-accent: 140 30% 30%;
+    --sidebar-border: 140 30% 35%;
   }
 
   .dark.theme-green {
     --primary: 142.1 76.2% 46.3%;
     --primary-foreground: 142.1 76.2% 6.3%;
+    --secondary: 142.1 76.2% 36.3%;
+    --secondary-foreground: 142.1 76.2% 96.3%;
     --ring: 142.1 76.2% 46.3%;
     
-    --sidebar-background: 140 28% 15%; 
+    --sidebar-primary: 142.1 76.2% 46.3%;
+    --sidebar-primary-foreground: 142.1 76.2% 6.3%;
     --sidebar-accent: 140 28% 22%; 
     --sidebar-border: 140 28% 25%;
   }
 
   .theme-zinc {
     --primary: 240 5.9% 10%;
-    --primary-foreground: 240 5.9% 90%;
+    --primary-foreground: 240 5.9% 98%;
     --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 240 5.9% 90%;
+    --secondary-foreground: 240 5.9% 98%;
     --ring: 240 5.9% 10%;
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-border: 240 3.7% 15.9%;
+     --sidebar-primary: 240 5.9% 90%;
+    --sidebar-primary-foreground: 240 5.9% 10%;
+    --sidebar-accent: 240 3.7% 20%;
+    --sidebar-border: 240 3.7% 25%;
   }
 
   .dark.theme-zinc {
-    --primary: 240 5.9% 90%;
+    --primary: 240 5.9% 98%;
     --primary-foreground: 240 5.9% 10%;
     --secondary: 240 3.7% 84.1%;
     --secondary-foreground: 240 5.9% 10%;
-    --ring: 240 5.9% 90%;
+    --ring: 240 5.9% 98%;
 
-    --sidebar-background: 240 5.9% 15%; 
+    --sidebar-primary: 240 5.9% 90%;
+    --sidebar-primary-foreground: 240 5.9% 10%;
     --sidebar-accent: 240 5.9% 22%; 
     --sidebar-border: 240 5.9% 25%;
   }
@@ -140,10 +148,11 @@
     --secondary: 346.8 77.2% 59.8%;
     --secondary-foreground: 346.8 77.2% 99.8%;
     --ring: 346.8 77.2% 49.8%;
-
-    --sidebar-background: 345 82% 17%;
-    --sidebar-accent: 345 100% 25%;
-    --sidebar-border: 345 100% 25%;
+    
+    --sidebar-primary: 346.8 77.2% 49.8%;
+    --sidebar-primary-foreground: 346.8 77.2% 99.8%;
+    --sidebar-accent: 345 30% 30%;
+    --sidebar-border: 345 30% 35%;
   }
   
   .dark.theme-rose {
@@ -153,7 +162,8 @@
     --secondary-foreground: 346.8 77.2% 99.8%;
     --ring: 346.8 77.2% 59.8%;
 
-    --sidebar-background: 345 28% 15%;
+    --sidebar-primary: 346.8 77.2% 59.8%;
+    --sidebar-primary-foreground: 346.8 77.2% 9.8%;
     --sidebar-accent: 345 28% 22%;
     --sidebar-border: 345 28% 25%;
   }
@@ -168,10 +178,6 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: var(--font-jakarta-sans);
-  }
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-averia-serif);
   }
   @media print {
     body {

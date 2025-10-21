@@ -30,6 +30,7 @@ import { collection, query, where, orderBy, onSnapshot, Timestamp, limit, Unsubs
 import { getForms, getFormResponsesForUser } from "@/lib/firebase/formService";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { useTheme } from "next-themes";
+import { cn } from "@/lib/utils";
 
 const pageTitles: { [key: string]: string } = {
   "/dashboard": "Overview",
@@ -50,6 +51,13 @@ const pageTitles: { [key: string]: string } = {
   "/dashboard/audit-logs": "Audit Logs",
 };
 
+const colorThemes = [
+  { name: 'default', label: 'Default Blue', color: 'hsl(221 44% 49%)' },
+  { name: 'green', label: 'Forest Green', color: 'hsl(142.1 76.2% 36.3%)' },
+  { name: 'zinc', label: 'Neutral Zinc', color: 'hsl(240 5.9% 10%)' },
+  { name: 'rose', label: 'Vintage Rose', color: 'hsl(346.8 77.2% 49.8%)' },
+];
+
 
 export function Header() {
   const pathname = usePathname();
@@ -57,10 +65,30 @@ export function Header() {
   const { setTheme, theme } = useTheme();
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [unrespondedForms, setUnrespondedForms] = useState<FormType[]>([]);
+  const [colorTheme, setColorTheme] = useState('default');
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("colorTheme") || "default";
+    setColorTheme(savedTheme);
+    document.body.classList.remove('theme-default', 'theme-green', 'theme-zinc', 'theme-rose');
+    if (savedTheme !== "default") {
+        document.body.classList.add(`theme-${savedTheme}`);
+    }
+  }, []);
+
+  const handleSetColorTheme = (newTheme: string) => {
+    setColorTheme(newTheme);
+    localStorage.setItem("colorTheme", newTheme);
+    document.body.classList.remove('theme-default', 'theme-green', 'theme-zinc', 'theme-rose');
+    if (newTheme !== "default") {
+        document.body.classList.add(`theme-${newTheme}`);
+    }
+  };
+
 
   useEffect(() => {
     const loadAuthData = async () => {
@@ -264,49 +292,42 @@ export function Header() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">
-                <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                <span className="sr-only">Toggle theme</span>
+                <Settings className="h-5 w-5" />
+                <span className="sr-only">Settings and Theme</span>
             </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setTheme("light")}>
-                Light
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme("dark")}>
-                Dark
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setTheme("system")}>
-                System
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-             <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <Palette className="mr-2 h-4 w-4" />
-                <span>Theme</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <DropdownMenuSubContent>
-                  <DropdownMenuRadioGroup value={theme} onValueChange={(value) => {
-                     const newTheme = value.split('-')[0];
-                     const newColorScheme = value.split('-')[1]; // light or dark
-                     if (newColorScheme === 'light' || newColorScheme === 'dark') {
-                       setTheme(newColorScheme);
-                     }
-                     
-                     document.body.classList.remove('theme-default', 'theme-green', 'theme-zinc', 'theme-rose');
-                     if (newTheme !== 'default') {
-                       document.body.classList.add(`theme-${newTheme}`);
-                     }
-                     localStorage.setItem('colorTheme', newTheme);
-                  }}>
-                    <DropdownMenuRadioItem value="default-light">Default</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="green-light">Green</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="zinc-light">Zinc</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="rose-light">Rose</DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuSubContent>
-              </DropdownMenuPortal>
+            <DropdownMenuLabel>Appearance</DropdownMenuLabel>
+            <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                    {theme === 'dark' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
+                    <span>Mode</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                    <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setTheme("light")}>Light</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("dark")}>Dark</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("system")}>System</DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                    <Palette className="mr-2 h-4 w-4" />
+                    <span>Color Theme</span>
+                </DropdownMenuSubTrigger>
+                 <DropdownMenuPortal>
+                    <DropdownMenuSubContent>
+                        <DropdownMenuRadioGroup value={colorTheme} onValueChange={handleSetColorTheme}>
+                            {colorThemes.map((ct) => (
+                                <DropdownMenuRadioItem key={ct.name} value={ct.name} className="flex items-center gap-2">
+                                     <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: ct.color }} />
+                                    {ct.label}
+                                </DropdownMenuRadioItem>
+                            ))}
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                </DropdownMenuPortal>
             </DropdownMenuSub>
         </DropdownMenuContent>
       </DropdownMenu>
