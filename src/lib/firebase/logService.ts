@@ -28,6 +28,7 @@ export const addLoginLog = async (
       message,
       context: context ? JSON.stringify(context, null, 2) : "No context provided.",
       timestamp: serverTimestamp(),
+      sessionStatus: 'Active',
     };
 
     const docRef = await addDoc(logsCollectionRef, logEntry);
@@ -40,13 +41,16 @@ export const addLoginLog = async (
 
 export const addLogoutLog = async (
   userName: string,
-  userItsId: string
+  userItsId: string,
+  sessionId: string
 ): Promise<string> => {
   try {
     const logEntry = {
       level: 'warning' as const,
       message: `${userName} - Auto-logged out due to inactivity.`,
       userItsId: userItsId,
+      sessionId: sessionId,
+      sessionStatus: 'Inactive',
       timestamp: serverTimestamp(),
     };
     const docRef = await addDoc(logsCollectionRef, logEntry);
