@@ -16,6 +16,7 @@ import { findNavItem } from "@/components/dashboard/sidebar-nav";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { Sparkles, ShieldAlert, Video, Timer, Palette as PaletteIcon, SlidersHorizontal, BookOpen, FileText as FileTextIcon } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -116,118 +117,136 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center text-xl"><SlidersHorizontal className="mr-2 h-5 w-5 text-primary" />Application Settings</CardTitle>
-          <CardDescription className="mt-1 text-xs">Manage global settings for the entire application.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-            <div className="space-y-2">
-                <Label htmlFor="inactivity-timeout" className="text-sm font-medium">User Inactivity Timeout</Label>
-                <div className="flex items-center gap-4">
-                    <Select value={inactivityTimeout.toString()} onValueChange={(val) => setInactivityTimeout(Number(val))}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Select timeout" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="5">5 Minutes</SelectItem>
-                            <SelectItem value="10">10 Minutes</SelectItem>
-                            <SelectItem value="15">15 Minutes</SelectItem>
-                            <SelectItem value="20">20 Minutes</SelectItem>
-                            <SelectItem value="30">30 Minutes</SelectItem>
-                            <SelectItem value="60">1 Hour</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Button onClick={() => handleSettingUpdate('inactivityTimeout', inactivityTimeout)}>Save Timeout</Button>
-                </div>
-                <p className="text-xs text-muted-foreground">Automatically log out users after a period of inactivity.</p>
-            </div>
+        <Accordion type="multiple" defaultValue={['item-1', 'item-2', 'item-3']} className="w-full space-y-6">
+            <Card className="shadow-lg">
+                <AccordionItem value="item-1" className="border-b-0">
+                    <AccordionTrigger className="p-0 hover:no-underline">
+                        <CardHeader className="flex-grow">
+                        <CardTitle className="flex items-center text-lg"><SlidersHorizontal className="mr-2 h-5 w-5 text-primary" />Application Settings</CardTitle>
+                        <CardDescription className="text-xs text-left">Manage global settings for the entire application.</CardDescription>
+                        </CardHeader>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6">
+                        <div className="space-y-6 pt-2">
+                            <div className="space-y-2">
+                                <Label htmlFor="inactivity-timeout" className="text-sm font-medium">User Inactivity Timeout</Label>
+                                <div className="flex items-center gap-4">
+                                    <Select value={inactivityTimeout.toString()} onValueChange={(val) => setInactivityTimeout(Number(val))}>
+                                        <SelectTrigger className="w-[180px]">
+                                            <SelectValue placeholder="Select timeout" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="5">5 Minutes</SelectItem>
+                                            <SelectItem value="10">10 Minutes</SelectItem>
+                                            <SelectItem value="15">15 Minutes</SelectItem>
+                                            <SelectItem value="20">20 Minutes</SelectItem>
+                                            <SelectItem value="30">30 Minutes</SelectItem>
+                                            <SelectItem value="60">1 Hour</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Button onClick={() => handleSettingUpdate('inactivityTimeout', inactivityTimeout)}>Save Timeout</Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">Automatically log out users after a period of inactivity.</p>
+                            </div>
+                            
+                            <Separator />
+                            
+                            <div className="space-y-2">
+                                <Label htmlFor="default-theme" className="text-sm font-medium">Default Theme for New Users</Label>
+                                <div className="flex items-center gap-4">
+                                    <Select value={defaultTheme} onValueChange={setDefaultTheme}>
+                                        <SelectTrigger className="w-[180px]">
+                                            <SelectValue placeholder="Select a theme" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="blue">Blue (Default)</SelectItem>
+                                            <SelectItem value="purple">Purple</SelectItem>
+                                            <SelectItem value="gray">Gray</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Button onClick={() => handleSettingUpdate('defaultTheme', defaultTheme)}>Save Theme</Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">Set the initial color theme for all new users upon their first login.</p>
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Card>
             
-            <Separator />
-            
-            <div className="space-y-2">
-                <Label htmlFor="default-theme" className="text-sm font-medium">Default Theme for New Users</Label>
-                 <div className="flex items-center gap-4">
-                    <Select value={defaultTheme} onValueChange={setDefaultTheme}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Select a theme" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="blue">Blue (Default)</SelectItem>
-                            <SelectItem value="purple">Purple</SelectItem>
-                            <SelectItem value="gray">Gray</SelectItem>
-                        </SelectContent>
-                    </Select>
-                     <Button onClick={() => handleSettingUpdate('defaultTheme', defaultTheme)}>Save Theme</Button>
-                </div>
-                 <p className="text-xs text-muted-foreground">Set the initial color theme for all new users upon their first login.</p>
-            </div>
-        </CardContent>
-      </Card>
-      
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center text-xl"><Video className="mr-2 h-5 w-5 text-primary" />Dua Page Management</CardTitle>
-          <CardDescription className="mt-1 text-xs">Control the content displayed on the Dua Recitation page.</CardDescription>
-        </CardHeader>
-        <CardContent>
-             <div className="space-y-2">
-                <Label htmlFor="dua-video-url" className="text-sm font-medium">Dua Video URL / ID</Label>
-                <div className="flex items-center gap-4">
-                    <Input
-                        id="dua-video-url"
-                        value={duaVideoUrl}
-                        onChange={(e) => setDuaVideoUrl(e.target.value)}
-                        placeholder="e.g., LXb3EKWsInQ or full YouTube URL"
-                    />
-                    <Button onClick={handleDuaUrlUpdate}>Save Video</Button>
-                </div>
-                 <p className="text-xs text-muted-foreground">Paste the YouTube video ID or full URL.</p>
-            </div>
-        </CardContent>
-      </Card>
+            <Card className="shadow-lg">
+                 <AccordionItem value="item-2" className="border-b-0">
+                    <AccordionTrigger className="p-0 hover:no-underline">
+                        <CardHeader className="flex-grow">
+                            <CardTitle className="flex items-center text-lg"><Video className="mr-2 h-5 w-5 text-primary" />Dua Page Management</CardTitle>
+                            <CardDescription className="mt-1 text-xs text-left">Control the content displayed on the Dua Recitation page.</CardDescription>
+                        </CardHeader>
+                    </AccordionTrigger>
+                     <AccordionContent className="px-6 pb-6">
+                        <div className="space-y-2 pt-2">
+                            <Label htmlFor="dua-video-url" className="text-sm font-medium">Dua Video URL / ID</Label>
+                            <div className="flex items-center gap-4">
+                                <Input
+                                    id="dua-video-url"
+                                    value={duaVideoUrl}
+                                    onChange={(e) => setDuaVideoUrl(e.target.value)}
+                                    placeholder="e.g., LXb3EKWsInQ or full YouTube URL"
+                                />
+                                <Button onClick={handleDuaUrlUpdate}>Save Video</Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Paste the YouTube video ID or full URL.</p>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Card>
 
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center text-xl"><Sparkles className="mr-2 h-5 w-5 text-primary" />Feature Flags & Modules</CardTitle>
-          <CardDescription className="mt-1 text-xs">Toggle experimental or new features for all users.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div className="space-y-0.5">
-              <Label htmlFor="theme-badge-switch" className="text-sm flex items-center gap-2"><PaletteIcon className="h-4 w-4" />Theme Customization "New" Badge</Label>
-              <p className="text-xs text-muted-foreground">Show the "New" badge on the theme/appearance feature.</p>
-            </div>
-            <Switch
-              id="theme-badge-switch"
-              checked={featureFlags.isThemeFeatureNew}
-              onCheckedChange={(checked) => handleFlagChange('isThemeFeatureNew', checked)}
-            />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div className="space-y-0.5">
-              <Label htmlFor="dua-page-switch" className="text-sm flex items-center gap-2"><BookOpen className="h-4 w-4" />Enable Dua Page Module</Label>
-              <p className="text-xs text-muted-foreground">Show the Dua Recitation page in the sidebar for eligible users.</p>
-            </div>
-            <Switch
-              id="dua-page-switch"
-              checked={featureFlags.isDuaPageEnabled}
-              onCheckedChange={(checked) => handleFlagChange('isDuaPageEnabled', checked)}
-            />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div className="space-y-0.5">
-              <Label htmlFor="forms-switch" className="text-sm flex items-center gap-2"><FileTextIcon className="h-4 w-4" />Enable Forms / Surveys Module</Label>
-              <p className="text-xs text-muted-foreground">Show the Forms & Surveys page in the sidebar for all users.</p>
-            </div>
-            <Switch
-              id="forms-switch"
-              checked={featureFlags.isFormsEnabled}
-              onCheckedChange={(checked) => handleFlagChange('isFormsEnabled', checked)}
-            />
-          </div>
-        </CardContent>
-      </Card>
+            <Card className="shadow-lg">
+                 <AccordionItem value="item-3" className="border-b-0">
+                    <AccordionTrigger className="p-0 hover:no-underline">
+                        <CardHeader className="flex-grow">
+                        <CardTitle className="flex items-center text-lg"><Sparkles className="mr-2 h-5 w-5 text-primary" />Feature Flags & Modules</CardTitle>
+                        <CardDescription className="mt-1 text-xs text-left">Toggle experimental or new features for all users.</CardDescription>
+                        </CardHeader>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6">
+                        <div className="space-y-4 pt-2">
+                            <div className="flex items-center justify-between rounded-lg border p-3">
+                                <div className="space-y-0.5">
+                                <Label htmlFor="theme-badge-switch" className="text-sm flex items-center gap-2"><PaletteIcon className="h-4 w-4" />Theme Customization "New" Badge</Label>
+                                <p className="text-xs text-muted-foreground">Show the "New" badge on the theme/appearance feature.</p>
+                                </div>
+                                <Switch
+                                id="theme-badge-switch"
+                                checked={featureFlags.isThemeFeatureNew}
+                                onCheckedChange={(checked) => handleFlagChange('isThemeFeatureNew', checked)}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg border p-3">
+                                <div className="space-y-0.5">
+                                <Label htmlFor="dua-page-switch" className="text-sm flex items-center gap-2"><BookOpen className="h-4 w-4" />Enable Dua Page Module</Label>
+                                <p className="text-xs text-muted-foreground">Show the Dua Recitation page in the sidebar for eligible users.</p>
+                                </div>
+                                <Switch
+                                id="dua-page-switch"
+                                checked={featureFlags.isDuaPageEnabled}
+                                onCheckedChange={(checked) => handleFlagChange('isDuaPageEnabled', checked)}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg border p-3">
+                                <div className="space-y-0.5">
+                                <Label htmlFor="forms-switch" className="text-sm flex items-center gap-2"><FileTextIcon className="h-4 w-4" />Enable Forms / Surveys Module</Label>
+                                <p className="text-xs text-muted-foreground">Show the Forms & Surveys page in the sidebar for all users.</p>
+                                </div>
+                                <Switch
+                                id="forms-switch"
+                                checked={featureFlags.isFormsEnabled}
+                                onCheckedChange={(checked) => handleFlagChange('isFormsEnabled', checked)}
+                                />
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Card>
+      </Accordion>
     </div>
   );
 }
