@@ -39,7 +39,7 @@ const pageTitles: { [key: string]: string } = {
   "/dashboard/notifications": "Notifications",
   "/dashboard/mark-attendance": "Mark Attendance",
   "/dashboard/miqaats": "Miqaats",
-  "/dashboard/miqaat-management": "Miqaats",
+  "/dashboard/miqaat-management": "Miqaat Management",
   "/dashboard/dua": "Dua",
   "/dashboard/manage-mohallahs": "Manage Mohallahs",
   "/dashboard/manage-members": "Manage Members",
@@ -53,9 +53,9 @@ const pageTitles: { [key: string]: string } = {
 
 const colorThemes = [
   { name: 'default', label: 'Default Blue', color: 'hsl(221 44% 49%)' },
-  { name: 'green', label: 'Forest Green', color: 'hsl(142.1 76.2% 36.3%)' },
+  { name: 'purple', label: 'Royal Purple', color: 'hsl(262 80% 50%)' },
+  { name: 'golden', label: 'Golden Aura', color: 'hsl(45 83% 54%)' },
   { name: 'zinc', label: 'Neutral Zinc', color: 'hsl(240 5.9% 10%)' },
-  { name: 'rose', label: 'Vintage Rose', color: 'hsl(346.8 77.2% 49.8%)' },
 ];
 
 
@@ -74,7 +74,7 @@ export function Header() {
   useEffect(() => {
     const savedTheme = localStorage.getItem("colorTheme") || "default";
     setColorTheme(savedTheme);
-    document.body.classList.remove('theme-default', 'theme-green', 'theme-zinc', 'theme-rose');
+    document.body.classList.remove('theme-default', 'theme-purple', 'theme-golden', 'theme-zinc');
     if (savedTheme !== "default") {
         document.body.classList.add(`theme-${savedTheme}`);
     }
@@ -83,7 +83,7 @@ export function Header() {
   const handleSetColorTheme = (newTheme: string) => {
     setColorTheme(newTheme);
     localStorage.setItem("colorTheme", newTheme);
-    document.body.classList.remove('theme-default', 'theme-green', 'theme-zinc', 'theme-rose');
+    document.body.classList.remove('theme-default', 'theme-purple', 'theme-golden', 'theme-zinc');
     if (newTheme !== "default") {
         document.body.classList.add(`theme-${newTheme}`);
     }
