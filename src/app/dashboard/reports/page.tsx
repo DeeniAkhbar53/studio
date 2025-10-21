@@ -51,7 +51,7 @@ import {
   Pie,
   Cell,
 } from "@/components/ui/chart";
-import { allNavItems } from "@/components/dashboard/sidebar-nav";
+import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { Badge } from "@/components/ui/badge";
@@ -386,12 +386,9 @@ export default function ReportsPage() {
 
   useEffect(() => {
     const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
-    const mohallahId = typeof window !== "undefined" ? localStorage.getItem('userMohallahId') : null;
-    const itsId = typeof window !== "undefined" ? localStorage.getItem('userItsId') : null;
-    const name = typeof window !== "undefined" ? localStorage.getItem('userName') : '';
     const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
     const pageRights = JSON.parse(pageRightsRaw || '[]');
-    const navItem = allNavItems.find(item => item.href === '/dashboard/reports');
+    const navItem = findNavItem('/dashboard/reports');
     
     if (navItem) {
       const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
@@ -399,10 +396,6 @@ export default function ReportsPage() {
       
       if (hasRoleAccess || hasPageRight) {
         setIsAuthorized(true);
-        setCurrentUserName(name || '');
-        if (role === 'admin' && mohallahId) {
-            form.setValue('mohallahId', mohallahId);
-        }
       } else {
         setIsAuthorized(false);
         setTimeout(() => router.replace('/dashboard'), 2000);
@@ -411,7 +404,6 @@ export default function ReportsPage() {
        setIsAuthorized(false);
        setTimeout(() => router.replace('/dashboard'), 2000);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
   
   useEffect(() => {
@@ -420,16 +412,22 @@ export default function ReportsPage() {
     
     const fetchData = async () => {
         try {
-            const [users, miqaats, mohallahs] = await Promise.all([
+            const [users, miqaats, mohallahs, userDetails] = await Promise.all([
                 getUsers(),
                 new Promise<Miqaat[]>(resolve => getMiqaats(resolve)),
                 new Promise<Mohallah[]>(resolve => getMohallahs(resolve)),
+                getUserByItsOrBgkId(localStorage.getItem('userItsId')!)
             ]);
             setAllUsers(users);
             setAllMiqaats(miqaats);
             setAllMohallahs(mohallahs);
-            const currentUserData = users.find(u => u.itsId === localStorage.getItem('userItsId'));
-            if(currentUserData) setCurrentUser(currentUserData);
+            setCurrentUser(userDetails);
+            setCurrentUserName(userDetails?.name || '');
+            
+            if (userDetails?.role === 'admin' && userDetails.mohallahId) {
+              form.setValue('mohallahId', userDetails.mohallahId);
+            }
+
         } catch(err) {
             console.error("Failed to fetch initial data for reports page", err);
             toast({ title: "Error", description: "Could not load necessary data.", variant: "destructive" });
@@ -438,7 +436,7 @@ export default function ReportsPage() {
         }
     };
     fetchData();
-  }, [isAuthorized, toast]);
+  }, [isAuthorized, toast, form]);
 
   const { availableMiqaats, availableMohallahs, availableTeams } = useMemo(() => {
     if (!currentUser) return { availableMiqaats: [], availableMohallahs: [], availableTeams: [] };
