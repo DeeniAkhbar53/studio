@@ -70,14 +70,14 @@ const StarRatingDisplay = ({ rating, max = 5 }: { rating: number; max?: number }
 };
 
 const CHART_COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-  "hsl(var(--chart-1) / 0.7)",
-  "hsl(var(--chart-2) / 0.7)",
-  "hsl(var(--chart-3) / 0.7)",
+  "hsl(var(--primary))",
+  "hsl(var(--secondary))",
+  "hsl(var(--accent))",
+  "hsl(var(--primary) / 0.7)",
+  "hsl(var(--secondary) / 0.7)",
+  "hsl(var(--accent) / 0.7)",
+  "hsl(var(--primary) / 0.4)",
+  "hsl(var(--secondary) / 0.4)",
 ];
 
 const FormAnalytics = ({ form, responses }: { form: FormType; responses: FormResponse[] }) => {

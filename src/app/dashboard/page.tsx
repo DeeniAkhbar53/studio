@@ -85,9 +85,9 @@ type ChartDataItem = {
   absent: number;
 };
 const chartConfig = {
-  present: { label: "Present", color: "hsl(var(--chart-2))" },
-  late: { label: "Late", color: "hsl(var(--chart-3))" },
-  absent: { label: "Absent", color: "hsl(var(--chart-5))" },
+  present: { label: "Present", color: "hsl(var(--primary))" },
+  late: { label: "Late", color: "hsl(var(--accent))" },
+  absent: { label: "Absent", color: "hsl(var(--destructive) / 0.5)" },
 };
 
 
