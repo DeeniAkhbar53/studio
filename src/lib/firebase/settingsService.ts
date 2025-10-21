@@ -112,15 +112,16 @@ export const getFeatureFlags = async (): Promise<{ [key: string]: boolean }> => 
                 isThemeFeatureNew: true, // Default to true if not set
                 isDuaPageEnabled: true,
                 isFormsEnabled: true,
+                isBarcodeScanningEnabled: true,
                 ...docSnap.data(),
             };
         }
         // If the document doesn't exist, return default values
-        return { isThemeFeatureNew: true, isDuaPageEnabled: true, isFormsEnabled: true };
+        return { isThemeFeatureNew: true, isDuaPageEnabled: true, isFormsEnabled: true, isBarcodeScanningEnabled: true };
     } catch (error) {
         console.error("Error fetching feature flags:", error);
         // On error, return default values to prevent breaking the UI
-        return { isThemeFeatureNew: true, isDuaPageEnabled: true, isFormsEnabled: true };
+        return { isThemeFeatureNew: true, isDuaPageEnabled: true, isFormsEnabled: true, isBarcodeScanningEnabled: true };
     }
 };
 

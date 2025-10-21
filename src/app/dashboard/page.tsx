@@ -35,6 +35,7 @@ import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService
 import { getUsers, getUsersCount, getUserByItsOrBgkId as fetchUserByItsId } from "@/lib/firebase/userService";
 import { getMohallahsCount } from "@/lib/firebase/mohallahService";
 import { getForms, getFormResponsesForUser, getFormResponses } from "@/lib/firebase/formService";
+import { getFeatureFlags } from "@/lib/firebase/settingsService";
 import { Separator } from "@/components/ui/separator";
 import { format } from "date-fns";
 import { Html5Qrcode, Html5QrcodeScannerState } from "html5-qrcode";
@@ -85,8 +86,8 @@ type ChartDataItem = {
   absent: number;
 };
 const chartConfig = {
-  present: { label: "Present", color: "hsl(var(--primary))" },
-  late: { label: "Late", color: "hsl(var(--accent))" },
+  present: { label: "Present", color: "hsl(var(--chart-2))" },
+  late: { label: "Late", color: "hsl(var(--chart-3))" },
   absent: { label: "Absent", color: "hsl(var(--destructive) / 0.5)" },
 };
 
@@ -120,6 +121,7 @@ export default function DashboardOverviewPage() {
 
   const [allMiqaatsList, setAllMiqaatsList] = useState<Pick<Miqaat, "id" | "name" | "type" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "attendanceRequirements" | "sessions">[]>([]);
   const [allForms, setAllForms] = useState<FormType[]>([]);
+  const [isBarcodeScanningEnabled, setIsBarcodeScanningEnabled] = useState(true);
 
 
   // Absentee Notification State
@@ -185,6 +187,10 @@ export default function DashboardOverviewPage() {
             try {
                 const userDetails = await fetchUserByItsId(storedItsId);
                 setCurrentUser(userDetails);
+                
+                const flags = await getFeatureFlags();
+                setIsBarcodeScanningEnabled(flags.isBarcodeScanningEnabled);
+
             } catch (error) {
                 console.error("Failed to fetch full user details for dashboard:", error);
             }
@@ -1107,14 +1113,16 @@ export default function DashboardOverviewPage() {
             </div>
         )}
       </div>
-      <Button
-        onClick={() => { setScanDisplayMessage(null); setScannerError(null); setIsScannerDialogOpen(true); }}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50 bg-primary hover:bg-primary/90 text-primary-foreground"
-        size="icon"
-        aria-label="Scan Attendance"
-      >
-        <ScanLine className="h-6 w-6" />
-      </Button>
+      {isBarcodeScanningEnabled && (
+        <Button
+          onClick={() => { setScanDisplayMessage(null); setScannerError(null); setIsScannerDialogOpen(true); }}
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50 bg-primary hover:bg-primary/90 text-primary-foreground"
+          size="icon"
+          aria-label="Scan Attendance"
+        >
+          <ScanLine className="h-6 w-6" />
+        </Button>
+      )}
 
       <Dialog open={isScannerDialogOpen} onOpenChange={(open) => {
         setIsScannerDialogOpen(open);

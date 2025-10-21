@@ -14,7 +14,7 @@ import type { UserRole } from "@/types";
 import { getFeatureFlags, updateFeatureFlag, updateDuaVideoUrl, getDuaVideoUrl, updateSetting, getSettings } from "@/lib/firebase/settingsService";
 import { findNavItem } from "@/components/dashboard/sidebar-nav";
 import { FunkyLoader } from "@/components/ui/funky-loader";
-import { Sparkles, ShieldAlert, Video, Timer, Palette as PaletteIcon, SlidersHorizontal, BookOpen, FileText as FileTextIcon } from "lucide-react";
+import { Sparkles, ShieldAlert, Video, Timer, Palette as PaletteIcon, SlidersHorizontal, BookOpen, FileText as FileTextIcon, ScanLine } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -25,7 +25,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
 
   // State for all settings
-  const [featureFlags, setFeatureFlags] = useState({ isThemeFeatureNew: true, isDuaPageEnabled: true, isFormsEnabled: true });
+  const [featureFlags, setFeatureFlags] = useState({ isThemeFeatureNew: true, isDuaPageEnabled: true, isFormsEnabled: true, isBarcodeScanningEnabled: true });
   const [duaVideoUrl, setDuaVideoUrl] = useState("");
   const [inactivityTimeout, setInactivityTimeout] = useState(10);
   const [defaultTheme, setDefaultTheme] = useState("blue");
@@ -240,6 +240,17 @@ export default function SettingsPage() {
                                 id="forms-switch"
                                 checked={featureFlags.isFormsEnabled}
                                 onCheckedChange={(checked) => handleFlagChange('isFormsEnabled', checked)}
+                                />
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg border p-3">
+                                <div className="space-y-0.5">
+                                <Label htmlFor="scanner-switch" className="text-sm flex items-center gap-2"><ScanLine className="h-4 w-4" />Enable Barcode/QR Scanner</Label>
+                                <p className="text-xs text-muted-foreground">Show the QR code scanner button on the dashboard for all users.</p>
+                                </div>
+                                <Switch
+                                id="scanner-switch"
+                                checked={featureFlags.isBarcodeScanningEnabled}
+                                onCheckedChange={(checked) => handleFlagChange('isBarcodeScanningEnabled', checked)}
                                 />
                             </div>
                         </div>
