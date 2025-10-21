@@ -256,12 +256,12 @@ export function Header() {
                   </div>
                   <div>
                     <span className="text-sm font-medium text-muted-foreground">Theme</span>
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center justify-around gap-2 mt-2">
                        {colorThemes.map((ct) => (
                         <button
                           key={ct.name}
                           onClick={() => handleSetColorTheme(ct.name)}
-                          className={cn("w-full h-8 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
+                          className={cn("h-6 w-6 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
                           style={{ backgroundColor: ct.color }}
                           aria-label={`Select ${ct.label} theme`}
                         >
@@ -346,11 +346,12 @@ export function Header() {
                 </DropdownMenuSubTrigger>
                  <DropdownMenuPortal>
                     <DropdownMenuSubContent>
-                        <DropdownMenuRadioGroup value={colorTheme} onValueChange={handleSetColorTheme}>
+                        <DropdownMenuRadioGroup value={colorTheme} onValueChange={handleSetColorTheme} className="grid grid-cols-3 gap-2 p-2">
                             {colorThemes.map((ct) => (
-                                <DropdownMenuRadioItem key={ct.name} value={ct.name} className="flex items-center gap-2">
-                                     <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: ct.color }} />
-                                    {ct.label}
+                                <DropdownMenuRadioItem key={ct.name} value={ct.name} className="flex items-center justify-center p-0 h-8 w-8 rounded-full border-2 border-transparent focus:border-primary focus:ring-0 focus:ring-offset-0">
+                                     <div className={cn("h-6 w-6 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-1 ring-offset-background")} style={{backgroundColor: ct.color}}>
+                                        {colorTheme === ct.name && <Check className="h-4 w-4 text-white" />}
+                                    </div>
                                 </DropdownMenuRadioItem>
                             ))}
                         </DropdownMenuRadioGroup>
