@@ -294,57 +294,57 @@ export default function ManageTeamsPage() {
             {teamNames.map(teamName => (
                  <Card key={teamName}>
                     <AccordionItem value={teamName} className="border-b-0">
-                        <AccordionTrigger className="p-4 hover:no-underline">
-                             <div className="flex items-center justify-between w-full pr-2">
+                        <div className="flex items-center p-4">
+                            <AccordionTrigger className="p-0 hover:no-underline flex-grow">
                                 <CardTitle className="text-base">{teamName} ({teams[teamName].length})</CardTitle>
-                                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                    <Dialog open={isRenameTeamOpen && teamToRename === teamName} onOpenChange={(isOpen) => {
-                                        if (!isOpen) setTeamToRename(null);
-                                        setIsRenameTeamOpen(isOpen);
-                                    }}>
-                                        <DialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {
-                                                e.stopPropagation();
-                                                setTeamToRename(teamName);
-                                                setRenamedTeamName(teamName);
-                                                setIsRenameTeamOpen(true);
-                                            }}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                        </DialogTrigger>
-                                        <DialogContent>
-                                            <DialogHeader>
-                                                <DialogTitle>Rename Team</DialogTitle>
-                                            </DialogHeader>
-                                            <Input value={renamedTeamName} onChange={(e) => setRenamedTeamName(e.target.value)} />
-                                            <DialogFooter>
-                                                <Button variant="outline" onClick={() => setIsRenameTeamOpen(false)}>Cancel</Button>
-                                                <Button onClick={handleRenameTeam}>Save</Button>
-                                            </DialogFooter>
-                                        </DialogContent>
-                                    </Dialog>
-                                    <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}>
-                                            <Trash2 className="h-4 w-4" />
+                            </AccordionTrigger>
+                            <div className="flex items-center gap-1 shrink-0 ml-4">
+                                <Dialog open={isRenameTeamOpen && teamToRename === teamName} onOpenChange={(isOpen) => {
+                                    if (!isOpen) setTeamToRename(null);
+                                    setIsRenameTeamOpen(isOpen);
+                                }}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {
+                                            e.stopPropagation();
+                                            setTeamToRename(teamName);
+                                            setRenamedTeamName(teamName);
+                                            setIsRenameTeamOpen(true);
+                                        }}>
+                                            <Edit className="h-4 w-4" />
                                         </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                This will delete the team "{teamName}". This action is only possible if the team has no members.
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteTeam(teamName)}>Delete</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                    </AlertDialog>
-                                </div>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Rename Team</DialogTitle>
+                                        </DialogHeader>
+                                        <Input value={renamedTeamName} onChange={(e) => setRenamedTeamName(e.target.value)} />
+                                        <DialogFooter>
+                                            <Button variant="outline" onClick={() => setIsRenameTeamOpen(false)}>Cancel</Button>
+                                            <Button onClick={handleRenameTeam}>Save</Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                                <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => e.stopPropagation()}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will delete the team "{teamName}". This action is only possible if the team has no members.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteTeam(teamName)}>Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                                </AlertDialog>
                             </div>
-                        </AccordionTrigger>
+                        </div>
                         <AccordionContent className="px-4 pb-4">
                             <ScrollArea className="h-96 pr-3">
                                 {teams[teamName].map(member => (
