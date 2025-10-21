@@ -249,9 +249,9 @@ export function Header() {
                   <div>
                     <span className="text-sm font-medium text-muted-foreground">Mode</span>
                     <DropdownMenuRadioGroup value={theme} onValueChange={setTheme} className="flex items-center gap-2 mt-2">
-                      <Button variant={theme === 'light' ? 'secondary' : 'ghost'} size="icon" className="flex-1" onClick={() => setTheme('light')}><Sun className="h-4 w-4" /></Button>
-                      <Button variant={theme === 'dark' ? 'secondary' : 'ghost'} size="icon" className="flex-1" onClick={() => setTheme('dark')}><Moon className="h-4 w-4" /></Button>
-                      <Button variant={theme === 'system' ? 'secondary' : 'ghost'} size="icon" className="flex-1" onClick={() => setTheme('system')}>System</Button>
+                      <Button variant={theme === 'light' ? 'secondary' : 'ghost'} size="sm" className="flex-1 h-8 w-8" onClick={() => setTheme('light')}><Sun className="h-4 w-4" /></Button>
+                      <Button variant={theme === 'dark' ? 'secondary' : 'ghost'} size="sm" className="flex-1 h-8 w-8" onClick={() => setTheme('dark')}><Moon className="h-4 w-4" /></Button>
+                      <Button variant={theme === 'system' ? 'secondary' : 'ghost'} size="sm" className="flex-1 h-8 w-8" onClick={() => setTheme('system')}>System</Button>
                     </DropdownMenuRadioGroup>
                   </div>
                   <div>
