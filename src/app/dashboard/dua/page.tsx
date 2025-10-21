@@ -17,10 +17,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { UserRole, UserDesignation } from "@/types";
 import { useRouter } from "next/navigation";
-import Plyr from "plyr-react";
+import dynamic from 'next/dynamic';
 import "plyr-react/plyr.css";
 import { getDuaVideoUrl } from "@/lib/firebase/settingsService";
 import { format, addWeeks, startOfWeek, endOfWeek } from "date-fns";
+
+const Plyr = dynamic(() => import('plyr-react'), { ssr: false });
 
 
 const duaFormSchema = z.object({
