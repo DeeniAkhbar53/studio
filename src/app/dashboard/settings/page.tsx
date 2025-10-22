@@ -11,20 +11,19 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole } from "@/types";
-import { 
-    getFeatureFlagsRealtime, 
-    updateFeatureFlag, 
-    updateDuaVideoUrl, 
-    getDuaVideoUrlRealtime, 
-    updateSetting, 
-    getSettingsRealtime 
+import {
+    updateFeatureFlag,
+    updateDuaVideoUrl,
+    updateSetting,
 } from "@/lib/firebase/settingsService";
+import { db } from "@/lib/firebase/firebase";
+import { doc, onSnapshot, Unsubscribe } from "firebase/firestore";
+
 import { findNavItem } from "@/components/dashboard/sidebar-nav";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { Sparkles, ShieldAlert, Video, Palette as PaletteIcon, SlidersHorizontal, BookOpen, FileText as FileTextIcon, ScanLine } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Unsubscribe } from "firebase/firestore";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -55,37 +54,51 @@ export default function SettingsPage() {
         setIsLoading(true);
         const unsubscribes: Unsubscribe[] = [];
 
-        const onFlagsUpdate = (flags: { [key: string]: boolean }) => {
-            setFeatureFlags(flags as any);
-        };
-        const onSettingsUpdate = (settings: { [key: string]: any }) => {
-            setInactivityTimeout(settings.inactivityTimeout || 10);
-            setDefaultTheme(settings.defaultTheme || 'blue');
-        };
-        const onDuaUrlUpdate = (url: string | null) => {
-            setDuaVideoUrl(url || "");
-        };
-        const onError = (error: Error) => {
-             toast({ title: "Error", description: `Could not load settings in real-time: ${error.message}`, variant: "destructive" });
-        }
+        const settingsCollectionRef = 'app_settings';
+        const featureFlagsDocRef = doc(db, settingsCollectionRef, 'featureFlags');
+        const duaPageSettingsDocRef = doc(db, settingsCollectionRef, 'duaPage');
+        const appConfigDocRef = doc(db, settingsCollectionRef, 'appConfig');
+        
+        unsubscribes.push(onSnapshot(featureFlagsDocRef, (docSnap) => {
+            const defaultFlags = { isThemeFeatureNew: true, isDuaPageEnabled: true, isFormsEnabled: true, isBarcodeScanningEnabled: true };
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                setFeatureFlags({
+                    isThemeFeatureNew: data.isThemeFeatureNew ?? defaultFlags.isThemeFeatureNew,
+                    isDuaPageEnabled: data.isDuaPageEnabled ?? defaultFlags.isDuaPageEnabled,
+                    isFormsEnabled: data.isFormsEnabled ?? defaultFlags.isFormsEnabled,
+                    isBarcodeScanningEnabled: data.isBarcodeScanningEnabled ?? defaultFlags.isBarcodeScanningEnabled,
+                });
+            } else {
+                setFeatureFlags(defaultFlags);
+            }
+        }));
 
-        unsubscribes.push(getFeatureFlagsRealtime(onFlagsUpdate, onError));
-        unsubscribes.push(getSettingsRealtime(onSettingsUpdate, onError));
-        unsubscribes.push(getDuaVideoUrlRealtime(onDuaUrlUpdate, onError));
+        unsubscribes.push(onSnapshot(duaPageSettingsDocRef, (docSnap) => {
+             setDuaVideoUrl(docSnap.exists() ? docSnap.data().videoUrl || "" : "");
+        }));
 
-        // Let's assume loading is done after initial listeners are set up.
-        // A more robust solution might use a counter or Promise.all if the first fetch was critical.
-        setTimeout(() => setIsLoading(false), 1000);
+        unsubscribes.push(onSnapshot(appConfigDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                setInactivityTimeout(data.inactivityTimeout || 10);
+                setDefaultTheme(data.defaultTheme || 'blue');
+            } else {
+                setInactivityTimeout(10);
+                setDefaultTheme('blue');
+            }
+        }));
+
+        // Assume loading is done after initial listeners are set up
+        setTimeout(() => setIsLoading(false), 1000); 
 
         return () => {
             unsubscribes.forEach(unsub => unsub());
         };
     }
-  }, [isAuthorized, toast]);
+  }, [isAuthorized]);
 
   const handleFlagChange = async (flagName: keyof typeof featureFlags, value: boolean) => {
-    // State is updated optimistically by the real-time listener upon successful write.
-    // So we don't need to call setFeatureFlags here anymore.
     try {
       await updateFeatureFlag(flagName, value);
       toast({ title: "Setting Updated", description: "The feature flag has been changed." });
@@ -94,7 +107,6 @@ export default function SettingsPage() {
       }
     } catch (error) {
       toast({ title: "Update Failed", description: "Could not save the setting.", variant: "destructive" });
-      // Re-fetching or reverting state might be needed if optimistic UI is complex, but here it's simple.
     }
   };
 
@@ -139,7 +151,7 @@ export default function SettingsPage() {
                 <AccordionItem value="item-1" className="border-b-0">
                     <AccordionTrigger className="p-0 hover:no-underline">
                         <CardHeader className="flex-grow">
-                        <CardTitle className="flex items-center text-lg"><SlidersHorizontal className="mr-2 h-5 w-5 text-primary" />Application Settings</CardTitle>
+                        <CardTitle className="flex items-center text-base"><SlidersHorizontal className="mr-2 h-4 w-4 text-primary" />Application Settings</CardTitle>
                         <CardDescription className="text-xs text-left">Manage global settings for the entire application.</CardDescription>
                         </CardHeader>
                     </AccordionTrigger>
@@ -194,7 +206,7 @@ export default function SettingsPage() {
                  <AccordionItem value="item-2" className="border-b-0">
                     <AccordionTrigger className="p-0 hover:no-underline">
                         <CardHeader className="flex-grow">
-                            <CardTitle className="flex items-center text-lg"><Video className="mr-2 h-5 w-5 text-primary" />Dua Page Management</CardTitle>
+                            <CardTitle className="flex items-center text-base"><Video className="mr-2 h-4 w-4 text-primary" />Dua Page Management</CardTitle>
                             <CardDescription className="mt-1 text-xs text-left">Control the content displayed on the Dua Recitation page.</CardDescription>
                         </CardHeader>
                     </AccordionTrigger>
@@ -220,7 +232,7 @@ export default function SettingsPage() {
                  <AccordionItem value="item-3" className="border-b-0">
                     <AccordionTrigger className="p-0 hover:no-underline">
                         <CardHeader className="flex-grow">
-                        <CardTitle className="flex items-center text-lg"><Sparkles className="mr-2 h-5 w-5 text-primary" />Feature Flags & Modules</CardTitle>
+                        <CardTitle className="flex items-center text-base"><Sparkles className="mr-2 h-4 w-4 text-primary" />Feature Flags & Modules</CardTitle>
                         <CardDescription className="mt-1 text-xs text-left">Toggle experimental or new features for all users.</CardDescription>
                         </CardHeader>
                     </AccordionTrigger>

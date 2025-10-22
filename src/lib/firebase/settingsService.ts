@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from './firebase';
-import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { addAuditLog } from './auditLogService';
 
 const settingsCollectionRef = 'app_settings';
@@ -25,20 +25,6 @@ export const getSettings = async (): Promise<{ [key: string]: any }> => {
         return { inactivityTimeout: 10, defaultTheme: 'blue' };
     }
 };
-
-export const getSettingsRealtime = (onUpdate: (data: { [key: string]: any }) => void, onError: (error: Error) => void): Unsubscribe => {
-    return onSnapshot(appConfigDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-            onUpdate(docSnap.data());
-        } else {
-            onUpdate({ inactivityTimeout: 10, defaultTheme: 'blue' }); // Provide defaults if doc doesn't exist
-        }
-    }, (error) => {
-        console.error("Error fetching real-time general settings:", error);
-        onError(error);
-    });
-};
-
 
 export const updateSetting = async (settingName: string, value: any): Promise<void> => {
      try {
@@ -76,20 +62,6 @@ export const getDuaVideoUrl = async (): Promise<string | null> => {
         throw error;
     }
 };
-
-export const getDuaVideoUrlRealtime = (onUpdate: (url: string | null) => void, onError: (error: Error) => void): Unsubscribe => {
-    return onSnapshot(duaPageSettingsDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-            onUpdate(docSnap.data().videoUrl || null);
-        } else {
-            onUpdate(null);
-        }
-    }, (error) => {
-        console.error("Error fetching real-time Dua video URL:", error);
-        onError(error);
-    });
-};
-
 
 /**
  * Updates the YouTube video URL for the Dua page.
@@ -158,34 +130,6 @@ export const getFeatureFlags = async (): Promise<{ [key: string]: boolean }> => 
         // On error, return default values to prevent breaking the UI
         return defaultFlags;
     }
-};
-
-export const getFeatureFlagsRealtime = (onUpdate: (flags: { [key: string]: boolean }) => void, onError: (error: Error) => void): Unsubscribe => {
-    const defaultFlags = { 
-        isThemeFeatureNew: true, 
-        isDuaPageEnabled: true, 
-        isFormsEnabled: true, 
-        isBarcodeScanningEnabled: true 
-    };
-
-    return onSnapshot(featureFlagsDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-             const data = docSnap.data();
-            // Explicitly pick only the boolean flags to avoid passing Timestamps
-            const flags = {
-                isThemeFeatureNew: data.isThemeFeatureNew ?? defaultFlags.isThemeFeatureNew,
-                isDuaPageEnabled: data.isDuaPageEnabled ?? defaultFlags.isDuaPageEnabled,
-                isFormsEnabled: data.isFormsEnabled ?? defaultFlags.isFormsEnabled,
-                isBarcodeScanningEnabled: data.isBarcodeScanningEnabled ?? defaultFlags.isBarcodeScanningEnabled,
-            };
-            onUpdate(flags);
-        } else {
-            onUpdate(defaultFlags);
-        }
-    }, (error) => {
-        console.error("Error fetching real-time feature flags:", error);
-        onError(error);
-    });
 };
 
 
