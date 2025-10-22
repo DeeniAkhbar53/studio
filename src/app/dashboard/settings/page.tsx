@@ -11,12 +11,20 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole } from "@/types";
-import { getFeatureFlags, updateFeatureFlag, updateDuaVideoUrl, getDuaVideoUrl, updateSetting, getSettings } from "@/lib/firebase/settingsService";
+import { 
+    getFeatureFlagsRealtime, 
+    updateFeatureFlag, 
+    updateDuaVideoUrl, 
+    getDuaVideoUrlRealtime, 
+    updateSetting, 
+    getSettingsRealtime 
+} from "@/lib/firebase/settingsService";
 import { findNavItem } from "@/components/dashboard/sidebar-nav";
 import { FunkyLoader } from "@/components/ui/funky-loader";
-import { Sparkles, ShieldAlert, Video, Timer, Palette as PaletteIcon, SlidersHorizontal, BookOpen, FileText as FileTextIcon, ScanLine } from "lucide-react";
+import { Sparkles, ShieldAlert, Video, Palette as PaletteIcon, SlidersHorizontal, BookOpen, FileText as FileTextIcon, ScanLine } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Unsubscribe } from "firebase/firestore";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -44,31 +52,40 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (isAuthorized) {
-      const fetchAllSettings = async () => {
         setIsLoading(true);
-        try {
-          const [flags, videoUrl, settings] = await Promise.all([
-            getFeatureFlags(),
-            getDuaVideoUrl(),
-            getSettings(),
-          ]);
-          setFeatureFlags(flags);
-          setDuaVideoUrl(videoUrl || "");
-          setInactivityTimeout(settings.inactivityTimeout || 10);
-          setDefaultTheme(settings.defaultTheme || 'blue');
-        } catch (error) {
-          toast({ title: "Error", description: "Could not load all settings.", variant: "destructive" });
-        } finally {
-          setIsLoading(false);
+        const unsubscribes: Unsubscribe[] = [];
+
+        const onFlagsUpdate = (flags: { [key: string]: boolean }) => {
+            setFeatureFlags(flags as any);
+        };
+        const onSettingsUpdate = (settings: { [key: string]: any }) => {
+            setInactivityTimeout(settings.inactivityTimeout || 10);
+            setDefaultTheme(settings.defaultTheme || 'blue');
+        };
+        const onDuaUrlUpdate = (url: string | null) => {
+            setDuaVideoUrl(url || "");
+        };
+        const onError = (error: Error) => {
+             toast({ title: "Error", description: `Could not load settings in real-time: ${error.message}`, variant: "destructive" });
         }
-      };
-      fetchAllSettings();
+
+        unsubscribes.push(getFeatureFlagsRealtime(onFlagsUpdate, onError));
+        unsubscribes.push(getSettingsRealtime(onSettingsUpdate, onError));
+        unsubscribes.push(getDuaVideoUrlRealtime(onDuaUrlUpdate, onError));
+
+        // Let's assume loading is done after initial listeners are set up.
+        // A more robust solution might use a counter or Promise.all if the first fetch was critical.
+        setTimeout(() => setIsLoading(false), 1000);
+
+        return () => {
+            unsubscribes.forEach(unsub => unsub());
+        };
     }
   }, [isAuthorized, toast]);
 
   const handleFlagChange = async (flagName: keyof typeof featureFlags, value: boolean) => {
-    const oldFlags = { ...featureFlags };
-    setFeatureFlags(prev => ({ ...prev, [flagName]: value }));
+    // State is updated optimistically by the real-time listener upon successful write.
+    // So we don't need to call setFeatureFlags here anymore.
     try {
       await updateFeatureFlag(flagName, value);
       toast({ title: "Setting Updated", description: "The feature flag has been changed." });
@@ -77,7 +94,7 @@ export default function SettingsPage() {
       }
     } catch (error) {
       toast({ title: "Update Failed", description: "Could not save the setting.", variant: "destructive" });
-      setFeatureFlags(oldFlags);
+      // Re-fetching or reverting state might be needed if optimistic UI is complex, but here it's simple.
     }
   };
 
