@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink } from "lucide-react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink, BookOpen } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import {
   ChartContainer,
@@ -32,7 +33,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole, UserDesignation, Miqaat, MiqaatAttendanceEntryItem, Form as FormType, User } from "@/types";
 import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
-import { getUsers, getUsersCount, getUserByItsOrBgkId as fetchUserByItsId } from "@/lib/firebase/userService";
+import { getUsers, getUsersCount, getUserByItsOrBgkId as fetchUserByItsId, checkDuaForWeek } from "@/lib/firebase/userService";
 import { getMohallahsCount } from "@/lib/firebase/mohallahService";
 import { getForms, getFormResponsesForUser, getFormResponses } from "@/lib/firebase/formService";
 import { getFeatureFlags } from "@/lib/firebase/settingsService";
@@ -64,7 +65,7 @@ interface ScanDisplayMessage {
 
 interface DashboardAlert {
     id: string;
-    type: 'miqaat' | 'form-non-respondent' | 'form-pending';
+    type: 'miqaat' | 'form-non-respondent' | 'form-pending' | 'dua-pending';
     title: string;
     description: string;
     action: () => void;
@@ -86,8 +87,8 @@ type ChartDataItem = {
   absent: number;
 };
 const chartConfig = {
-  present: { label: "Present", color: "hsl(var(--chart-2))" },
-  late: { label: "Late", color: "hsl(var(--chart-3))" },
+  present: { label: "Present", color: "hsl(var(--primary))" },
+  late: { label: "Late", color: "hsl(var(--accent))" },
   absent: { label: "Absent", color: "hsl(var(--destructive) / 0.5)" },
 };
 
@@ -142,6 +143,10 @@ export default function DashboardOverviewPage() {
   const [isPendingFormsSheetOpen, setIsPendingFormsSheetOpen] = useState(false);
   const [isLoadingPendingForms, setIsLoadingPendingForms] = useState(false);
   
+  // Dua Pending State
+  const [isDuaPending, setIsDuaPending] = useState(false);
+  const [isLoadingDuaStatus, setIsLoadingDuaStatus] = useState(true);
+
   const [dashboardAlerts, setDashboardAlerts] = useState<DashboardAlert[]>([]);
 
 
@@ -524,9 +529,67 @@ export default function DashboardOverviewPage() {
 
   }, [isLoadingUser, currentUser, allForms]);
   
+  // Effect for User's Pending Dua
+  useEffect(() => {
+      if (isLoadingUser || !currentUser) return;
+
+      const checkDuaStatus = async () => {
+          setIsLoadingDuaStatus(true);
+          const TARGET_MOHALLAH_ID = "ZMGsLMWcFQEM97jWD03x";
+          const isTaheriMohallah = currentUser.mohallahId === TARGET_MOHALLAH_ID;
+          const isSuperAdmin = currentUser.role === 'superadmin';
+
+          if (!isTaheriMohallah && !isSuperAdmin) {
+              setIsDuaPending(false);
+              setIsLoadingDuaStatus(false);
+              return;
+          }
+
+          const currentDay = new Date().getDay(); // Sunday = 0, Thursday = 4
+          const isWithinWindow = currentDay >= 4 && currentDay <= 6; // Thurs, Fri, Sat
+
+          if (!isWithinWindow) {
+              setIsDuaPending(false);
+              setIsLoadingDuaStatus(false);
+              return;
+          }
+          
+          const getWeekId = (date: Date) => {
+              const year = date.getFullYear();
+              const firstDayOfYear = new Date(year, 0, 1);
+              const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+              const weekNumber = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+              return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
+          };
+
+          const weekId = getWeekId(new Date());
+          const hasSubmitted = await checkDuaForWeek(currentUser.itsId, weekId);
+
+          setIsDuaPending(!hasSubmitted);
+          setIsLoadingDuaStatus(false);
+      };
+
+      checkDuaStatus();
+
+  }, [isLoadingUser, currentUser]);
+
+
   useEffect(() => {
     const alerts: DashboardAlert[] = [];
     
+    if (isDuaPending && !isLoadingDuaStatus) {
+        alerts.push({
+            id: `dua-pending`,
+            type: 'dua-pending',
+            title: 'Weekly Dua Pending',
+            description: 'Your weekly Dua Tilawat submission is pending. Please submit it before Saturday.',
+            action: () => router.push('/dashboard/dua'),
+            actionLabel: "Submit Now",
+            variant: 'default',
+            icon: BookOpen,
+        });
+    }
+
     if (isTeamLead && !isLoadingAbsentees && absenteeData.size > 0) {
         absenteeData.forEach((data, miqaatId) => {
             alerts.push({
@@ -572,7 +635,7 @@ export default function DashboardOverviewPage() {
     }
 
     setDashboardAlerts(alerts);
-  }, [isTeamLead, isLoadingAbsentees, absenteeData, isLoadingNonRespondents, formsWithNonRespondents, isLoadingPendingForms, pendingForms]);
+  }, [isTeamLead, isLoadingAbsentees, absenteeData, isLoadingNonRespondents, formsWithNonRespondents, isLoadingPendingForms, pendingForms, isDuaPending, isLoadingDuaStatus, router]);
 
 
   const handleQrCodeScanned = useCallback(async (decodedText: string) => {
@@ -753,7 +816,7 @@ export default function DashboardOverviewPage() {
                 if (err.name === "NotAllowedError") errorMsg = "Camera permission denied. Please enable it in browser settings.";
                 else if (err.name === "NotFoundError") errorMsg = "No camera found or the selected camera is not available for the current facing mode.";
               } else {
-                errorMsg = `${errorMsg} An unknown error occurred. Details: ${String(err)}`;
+                errorMsg = `${errorMsg} Details: ${String(err)}`;
               }
               console.error("Error starting QR scanner:", err, errorMsg);
               setScannerError(errorMsg);

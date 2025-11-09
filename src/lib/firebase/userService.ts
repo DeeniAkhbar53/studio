@@ -384,3 +384,15 @@ export const getDuaAttendanceForUser = async (userItsId: string): Promise<DuaAtt
         throw error;
     }
 };
+
+export const checkDuaForWeek = async (userItsId: string, weekId: string): Promise<boolean> => {
+    try {
+        const duaDocRef = doc(db, 'users', userItsId, 'duaAttendance', weekId);
+        const docSnap = await getDoc(duaDocRef);
+        return docSnap.exists();
+    } catch (error) {
+        console.error(`Error checking Dua attendance for user ${userItsId} and week ${weekId}:`, error);
+        // Default to true to avoid spamming users with notifications if there's a DB error.
+        return true;
+    }
+};
