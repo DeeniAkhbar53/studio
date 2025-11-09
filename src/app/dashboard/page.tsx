@@ -65,7 +65,7 @@ interface ScanDisplayMessage {
 
 interface DashboardAlert {
     id: string;
-    type: 'miqaat' | 'form-non-respondent' | 'form-pending' | 'dua-pending';
+    type: 'miqaat' | 'form-non-respondent'; // 'dua-pending' and 'form-pending' handled separately now
     title: string;
     description: string;
     action: () => void;
@@ -577,19 +577,6 @@ export default function DashboardOverviewPage() {
   useEffect(() => {
     const alerts: DashboardAlert[] = [];
     
-    if (isDuaPending && !isLoadingDuaStatus) {
-        alerts.push({
-            id: `dua-pending`,
-            type: 'dua-pending',
-            title: 'Weekly Dua Pending',
-            description: 'Your weekly Dua Tilawat submission is pending. Please submit it before Saturday.',
-            action: () => router.push('/dashboard/dua'),
-            actionLabel: "Submit Now",
-            variant: 'default',
-            icon: BookOpen,
-        });
-    }
-
     if (isTeamLead && !isLoadingAbsentees && absenteeData.size > 0) {
         absenteeData.forEach((data, miqaatId) => {
             alerts.push({
@@ -621,21 +608,8 @@ export default function DashboardOverviewPage() {
         });
     }
     
-    if (!isTeamLead && !isLoadingPendingForms && pendingForms.length > 0) {
-         alerts.push({
-            id: 'form-pending',
-            type: 'form-pending',
-            title: 'Pending Forms',
-            description: `You have ${pendingForms.length} form(s) that need to be filled out.`,
-            action: () => setIsPendingFormsSheetOpen(true),
-            actionLabel: "View Forms",
-            variant: 'default',
-            icon: FileText
-        });
-    }
-
     setDashboardAlerts(alerts);
-  }, [isTeamLead, isLoadingAbsentees, absenteeData, isLoadingNonRespondents, formsWithNonRespondents, isLoadingPendingForms, pendingForms, isDuaPending, isLoadingDuaStatus, router]);
+  }, [isTeamLead, isLoadingAbsentees, absenteeData, isLoadingNonRespondents, formsWithNonRespondents, isDuaPending, isLoadingDuaStatus, router]);
 
 
   const handleQrCodeScanned = useCallback(async (decodedText: string) => {
@@ -1023,6 +997,32 @@ export default function DashboardOverviewPage() {
   return (
     <div className="flex flex-col h-full">
        <div className="flex-grow space-y-6">
+          {isDuaPending && !isLoadingDuaStatus && (
+            <Alert variant='default' className="relative bg-primary/10 border-primary/20">
+                <BookOpen className="h-4 w-4" />
+                <AlertTitle>Weekly Dua Pending</AlertTitle>
+                <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <span>Your weekly Dua Tilawat submission is pending. Please submit it before Saturday.</span>
+                    <Button variant='default' size="sm" onClick={() => router.push('/dashboard/dua')} className="mt-2 sm:mt-0 shrink-0">
+                        Submit Now
+                    </Button>
+                </AlertDescription>
+            </Alert>
+          )}
+
+          {pendingForms.length > 0 && !isLoadingPendingForms && !isTeamLead && (
+             <Alert variant='default'>
+                <FileText className="h-4 w-4" />
+                <AlertTitle>Pending Forms</AlertTitle>
+                <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                    <span>You have {pendingForms.length} form(s) that need to be filled out.</span>
+                    <Button variant='default' size="sm" onClick={() => setIsPendingFormsSheetOpen(true)} className="mt-2 sm:mt-0 shrink-0">
+                        View Forms
+                    </Button>
+                </AlertDescription>
+            </Alert>
+          )}
+          
           {dashboardAlerts.length > 0 && (
               <div className="relative w-full">
                 <Carousel className="w-full">
