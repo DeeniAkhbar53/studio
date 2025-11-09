@@ -1,8 +1,9 @@
 
+
 'use server';
 
 import { db } from './firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { addAuditLog } from './auditLogService';
 
 const settingsCollectionRef = 'app_settings';
@@ -17,7 +18,12 @@ export const getSettings = async (): Promise<{ [key: string]: any }> => {
     try {
         const docSnap = await getDoc(appConfigDocRef);
         if (docSnap.exists()) {
-            return docSnap.data();
+            const data = docSnap.data();
+            // Return only the plain values, excluding the Timestamp object
+            return {
+                inactivityTimeout: data.inactivityTimeout || 10,
+                defaultTheme: data.defaultTheme || 'blue',
+            };
         }
         return { inactivityTimeout: 10, defaultTheme: 'blue' }; // Default values
     } catch (error) {
