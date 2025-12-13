@@ -497,34 +497,11 @@ export default function MarkAttendancePage() {
 
     const now = new Date();
     
-    let sessionReportingTime: Date;
-
-    if (selectedMiqaatDetails.type === 'local') {
-        const reportingTimeStr = currentSession.reportingTime || currentSession.startTime;
-        const miqaatDatePart = startOfDay(new Date(selectedMiqaatDetails.startTime));
-        
-        if (typeof reportingTimeStr === 'string' && reportingTimeStr.includes(':')) {
-            const [reportHour, reportMinute] = reportingTimeStr.split(':').map(Number);
-            sessionReportingTime = setSeconds(setMinutes(setHours(miqaatDatePart, reportHour), reportMinute), 0);
-        } else {
-            // Fallback if reportingTime is not a "HH:mm" string
-            sessionReportingTime = new Date(reportingTimeStr);
-        }
-
-    } else { // International
-        const miqaatStartDate = startOfDay(new Date(selectedMiqaatDetails.startTime));
-        const sessionDate = addDays(miqaatStartDate, currentSession.day - 1);
-      
-        if (currentSession.reportingTime) {
-            const [reportHour, reportMinute] = currentSession.reportingTime.split(':').map(Number);
-            sessionReportingTime = setSeconds(setMinutes(setHours(sessionDate, reportHour), reportMinute), 0);
-        } else {
-            const [startHour, startMinute] = currentSession.startTime.split(':').map(Number);
-            sessionReportingTime = setSeconds(setMinutes(setHours(sessionDate, startHour), startMinute), 0);
-        }
-    }
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const currentTimeString = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const reportingTimeString = currentSession.reportingTime || currentSession.startTime;
     
-    const attendanceStatus: 'early' | 'late' = now < sessionReportingTime ? 'early' : 'late';
+    const attendanceStatus: 'early' | 'late' = currentTimeString < reportingTimeString ? 'early' : 'late';
     
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
         userItsId: member.itsId,
@@ -1007,13 +984,13 @@ export default function MarkAttendancePage() {
                      Session Timing: {currentSessionDetails.name}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 pt-0 text-sm space-y-1">
+                <CardContent className="p-4 pt-0 text-sm grid grid-cols-2 gap-4">
                   <p className="flex items-center gap-2">
-                    <span className="font-semibold w-24">Early Before:</span>
+                    <span className="font-semibold">Early Before:</span>
                     <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.reportingTime || currentSessionDetails.startTime)}</span>
                   </p>
                    <p className="flex items-center gap-2">
-                    <span className="font-semibold w-24">Late From:</span>
+                    <span className="font-semibold">Late From:</span>
                     <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.reportingTime || currentSessionDetails.startTime)}</span>
                   </p>
                 </CardContent>
