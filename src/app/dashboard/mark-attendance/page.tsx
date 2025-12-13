@@ -16,7 +16,7 @@ import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService
 import { savePendingAttendance, getPendingAttendance, removePendingAttendanceRecord, cacheAllUsers, getCachedUserByItsOrBgkId, OfflineAttendanceRecord } from "@/lib/offlineService";
 import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare, UserX, HandCoins, Trash2, RefreshCw, XCircle, Users2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { format, parse, setHours, setMinutes, setSeconds, startOfDay } from "date-fns";
+import { format, parse, setHours, setMinutes, setSeconds, startOfDay, addDays } from "date-fns";
 import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -361,7 +361,7 @@ export default function MarkAttendancePage() {
       const [endHour, endMinute] = currentSession.endTime.split(':').map(Number);
       
       const miqaatStartDate = startOfDay(new Date(selectedMiqaatDetails.startTime));
-      const sessionDate = new Date(miqaatStartDate.setDate(miqaatStartDate.getDate() + (currentSession.day - 1)));
+      const sessionDate = addDays(miqaatStartDate, currentSession.day - 1);
       
       sessionStartTime = setSeconds(setMinutes(setHours(sessionDate, startHour), startMinute), 0);
       sessionEndTime = setSeconds(setMinutes(setHours(sessionDate, endHour), endMinute), 0);
@@ -498,11 +498,21 @@ export default function MarkAttendancePage() {
     const now = new Date();
     
     let sessionReportingTime: Date;
-    const miqaatStartDate = startOfDay(new Date(selectedMiqaatDetails.startTime));
-    
+
     if (selectedMiqaatDetails.type === 'local') {
-        sessionReportingTime = currentSession.reportingTime ? new Date(currentSession.reportingTime) : new Date(currentSession.startTime);
-    } else { 
+        const reportingTimeStr = currentSession.reportingTime || currentSession.startTime;
+        const miqaatDatePart = startOfDay(new Date(selectedMiqaatDetails.startTime));
+        
+        if (typeof reportingTimeStr === 'string' && reportingTimeStr.includes(':')) {
+            const [reportHour, reportMinute] = reportingTimeStr.split(':').map(Number);
+            sessionReportingTime = setSeconds(setMinutes(setHours(miqaatDatePart, reportHour), reportMinute), 0);
+        } else {
+            // Fallback if reportingTime is not a "HH:mm" string
+            sessionReportingTime = new Date(reportingTimeStr);
+        }
+
+    } else { // International
+        const miqaatStartDate = startOfDay(new Date(selectedMiqaatDetails.startTime));
         const sessionDate = addDays(miqaatStartDate, currentSession.day - 1);
       
         if (currentSession.reportingTime) {
@@ -1519,3 +1529,5 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
+
+    
