@@ -496,11 +496,19 @@ export default function MarkAttendancePage() {
     }
 
     const now = new Date();
-    
     const pad = (n: number) => n.toString().padStart(2, '0');
     const currentTimeString = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const reportingTimeString = currentSession.reportingTime || currentSession.startTime;
     
+    let reportingTimeString = '00:00';
+    if(currentSession.reportingTime) {
+        reportingTimeString = currentSession.reportingTime;
+    } else if (selectedMiqaatDetails.type === 'local') {
+        const miqaatStartDate = new Date(selectedMiqaatDetails.startTime);
+        reportingTimeString = `${pad(miqaatStartDate.getHours())}:${pad(miqaatStartDate.getMinutes())}`;
+    } else if (currentSession.startTime) {
+        reportingTimeString = currentSession.startTime;
+    }
+
     const attendanceStatus: 'early' | 'late' = currentTimeString < reportingTimeString ? 'early' : 'late';
     
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
@@ -984,7 +992,7 @@ export default function MarkAttendancePage() {
                      Session Timing: {currentSessionDetails.name}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 pt-0 text-sm grid grid-cols-2 gap-4">
+                <CardContent className="p-4 pt-0 text-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <p className="flex items-center gap-2">
                     <span className="font-semibold">Early Before:</span>
                     <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.reportingTime || currentSessionDetails.startTime)}</span>
@@ -1037,35 +1045,53 @@ export default function MarkAttendancePage() {
                   <p>Marked this session: <span className="font-bold text-foreground">{markedAttendanceThisSession.filter(entry => entry.sessionId === currentSessionDetails?.id).length}</span></p>
                 </div>
                 {markedAttendanceThisSession.filter(entry => entry.sessionId === currentSessionDetails?.id).length > 0 ? (
-                    <div className="max-h-60 overflow-y-auto rounded-md border">
-                        <Table>
-                            <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>ITS ID</TableHead>
-                                <TableHead>Time Marked</TableHead>
-                                <TableHead>Status</TableHead>
-                            </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                            {markedAttendanceThisSession.filter(entry => entry.sessionId === currentSessionDetails?.id).map((entry) => (
-                                <TableRow key={`${entry.memberItsId}-${entry.timestamp.toISOString()}`}>
-                                <TableCell className="font-medium">{entry.memberName}</TableCell>
-                                <TableCell>{entry.memberItsId}</TableCell>
-                                <TableCell>{format(entry.timestamp, "p")}</TableCell>
-                                <TableCell>
-                                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
-                                      entry.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 
-                                      'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                    }`}>
-                                    Present ({entry.status.charAt(0).toUpperCase() + entry.status.slice(1)})
-                                  </span>
-                                </TableCell>
+                    <>
+                        <div className="hidden md:block max-h-60 overflow-y-auto rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                <TableRow>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>ITS ID</TableHead>
+                                    <TableHead>Time Marked</TableHead>
+                                    <TableHead>Status</TableHead>
                                 </TableRow>
-                            ))}
-                            </TableBody>
-                        </Table>
-                    </div>
+                                </TableHeader>
+                                <TableBody>
+                                {markedAttendanceThisSession.filter(entry => entry.sessionId === currentSessionDetails?.id).map((entry) => (
+                                    <TableRow key={`${entry.memberItsId}-${entry.timestamp.toISOString()}`}>
+                                    <TableCell className="font-medium">{entry.memberName}</TableCell>
+                                    <TableCell>{entry.memberItsId}</TableCell>
+                                    <TableCell>{format(entry.timestamp, "p")}</TableCell>
+                                    <TableCell>
+                                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                                        entry.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 
+                                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                        }`}>
+                                        Present ({entry.status.charAt(0).toUpperCase() + entry.status.slice(1)})
+                                    </span>
+                                    </TableCell>
+                                    </TableRow>
+                                ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        <div className="md:hidden space-y-2">
+                             {markedAttendanceThisSession.filter(entry => entry.sessionId === currentSessionDetails?.id).map((entry) => (
+                                <div key={`${entry.memberItsId}-${entry.timestamp.toISOString()}`} className="p-3 border rounded-lg flex justify-between items-center">
+                                    <div>
+                                        <p className="font-medium">{entry.memberName}</p>
+                                        <p className="text-xs text-muted-foreground">ITS: {entry.memberItsId} at {format(entry.timestamp, "p")}</p>
+                                    </div>
+                                     <span className={`px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${
+                                        entry.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 
+                                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                        }`}>
+                                        Present ({entry.status.charAt(0).toUpperCase() + entry.status.slice(1)})
+                                    </span>
+                                </div>
+                             ))}
+                        </div>
+                    </>
                 ) : (
                     <div className="text-sm text-muted-foreground text-center py-6 border rounded-lg bg-muted/20 flex flex-col items-center justify-center">
                         <Info className="h-6 w-6 text-muted-foreground mb-2"/>
