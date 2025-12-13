@@ -497,30 +497,24 @@ export default function MarkAttendancePage() {
 
     const now = new Date();
     
-    // Re-construct full session times for status calculation
     let sessionReportingTime: Date;
 
     if (selectedMiqaatDetails.type === 'local') {
-      sessionReportingTime = currentSession.reportingTime ? new Date(currentSession.reportingTime) : new Date(currentSession.startTime);
-    } else { // international
-      const miqaatStartDate = startOfDay(new Date(selectedMiqaatDetails.startTime));
-      const sessionDate = new Date(miqaatStartDate.setDate(miqaatStartDate.getDate() + (currentSession.day - 1)));
+        sessionReportingTime = currentSession.reportingTime ? new Date(currentSession.reportingTime) : new Date(currentSession.startTime);
+    } else { 
+        const miqaatStartDate = startOfDay(new Date(selectedMiqaatDetails.startTime));
+        const sessionDate = new Date(miqaatStartDate.setDate(miqaatStartDate.getDate() + (currentSession.day - 1)));
       
-      if (currentSession.reportingTime) {
-        const [reportHour, reportMinute] = currentSession.reportingTime.split(':').map(Number);
-        sessionReportingTime = setSeconds(setMinutes(setHours(sessionDate, reportHour), reportMinute), 0);
-      } else {
-        const [startHour, startMinute] = currentSession.startTime.split(':').map(Number);
-        sessionReportingTime = setSeconds(setMinutes(setHours(sessionDate, startHour), startMinute), 0);
-      }
+        if (currentSession.reportingTime) {
+            const [reportHour, reportMinute] = currentSession.reportingTime.split(':').map(Number);
+            sessionReportingTime = setSeconds(setMinutes(setHours(sessionDate, reportHour), reportMinute), 0);
+        } else {
+            const [startHour, startMinute] = currentSession.startTime.split(':').map(Number);
+            sessionReportingTime = setSeconds(setMinutes(setHours(sessionDate, startHour), startMinute), 0);
+        }
     }
     
-    let attendanceStatus: 'early' | 'late';
-    if (now < sessionReportingTime) {
-      attendanceStatus = 'early';
-    } else {
-      attendanceStatus = 'late';
-    }
+    const attendanceStatus: 'early' | 'late' = now < sessionReportingTime ? 'early' : 'late';
     
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
         userItsId: member.itsId,
@@ -1073,7 +1067,7 @@ export default function MarkAttendancePage() {
                                 <TableCell>{entry.memberItsId}</TableCell>
                                 <TableCell>{format(entry.timestamp, "p")}</TableCell>
                                 <TableCell>
-                                   <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
                                       entry.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 
                                       'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                                     }`}>
