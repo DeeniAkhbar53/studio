@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion, onSnapshot, Unsubscribe, writeBatch, runTransaction } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion, onSnapshot, Unsubscribe, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
 import type { Miqaat, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem, MiqaatSession } from '@/types';
 import { addAuditLog } from './auditLogService';
 
@@ -240,3 +240,4 @@ export const batchMarkSafarInMiqaat = async (miqaatId: string, entries: MiqaatSa
         throw error;
     }
 };
+
