@@ -446,7 +446,7 @@ export default function MarkAttendancePage() {
       const existingEntry = selectedMiqaatDetails.attendance?.find(entry => entry.userItsId === member!.itsId && entry.sessionId === currentSession.id);
       toast({
         title: "Already Marked for Session",
-        description: `${member?.name} has already been marked for ${currentSession.name} (${existingEntry?.status || 'present'}).`,
+        description: `${member?.name} has already been marked for ${currentSession.name}.`,
         className: 'border-blue-500 bg-blue-50 dark:bg-blue-900/30',
       });
       setMemberIdInput("");
@@ -494,23 +494,26 @@ export default function MarkAttendancePage() {
         setIsProcessing(false);
         return;
     }
-
-    const now = new Date();
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const currentTimeString = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
     
-    let reportingTimeString = '00:00';
-    if(currentSession.reportingTime) {
-        reportingTimeString = currentSession.reportingTime;
-    } else if (selectedMiqaatDetails.type === 'local') {
-        const miqaatStartDate = new Date(selectedMiqaatDetails.startTime);
-        reportingTimeString = `${pad(miqaatStartDate.getHours())}:${pad(miqaatStartDate.getMinutes())}`;
-    } else if (currentSession.startTime) {
-        reportingTimeString = currentSession.startTime;
+    // Standardize current time to HH:mm string format for comparison
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const now = new Date();
+    const currentTimeString = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    let sessionReportingTimeString = "00:00"; // Default
+    const miqaatReportingTime = currentSession.reportingTime || (selectedMiqaatDetails.type === 'local' ? selectedMiqaatDetails.reportingTime : null);
+
+    if (miqaatReportingTime) {
+      if (miqaatReportingTime.includes('T')) { // Full datetime string
+        const reportingDate = new Date(miqaatReportingTime);
+        sessionReportingTimeString = `${pad(reportingDate.getHours())}:${pad(reportingDate.getMinutes())}`;
+      } else if (miqaatReportingTime.includes(':')) { // Just a time string
+        sessionReportingTimeString = miqaatReportingTime;
+      }
     }
 
-    const attendanceStatus: 'early' | 'late' = currentTimeString < reportingTimeString ? 'early' : 'late';
-    
+    const attendanceStatus: 'early' | 'late' = currentTimeString < sessionReportingTimeString ? 'early' : 'late';
+
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
         userItsId: member.itsId,
         userName: member.name,
@@ -995,11 +998,11 @@ export default function MarkAttendancePage() {
                 <CardContent className="p-4 pt-0 text-sm grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <p className="flex items-center gap-2">
                     <span className="font-semibold">Early Before:</span>
-                    <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.reportingTime || currentSessionDetails.startTime)}</span>
+                    <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.reportingTime || selectedMiqaatDetails?.reportingTime || currentSessionDetails.startTime)}</span>
                   </p>
                    <p className="flex items-center gap-2">
                     <span className="font-semibold">Late From:</span>
-                    <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.reportingTime || currentSessionDetails.startTime)}</span>
+                    <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.reportingTime || selectedMiqaatDetails?.reportingTime || currentSessionDetails.startTime)}</span>
                   </p>
                 </CardContent>
               </Card>
@@ -1075,12 +1078,15 @@ export default function MarkAttendancePage() {
                                 </TableBody>
                             </Table>
                         </div>
-                        <div className="md:hidden space-y-2">
-                             {markedAttendanceThisSession.filter(entry => entry.sessionId === currentSessionDetails?.id).map((entry) => (
+                         <div className="md:hidden space-y-2">
+                             {markedAttendanceThisSession.filter(entry => entry.sessionId === currentSessionDetails?.id).map((entry, index) => (
                                 <div key={`${entry.memberItsId}-${entry.timestamp.toISOString()}`} className="p-3 border rounded-lg flex justify-between items-center">
-                                    <div>
-                                        <p className="font-medium">{entry.memberName}</p>
-                                        <p className="text-xs text-muted-foreground">ITS: {entry.memberItsId} at {format(entry.timestamp, "p")}</p>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
+                                        <div>
+                                            <p className="font-medium">{entry.memberName}</p>
+                                            <p className="text-xs text-muted-foreground">ITS: {entry.memberItsId} at {format(entry.timestamp, "p")}</p>
+                                        </div>
                                     </div>
                                      <span className={`px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${
                                         entry.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 
@@ -1532,5 +1538,3 @@ export default function MarkAttendancePage() {
     </div>
   );
 }
-
-    
