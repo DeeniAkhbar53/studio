@@ -123,7 +123,7 @@ interface FormHistoryStatus extends Form {
 }
 
 const ALL_DESIGNATIONS: UserDesignation[] = ["Asst.Grp Leader", "Captain", "Group Leader", "J.Member", "Major", "Member", "Vice Captain"];
-const ALL_STATUSES: AttendanceRecord['status'][] = ["present", "late", "early", "absent", "safar", "not-eligible"];
+const ALL_STATUSES: ('present' | 'late' | 'early' | 'absent' | 'safar')[] = ["present", "late", "early", "absent", "safar"];
 
 
 const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData; generatorName: string }) => {
@@ -1485,13 +1485,11 @@ export default function ReportsPage() {
                                   <p className="text-xs text-muted-foreground">ITS: {record.userItsId}</p>
                                 </div>
                                 <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
-                                  record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800' :
                                   record.status === 'absent' ? 'bg-red-100 text-red-800' :
-                                  record.status === 'late' ? 'bg-yellow-100 text-yellow-800' :
                                   record.status === 'safar' ? 'bg-blue-100 text-blue-800' :
-                                  'bg-gray-100 text-gray-800'
+                                  'bg-green-100 text-green-800'
                                 )}>
-                                  {record.status}
+                                  {record.status === 'early' || record.status === 'late' ? `Present (${record.status.charAt(0).toUpperCase() + record.status.slice(1)})` : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
                                 </span>
                               </div>
                             </AccordionTrigger>
@@ -1586,13 +1584,12 @@ export default function ReportsPage() {
                               <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
                               <TableCell>
                                   <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
-                                      record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
                                       record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                      record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
                                       record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                      'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                                      record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                      'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                                   )}>
-                                      {record.status}
+                                     {record.status === 'early' || record.status === 'late' ? `Present (${record.status.charAt(0).toUpperCase() + record.status.slice(1)})` : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
                                   </span>
                               </TableCell>
                               {reportMiqaatType === 'local' && <>

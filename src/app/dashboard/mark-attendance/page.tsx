@@ -498,39 +498,28 @@ export default function MarkAttendancePage() {
     const now = new Date();
     
     // Re-construct full session times for status calculation
-    let sessionStartTime: Date;
-    let sessionEndTime: Date;
     let sessionReportingTime: Date;
 
     if (selectedMiqaatDetails.type === 'local') {
-      sessionStartTime = new Date(currentSession.startTime);
-      sessionEndTime = new Date(currentSession.endTime);
-      sessionReportingTime = currentSession.reportingTime ? new Date(currentSession.reportingTime) : sessionStartTime;
-    } else {
-      const [startHour, startMinute] = currentSession.startTime.split(':').map(Number);
-      const [endHour, endMinute] = currentSession.endTime.split(':').map(Number);
-      
+      sessionReportingTime = currentSession.reportingTime ? new Date(currentSession.reportingTime) : new Date(currentSession.startTime);
+    } else { // international
       const miqaatStartDate = startOfDay(new Date(selectedMiqaatDetails.startTime));
       const sessionDate = new Date(miqaatStartDate.setDate(miqaatStartDate.getDate() + (currentSession.day - 1)));
-      
-      sessionStartTime = setSeconds(setMinutes(setHours(sessionDate, startHour), startMinute), 0);
-      sessionEndTime = setSeconds(setMinutes(setHours(sessionDate, endHour), endMinute), 0);
       
       if (currentSession.reportingTime) {
         const [reportHour, reportMinute] = currentSession.reportingTime.split(':').map(Number);
         sessionReportingTime = setSeconds(setMinutes(setHours(sessionDate, reportHour), reportMinute), 0);
       } else {
-        sessionReportingTime = sessionStartTime;
+        const [startHour, startMinute] = currentSession.startTime.split(':').map(Number);
+        sessionReportingTime = setSeconds(setMinutes(setHours(sessionDate, startHour), startMinute), 0);
       }
     }
     
-    let attendanceStatus: 'early' | 'present' | 'late';
+    let attendanceStatus: 'early' | 'late';
     if (now < sessionReportingTime) {
       attendanceStatus = 'early';
-    } else if (now > sessionEndTime) {
-      attendanceStatus = 'late';
     } else {
-      attendanceStatus = 'present';
+      attendanceStatus = 'late';
     }
     
     const attendanceEntryPayload: MiqaatAttendanceEntryItem = {
@@ -567,8 +556,8 @@ export default function MarkAttendancePage() {
             await markAttendanceInMiqaat(selectedMiqaatDetails.id, attendanceEntryPayload);
             setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
             toast({
-              title: `Attendance Marked (${attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)})`,
-              description: `${attendanceEntryPayload.userName} for ${currentSession.name}.`,
+              title: `Attendance Marked`,
+              description: `${attendanceEntryPayload.userName} marked as Present (${attendanceStatus.charAt(0).toUpperCase() + attendanceStatus.slice(1)}) for ${currentSession.name}.`,
               className: 'border-green-500 bg-green-50 dark:bg-green-900/30',
             });
         }
@@ -1019,9 +1008,9 @@ export default function MarkAttendancePage() {
                     <span className="font-semibold w-24">Early Before:</span>
                     <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.reportingTime || currentSessionDetails.startTime)}</span>
                   </p>
-                  <p className="flex items-center gap-2">
-                    <span className="font-semibold w-24">Late After:</span>
-                    <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.endTime)}</span>
+                   <p className="flex items-center gap-2">
+                    <span className="font-semibold w-24">Late From:</span>
+                    <span className="text-muted-foreground">{formatTimeValue(currentSessionDetails.reportingTime || currentSessionDetails.startTime)}</span>
                   </p>
                 </CardContent>
               </Card>
@@ -1084,12 +1073,11 @@ export default function MarkAttendancePage() {
                                 <TableCell>{entry.memberItsId}</TableCell>
                                 <TableCell>{format(entry.timestamp, "p")}</TableCell>
                                 <TableCell>
-                                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                                   <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
                                       entry.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : 
-                                      entry.status === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                      'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                      'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                                     }`}>
-                                    {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
+                                    Present ({entry.status.charAt(0).toUpperCase() + entry.status.slice(1)})
                                   </span>
                                 </TableCell>
                                 </TableRow>

@@ -656,7 +656,15 @@ export default function ProfilePage() {
                             <TableRow key={record.id}>
                               <TableCell className="font-medium flex items-center gap-2">{record.miqaatName}<Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></TableCell>
                               <TableCell>{format(new Date(record.markedAt), "PP p")}</TableCell>
-                              <TableCell><span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full", record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800' : record.status === 'absent' ? 'bg-red-100 text-red-800' : record.status === 'late' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800')}>{record.status.charAt(0).toUpperCase() + record.status.slice(1)}</span></TableCell>
+                              <TableCell>
+                                <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
+                                    record.status === 'absent' ? 'bg-red-100 text-red-800' :
+                                    record.status === 'safar' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-green-100 text-green-800'
+                                  )}>
+                                  {record.status === 'early' || record.status === 'late' ? `Present (${record.status.charAt(0).toUpperCase() + record.status.slice(1)})` : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                                </span>
+                              </TableCell>
                               <TableCell className="text-right">{record.markedByName || "Self/System"}</TableCell>
                             </TableRow>
                           ))}
@@ -671,7 +679,13 @@ export default function ProfilePage() {
                                         <p className="font-semibold text-card-foreground">{record.miqaatName}</p>
                                         <p className="text-xs text-muted-foreground">{format(new Date(record.markedAt), "PP p")}</p>
                                     </div>
-                                    <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap", record.status === 'present' || record.status === 'early' ? 'bg-green-100 text-green-800' : record.status === 'absent' ? 'bg-red-100 text-red-800' : record.status === 'late' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800')}>{record.status}</span>
+                                    <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
+                                        record.status === 'absent' ? 'bg-red-100 text-red-800' :
+                                        record.status === 'safar' ? 'bg-blue-100 text-blue-800' :
+                                        'bg-green-100 text-green-800'
+                                      )}>
+                                      {record.status === 'early' || record.status === 'late' ? `Present (${record.status.charAt(0).toUpperCase() + record.status.slice(1)})` : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                                    </span>
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-1">Marked By: {record.markedByName || 'Self/System'}</p>
                             </div>
