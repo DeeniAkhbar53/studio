@@ -139,7 +139,13 @@ export default function DuaResponsesPage() {
                             ? data.markedAt.toDate().toISOString() 
                             : new Date().toISOString();
                         
-                        subs.push({ ...data, id: docSnap.id, itsId: docSnap.ref.parent.parent!.id, markedAt } as DuaSubmission);
+                        const itsId = docSnap.ref.parent.parent!.id;
+                        subs.push({
+                            ...data,
+                            id: `${itsId}-${data.weekId}`,
+                            itsId,
+                            markedAt
+                        } as DuaSubmission);
                     }
                 });
                 
