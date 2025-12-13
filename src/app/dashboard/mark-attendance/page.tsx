@@ -498,12 +498,12 @@ export default function MarkAttendancePage() {
     const now = new Date();
     
     let sessionReportingTime: Date;
-
+    const miqaatStartDate = startOfDay(new Date(selectedMiqaatDetails.startTime));
+    
     if (selectedMiqaatDetails.type === 'local') {
         sessionReportingTime = currentSession.reportingTime ? new Date(currentSession.reportingTime) : new Date(currentSession.startTime);
     } else { 
-        const miqaatStartDate = startOfDay(new Date(selectedMiqaatDetails.startTime));
-        const sessionDate = new Date(miqaatStartDate.setDate(miqaatStartDate.getDate() + (currentSession.day - 1)));
+        const sessionDate = addDays(miqaatStartDate, currentSession.day - 1);
       
         if (currentSession.reportingTime) {
             const [reportHour, reportMinute] = currentSession.reportingTime.split(':').map(Number);
