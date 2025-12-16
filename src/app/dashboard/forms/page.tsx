@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
@@ -24,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { FunkyLoader } from "@/components/ui/funky-loader";
+import { findNavItem } from "@/components/dashboard/sidebar-nav";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -34,9 +36,24 @@ export default function FormsListPage() {
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
     const [currentPage, setCurrentPage] = useState(1);
+    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
 
     useEffect(() => {
+        const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') as UserRole : null;
+        const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
+        const navItem = findNavItem('/dashboard/forms');
+        
+        if (navItem) {
+            // Forms page is special - it's available if the feature flag is on, 
+            // but management requires specific rights.
+            // For now, we'll allow access to the page itself broadly.
+            setIsAuthorized(true);
+        } else {
+            setIsAuthorized(false);
+            setTimeout(() => router.replace('/dashboard'), 2000);
+        }
+        
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
@@ -73,8 +90,14 @@ export default function FormsListPage() {
     };
 
 
-    const canCreateForms = currentUser?.role === 'admin' || currentUser?.role === 'superadmin' || currentUser?.pageRights?.includes('/dashboard/forms');
-    const canManageForms = currentUser?.role === 'admin' || currentUser?.role === 'superadmin' || currentUser?.pageRights?.includes('/dashboard/forms');
+    const canCreateForms = useMemo(() => {
+        if (!currentUser) return false;
+        const hasRoleAccess = currentUser.role === 'admin' || currentUser.role === 'superadmin';
+        const hasPageRight = currentUser.pageRights?.includes('/dashboard/forms');
+        return hasRoleAccess || hasPageRight;
+    }, [currentUser]);
+
+    const canManageForms = canCreateForms; // Same logic for now
     
     const handleDeleteForm = async (formId: string, formTitle: string) => {
         try {

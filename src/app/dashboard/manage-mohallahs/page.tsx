@@ -46,25 +46,22 @@ export default function ManageMohallahsPage() {
   });
 
   useEffect(() => {
-    const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
-    const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
-    const pageRights = JSON.parse(pageRightsRaw || '[]');
+    const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') as UserRole : null;
+    const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
     const navItem = findNavItem('/dashboard/manage-mohallahs');
     
     if (navItem) {
-      const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
-      const hasPageRight = pageRights.includes(navItem.href);
-      
-      if (hasRoleAccess || hasPageRight) {
-        setIsAuthorized(true);
-      } else {
-        setIsAuthorized(false);
-        // Redirect after a short delay to show the message
-        setTimeout(() => router.replace('/dashboard'), 2000);
-      }
+        const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
+        const hasPageRight = pageRights.includes(navItem.href);
+        if (hasRoleAccess || hasPageRight) {
+            setIsAuthorized(true);
+        } else {
+            setIsAuthorized(false);
+            setTimeout(() => router.replace('/dashboard'), 2000);
+        }
     } else {
-       setIsAuthorized(false);
-       setTimeout(() => router.replace('/dashboard'), 2000);
+        setIsAuthorized(false);
+        setTimeout(() => router.replace('/dashboard'), 2000);
     }
   }, [router]);
 

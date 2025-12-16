@@ -89,15 +89,23 @@ export default function ManageTeamsPage() {
   
 
   useEffect(() => {
-    const role = localStorage.getItem('userRole') as UserRole | null;
+    const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') as UserRole : null;
+    const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
     const designation = localStorage.getItem('userDesignation') as UserDesignation | null;
 
     const navItem = findNavItem('/dashboard/manage-teams');
-    const hasRoleAccess = navItem?.allowedRoles?.includes(role || 'user');
-    const hasDesignationAccess = designation === 'Captain';
     
-    if (navItem && (hasRoleAccess || hasDesignationAccess)) {
-      setIsAuthorized(true);
+    if (navItem) {
+      const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
+      const hasPageRight = pageRights.includes(navItem.href);
+      const hasDesignationAccess = navItem.requiresCaptain && designation === 'Captain';
+
+      if (hasRoleAccess || hasPageRight || hasDesignationAccess) {
+        setIsAuthorized(true);
+      } else {
+        setIsAuthorized(false);
+        setTimeout(() => router.replace('/dashboard'), 2000);
+      }
     } else {
       setIsAuthorized(false);
       setTimeout(() => router.replace('/dashboard'), 2000);

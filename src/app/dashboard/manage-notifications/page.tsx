@@ -38,24 +38,22 @@ export default function ManageNotificationsPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const role = typeof window !== "undefined" ? localStorage.getItem('userRole') as UserRole : null;
-    const pageRightsRaw = typeof window !== "undefined" ? localStorage.getItem('userPageRights') : '[]';
-    const pageRights = JSON.parse(pageRightsRaw || '[]');
+    const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') as UserRole : null;
+    const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
     const navItem = findNavItem('/dashboard/manage-notifications');
     
     if (navItem) {
-      const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
-      const hasPageRight = pageRights.includes(navItem.href);
-      
-      if (hasRoleAccess || hasPageRight) {
-        setIsAuthorized(true);
-      } else {
+        const hasRoleAccess = navItem.allowedRoles?.includes(role || 'user');
+        const hasPageRight = pageRights.includes(navItem.href);
+        if (hasRoleAccess || hasPageRight) {
+            setIsAuthorized(true);
+        } else {
+            setIsAuthorized(false);
+            setTimeout(() => router.replace('/dashboard'), 2000);
+        }
+    } else {
         setIsAuthorized(false);
         setTimeout(() => router.replace('/dashboard'), 2000);
-      }
-    } else {
-       setIsAuthorized(false);
-       setTimeout(() => router.replace('/dashboard'), 2000);
     }
   }, [router]);
 

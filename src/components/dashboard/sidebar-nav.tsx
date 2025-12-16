@@ -204,10 +204,19 @@ export function SidebarNav() {
         return currentUserMohallahId === TARGET_MOHALLAH_ID || role === 'superadmin';
     }
 
-    const hasRoleAccess = !item.allowedRoles || item.allowedRoles.includes(role);
-    const hasPageRight = userPageRights.includes(item.href);
+    // New: Page rights take precedence
+    if (userPageRights.length > 0) {
+        // If user has specific rights, they must have the right for this page.
+        // Exception for "Profile", "Notifications", and "Overview" which are always available.
+        if (item.href === '/dashboard' || item.href === '/dashboard/profile' || item.href === '/dashboard/notifications') {
+            return true;
+        }
+        return userPageRights.includes(item.href);
+    }
 
-    if (hasPageRight) return true;
+    // Fallback to role-based access if no specific page rights are assigned
+    const hasRoleAccess = !item.allowedRoles || item.allowedRoles.includes(role);
+
     if (item.requiresTeamLead && isTeamLead && !isAdminOrSuper) return true;
     if (item.requiresCaptain && designation === 'Captain') return true;
     
