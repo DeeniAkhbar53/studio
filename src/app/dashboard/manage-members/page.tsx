@@ -744,17 +744,23 @@ export default function ManageMembersPage() {
 
   const teamFilterOptions = useMemo(() => {
     if (!currentUser) return [];
-    
-    // Get all teams from all mohallahs
-    const allTeams = new Set<string>();
-    members.forEach(member => {
-        if(member.team) allTeams.add(member.team);
-    });
 
-    if (currentUser.designation === 'Captain') return Array.from(allTeams).sort();
+    let usersToConsider = members;
+    // For admins, only show teams in their mohallah. For superadmin, show all teams.
+    if (currentUser.role === 'admin' && currentUser.mohallahId) {
+      usersToConsider = members.filter(m => m.mohallahId === currentUser.mohallahId);
+    }
+    
+    const allTeams = [...new Set(usersToConsider.map(u => u.team).filter(Boolean) as string[])].sort();
+
+    if (currentUser.role === 'superadmin' || currentUser.role === 'admin') {
+      return allTeams;
+    }
+    
+    if (currentUser.designation === 'Captain') return allTeams;
     if (currentUser.designation === 'Vice Captain') return currentUser.managedTeams || [];
     return [];
-}, [currentUser, members]);
+  }, [currentUser, members]);
 
   const canManageMembers = currentUserRole === 'admin' || currentUserRole === 'superadmin';
   const displayTitle = useMemo(() => {
