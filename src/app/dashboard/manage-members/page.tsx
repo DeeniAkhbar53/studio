@@ -994,7 +994,7 @@ export default function ManageMembersPage() {
                                     <FormLabel>Managed Teams</FormLabel>
                                     <FormDescription>Select the teams this Vice Captain will manage.</FormDescription>
                                     <ScrollArea className="rounded-md border p-3 h-32">
-                                    {teamFilterOptions.map((team) => (
+                                    {availableTeamsInForm.map((team) => (
                                         <FormField
                                         key={team}
                                         control={memberForm.control}
