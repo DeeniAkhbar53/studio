@@ -24,6 +24,8 @@ import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type UniformComplianceState = {
     fetaPaghri: 'yes' | 'no' | 'safar';
@@ -113,6 +115,12 @@ export default function MarkAttendancePage() {
   const [bulkComplianceState, setBulkComplianceState] = useState<Map<string, Partial<UniformComplianceState>>>(new Map());
   const [isSearchingBulkMembers, setIsSearchingBulkMembers] = useState(false);
   const [bulkMarkingError, setBulkMarkingError] = useState<string | null>(null);
+  
+  // Admin Override State
+  const [isAdminOverrideOpen, setIsAdminOverrideOpen] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
+  const [overrideTimestamp, setOverrideTimestamp] = useState<Date | undefined>(new Date());
+
 
 
   const { toast } = useToast();
@@ -467,7 +475,7 @@ export default function MarkAttendancePage() {
     }
   };
   
-  const finalizeAttendance = async (member: User, compliance?: UniformComplianceState) => {
+  const finalizeAttendance = async (member: User, compliance?: UniformComplianceState, overrideTimestamp?: Date, overrideReason?: string) => {
     setIsSaving(true);
     const miqaatId = selectedMiqaatId;
     if (!miqaatId || !markerItsId) {
@@ -495,10 +503,9 @@ export default function MarkAttendancePage() {
         return;
     }
     
-    // Standardize current time to HH:mm string format for comparison
+    const attendanceTime = overrideTimestamp || new Date();
     const pad = (n: number) => n.toString().padStart(2, '0');
-    const now = new Date();
-    const currentTimeString = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const currentTimeString = `${pad(attendanceTime.getHours())}:${pad(attendanceTime.getMinutes())}`;
 
     let sessionReportingTimeString = "00:00"; // Default
     const miqaatReportingTime = currentSession.reportingTime || (selectedMiqaatDetails.type === 'local' ? selectedMiqaatDetails.reportingTime : null);
@@ -518,16 +525,17 @@ export default function MarkAttendancePage() {
         userItsId: member.itsId,
         userName: member.name,
         sessionId: currentSession.id,
-        markedAt: now.toISOString(),
+        markedAt: attendanceTime.toISOString(),
         markedByItsId: markerItsId,
         status: attendanceStatus,
         uniformCompliance: compliance,
+        ...(overrideReason && { overrideReason }),
     };
     
     const newSessionEntry: MarkedAttendanceEntry = {
         memberItsId: attendanceEntryPayload.userItsId,
         memberName: attendanceEntryPayload.userName,
-        timestamp: now,
+        timestamp: attendanceTime,
         miqaatId: selectedMiqaatDetails.id,
         miqaatName: selectedMiqaatDetails.name,
         sessionId: currentSession.id,
@@ -755,37 +763,50 @@ export default function MarkAttendancePage() {
         });
     };
 
-    const handleBulkMarkAttendance = async () => {
-        if (bulkFoundMembers.length === 0 || !currentSessionDetails) return;
+    const handleBulkMarkAttendance = async (overrideData?: { timestamp: Date, reason: string }) => {
+      if (bulkFoundMembers.length === 0 || !currentMiqaatDetails || !currentSessionDetails) return;
 
-        setIsSaving(true);
-        let successCount = 0;
-        let failedCount = 0;
+      const isExpired = new Date(currentMiqaatDetails.endTime) < new Date();
+      if (isExpired && currentUserRole !== 'admin' && currentUserRole !== 'superadmin') {
+          toast({ title: "Miqaat Expired", description: "This Miqaat has ended. Bulk attendance cannot be marked.", variant: "destructive" });
+          return;
+      }
+      
+      if (isExpired && !overrideData) {
+          setOverrideTimestamp(new Date(currentMiqaatDetails.startTime));
+          setIsAdminOverrideOpen(true);
+          return; // Stop here, wait for admin to fill the dialog
+      }
 
-        for (const member of bulkFoundMembers) {
-            try {
-                // Ensure there is compliance data for the member
-                const complianceData = bulkComplianceState.get(member.itsId);
-                await finalizeAttendance(member, complianceData as UniformComplianceState);
-                successCount++;
-            } catch (error) {
-                console.error(`Failed to mark attendance for ${member.name}:`, error);
-                failedCount++;
-            }
-        }
+      setIsSaving(true);
+      let successCount = 0;
+      let failedCount = 0;
 
-        toast({
-            title: "Bulk Marking Complete",
-            description: `Successfully marked ${successCount} members. Failed to mark ${failedCount}.`,
-            variant: failedCount > 0 ? "destructive" : "default"
-        });
+      for (const member of bulkFoundMembers) {
+          try {
+              const complianceData = bulkComplianceState.get(member.itsId);
+              await finalizeAttendance(member, complianceData as UniformComplianceState, overrideData?.timestamp, overrideData?.reason);
+              successCount++;
+          } catch (error) {
+              console.error(`Failed to mark attendance for ${member.name}:`, error);
+              failedCount++;
+          }
+      }
 
-        // Reset bulk state after completion
-        setBulkMemberIdsInput("");
-        setBulkFoundMembers([]);
-        setBulkComplianceState(new Map());
-        setBulkMarkingError(null);
-        setIsSaving(false);
+      toast({
+          title: "Bulk Marking Complete",
+          description: `Successfully marked ${successCount} members. Failed to mark ${failedCount}.`,
+          variant: failedCount > 0 ? "destructive" : "default"
+      });
+
+      // Reset bulk state after completion
+      setBulkMemberIdsInput("");
+      setBulkFoundMembers([]);
+      setBulkComplianceState(new Map());
+      setBulkMarkingError(null);
+      setIsSaving(false);
+      setIsAdminOverrideOpen(false);
+      setOverrideReason("");
     };
 
   if (isAuthorized === null) {
@@ -1246,7 +1267,7 @@ export default function MarkAttendancePage() {
                                         </div>
                                        ))}
                                      </div>
-                                    <Button onClick={handleBulkMarkAttendance} disabled={isSaving}>
+                                    <Button onClick={() => handleBulkMarkAttendance()} disabled={isSaving}>
                                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
                                         Mark All ({bulkFoundMembers.length}) as Present
                                     </Button>
@@ -1488,6 +1509,68 @@ export default function MarkAttendancePage() {
               ) : (
                 <><CheckSquare className="mr-2 h-4 w-4" /> Confirm and Mark Attendance</>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Admin Override Dialog */}
+      <Dialog open={isAdminOverrideOpen} onOpenChange={setIsAdminOverrideOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Admin Override: Mark Expired Attendance</DialogTitle>
+            <DialogDescription>
+              You are marking attendance for an expired Miqaat. Please provide a reason and select a valid timestamp within the Miqaat's original duration.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="override-reason">Reason for Manual Marking</Label>
+              <Textarea
+                id="override-reason"
+                placeholder="e.g., Member forgot to check in, system error, etc."
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Select Historical Timestamp</Label>
+              <Popover>
+                  <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-left font-normal">
+                          <CalendarClock className="mr-2 h-4 w-4" />
+                          {overrideTimestamp ? format(overrideTimestamp, "PPP p") : "Select date and time"}
+                      </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                      <Calendar
+                          mode="single"
+                          selected={overrideTimestamp}
+                          onSelect={setOverrideTimestamp}
+                          disabled={(date) =>
+                              currentMiqaatDetails ? date < new Date(currentMiqaatDetails.startTime) || date > new Date(currentMiqaatDetails.endTime) : true
+                          }
+                          initialFocus
+                      />
+                       <div className="p-3 border-t border-border">
+                          <Input
+                              type="time"
+                              value={overrideTimestamp ? format(overrideTimestamp, "HH:mm") : ""}
+                              onChange={(e) => {
+                                  const time = e.target.value;
+                                  const [hours, minutes] = time.split(':').map(Number);
+                                  setOverrideTimestamp(prev => setMinutes(setHours(prev || new Date(), hours), minutes));
+                              }}
+                          />
+                      </div>
+                  </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAdminOverrideOpen(false)}>Cancel</Button>
+            <Button onClick={() => handleBulkMarkAttendance({ timestamp: overrideTimestamp!, reason: overrideReason })} disabled={!overrideReason.trim() || !overrideTimestamp}>
+              Confirm & Mark Attendance
             </Button>
           </DialogFooter>
         </DialogContent>
