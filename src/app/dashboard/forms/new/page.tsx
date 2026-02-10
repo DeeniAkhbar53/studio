@@ -53,6 +53,7 @@ const formBuilderSchema = z.object({
   teams: z.array(z.string()).optional().default([]),
   eligibleItsIds: z.array(z.string()).optional().default([]),
   endDate: z.date().optional().nullable(),
+  allowResponseEditing: z.boolean().optional(),
 });
 
 type FormBuilderValues = z.infer<typeof formBuilderSchema>;
@@ -80,6 +81,7 @@ export default function CreateFormPage() {
             teams: [],
             eligibleItsIds: [],
             endDate: null,
+            allowResponseEditing: false,
         },
     });
 
@@ -141,6 +143,7 @@ export default function CreateFormPage() {
                 teams: values.eligibilityType === 'groups' ? (values.teams || []) : [],
                 eligibleItsIds: values.eligibilityType === 'specific_members' ? (values.eligibleItsIds || []) : [],
                 endDate: values.endDate ? values.endDate.toISOString() : undefined,
+                allowResponseEditing: values.allowResponseEditing,
             };
 
             const newForm = await addForm(newFormPayload);
@@ -347,28 +350,43 @@ export default function CreateFormPage() {
                         <TabsContent value="eligibility" className="mt-6">
                              <Card>
                                 <CardHeader>
-                                    <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Eligibility</CardTitle>
-                                    <CardDescription>Define who can see and respond to this form. Leave all options blank to make it available to everyone.</CardDescription>
+                                    <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Eligibility & Settings</CardTitle>
+                                    <CardDescription>Define who can see and respond to this form.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
-                                     <FormField control={formBuilder.control} name="endDate" render={({ field }) => (
-                                        <FormItem className="flex flex-col">
-                                            <Label>End Date (Optional)</Label>
-                                            <Popover>
-                                                <PopoverTrigger asChild>
-                                                <Button
-                                                    variant={"outline"}
-                                                    className={cn("w-full md:w-1/2 justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                                                </Button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value || undefined} onSelect={field.onChange} initialFocus /></PopoverContent>
-                                            </Popover>
-                                            <FormDescription className="text-xs">The form will automatically close and stop accepting responses after this date.</FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                     )}/>
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <FormField control={formBuilder.control} name="endDate" render={({ field }) => (
+                                            <FormItem className="flex flex-col">
+                                                <Label>End Date (Optional)</Label>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant={"outline"}
+                                                        className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                                    </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value || undefined} onSelect={field.onChange} initialFocus /></PopoverContent>
+                                                </Popover>
+                                                <FormDescription className="text-xs">The form will automatically close after this date.</FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}/>
+                                        <FormField control={formBuilder.control} name="allowResponseEditing" render={({ field }) => (
+                                            <FormItem className="flex flex-col rounded-lg border p-4">
+                                                <div className="space-y-0.5">
+                                                    <FormLabel className="text-base">Allow Response Editing</FormLabel>
+                                                    <FormDescription>
+                                                        If enabled, users who have already submitted can edit their response.
+                                                    </FormDescription>
+                                                </div>
+                                                <FormControl className="pt-2">
+                                                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                </FormControl>
+                                            </FormItem>
+                                        )} />
+                                     </div>
 
                                     <Separator />
 

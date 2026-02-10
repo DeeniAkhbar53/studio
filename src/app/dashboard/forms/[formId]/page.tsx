@@ -17,7 +17,7 @@ import { Form as UIForm, FormControl, FormField, FormItem, FormLabel, FormMessag
 import { FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2, Lock, Star, Calendar as CalendarIcon, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Form as FormType, FormResponse, User } from "@/types";
-import { getForm, addFormResponse, checkIfUserHasResponded } from "@/lib/firebase/formService";
+import { getForm, addFormResponse, getFormResponseForUser, updateFormResponse } from "@/lib/firebase/formService";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
@@ -271,7 +271,7 @@ export default function FillFormPage() {
     const [error, setError] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     
-    const [hasAlreadyResponded, setHasAlreadyResponded] = useState<boolean | null>(null);
+    const [existingResponse, setExistingResponse] = useState<FormResponse | null>(null);
     const [hasSubmitted, setHasSubmitted] = useState(false);
     const [isEligible, setIsEligible] = useState<boolean | null>(null);
 
@@ -319,9 +319,9 @@ export default function FillFormPage() {
         const fetchFormData = async () => {
             setIsLoading(true); 
             try {
-                const [fetchedForm, userHasResponded] = await Promise.all([
+                const [fetchedForm, userResponse] = await Promise.all([
                     getForm(formId),
-                    checkIfUserHasResponded(formId, currentUser.itsId)
+                    getFormResponseForUser(formId, currentUser.itsId)
                 ]);
 
                 if (fetchedForm) {
@@ -345,12 +345,18 @@ export default function FillFormPage() {
                     }
                     // --- END ELIGIBILITY CHECK ---
 
+                    if (userResponse) {
+                        setExistingResponse(userResponse);
+                        if (fetchedForm.allowResponseEditing) {
+                            responseForm.reset(userResponse.responses);
+                        }
+                    }
+
                     if (fetchedForm.endDate && new Date() > new Date(fetchedForm.endDate)) {
                         setError("This form is now closed as the deadline has passed.");
-                    } else if (fetchedForm.status === 'closed' && !userHasResponded) {
+                    } else if (fetchedForm.status === 'closed' && !userResponse) {
                          setError("This form is currently closed and not accepting new responses.");
                     }
-                    setHasAlreadyResponded(userHasResponded);
                 } else {
                     setError("This form could not be found or may have been deleted.");
                 }
@@ -368,14 +374,15 @@ export default function FillFormPage() {
         };
 
         fetchFormData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formId, currentUser, toast]);
 
     // This effect now correctly resets the form with new defaults when the form data changes.
     useEffect(() => {
-        if (form) {
+        if (form && !existingResponse) {
             responseForm.reset(generateFormDefaults(form));
         }
-    }, [form, responseForm]);
+    }, [form, existingResponse, responseForm]);
 
 
     const handleResponseSubmit = async (values: z.infer<typeof responseForm.formState.defaultValues>) => {
@@ -384,8 +391,10 @@ export default function FillFormPage() {
             return;
         }
         if (form.status === 'closed' || (form.endDate && new Date() > new Date(form.endDate))) {
-            toast({ title: "Submission Failed", description: "This form is closed and no longer accepting responses.", variant: "destructive" });
-            return;
+             if (!form.allowResponseEditing || !existingResponse) {
+                toast({ title: "Submission Failed", description: "This form is closed and no longer accepting responses.", variant: "destructive" });
+                return;
+            }
         }
 
         const processedResponses = { ...values };
@@ -405,7 +414,13 @@ export default function FillFormPage() {
         };
 
         try {
-            await addFormResponse(form.id, responsePayload);
+            if (existingResponse && form.allowResponseEditing) {
+                await updateFormResponse(form.id, existingResponse.id, responsePayload);
+                toast({ title: "Response Updated", description: "Your response has been successfully updated." });
+            } else {
+                await addFormResponse(form.id, responsePayload);
+                toast({ title: "Response Submitted", description: "Your response has been successfully submitted." });
+            }
             setHasSubmitted(true);
         } catch (error) {
             
@@ -414,7 +429,7 @@ export default function FillFormPage() {
         }
     };
     
-    if (isLoading || hasAlreadyResponded === null || !currentUser || isEligible === null) {
+    if (isLoading || !currentUser || isEligible === null) {
         return (
             <div className="flex h-screen items-center justify-center bg-muted p-4">
                 <FunkyLoader size="lg">Loading Form...</FunkyLoader>
@@ -467,7 +482,7 @@ export default function FillFormPage() {
         );
     }
 
-    if (hasSubmitted || hasAlreadyResponded) {
+    if (hasSubmitted || (existingResponse && !form.allowResponseEditing)) {
         return (
              <div className="flex flex-col min-h-screen items-center justify-center bg-muted p-4">
                  <div className="w-full max-w-2xl">
@@ -477,7 +492,10 @@ export default function FillFormPage() {
                             {hasSubmitted ? "Thank You!" : "Response Recorded"}
                          </h1>
                          <p className="text-lg text-muted-foreground mt-2">
-                             {hasSubmitted ? "Your response has been successfully submitted." : "You have already filled out this form."}
+                             {hasSubmitted 
+                                ? "Your response has been successfully submitted." 
+                                : "You have already filled out this form, and it does not allow editing."
+                             }
                          </p>
                           <Button variant="outline" onClick={() => router.push('/dashboard/forms')} className="mt-8">
                             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -488,8 +506,10 @@ export default function FillFormPage() {
              </div>
         );
     }
+    
+    const isFormClosedForNewSubmissions = (form.status === 'closed' || (form.endDate && new Date() > new Date(form.endDate)));
 
-    if (form.status === 'closed' || (form.endDate && new Date() > new Date(form.endDate))) {
+    if (isFormClosedForNewSubmissions && !existingResponse) {
         return (
              <div className="flex flex-col min-h-screen items-center justify-center bg-muted p-4">
                  <div className="w-full max-w-2xl">
@@ -573,10 +593,10 @@ export default function FillFormPage() {
                         ))}
                         
                         <div className="flex justify-end pt-4">
-                            <Button type="submit" size="lg" className="min-w-[150px]" disabled={responseForm.formState.isSubmitting}>
+                            <Button type="submit" size="lg" className="min-w-[200px]" disabled={responseForm.formState.isSubmitting}>
                                 {responseForm.formState.isSubmitting && <FunkyLoader size="sm" />}
                                 <Send className="mr-2 h-4 w-4" />
-                                Submit Response
+                                {existingResponse ? "Update Response" : "Submit Response"}
                             </Button>
                         </div>
                     </form>

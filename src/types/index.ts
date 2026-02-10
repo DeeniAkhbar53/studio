@@ -189,6 +189,7 @@ export interface Form {
   mohallahIds?: string[];
   teams?: string[];
   eligibleItsIds?: string[];
+  allowResponseEditing?: boolean;
 }
 
 export interface FormResponse {

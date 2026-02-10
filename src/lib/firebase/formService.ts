@@ -44,6 +44,7 @@ export const addForm = async (formData: FormForAdd): Promise<Form> => {
       eligibleItsIds: formData.eligibleItsIds || [],
       endDate: formData.endDate || null,
       imageUrl: formData.imageUrl || null,
+      allowResponseEditing: formData.allowResponseEditing || false,
     });
     
     const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
@@ -87,7 +88,8 @@ export const getForms = async (): Promise<Form[]> => {
                 createdAt,
                 updatedAt,
                 endDate,
-                status: data.status || 'open' // Default to open if status is not set
+                status: data.status || 'open', // Default to open if status is not set
+                allowResponseEditing: data.allowResponseEditing || false,
             } as Form;
         });
         return forms;
@@ -126,7 +128,8 @@ export const getForm = async (formId: string): Promise<Form | null> => {
             createdAt,
             updatedAt,
             endDate,
-            status: data.status || 'open' // Default to open
+            status: data.status || 'open', // Default to open
+            allowResponseEditing: data.allowResponseEditing || false,
         } as Form;
     } catch (error) {
         console.error("Error fetching form: ", error);
@@ -239,6 +242,19 @@ export const addFormResponse = async (formId: string, responseData: FormResponse
     }
 };
 
+export const updateFormResponse = async (formId: string, responseId: string, responseData: Omit<FormResponse, 'id' | 'submittedAt' | 'formId'>): Promise<void> => {
+    const responseDocRef = doc(db, 'forms', formId, 'responses', responseId);
+    try {
+        await updateDoc(responseDocRef, {
+            ...responseData,
+            submittedAt: serverTimestamp() // Update timestamp to reflect latest edit
+        });
+    } catch (error) {
+        console.error("Error updating form response:", error);
+        throw error;
+    }
+};
+
 export const getFormResponses = async (formId: string): Promise<FormResponse[]> => {
     try {
         const responsesCollectionRef = collection(db, 'forms', formId, 'responses');
@@ -277,6 +293,29 @@ export const getFormResponsesRealtime = (formId: string, onUpdate: (responses: F
     });
 
     return unsubscribe;
+};
+
+export const getFormResponseForUser = async (formId: string, userId: string): Promise<FormResponse | null> => {
+    try {
+        const responsesRef = collection(db, 'forms', formId, 'responses');
+        const q = query(responsesRef, where('submittedBy', '==', userId), limit(1));
+        const querySnapshot = await getDocs(q);
+        
+        if (querySnapshot.empty) {
+            return null;
+        }
+
+        const docSnapshot = querySnapshot.docs[0];
+        const data = docSnapshot.data();
+        const submittedAt = data.submittedAt instanceof Timestamp
+                          ? data.submittedAt.toDate().toISOString()
+                          : new Date().toISOString();
+        return { ...data, id: docSnapshot.id, submittedAt } as FormResponse;
+        
+    } catch (error) {
+        console.error("Error checking if user has responded:", error);
+        throw error;
+    }
 };
 
 export const getFormResponsesForUser = async (userItsId: string): Promise<FormResponse[]> => {
