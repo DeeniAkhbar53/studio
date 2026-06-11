@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX, Star, PieChart, BarChart2, ChevronDown } from "lucide-react";
+import { ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX, Star, PieChart, BarChart2, ChevronDown, RefreshCw, FileSpreadsheet } from "lucide-react";
 import type { FormResponse, UserRole, UserDesignation, User, Form as FormType, Mohallah } from "@/types";
 import { getFormResponsesRealtime, deleteFormResponse, getForm } from "@/lib/firebase/formService";
 import { getUsers, getUserByItsOrBgkId } from "@/lib/firebase/userService";
@@ -226,6 +226,8 @@ export default function ViewResponsesClientPage() {
     const [error, setError] = useState<string | null>(null);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [activeTab, setActiveTab] = useState("respondents");
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
     // New filters for non-respondents tab
     const [nonRespondentFilters, setNonRespondentFilters] = useState({
@@ -330,6 +332,60 @@ export default function ViewResponsesClientPage() {
         } catch (err) {
             
             toast({ title: "Error", description: "Could not delete the response.", variant: "destructive" });
+        }
+    };
+
+    const handleGoogleSheetsSync = async () => {
+        if (!form || !form.googleSheetId) {
+            toast({ title: "Sync Failed", description: "No Google Sheet ID configured for this form.", variant: "destructive" });
+            return;
+        }
+
+        setIsSyncing(true);
+        setSyncStatus("Preparing data...");
+
+        try {
+            const headers = ["Sr.No.", "Submitted At", "ITS ID", "Name", "BGK ID", ...form.questions.map(q => q.label)];
+            const dataToSync = filteredResponses.map((response, index) => {
+                const row = [
+                    index + 1,
+                    format(new Date(response.submittedAt), "yyyy-MM-dd HH:mm:ss"),
+                    response.submittedBy,
+                    response.submitterName,
+                    response.submitterBgkId || 'N/A'
+                ];
+                form.questions.forEach(q => {
+                    const answer = response.responses[q.id];
+                    row.push(Array.isArray(answer) ? answer.join('; ') : (answer !== null && answer !== undefined ? String(answer) : ''));
+                });
+                return row;
+            });
+
+            setSyncStatus("Syncing rows...");
+            const res = await fetch("/api/google/sync-sheet", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    sheetId: form.googleSheetId,
+                    sheetName: form.title.substring(0, 30),
+                    headers,
+                    data: dataToSync,
+                    action: "replace"
+                })
+            });
+
+            const result = await res.json();
+            if (!res.ok) {
+                throw new Error(result.error || "Failed to sync.");
+            }
+
+            toast({ title: "Sync Complete!", description: "Responses successfully pushed to your Google Sheet." });
+            setSyncStatus("Synced " + format(new Date(), "p"));
+        } catch (err: any) {
+            toast({ title: "Sync Failed", description: err.message || "Could not sync data.", variant: "destructive" });
+            setSyncStatus("Sync failed");
+        } finally {
+            setIsSyncing(false);
         }
     };
     
@@ -598,11 +654,39 @@ export default function ViewResponsesClientPage() {
                 <div className="mt-4">
                     <TabsContent value="respondents">
                         <Card>
-                            <CardHeader className="flex flex-row items-center justify-between">
-                                <h3 className="text-lg font-semibold">Submitted Responses</h3>
-                                <Button onClick={() => handleExport('respondents')} disabled={filteredResponses.length === 0} size="sm" variant="outline">
-                                    <Download className="mr-2 h-4 w-4" /> Export
-                                </Button>
+                            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div>
+                                    <h3 className="text-lg font-semibold">Submitted Responses</h3>
+                                    {form?.googleSheetId ? (
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                            Linked Sheet ID: <span className="font-mono text-foreground bg-muted px-1.5 py-0.5 rounded">{form.googleSheetId}</span>
+                                            {syncStatus && <span className="ml-2 text-primary font-medium">• {syncStatus}</span>}
+                                        </p>
+                                    ) : (
+                                        <p className="text-xs text-amber-600 mt-0.5">Google Sheets sync is not configured for this form.</p>
+                                    )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    {form?.googleSheetId && (
+                                        <Button 
+                                            onClick={handleGoogleSheetsSync} 
+                                            disabled={isSyncing || filteredResponses.length === 0} 
+                                            size="sm" 
+                                            variant="outline"
+                                            className="bg-green-50 hover:bg-green-100 dark:bg-green-950/30 dark:hover:bg-green-900/30 border-green-200 dark:border-green-900/50 text-green-700 dark:text-green-400"
+                                        >
+                                            {isSyncing ? (
+                                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                            )}
+                                            {isSyncing ? "Syncing..." : "Sync to Google Sheet"}
+                                        </Button>
+                                    )}
+                                    <Button onClick={() => handleExport('respondents')} disabled={filteredResponses.length === 0} size="sm" variant="outline">
+                                        <Download className="mr-2 h-4 w-4" /> Export CSV
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 {filteredResponses.length === 0 ? (

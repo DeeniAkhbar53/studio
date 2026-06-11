@@ -1202,30 +1202,32 @@ export default function DashboardOverviewPage() {
               </div>
           )}
       
-        <Card className="shadow-lg bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold text-foreground">
+        <Card className="shadow-md bg-gradient-to-r from-primary/5 via-background to-accent/5 border-primary/10">
+          <CardHeader className="py-4 px-6">
+            <CardTitle className="text-xl sm:text-2xl font-semibold text-foreground">
                 Welcome, {currentUserName}!
             </CardTitle>
-            <CardDescription className="text-muted-foreground text-base mt-1">
-                {currentUserDesignation && <span>{currentUserDesignation}</span>}
-                {currentUserRole && <span> ({currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ')})</span>}
-            </CardDescription>
-            <Separator className="my-4" />
-            <CardDescription className="text-muted-foreground pt-1">
-              Here's your overview. Use the sidebar to navigate to other sections.
-            </CardDescription>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 pt-4 border-t border-primary/10 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{currentUserDesignation || 'Member'}</span>
+              {currentUserRole && (
+                <span className="text-muted-foreground/80">
+                  ({currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ')})
+                </span>
+              )}
+              <span className="text-muted-foreground/30">•</span>
+              <span className="flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5 text-primary/70" />
-                <span>Last login: <strong className="text-foreground">{lastLoginText}</strong></span>
-              </div>
-              <div className="hidden sm:inline text-muted-foreground/30">•</div>
-              <div className="flex items-center gap-1.5">
+                <span>Last login: <strong className="font-medium text-foreground">{lastLoginText}</strong></span>
+              </span>
+              <span className="text-muted-foreground/30">•</span>
+              <span className="flex items-center gap-1">
                 <Timer className="h-3.5 w-3.5 text-primary/70" />
-                <span>Session Duration: <strong className="text-foreground">{sessionMinutes} min</strong></span>
-              </div>
+                <span>Session: <strong className="font-medium text-foreground">{sessionMinutes} min</strong></span>
+              </span>
             </div>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+              Here's your overview. Use the sidebar to navigate to other sections.
+            </p>
           </CardHeader>
           {currentUserRole === 'user' && (
             <CardContent>

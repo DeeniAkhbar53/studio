@@ -47,6 +47,7 @@ const formBuilderSchema = z.object({
   title: z.string().min(1, "Form title cannot be empty."),
   description: z.string().optional(),
   imageUrl: z.string().optional(),
+  googleSheetId: z.string().optional().default(""),
   questions: z.array(formQuestionSchema).min(1, "A form must have at least one question."),
   eligibilityType: z.enum(['groups', 'specific_members']).default('groups'),
   mohallahIds: z.array(z.string()).optional().default([]),
@@ -78,6 +79,7 @@ export default function EditFormPage() {
             title: "",
             description: "",
             imageUrl: "",
+            googleSheetId: "",
             questions: [],
             eligibilityType: "groups",
             mohallahIds: [],
@@ -147,6 +149,7 @@ export default function EditFormPage() {
                         eligibleItsIds: formToEdit.eligibleItsIds || [],
                         endDate: formToEdit.endDate ? new Date(formToEdit.endDate) : null,
                         allowResponseEditing: formToEdit.allowResponseEditing || false,
+                        googleSheetId: formToEdit.googleSheetId || "",
                     });
                 } else {
                     toast({ title: "Error", description: "Form not found.", variant: "destructive" });
@@ -191,6 +194,7 @@ export default function EditFormPage() {
                 eligibleItsIds: values.eligibilityType === 'specific_members' ? (values.eligibleItsIds || []) : [],
                 endDate: values.endDate ? values.endDate.toISOString() : undefined,
                 allowResponseEditing: values.allowResponseEditing,
+                googleSheetId: values.googleSheetId || "",
             };
 
             await updateForm(formId, updatedFormPayload);
@@ -437,6 +441,19 @@ export default function EditFormPage() {
                                                 </div>
                                                 <FormControl className="pt-2">
                                                     <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                </FormControl>
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={formBuilder.control} name="googleSheetId" render={({ field }) => (
+                                            <FormItem className="flex flex-col rounded-lg border p-4">
+                                                <div className="space-y-0.5">
+                                                    <FormLabel className="text-base">Google Sheet ID (Optional)</FormLabel>
+                                                    <FormDescription>
+                                                        Sync form responses automatically to this Google Sheet.
+                                                    </FormDescription>
+                                                </div>
+                                                <FormControl className="pt-2">
+                                                    <Input placeholder="e.g., 1x2y3z4w..." {...field} />
                                                 </FormControl>
                                             </FormItem>
                                         )} />

@@ -180,6 +180,7 @@ export interface Form {
   title: string;
   description?: string;
   imageUrl?: string; // For the cover image Data URI
+  googleSheetId?: string; // Target Google Sheet ID for sync
   questions: FormQuestion[];
   createdBy: string; // ITS ID of creator
   createdAt: string; // ISO string

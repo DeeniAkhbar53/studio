@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck, Users, UserX, HandCoins, Printer, X, Mail } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck, Users, UserX, HandCoins, Printer, X, Mail, FileSpreadsheet, RefreshCw } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import jsPDF from 'jspdf';
 import { toPng } from 'html-to-image';
@@ -367,6 +367,11 @@ export default function ReportsPage() {
 
   // Bulk absentee email variables
   const [isSendingAbsenteeEmails, setIsSendingAbsenteeEmails] = useState(false);
+
+  const [reportSheetId, setReportSheetId] = useState("");
+  const [isSyncingReport, setIsSyncingReport] = useState(false);
+  const [syncReportStatus, setSyncReportStatus] = useState<string | null>(null);
+  const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
 
   const handleSendAbsenteeEmailsFromReport = async () => {
     const miqaatIds = form.getValues("miqaatIds") || [];
@@ -947,6 +952,107 @@ export default function ReportsPage() {
       toast({ title: "Report Exported", description: "CSV file downloaded." });
     } else {
       toast({ title: "Export Failed", description: "Your browser does not support this feature.", variant: "destructive" });
+    }
+  };
+
+  const handleGoogleSheetsSyncReport = async () => {
+    if (!filteredReportData || filteredReportData.length === 0) {
+      toast({ title: "No data to sync", description: "Please generate a report first.", variant: "destructive" });
+      return;
+    }
+
+    if (!reportSheetId || !reportSheetId.trim()) {
+      toast({ title: "Error", description: "Please enter a valid Google Sheet ID.", variant: "destructive" });
+      return;
+    }
+
+    localStorage.setItem("lastReportSheetId", reportSheetId.trim());
+
+    setIsSyncingReport(true);
+    setSyncReportStatus("Syncing...");
+    setIsSyncDialogOpen(false);
+
+    try {
+      let headers = ["User Name", "ITS ID", "BGK ID", "Team", "Miqaat", "Miqaat Type", "Session Name", "Marked Date", "Marked Time", "Status", "Marked By ITS ID"];
+      
+      if (reportMiqaatType === 'local') {
+        headers.push("Feta/Paghri", "Koti");
+      } else if (reportMiqaatType === 'international') {
+        headers.push("Uniform", "Shoes");
+      } else if (reportMiqaatType === 'mixed') {
+        headers.push("Feta/Paghri", "Koti", "Uniform", "Shoes");
+      }
+      headers.push("NazrulMaqam Amount", "NazrulMaqam Currency");
+
+      const dataToSync = filteredReportData.map(row => {
+        const date = row.date ? new Date(row.date) : null;
+        let rowData = [
+          row.userName,
+          row.userItsId,
+          row.bgkId || 'N/A',
+          row.team || 'N/A',
+          row.miqaatName,
+          row.miqaatType,
+          row.sessionName || 'N/A',
+          date ? format(date, "yyyy-MM-dd") : "N/A",
+          date ? format(date, "HH:mm:ss") : "N/A",
+          row.status,
+          row.markedByItsId || "N/A"
+        ];
+
+        if (reportMiqaatType === 'local') {
+          rowData.push(
+            row.uniformCompliance?.fetaPaghri ?? "N/A",
+            row.uniformCompliance?.koti ?? "N/A"
+          );
+        } else if (reportMiqaatType === 'international') {
+          rowData.push(
+            row.uniformCompliance?.uniform ?? "N/A",
+            row.uniformCompliance?.shoes ?? "N/A"
+          );
+        } else if (reportMiqaatType === 'mixed') {
+          rowData.push(
+            row.miqaatType === 'local' ? (row.uniformCompliance?.fetaPaghri ?? "N/A") : "N/A",
+            row.miqaatType === 'local' ? (row.uniformCompliance?.koti ?? "N/A") : "N/A",
+            row.miqaatType === 'international' ? (row.uniformCompliance?.uniform ?? "N/A") : "N/A",
+            row.miqaatType === 'international' ? (row.uniformCompliance?.shoes ?? "N/A") : "N/A"
+          );
+        } else {
+          rowData.push("N/A", "N/A");
+        }
+        
+        rowData.push(
+          row.uniformCompliance?.nazrulMaqam?.amount?.toString() ?? "N/A",
+          row.uniformCompliance?.nazrulMaqam?.currency ?? "N/A"
+        );
+
+        return rowData;
+      });
+
+      const res = await fetch("/api/google/sync-sheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sheetId: reportSheetId.trim(),
+          sheetName: "Attendance Report",
+          headers,
+          data: dataToSync,
+          action: "replace"
+        })
+      });
+
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.error || "Failed to sync.");
+      }
+
+      toast({ title: "Sync Complete!", description: "Report data successfully synced to Google Sheet." });
+      setSyncReportStatus("Synced " + format(new Date(), "p"));
+    } catch (err: any) {
+      toast({ title: "Sync Failed", description: err.message || "Could not sync data.", variant: "destructive" });
+      setSyncReportStatus("Sync failed");
+    } finally {
+      setIsSyncingReport(false);
     }
   };
   
@@ -1580,6 +1686,63 @@ export default function ReportsPage() {
                     </DialogContent>
                   </Dialog>
                 )}
+                <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      disabled={!filteredReportData || filteredReportData.length === 0 || isLoading || isSyncingReport} 
+                      size="sm" 
+                      className="w-auto bg-green-50 hover:bg-green-100 dark:bg-green-950/30 dark:hover:bg-green-900/30 border-green-200 dark:border-green-900/50 text-green-700 dark:text-green-400"
+                      onClick={() => {
+                        const savedId = localStorage.getItem("lastReportSheetId") || "";
+                        setReportSheetId(savedId);
+                        setIsSyncDialogOpen(true);
+                      }}
+                    >
+                      {isSyncingReport ? <RefreshCw className="h-4 w-4 animate-spin md:mr-2" /> : <FileSpreadsheet className="h-4 w-4 md:mr-2" />}
+                      <span className="hidden md:inline">{isSyncingReport ? "Syncing..." : "Sync to Sheet"}</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Sync Report to Google Sheet</DialogTitle>
+                      <DialogDescription>
+                        Pushes the generated report rows directly to a Google Sheet. Ensure your Google Sheet is set up to accept sync requests.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="report-sheet-id">Google Sheet ID</Label>
+                        <Input
+                          id="report-sheet-id"
+                          placeholder="e.g., 1x2y3z4w..."
+                          value={reportSheetId}
+                          onChange={(e) => setReportSheetId(e.target.value)}
+                        />
+                        <p className="text-[10px] text-muted-foreground leading-normal">
+                          Copy this from your spreadsheet URL: https://docs.google.com/spreadsheets/d/<strong>[SHEET_ID]</strong>/edit
+                        </p>
+                      </div>
+                    </div>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                      <Button variant="outline" onClick={() => setIsSyncDialogOpen(false)}>Cancel</Button>
+                      <Button 
+                        onClick={handleGoogleSheetsSyncReport} 
+                        disabled={!reportSheetId || isSyncingReport}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        {isSyncingReport ? "Syncing..." : "Sync Now"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                {syncReportStatus && (
+                  <span className="text-xs text-muted-foreground flex items-center px-1">
+                    {syncReportStatus}
+                  </span>
+                )}
+
                 <Button variant="outline" onClick={handleExport} disabled={!filteredReportData || filteredReportData.length === 0 || isLoading} size="sm" className="w-auto"><Download className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Export</span></Button>
               </div>
             </CardHeader>

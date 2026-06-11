@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
 import Image from "next/image";
-import { Footer } from "@/components/ui/footer";
 import {
   Card,
   CardContent,
@@ -47,7 +46,7 @@ function ResetPasswordForm() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"loading" | "idle" | "success" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
 
   const form = useForm<z.infer<typeof schema>>({
@@ -59,7 +58,25 @@ function ResetPasswordForm() {
     if (!token) {
       setStatus("error");
       setErrorMessage("Invalid or missing reset token. Please request a new reset link.");
+      return;
     }
+
+    async function verifyToken() {
+      try {
+        const res = await fetch(`/api/auth/reset-password?token=${token}`);
+        const result = await res.json();
+        if (!res.ok) {
+          setStatus("error");
+          setErrorMessage(result.error || "This reset link is invalid or has expired.");
+        } else {
+          setStatus("idle");
+        }
+      } catch {
+        setStatus("error");
+        setErrorMessage("An unexpected error occurred. Please try again.");
+      }
+    }
+    verifyToken();
   }, [token]);
 
   async function onSubmit(data: z.infer<typeof schema>) {
@@ -116,6 +133,13 @@ function ResetPasswordForm() {
           </CardHeader>
 
           <CardContent className="px-8 pb-8">
+            {status === "loading" && (
+              <div className="flex flex-col items-center gap-4 py-8 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Validating reset link...</p>
+              </div>
+            )}
+
             {status === "success" && (
               <div className="flex flex-col items-center gap-4 py-4 text-center">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10 text-green-500">
@@ -249,7 +273,6 @@ function ResetPasswordForm() {
           </CardContent>
         </Card>
       </div>
-      <Footer className="w-full" />
     </main>
   );
 }

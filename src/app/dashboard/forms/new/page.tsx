@@ -47,6 +47,7 @@ const formBuilderSchema = z.object({
   title: z.string().min(1, "Form title cannot be empty."),
   description: z.string().optional(),
   imageUrl: z.string().optional(),
+  googleSheetId: z.string().optional().default(""),
   questions: z.array(formQuestionSchema).min(1, "A form must have at least one question."),
   eligibilityType: z.enum(['groups', 'specific_members']).default('groups'),
   mohallahIds: z.array(z.string()).optional().default([]),
@@ -75,6 +76,7 @@ export default function CreateFormPage() {
             title: "",
             description: "",
             imageUrl: "",
+            googleSheetId: "",
             questions: [{ id: crypto.randomUUID(), label: "", type: 'text', required: false, options: [] }],
             eligibilityType: "groups",
             mohallahIds: [],
@@ -127,6 +129,7 @@ export default function CreateFormPage() {
                 title: values.title,
                 description: values.description || "",
                 imageUrl: values.imageUrl || "",
+                googleSheetId: values.googleSheetId || "",
                 questions: values.questions.map(q => {
                     const { conditional, ...restOfQuestion } = q;
                     const questionPayload: any = {
@@ -383,6 +386,19 @@ export default function CreateFormPage() {
                                                 </div>
                                                 <FormControl className="pt-2">
                                                     <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                </FormControl>
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={formBuilder.control} name="googleSheetId" render={({ field }) => (
+                                            <FormItem className="flex flex-col rounded-lg border p-4">
+                                                <div className="space-y-0.5">
+                                                    <FormLabel className="text-base">Google Sheet ID (Optional)</FormLabel>
+                                                    <FormDescription>
+                                                        Sync form responses automatically to this Google Sheet.
+                                                    </FormDescription>
+                                                </div>
+                                                <FormControl className="pt-2">
+                                                    <Input placeholder="e.g., 1x2y3z4w..." {...field} />
                                                 </FormControl>
                                             </FormItem>
                                         )} />

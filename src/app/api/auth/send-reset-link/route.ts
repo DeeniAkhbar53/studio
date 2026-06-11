@@ -3,6 +3,7 @@ import { db } from '@/lib/firebase/firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { sendEmail, resetPasswordEmailTemplate } from '@/lib/email';
 import { getUserByItsOrBgkId } from '@/lib/firebase/userService';
+import { requiresPasswordAndOtp } from '@/lib/firebase/authService';
 import { randomBytes } from 'crypto';
 
 export async function POST(req: NextRequest) {
@@ -24,10 +25,9 @@ export async function POST(req: NextRequest) {
       return successResponse; // Don't reveal that user/email doesn't exist
     }
 
-    const hasNoSecureRole = !user.role || user.role === 'user';
-    const isMemberOrJMember = !user.designation || user.designation === 'Member' || user.designation === 'J.Member';
-    if (hasNoSecureRole && isMemberOrJMember) {
-      return successResponse; // Do not send reset link for standard members
+    // Do not send reset link for standard members / users who do not have password login enabled
+    if (!requiresPasswordAndOtp(user)) {
+      return successResponse;
     }
 
     // Generate a secure token

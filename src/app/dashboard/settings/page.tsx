@@ -21,7 +21,7 @@ import { doc, onSnapshot, Unsubscribe } from "firebase/firestore";
 
 import { findNavItem } from "@/components/dashboard/sidebar-nav";
 import { FunkyLoader } from "@/components/ui/funky-loader";
-import { Sparkles, ShieldAlert, Video, Palette as PaletteIcon, SlidersHorizontal, BookOpen, FileText as FileTextIcon, ScanLine } from "lucide-react";
+import { Sparkles, ShieldAlert, Video, Palette as PaletteIcon, SlidersHorizontal, BookOpen, FileText as FileTextIcon, ScanLine, FileSpreadsheet, Copy, Check } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -36,6 +36,8 @@ export default function SettingsPage() {
   const [duaVideoUrl, setDuaVideoUrl] = useState("");
   const [inactivityTimeout, setInactivityTimeout] = useState(10);
   const [defaultTheme, setDefaultTheme] = useState("blue");
+  const [googleSheetsAppsScriptUrl, setGoogleSheetsAppsScriptUrl] = useState("");
+  const [copiedScript, setCopiedScript] = useState(false);
 
   useEffect(() => {
     const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') as UserRole : null;
@@ -91,9 +93,11 @@ export default function SettingsPage() {
                 const data = docSnap.data();
                 setInactivityTimeout(data.inactivityTimeout || 10);
                 setDefaultTheme(data.defaultTheme || 'blue');
+                setGoogleSheetsAppsScriptUrl(data.googleSheetsAppsScriptUrl || "");
             } else {
                 setInactivityTimeout(10);
                 setDefaultTheme('blue');
+                setGoogleSheetsAppsScriptUrl("");
             }
         }));
 
@@ -289,6 +293,137 @@ export default function SettingsPage() {
                                 checked={featureFlags.isBarcodeScanningEnabled}
                                 onCheckedChange={(checked) => handleFlagChange('isBarcodeScanningEnabled', checked)}
                                 />
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Card>
+
+            <Card className="shadow-lg">
+                <AccordionItem value="item-4" className="border-b-0">
+                    <AccordionTrigger className="p-0 hover:no-underline">
+                        <CardHeader className="flex-grow">
+                            <CardTitle className="flex items-center text-base">
+                                <FileSpreadsheet className="mr-2 h-4 w-4 text-primary" />
+                                Google Sheets Sync Settings
+                            </CardTitle>
+                            <CardDescription className="mt-1 text-xs text-left">
+                                Configure the webhook to automatically sync forms responses & reports to Google Sheets.
+                            </CardDescription>
+                        </CardHeader>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6">
+                        <div className="space-y-6 pt-2">
+                            <div className="space-y-2">
+                                <Label htmlFor="sheets-webhook-url" className="text-sm font-medium">Google Apps Script Web App URL</Label>
+                                <div className="flex items-center gap-4">
+                                    <Input
+                                        id="sheets-webhook-url"
+                                        value={googleSheetsAppsScriptUrl}
+                                        onChange={(e) => setGoogleSheetsAppsScriptUrl(e.target.value)}
+                                        placeholder="e.g., https://script.google.com/macros/s/.../exec"
+                                        className="font-mono text-xs"
+                                    />
+                                    <Button onClick={() => handleSettingUpdate('googleSheetsAppsScriptUrl', googleSheetsAppsScriptUrl)}>Save URL</Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">The Apps Script URL deployed from your Google account that has edit access to your spreadsheets.</p>
+                            </div>
+
+                            <Separator />
+
+                            <div className="space-y-3">
+                                <h4 className="text-sm font-semibold">How to setup your Google Apps Script:</h4>
+                                <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-1.5 pl-1">
+                                    <li>Create a new spreadsheet on Google Sheets, or open an existing one.</li>
+                                    <li>Go to <strong>Extensions &gt; Apps Script</strong>.</li>
+                                    <li>Delete any default code, and paste the code block below.</li>
+                                    <li>Click the <strong>Deploy</strong> button in the top right, and choose <strong>New deployment</strong>.</li>
+                                    <li>Click the gear icon next to "Select type" and choose <strong>Web app</strong>.</li>
+                                    <li>Set Description as "Sheets Sync", Execute as: <strong>"Me"</strong> (your email), and Who has access: <strong>"Anyone"</strong>.</li>
+                                    <li>Click <strong>Deploy</strong>, grant authorizations if prompted, and copy the <strong>Web app URL</strong>.</li>
+                                    <li>Paste it in the input field above and click Save.</li>
+                                </ol>
+
+                                <div className="relative mt-2 rounded-lg border bg-muted/40 p-4 font-mono text-[10px] leading-relaxed max-h-60 overflow-y-auto">
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="absolute right-3 top-3 h-7 w-7"
+                                        onClick={() => {
+                                            const code = `function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const sheetId = data.sheetId;
+    const sheetName = data.sheetName || "Sheet1";
+    const rows = data.rows;
+
+    const ss = SpreadsheetApp.openById(sheetId);
+    let sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+    }
+
+    if (data.action === "replace") {
+      sheet.clearContents();
+      if (rows && rows.length > 0) {
+        sheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+      }
+    } else {
+      if (rows && rows.length > 0) {
+        for (let i = 0; i < rows.length; i++) {
+          sheet.appendRow(rows[i]);
+        }
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ success: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+                                            navigator.clipboard.writeText(code);
+                                            setCopiedScript(true);
+                                            setTimeout(() => setCopiedScript(false), 2000);
+                                        }}
+                                    >
+                                        {copiedScript ? <Check className="h-4.5 w-4.5 text-green-500" /> : <Copy className="h-4.5 w-4.5" />}
+                                    </Button>
+                                    <pre className="text-left text-foreground overflow-x-auto whitespace-pre-wrap">{`function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const sheetId = data.sheetId;
+    const sheetName = data.sheetName || "Sheet1";
+    const rows = data.rows;
+
+    const ss = SpreadsheetApp.openById(sheetId);
+    let sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+    }
+
+    if (data.action === "replace") {
+      sheet.clearContents();
+      if (rows && rows.length > 0) {
+        sheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+      }
+    } else {
+      if (rows && rows.length > 0) {
+        for (let i = 0; i < rows.length; i++) {
+          sheet.appendRow(rows[i]);
+        }
+      }
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ success: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`}</pre>
+                                </div>
                             </div>
                         </div>
                     </AccordionContent>

@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import Link from "next/link";
 import Image from "next/image";
-import { Footer } from "@/components/ui/footer";
 import {
   Card,
   CardContent,
@@ -163,7 +162,6 @@ export default function ForgotPasswordPage() {
           </CardContent>
         </Card>
       </div>
-      <Footer className="w-full" />
     </main>
   );
 }

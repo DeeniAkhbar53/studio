@@ -3,8 +3,9 @@ import type { Metadata } from 'next';
 import { getForm } from "@/lib/firebase/formService";
 import ViewResponsesClientPage from './client-page';
 
-export async function generateMetadata({ params }: { params: { formId: string } }): Promise<Metadata> {
-  const form = await getForm(params.formId);
+export async function generateMetadata({ params }: { params: Promise<{ formId: string }> }): Promise<Metadata> {
+  const resolvedParams = await params;
+  const form = await getForm(resolvedParams.formId);
   const title = form ? `Responses for ${form.title}` : "Form Responses";
   return {
     title: title,
