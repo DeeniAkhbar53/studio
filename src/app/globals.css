@@ -135,6 +135,7 @@
 @layer base {
   html {
     @apply md:text-[13px] text-[14px];
+    overflow-x: hidden;
   }
   * {
     @apply border-border;
@@ -142,6 +143,7 @@
   body {
     @apply text-foreground font-sans antialiased;
     min-height: 100vh;
+    overflow-x: hidden;
     background-color: hsl(var(--background));
     background-image:
       linear-gradient(90deg, hsl(var(--foreground) / 0.035) 1px, transparent 1px),

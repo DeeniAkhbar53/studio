@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       createdAt: serverTimestamp(),
     });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:9002';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bgk-attendance.netlify.app';
     const resetLink = `${appUrl}/reset-password?token=${token}`;
 
     await sendEmail(

@@ -334,8 +334,8 @@ export default function ManageMembersPage() {
 
         if (editingMember.mohallahId !== targetMohallahId) {
             // Mohallah change logic: delete from old, add to new
-            await deleteUser(editingMember.id, editingMember.mohallahId);
-            await addUser(updatePayload as UserDataForAdd, targetMohallahId);
+            await deleteUser(editingMember.id, editingMember.mohallahId, true);
+            await addUser(updatePayload as UserDataForAdd, targetMohallahId, editingMember.mohallahId);
         } else {
             // Standard update
             await updateUser(editingMember.id, editingMember.mohallahId, updatePayload);
@@ -537,8 +537,8 @@ export default function ManageMembersPage() {
                             
                             // Mohallah change logic
                             if (existingUser.mohallahId !== validatedData.mohallahId) {
-                                await deleteUser(existingUser.id, existingUser.mohallahId!);
-                                await addUser(updatePayload as UserDataForAdd, validatedData.mohallahId);
+                                await deleteUser(existingUser.id, existingUser.mohallahId!, true);
+                                await addUser(updatePayload as UserDataForAdd, validatedData.mohallahId, existingUser.mohallahId!);
                             } else {
                                 await updateUser(existingUser.id, existingUser.mohallahId!, updatePayload);
                             }

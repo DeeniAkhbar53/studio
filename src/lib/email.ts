@@ -286,3 +286,128 @@ export function miqaatAbsenceEmailTemplate(
   `;
 }
 
+export function userCreatedEmailTemplate(name: string, itsId: string, mohallahName: string, role: string, designation: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="UTF-8" /><title>Account Created - BGK Attendance</title></head>
+    <body style="margin:0;padding:0;background:#0f172a;font-family:'Segoe UI',Arial,sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;padding:40px 20px;">
+        <tr><td align="center">
+          <table width="480" cellpadding="0" cellspacing="0" style="background:#1e293b;border-radius:16px;overflow:hidden;border:1px solid #334155;">
+            <tr><td style="background:linear-gradient(135deg,#3b82f6,#10b981);height:6px;"></td></tr>
+            <tr>
+              <td style="padding:40px 40px 20px;">
+                <h1 style="margin:0;font-size:22px;font-weight:700;color:#f8fafc;">BGK Attendance</h1>
+                <p style="margin:8px 0 0;font-size:14px;color:#94a3b8;">Account Registration Confirmation</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 40px 32px;color:#cbd5e1;font-size:14px;line-height:1.6;">
+                <p>Assalaamu Alaikum, <strong style="color:#f8fafc;">${name}</strong></p>
+                <p>Your account has been successfully created in the BGK Attendance System with the following details:</p>
+                <table width="100%" cellpadding="10" cellspacing="0" style="background:#0f172a;border-radius:10px;border:1px solid #334155;margin:20px 0;color:#f8fafc;font-size:13px;">
+                  <tr><td style="color:#94a3b8;width:35%;">ITS ID:</td><td><strong>${itsId}</strong></td></tr>
+                  <tr><td style="color:#94a3b8;">Mohallah:</td><td>${mohallahName}</td></tr>
+                  <tr><td style="color:#94a3b8;">Role:</td><td>${role}</td></tr>
+                  <tr><td style="color:#94a3b8;">Designation:</td><td>${designation}</td></tr>
+                </table>
+                <p style="margin:20px 0 0;">You can log in to the portal at: <a href="https://bgk-attendance.netlify.app" style="color:#60a5fa;font-weight:600;text-decoration:none;">bgk-attendance.netlify.app</a></p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 40px 32px;">
+                <div style="border-top:1px solid #334155;padding-top:24px;text-align:center;">
+                  <p style="font-size:11px;color:#475569;margin:0;">Designed and Managed by Shabbir Shakir &bull; BGK Khaitan</p>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
+export function userTransferredEmailTemplate(name: string, itsId: string, oldMohallahName: string, newMohallahName: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="UTF-8" /><title>Account Transferred - BGK Attendance</title></head>
+    <body style="margin:0;padding:0;background:#0f172a;font-family:'Segoe UI',Arial,sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;padding:40px 20px;">
+        <tr><td align="center">
+          <table width="480" cellpadding="0" cellspacing="0" style="background:#1e293b;border-radius:16px;overflow:hidden;border:1px solid #334155;">
+            <tr><td style="background:linear-gradient(135deg,#f59e0b,#3b82f6);height:6px;"></td></tr>
+            <tr>
+              <td style="padding:40px 40px 20px;">
+                <h1 style="margin:0;font-size:22px;font-weight:700;color:#f8fafc;">BGK Attendance</h1>
+                <p style="margin:8px 0 0;font-size:14px;color:#94a3b8;">Mohallah Transfer Notification</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 40px 32px;color:#cbd5e1;font-size:14px;line-height:1.6;">
+                <p>Assalaamu Alaikum, <strong style="color:#f8fafc;">${name}</strong></p>
+                <p>Your BGK Attendance profile has been transferred to a new Mohallah:</p>
+                <table width="100%" cellpadding="10" cellspacing="0" style="background:#0f172a;border-radius:10px;border:1px solid #334155;margin:20px 0;color:#f8fafc;font-size:13px;">
+                  <tr><td style="color:#94a3b8;width:35%;">ITS ID:</td><td><strong>${itsId}</strong></td></tr>
+                  <tr><td style="color:#94a3b8;">From Mohallah:</td><td>${oldMohallahName}</td></tr>
+                  <tr><td style="color:#94a3b8;">To Mohallah:</td><td><span style="color:#f59e0b;font-weight:bold;">${newMohallahName}</span></td></tr>
+                </table>
+                <p>All your attendance history and profile logs have been successfully preserved.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 40px 32px;">
+                <div style="border-top:1px solid #334155;padding-top:24px;text-align:center;">
+                  <p style="font-size:11px;color:#475569;margin:0;">Designed and Managed by Shabbir Shakir &bull; BGK Khaitan</p>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+
+export function userDeletedEmailTemplate(name: string, itsId: string): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="UTF-8" /><title>Account Deactivated - BGK Attendance</title></head>
+    <body style="margin:0;padding:0;background:#0f172a;font-family:'Segoe UI',Arial,sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;padding:40px 20px;">
+        <tr><td align="center">
+          <table width="480" cellpadding="0" cellspacing="0" style="background:#1e293b;border-radius:16px;overflow:hidden;border:1px solid #334155;">
+            <tr><td style="background:linear-gradient(135deg,#ef4444,#f59e0b);height:6px;"></td></tr>
+            <tr>
+              <td style="padding:40px 40px 20px;">
+                <h1 style="margin:0;font-size:22px;font-weight:700;color:#f8fafc;">BGK Attendance</h1>
+                <p style="margin:8px 0 0;font-size:14px;color:#cbd5e1;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Account Deactivation</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 40px 32px;color:#cbd5e1;font-size:14px;line-height:1.6;">
+                <p>Assalaamu Alaikum, <strong style="color:#f8fafc;">${name}</strong></p>
+                <p>This email is to inform you that your account associated with ITS ID <strong style="color:#f8fafc;">${itsId}</strong> has been deactivated or removed by the administrator.</p>
+                <p>If you believe this is in error, or if your registration should be restored, please contact your Mohallah administrator.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 40px 32px;">
+                <div style="border-top:1px solid #334155;padding-top:24px;text-align:center;">
+                  <p style="font-size:11px;color:#475569;margin:0;">Designed and Managed by Shabbir Shakir &bull; BGK Khaitan</p>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
+

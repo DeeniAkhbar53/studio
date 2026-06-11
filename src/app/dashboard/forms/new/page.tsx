@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form as UIForm, FormControl, FormMessage, FormItem, FormField, FormDescription, FormLabel } from "@/components/ui/form";
-import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save, Wrench, Settings, Users, Search, CalendarIcon, Upload, X } from "lucide-react";
+import { PlusCircle, Trash2, GripVertical, Loader2, ArrowLeft, Save, Wrench, Settings, Users, Search, CalendarIcon, Upload, X, Copy, Eye, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { addForm } from "@/lib/firebase/formService";
 import { Separator } from "@/components/ui/separator";
@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { Mohallah, User } from "@/types";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getUniqueTeamNames, getUsers } from "@/lib/firebase/userService";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -95,6 +96,19 @@ export default function CreateFormPage() {
     const allQuestions = formBuilder.watch('questions');
     const eligibilityType = formBuilder.watch("eligibilityType");
     const imageUrl = formBuilder.watch("imageUrl");
+    
+    const handleDuplicateQuestion = (index: number) => {
+        const q = formBuilder.getValues(`questions.${index}`);
+        append({
+            id: crypto.randomUUID(),
+            label: q.label ? `${q.label} (Copy)` : "",
+            type: q.type,
+            required: q.required,
+            options: q.options ? q.options.map(o => ({ value: o.value })) : [],
+            conditional: q.conditional ? { ...q.conditional } : undefined
+        });
+        toast({ title: "Question Duplicated", description: "Successfully duplicated question." });
+    };
     
      useEffect(() => {
         const fetchData = async () => {
@@ -216,15 +230,16 @@ export default function CreateFormPage() {
                 
                  <div className="container mx-auto px-4 space-y-6 pb-12">
                      <Tabs defaultValue="builder" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
+                        <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="builder"><Wrench className="mr-2 h-4 w-4" />Form Builder</TabsTrigger>
                             <TabsTrigger value="eligibility"><Settings className="mr-2 h-4 w-4" />Eligibility & Settings</TabsTrigger>
+                            <TabsTrigger value="preview"><Eye className="mr-2 h-4 w-4" />Live Preview</TabsTrigger>
                         </TabsList>
                         
                         <TabsContent value="builder" className="mt-6">
                              <div className="space-y-6">
-                                <Card className="overflow-hidden">
-                                    <div className="bg-primary/10 p-6 border-b-4 border-primary">
+                                 <Card className="overflow-hidden glass-surface border-white/10 dark:border-white/5 shadow-xl">
+                                    <div className="bg-gradient-to-r from-primary/10 via-background to-accent/5 p-6 border-b-4 border-primary">
                                         <FormControl>
                                             <Input placeholder="Form Title" {...formBuilder.register("title")} className="text-3xl font-bold h-auto p-2 border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent" />
                                         </FormControl>
@@ -303,10 +318,27 @@ export default function CreateFormPage() {
                                                                         </Select>
                                                                     )}
                                                                 />
-                                                                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => remove(index)}>
+                                                                 <Button 
+                                                                    type="button" 
+                                                                    variant="ghost" 
+                                                                    size="icon" 
+                                                                    className="text-muted-foreground hover:text-primary shrink-0" 
+                                                                    onClick={() => handleDuplicateQuestion(index)}
+                                                                    title="Duplicate Question"
+                                                                >
+                                                                    <Copy className="h-5 w-5" />
+                                                                </Button>
+                                                                <Button 
+                                                                    type="button" 
+                                                                    variant="ghost" 
+                                                                    size="icon" 
+                                                                    className="text-muted-foreground hover:text-destructive shrink-0" 
+                                                                    onClick={() => remove(index)}
+                                                                    title="Delete Question"
+                                                                >
                                                                     <Trash2 className="h-5 w-5" />
                                                                 </Button>
-                                                            </div>
+                                                              </div>
                                                         </div>
                                                         {formBuilder.formState.errors.questions?.[index]?.label && <p className="text-sm text-destructive">{formBuilder.formState.errors.questions?.[index]?.label?.message}</p>}
 
@@ -340,12 +372,45 @@ export default function CreateFormPage() {
                                             </Card>
                                         )
                                     })}
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => append({ id: crypto.randomUUID(), label: "", type: 'text', required: false, options: [] })}>
-                                        <PlusCircle className="mr-2 h-4 w-4" /> Add Question
-                                    </Button>
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => append({ id: crypto.randomUUID(), label: "", type: 'text', required: false, options: [] })}>
+                                            <PlusCircle className="mr-2 h-4 w-4" /> Add Question
+                                        </Button>
+
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button type="button" variant="secondary" className="bg-muted hover:bg-muted/80">
+                                                    <PlusCircle className="mr-2 h-4 w-4" /> Add from Template
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent>
+                                                <DropdownMenuItem onClick={() => append({ id: crypto.randomUUID(), label: "ITS ID", type: 'text', required: true })}>
+                                                    ITS ID (Text)
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => append({ id: crypto.randomUUID(), label: "Full Name", type: 'text', required: true })}>
+                                                    Full Name (Text)
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => append({ id: crypto.randomUUID(), label: "Mobile Number", type: 'number', required: true })}>
+                                                    Mobile Number (Number)
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => append({ id: crypto.randomUUID(), label: "Mohallah", type: 'select', required: true, options: [{ value: "Mohallah A" }, { value: "Mohallah B" }] })}>
+                                                    Mohallah (Dropdown)
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => append({ id: crypto.randomUUID(), label: "Uniform/Libas Compliance", type: 'radio', required: true, options: [{ value: "Compliant" }, { value: "Non-Compliant" }] })}>
+                                                    Uniform Compliance (Radio)
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => append({ id: crypto.randomUUID(), label: "Libas-al-Anwar Status", type: 'radio', required: true, options: [{ value: "Wearing Libas-al-Anwar" }, { value: "Wearing Feta/Paghri Only" }, { value: "No Libas-al-Anwar" }] })}>
+                                                    Libas Status (Radio)
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => append({ id: crypto.randomUUID(), label: "Feedback / Suggestions", type: 'textarea', required: false })}>
+                                                    Feedback (Text Area)
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
                                 </div>
                              </div>
                         </TabsContent>
@@ -491,6 +556,89 @@ export default function CreateFormPage() {
                                     )}
                                 </CardContent>
                             </Card>
+                        </TabsContent>
+                        
+                        <TabsContent value="preview" className="mt-6">
+                            <div className="max-w-2xl mx-auto space-y-6">
+                                <Card className="overflow-hidden glass-surface border-white/10 dark:border-white/5 shadow-xl">
+                                    <div className="bg-gradient-to-r from-primary/10 via-background to-accent/5 p-6 border-b-4 border-primary">
+                                        <h1 className="text-3xl font-bold text-foreground">{formBuilder.watch("title") || "Untitled Form"}</h1>
+                                        {formBuilder.watch("description") && (
+                                            <p className="text-muted-foreground mt-2 whitespace-pre-wrap">{formBuilder.watch("description")}</p>
+                                        )}
+                                    </div>
+                                    <CardContent className="p-6 space-y-6 bg-background/30">
+                                        {imageUrl && (
+                                            <div className="relative w-full h-48 rounded-lg overflow-hidden mb-6 border border-white/10">
+                                                <Image src={imageUrl} alt="Form Cover" fill className="object-cover" />
+                                            </div>
+                                        )}
+                                        {allQuestions.length === 0 ? (
+                                            <p className="text-center text-muted-foreground py-8 animate-pulse">No questions added to the form yet.</p>
+                                        ) : (
+                                            allQuestions.map((q, idx) => (
+                                                <Card key={q.id} className="p-4 md:p-6 border bg-background shadow-sm space-y-3">
+                                                    <Label className="text-base font-semibold flex items-baseline gap-2">
+                                                        {q.label || `Question ${idx + 1}`}
+                                                        {q.required && <span className="text-destructive text-sm font-normal">* required</span>}
+                                                    </Label>
+                                                    
+                                                    <div className="pt-2">
+                                                        {q.type === 'text' && <Input placeholder="Short answer text" disabled className="bg-muted/10 cursor-not-allowed" />}
+                                                        {q.type === 'textarea' && <Textarea placeholder="Long answer text" disabled rows={3} className="bg-muted/10 cursor-not-allowed" />}
+                                                        {q.type === 'number' && <Input type="number" placeholder="0" disabled className="bg-muted/10 cursor-not-allowed" />}
+                                                        {q.type === 'date' && <Input type="date" disabled className="bg-muted/10 cursor-not-allowed" />}
+                                                        {q.type === 'rating' && (
+                                                            <div className="flex gap-2">
+                                                                {[1, 2, 3, 4, 5].map(star => (
+                                                                    <Star key={star} className="h-7 w-7 text-muted-foreground/30" />
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        {q.type === 'radio' && (
+                                                            <div className="flex flex-col space-y-2">
+                                                                {q.options?.length === 0 ? (
+                                                                    <p className="text-xs text-muted-foreground">No options added yet.</p>
+                                                                ) : (
+                                                                    q.options?.map((opt, oIdx) => (
+                                                                        <div key={oIdx} className="flex items-center space-x-2">
+                                                                            <div className="h-4 w-4 rounded-full border border-primary/50 shrink-0" />
+                                                                            <span className="text-sm">{opt.value || `Option ${oIdx + 1}`}</span>
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                        {q.type === 'checkbox' && (
+                                                            <div className="flex flex-col space-y-2">
+                                                                {q.options?.length === 0 ? (
+                                                                    <p className="text-xs text-muted-foreground">No options added yet.</p>
+                                                                ) : (
+                                                                    q.options?.map((opt, oIdx) => (
+                                                                        <div key={oIdx} className="flex items-center space-x-2">
+                                                                            <div className="h-4 w-4 rounded border border-primary/50 shrink-0" />
+                                                                            <span className="text-sm">{opt.value || `Option ${oIdx + 1}`}</span>
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                        {q.type === 'select' && (
+                                                            <div className="border rounded-md px-3 py-2 text-sm text-muted-foreground bg-muted/20 w-full select-none">
+                                                                Select option...
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </Card>
+                                            ))
+                                        )}
+                                    </CardContent>
+                                    <CardFooter className="bg-muted/20 border-t p-4 flex justify-between">
+                                        <span className="text-xs text-muted-foreground font-medium">Live Preview Mode</span>
+                                        <Button type="button" size="sm" disabled className="bg-primary/50 text-white cursor-not-allowed">Submit Response</Button>
+                                    </CardFooter>
+                                </Card>
+                            </div>
                         </TabsContent>
                     </Tabs>
                 </div>

@@ -17,7 +17,7 @@ import { Form as UIForm, FormControl, FormField, FormItem, FormLabel, FormMessag
 import { FileWarning, ArrowLeft, Send, User as UserIcon, CheckCircle2, Lock, Star, Calendar as CalendarIcon, ShieldAlert } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Form as FormType, FormResponse, User } from "@/types";
-import { getForm, addFormResponse, getFormResponseForUser, updateFormResponse } from "@/lib/firebase/formService";
+import { getForm, addFormResponse, getFormResponseForUser, updateFormResponse, getFormResponses } from "@/lib/firebase/formService";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
@@ -421,6 +421,52 @@ export default function FillFormPage() {
                 await addFormResponse(form.id, responsePayload);
                 toast({ title: "Response Submitted", description: "Your response has been successfully submitted." });
             }
+
+            // Auto-sync responses to Google Sheets if configured
+            if (form.googleSheetId) {
+                (async () => {
+                    try {
+                        const responses = await getFormResponses(form.id);
+                        
+                        const headers = [
+                            "Submitted At",
+                            "Submitter ITS",
+                            "Submitter Name",
+                            "Submitter BGK ID",
+                            ...form.questions.map(q => q.label)
+                        ];
+
+                        const dataToSync = responses.map((res) => {
+                            const row = [
+                                res.submittedAt ? format(new Date(res.submittedAt), "yyyy-MM-dd HH:mm:ss") : 'N/A',
+                                res.submittedBy || 'N/A',
+                                res.submitterName || 'N/A',
+                                res.submitterBgkId || 'N/A'
+                            ];
+                            form.questions.forEach(q => {
+                                const answer = res.responses[q.id];
+                                row.push(Array.isArray(answer) ? answer.join('; ') : (answer !== null && answer !== undefined ? String(answer) : ''));
+                            });
+                            return row;
+                        });
+
+                        await fetch("/api/google/sync-sheet", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                sheetId: form.googleSheetId,
+                                sheetName: form.title.substring(0, 30),
+                                headers,
+                                data: dataToSync,
+                                action: "replace"
+                            })
+                        });
+                    } catch (syncErr) {
+                        console.error("Google sheet auto-sync failed:", syncErr);
+                    }
+                })();
+            }
+
             setHasSubmitted(true);
         } catch (error) {
             

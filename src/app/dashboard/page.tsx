@@ -1124,6 +1124,52 @@ export default function DashboardOverviewPage() {
     adminOverviewStats.push({ title: "Total Mohallahs", value: stats.totalMohallahsCount, icon: Building, isLoading: loadingStats.mohallahs });
   }
 
+  const combinedMobileAlerts = useMemo(() => {
+    const alertsList: {
+      id: string;
+      title: string;
+      description: string;
+      action: () => void;
+      actionLabel: string;
+      variant: "default" | "destructive";
+      icon: React.ElementType;
+    }[] = [];
+    if (isDuaPending && !isLoadingDuaStatus) {
+      alertsList.push({
+        id: "dua-pending",
+        title: "Weekly Dua Pending",
+        description: "Your weekly Dua Tilawat submission is pending. Please submit it before Saturday.",
+        action: () => router.push('/dashboard/dua'),
+        actionLabel: "Submit Now",
+        variant: 'default' as const,
+        icon: BookOpen,
+      });
+    }
+    if (pendingForms.length > 0 && !isLoadingPendingForms && !isTeamLead) {
+      alertsList.push({
+        id: "pending-forms",
+        title: "Pending Forms",
+        description: `You have ${pendingForms.length} form(s) that need to be filled out.`,
+        action: () => setIsPendingFormsSheetOpen(true),
+        actionLabel: "View Forms",
+        variant: 'default' as const,
+        icon: FileText,
+      });
+    }
+    dashboardAlerts.forEach(alert => {
+      alertsList.push({
+        id: alert.id,
+        title: alert.title,
+        description: alert.description,
+        action: alert.action,
+        actionLabel: alert.actionLabel,
+        variant: alert.variant,
+        icon: alert.icon,
+      });
+    });
+    return alertsList;
+  }, [isDuaPending, isLoadingDuaStatus, pendingForms, isLoadingPendingForms, isTeamLead, dashboardAlerts, router]);
+
   const statsToDisplay = (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead) ? adminOverviewStats : [];
   
   if (currentUserRole === 'attendance-marker') {
@@ -1145,84 +1191,119 @@ export default function DashboardOverviewPage() {
   return (
     <div className="flex flex-col h-full">
        <div className="flex-grow space-y-6">
-          {isDuaPending && !isLoadingDuaStatus && (
-            <Alert variant='default' className="relative bg-primary/10 border-primary/20">
-                <BookOpen className="h-4 w-4" />
-                <AlertTitle>Weekly Dua Pending</AlertTitle>
-                <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                    <span>Your weekly Dua Tilawat submission is pending. Please submit it before Saturday.</span>
-                    <Button variant='default' size="sm" onClick={() => router.push('/dashboard/dua')} className="mt-2 sm:mt-0 shrink-0">
-                        Submit Now
-                    </Button>
-                </AlertDescription>
-            </Alert>
+          {/* Mobile alerts grouped in a Carousel slider */}
+          {combinedMobileAlerts.length > 0 && (
+            <div className="block md:hidden relative w-full">
+              <Carousel className="w-full">
+                <CarouselContent>
+                  {combinedMobileAlerts.map(alert => (
+                    <CarouselItem key={alert.id}>
+                      <div className="p-1">
+                        <Alert variant={alert.variant} className="relative">
+                          <alert.icon className="h-4 w-4" />
+                          <AlertTitle>{alert.title}</AlertTitle>
+                          <AlertDescription className="flex flex-col items-start justify-between gap-2">
+                            <span className="text-xs">{alert.description}</span>
+                            <Button variant={alert.variant === 'destructive' ? 'destructive' : 'default'} size="sm" onClick={alert.action} className="mt-2 shrink-0 self-end">
+                              {alert.actionLabel}
+                            </Button>
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                {combinedMobileAlerts.length > 1 && (
+                  <>
+                    <CarouselPrevious className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6" />
+                    <CarouselNext className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6" />
+                  </>
+                )}
+              </Carousel>
+            </div>
           )}
 
-          {pendingForms.length > 0 && !isLoadingPendingForms && !isTeamLead && (
-             <Alert variant='default'>
-                <FileText className="h-4 w-4" />
-                <AlertTitle>Pending Forms</AlertTitle>
-                <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                    <span>You have {pendingForms.length} form(s) that need to be filled out.</span>
-                    <Button variant='default' size="sm" onClick={() => setIsPendingFormsSheetOpen(true)} className="mt-2 sm:mt-0 shrink-0">
-                        View Forms
-                    </Button>
-                </AlertDescription>
-            </Alert>
-          )}
-          
-          {dashboardAlerts.length > 0 && (
-              <div className="relative w-full">
-                <Carousel className="w-full">
-                    <CarouselContent>
-                        {dashboardAlerts.map(alert => (
-                            <CarouselItem key={alert.id}>
-                                <div className="p-1">
-                                    <Alert variant={alert.variant} className="relative">
-                                        <alert.icon className="h-4 w-4" />
-                                        <AlertTitle>{alert.title}</AlertTitle>
-                                        <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                                            <span>{alert.description}</span>
-                                            <Button variant={alert.variant === 'destructive' ? 'destructive' : 'default'} size="sm" onClick={alert.action} className="mt-2 sm:mt-0 shrink-0">
-                                                {alert.actionLabel}
-                                            </Button>
-                                        </AlertDescription>
-                                    </Alert>
-                                </div>
-                            </CarouselItem>
-                        ))}
-                    </CarouselContent>
-                    {dashboardAlerts.length > 1 && (
-                        <>
-                            <CarouselPrevious className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8 sm:-left-4 md:-left-12" />
-                            <CarouselNext className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8 sm:-right-4 md:-right-12" />
-                        </>
-                    )}
-                </Carousel>
-              </div>
-          )}
+          {/* Desktop alerts separated / stacked as originally designed */}
+          <div className="hidden md:block space-y-4">
+            {isDuaPending && !isLoadingDuaStatus && (
+              <Alert variant='default' className="relative bg-primary/10 border-primary/20">
+                  <BookOpen className="h-4 w-4" />
+                  <AlertTitle>Weekly Dua Pending</AlertTitle>
+                  <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                      <span>Your weekly Dua Tilawat submission is pending. Please submit it before Saturday.</span>
+                      <Button variant='default' size="sm" onClick={() => router.push('/dashboard/dua')} className="mt-2 sm:mt-0 shrink-0">
+                          Submit Now
+                      </Button>
+                  </AlertDescription>
+              </Alert>
+            )}
+
+            {pendingForms.length > 0 && !isLoadingPendingForms && !isTeamLead && (
+               <Alert variant='default'>
+                  <FileText className="h-4 w-4" />
+                  <AlertTitle>Pending Forms</AlertTitle>
+                  <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                      <span>You have {pendingForms.length} form(s) that need to be filled out.</span>
+                      <Button variant='default' size="sm" onClick={() => setIsPendingFormsSheetOpen(true)} className="mt-2 sm:mt-0 shrink-0">
+                          View Forms
+                      </Button>
+                  </AlertDescription>
+              </Alert>
+            )}
+            
+            {dashboardAlerts.length > 0 && (
+                <div className="relative w-full">
+                  <Carousel className="w-full">
+                      <CarouselContent>
+                          {dashboardAlerts.map(alert => (
+                              <CarouselItem key={alert.id}>
+                                  <div className="p-1">
+                                      <Alert variant={alert.variant} className="relative">
+                                          <alert.icon className="h-4 w-4" />
+                                          <AlertTitle>{alert.title}</AlertTitle>
+                                          <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                                              <span>{alert.description}</span>
+                                              <Button variant={alert.variant === 'destructive' ? 'destructive' : 'default'} size="sm" onClick={alert.action} className="mt-2 sm:mt-0 shrink-0">
+                                                  {alert.actionLabel}
+                                              </Button>
+                                          </AlertDescription>
+                                      </Alert>
+                                  </div>
+                              </CarouselItem>
+                          ))}
+                      </CarouselContent>
+                      {dashboardAlerts.length > 1 && (
+                          <>
+                              <CarouselPrevious className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8 sm:-left-4 md:-left-12" />
+                              <CarouselNext className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8 sm:-right-4 md:-right-12" />
+                          </>
+                      )}
+                  </Carousel>
+                </div>
+            )}
+          </div>
       
         <Card className="shadow-md bg-gradient-to-r from-primary/5 via-background to-accent/5 border-primary/10">
           <CardHeader className="py-4 px-6">
             <CardTitle className="text-xl sm:text-2xl font-semibold text-foreground">
                 Welcome, {currentUserName}!
             </CardTitle>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{currentUserDesignation || 'Member'}</span>
+            <div className="flex flex-nowrap items-center gap-x-2 mt-1.5 text-xs sm:text-sm text-muted-foreground overflow-x-auto whitespace-nowrap pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <span className="font-medium text-foreground shrink-0">{currentUserDesignation || 'Member'}</span>
               {currentUserRole && (
-                <span className="text-muted-foreground/80">
+                <span className="text-muted-foreground/80 shrink-0">
                   ({currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ')})
                 </span>
               )}
-              <span className="text-muted-foreground/30">•</span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5 text-primary/70" />
-                <span>Last login: <strong className="font-medium text-foreground">{lastLoginText}</strong></span>
+              <span className="text-muted-foreground/30 shrink-0 hidden md:inline">•</span>
+              <span className="hidden md:inline-flex items-center gap-1 shrink-0">
+                <Clock className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                <span className="shrink-0">Last login: <strong className="font-medium text-foreground">{lastLoginText}</strong></span>
               </span>
-              <span className="text-muted-foreground/30">•</span>
-              <span className="flex items-center gap-1">
-                <Timer className="h-3.5 w-3.5 text-primary/70" />
-                <span>Session: <strong className="font-medium text-foreground">{sessionMinutes} min</strong></span>
+              <span className="text-muted-foreground/30 shrink-0 hidden md:inline">•</span>
+              <span className="hidden md:inline-flex items-center gap-1 shrink-0">
+                <Timer className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                <span className="shrink-0">Session: <strong className="font-medium text-foreground">{sessionMinutes} min</strong></span>
               </span>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground mt-2">

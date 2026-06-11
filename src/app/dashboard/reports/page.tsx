@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -126,6 +127,12 @@ interface FormHistoryStatus extends FormType {
 const ALL_DESIGNATIONS: UserDesignation[] = ["Asst.Grp Leader", "Captain", "Group Leader", "J.Member", "Major", "Member", "Vice Captain"];
 const ALL_STATUSES: ('present' | 'late' | 'early' | 'absent' | 'safar')[] = ["present", "late", "early", "absent", "safar"];
 
+const getFormattedStatus = (status: string) => {
+  if (status === 'early' || status === 'late') {
+    return `Present (${status.charAt(0).toUpperCase() + status.slice(1)})`;
+  }
+  return status.charAt(0).toUpperCase() + status.slice(1);
+};
 
 const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData; generatorName: string }) => {
     const { toast } = useToast();
@@ -157,7 +164,7 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
             };
             
             const tableRowRenderers: { [key: string]: (item: any, index: number) => string } = {
-                'Attendance History': (item, i) => `<td>${i + 1}</td><td>${item.miqaatName}</td><td>${format(new Date(item.markedAt), "PP p")}</td><td>${item.status}</td>`,
+                'Attendance History': (item, i) => `<td>${i + 1}</td><td>${item.miqaatName}</td><td>${format(new Date(item.markedAt), "PP p")}</td><td>${getFormattedStatus(item.status)}</td>`,
                 'Dua Submissions': (item, i) => `<td>${i + 1}</td><td>${item.weekId}</td><td>${item.duaKamilCount}</td><td>${item.kahfCount}</td><td>${format(new Date(item.markedAt), "PP p")}</td>`,
                 'Form History': (item, i) => `<td>${i + 1}</td><td>${item.title}</td><td>${item.submissionStatus}</td><td>${item.submissionStatus === 'Filled' && item.submittedAt ? format(new Date(item.submittedAt), "PP p") : 'N/A'}</td>`,
             };
@@ -232,7 +239,7 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
 
     return (
         <Card className="shadow-lg mt-6" id="printable-area">
-             <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print-hide">
+             <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 print-hide">
                 <div className="flex-grow">
                     <CardTitle>Member Profile Report</CardTitle>
                     <Separator className="my-2" />
@@ -271,7 +278,7 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
                     </CardContent>
                 </Card>
                 
-                <PaginatedTable title="Attendance History" data={data.attendanceHistory} headers={["Miqaat", "Date", "Status"]} renderRow={(rec: any) => (<><td>{rec.miqaatName}</td><td>{format(new Date(rec.markedAt), "PP p")}</td><td>{rec.status}</td></>)} />
+                <PaginatedTable title="Attendance History" data={data.attendanceHistory} headers={["Miqaat", "Date", "Status"]} renderRow={(rec: any) => (<><td>{rec.miqaatName}</td><td>{format(new Date(rec.markedAt), "PP p")}</td><td>{getFormattedStatus(rec.status)}</td></>)} />
                 <PaginatedTable title="Dua Submissions" data={data.duaHistory} headers={["Week ID", "Dua e Kamil", "Surat al Kahf", "Submitted"]} renderRow={(rec: any) => (<><td>{rec.weekId}</td><td>{rec.duaKamilCount}</td><td>{rec.kahfCount}</td><td>{format(new Date(rec.markedAt), "PP p")}</td></>)} />
                 <PaginatedTable title="Form History" data={data.formHistory} headers={["Form Title", "Status", "Date"]} renderRow={(rec: any) => (<><td>{rec.title}</td><td>{rec.submissionStatus}</td><td>{rec.submissionStatus === 'Filled' && rec.submittedAt ? format(new Date(rec.submittedAt), "PP p") : 'N/A'}</td></>)} />
 
@@ -297,10 +304,12 @@ const PaginatedTable = ({ title, data, headers, renderRow }: { title: string, da
                 <CardTitle className="text-lg">{title}</CardTitle>
             </CardHeader>
             <CardContent>
+                <div className="overflow-x-auto">
                 <Table>
                     <TableHeader><TableRow>{headers.map(h => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
                     <TableBody>{currentData.map((item, index) => <TableRow key={item.id || index}>{renderRow(item, ((currentPage - 1) * ITEMS_PER_PAGE) + index)}</TableRow>)}</TableBody>
                 </Table>
+                </div>
             </CardContent>
              {totalPages > 1 && (
                 <CardFooter className="justify-end gap-2 pt-4">
@@ -372,6 +381,23 @@ export default function ReportsPage() {
   const [isSyncingReport, setIsSyncingReport] = useState(false);
   const [syncReportStatus, setSyncReportStatus] = useState<string | null>(null);
   const [isSyncDialogOpen, setIsSyncDialogOpen] = useState(false);
+  const [savedSheetId, setSavedSheetId] = useState("");
+
+  const [miqaatSearch, setMiqaatSearch] = useState("");
+  const [isBulkSafarDialogOpen, setIsBulkSafarDialogOpen] = useState(false);
+  const [bulkBgkInput, setBulkBgkInput] = useState("");
+  const [isBulkSafarSubmitting, setIsBulkSafarSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setSavedSheetId(localStorage.getItem("lastReportSheetId") || "");
+    }
+  }, []);
+
+  const isAlreadySynced = useMemo(() => {
+    if (!savedSheetId) return false;
+    return localStorage.getItem("report_synced_" + savedSheetId) === "true";
+  }, [savedSheetId]);
 
   const handleSendAbsenteeEmailsFromReport = async () => {
     const miqaatIds = form.getValues("miqaatIds") || [];
@@ -509,6 +535,16 @@ export default function ReportsPage() {
     }
     return { availableMiqaats: [], availableMohallahs: [], availableTeams: [] };
   }, [currentUser, allMiqaats, allMohallahs, allUsers, miqaatTypeFilter]);
+
+  const searchedMiqaats = useMemo(() => {
+    if (!miqaatSearch) return availableMiqaats;
+    const searchLower = miqaatSearch.toLowerCase();
+    return availableMiqaats.filter(m => {
+      const nameMatch = m.name.toLowerCase().includes(searchLower);
+      const dateMatch = format(new Date(m.startTime), "P").toLowerCase().includes(searchLower);
+      return nameMatch || dateMatch;
+    });
+  }, [availableMiqaats, miqaatSearch]);
 
 
   const watchedReportType = form.watch("reportType");
@@ -905,7 +941,7 @@ export default function ReportsPage() {
             row.sessionName || 'N/A',
             date ? format(date, "yyyy-MM-dd") : "N/A",
             date ? format(date, "HH:mm:ss") : "N/A",
-            row.status,
+            getFormattedStatus(row.status),
             row.markedByItsId || "N/A",
         ];
 
@@ -955,18 +991,21 @@ export default function ReportsPage() {
     }
   };
 
-  const handleGoogleSheetsSyncReport = async () => {
+  const handleGoogleSheetsSyncReport = async (customSheetId?: string) => {
+    const targetSheetId = customSheetId || reportSheetId;
     if (!filteredReportData || filteredReportData.length === 0) {
       toast({ title: "No data to sync", description: "Please generate a report first.", variant: "destructive" });
       return;
     }
 
-    if (!reportSheetId || !reportSheetId.trim()) {
+    if (!targetSheetId || !targetSheetId.trim()) {
       toast({ title: "Error", description: "Please enter a valid Google Sheet ID.", variant: "destructive" });
       return;
     }
 
-    localStorage.setItem("lastReportSheetId", reportSheetId.trim());
+    const trimmedSheetId = targetSheetId.trim();
+    localStorage.setItem("lastReportSheetId", trimmedSheetId);
+    setSavedSheetId(trimmedSheetId);
 
     setIsSyncingReport(true);
     setSyncReportStatus("Syncing...");
@@ -984,67 +1023,87 @@ export default function ReportsPage() {
       }
       headers.push("NazrulMaqam Amount", "NazrulMaqam Currency");
 
-      const dataToSync = filteredReportData.map(row => {
-        const date = row.date ? new Date(row.date) : null;
-        let rowData = [
-          row.userName,
-          row.userItsId,
-          row.bgkId || 'N/A',
-          row.team || 'N/A',
-          row.miqaatName,
-          row.miqaatType,
-          row.sessionName || 'N/A',
-          date ? format(date, "yyyy-MM-dd") : "N/A",
-          date ? format(date, "HH:mm:ss") : "N/A",
-          row.status,
-          row.markedByItsId || "N/A"
-        ];
-
-        if (reportMiqaatType === 'local') {
-          rowData.push(
-            row.uniformCompliance?.fetaPaghri ?? "N/A",
-            row.uniformCompliance?.koti ?? "N/A"
-          );
-        } else if (reportMiqaatType === 'international') {
-          rowData.push(
-            row.uniformCompliance?.uniform ?? "N/A",
-            row.uniformCompliance?.shoes ?? "N/A"
-          );
-        } else if (reportMiqaatType === 'mixed') {
-          rowData.push(
-            row.miqaatType === 'local' ? (row.uniformCompliance?.fetaPaghri ?? "N/A") : "N/A",
-            row.miqaatType === 'local' ? (row.uniformCompliance?.koti ?? "N/A") : "N/A",
-            row.miqaatType === 'international' ? (row.uniformCompliance?.uniform ?? "N/A") : "N/A",
-            row.miqaatType === 'international' ? (row.uniformCompliance?.shoes ?? "N/A") : "N/A"
-          );
-        } else {
-          rowData.push("N/A", "N/A");
+      // Group rows by miqaatName
+      const groups: { [key: string]: typeof filteredReportData } = {};
+      filteredReportData.forEach(row => {
+        const name = row.miqaatName || "Attendance Report";
+        if (!groups[name]) {
+          groups[name] = [];
         }
-        
-        rowData.push(
-          row.uniformCompliance?.nazrulMaqam?.amount?.toString() ?? "N/A",
-          row.uniformCompliance?.nazrulMaqam?.currency ?? "N/A"
-        );
-
-        return rowData;
+        groups[name].push(row);
       });
 
-      const res = await fetch("/api/google/sync-sheet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sheetId: reportSheetId.trim(),
-          sheetName: "Attendance Report",
-          headers,
-          data: dataToSync,
-          action: "replace"
-        })
+      const syncPromises = Object.entries(groups).map(async ([miqaatName, rows]) => {
+        const dataToSync = rows.map(row => {
+          const date = row.date ? new Date(row.date) : null;
+          let rowData = [
+            row.userName,
+            row.userItsId,
+            row.bgkId || 'N/A',
+            row.team || 'N/A',
+            row.miqaatName,
+            row.miqaatType,
+            row.sessionName || 'N/A',
+            date ? format(date, "yyyy-MM-dd") : "N/A",
+            date ? format(date, "HH:mm:ss") : "N/A",
+            getFormattedStatus(row.status),
+            row.markedByItsId || "N/A"
+          ];
+
+          if (reportMiqaatType === 'local') {
+            rowData.push(
+              row.uniformCompliance?.fetaPaghri ?? "N/A",
+              row.uniformCompliance?.koti ?? "N/A"
+            );
+          } else if (reportMiqaatType === 'international') {
+            rowData.push(
+              row.uniformCompliance?.uniform ?? "N/A",
+              row.uniformCompliance?.shoes ?? "N/A"
+            );
+          } else if (reportMiqaatType === 'mixed') {
+            rowData.push(
+              row.miqaatType === 'local' ? (row.uniformCompliance?.fetaPaghri ?? "N/A") : "N/A",
+              row.miqaatType === 'local' ? (row.uniformCompliance?.koti ?? "N/A") : "N/A",
+              row.miqaatType === 'international' ? (row.uniformCompliance?.uniform ?? "N/A") : "N/A",
+              row.miqaatType === 'international' ? (row.uniformCompliance?.shoes ?? "N/A") : "N/A"
+            );
+          } else {
+            rowData.push("N/A", "N/A");
+          }
+          
+          rowData.push(
+            row.uniformCompliance?.nazrulMaqam?.amount?.toString() ?? "N/A",
+            row.uniformCompliance?.nazrulMaqam?.currency ?? "N/A"
+          );
+
+          return rowData;
+        });
+
+        // Clean sheet name to make it acceptable by Google Sheets (no :, \, /, ?, *, [, ], or limit length to 31 chars)
+        const cleanSheetName = miqaatName.replace(/[:\\/?*\[\]]/g, '').slice(0, 31).trim();
+
+        const res = await fetch("/api/google/sync-sheet", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sheetId: trimmedSheetId,
+            sheetName: cleanSheetName || "Report",
+            headers,
+            data: dataToSync,
+            action: "replace"
+          })
+        });
+
+        const result = await res.json();
+        if (!res.ok) {
+          throw new Error(result.error || `Failed to sync sheet "${cleanSheetName}".`);
+        }
       });
 
-      const result = await res.json();
-      if (!res.ok) {
-        throw new Error(result.error || "Failed to sync.");
-      }
+      await Promise.all(syncPromises);
+
+      localStorage.setItem("report_synced_" + trimmedSheetId, "true");
+      setSavedSheetId(trimmedSheetId);
 
       toast({ title: "Sync Complete!", description: "Report data successfully synced to Google Sheet." });
       setSyncReportStatus("Synced " + format(new Date(), "p"));
@@ -1117,6 +1176,97 @@ export default function ReportsPage() {
       toast({ title: "Update Failed", description: `Could not mark members as Safar. ${error instanceof Error ? error.message : 'Please try again.'}`, variant: "destructive" });
     } finally {
       setIsBulkMarking(false);
+    }
+  };
+
+  const handleBulkSafarBgkSubmit = async () => {
+    const miqaatId = selectedMiqaatForForm?.id;
+    if (!miqaatId) {
+      toast({ title: "Selection Required", description: "Please select a Miqaat first.", variant: "destructive" });
+      return;
+    }
+
+    const bgkIds = bulkBgkInput
+      .split(/[\s,]+/)
+      .map(id => id.trim())
+      .filter(id => id.length > 0);
+
+    if (bgkIds.length === 0) {
+      toast({ title: "Input Required", description: "Please enter at least one BGK ID.", variant: "destructive" });
+      return;
+    }
+
+    setIsBulkSafarSubmitting(true);
+    try {
+      const markerId = currentUser?.itsId;
+      if (!markerId) {
+        throw new Error("Could not identify the person marking attendance.");
+      }
+
+      // Fetch all system users to match BGK IDs to ITS IDs
+      const allUsers = await getUsers();
+      const bgkToUserMap = new Map(
+        allUsers
+          .filter(u => u.bgkId)
+          .map(u => [u.bgkId!.toLowerCase().trim(), u])
+      );
+
+      const safarEntries: MiqaatSafarEntryItem[] = [];
+      const notFoundBgkIds: string[] = [];
+
+      bgkIds.forEach(bgkId => {
+        const key = bgkId.toLowerCase();
+        const user = bgkToUserMap.get(key);
+        if (user) {
+          safarEntries.push({
+            userItsId: user.itsId,
+            userName: user.name,
+            markedAt: new Date().toISOString(),
+            markedByItsId: markerId,
+            status: 'safar',
+          });
+        } else {
+          notFoundBgkIds.push(bgkId);
+        }
+      });
+
+      if (safarEntries.length > 0) {
+        await batchMarkSafarInMiqaat(miqaatId, safarEntries);
+        
+        if (notFoundBgkIds.length > 0) {
+          toast({
+            title: "Bulk Safar Partial Success",
+            description: `Marked ${safarEntries.length} member(s) as Safar. The following ${notFoundBgkIds.length} BGK ID(s) were not found: ${notFoundBgkIds.join(", ")}`,
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Bulk Safar Success",
+            description: `Successfully marked all ${safarEntries.length} member(s) as Safar.`,
+          });
+        }
+        
+        // Clear input and close dialog
+        setBulkBgkInput("");
+        setIsBulkSafarDialogOpen(false);
+        // Refresh the current report
+        await onSubmit(form.getValues());
+      } else {
+        toast({
+          title: "Update Failed",
+          description: `No matching members found for the provided BGK IDs: ${notFoundBgkIds.join(", ")}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error during bulk Safar marking by BGK ID:", error);
+      toast({
+        title: "Update Failed",
+        description: `Could not mark members as Safar. ${error instanceof Error ? error.message : "Please try again."}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkSafarSubmitting(false);
     }
   };
 
@@ -1279,13 +1429,25 @@ export default function ReportsPage() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Select Miqaats</FormLabel>
+                          <div className="relative mb-2">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              type="search"
+                              placeholder="Search Miqaats by name or date..."
+                              value={miqaatSearch}
+                              onChange={(e) => setMiqaatSearch(e.target.value)}
+                              className="pl-8 h-9"
+                            />
+                          </div>
                           <ScrollArea className="rounded-md border p-3 h-40 bg-background">
                             {isLoadingOptions ? (
                               <p className="text-sm text-muted-foreground">Loading Miqaats...</p>
-                            ) : availableMiqaats.length === 0 ? (
-                              <p className="text-sm text-muted-foreground">No Miqaats available</p>
+                            ) : searchedMiqaats.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                {miqaatSearch ? "No matching Miqaats found" : "No Miqaats available"}
+                              </p>
                             ) : (
-                              availableMiqaats.map((m) => (
+                              searchedMiqaats.map((m) => (
                                 <FormField
                                   key={m.id}
                                   control={form.control}
@@ -1310,7 +1472,7 @@ export default function ReportsPage() {
                                           }}
                                         />
                                       </FormControl>
-                                      <FormLabel className="font-normal text-sm cursor-pointer select-none">
+                                      <FormLabel className="font-normal text-sm cursor-pointer select-none whitespace-normal break-words leading-snug">
                                         {m.name} ({format(new Date(m.startTime), "P")})
                                       </FormLabel>
                                     </FormItem>
@@ -1565,35 +1727,79 @@ export default function ReportsPage() {
 
       {reportData && !memberProfileData && (
           <Card className="shadow-lg mt-6">
-            <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print-hide">
-              <div className="flex-grow">
+            <CardHeader className="flex flex-col items-start gap-3 print-hide">
+              <div className="flex-grow w-full">
                   <CardTitle>Report Results</CardTitle>
                   <Separator className="my-2" />
-                  <CardDescription>Displaying {filteredReportData?.length || 0} of {reportData.length} record(s){(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && (selectedMiqaatForForm ? ` for Miqaat: ${selectedMiqaatForForm.name}` : watchedMiqaatIds.length > 0 ? ` for ${watchedMiqaatIds.length} Miqaats` : '')}{watchedReportType === "member_attendance" && form.getValues("memberId") && ` for ID: ${form.getValues("memberId")}`}{form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}{form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.</CardDescription>
+                  <CardDescription className="text-xs sm:text-sm line-clamp-2 sm:line-clamp-none">Displaying {filteredReportData?.length || 0} of {reportData.length} record(s){(watchedReportType === "miqaat_summary" || watchedReportType === "non_attendance_miqaat" || watchedReportType === "miqaat_safar_list") && (selectedMiqaatForForm ? ` for: ${selectedMiqaatForForm.name}` : watchedMiqaatIds.length > 0 ? ` for ${watchedMiqaatIds.length} Miqaats` : '')}{watchedReportType === "member_attendance" && form.getValues("memberId") && ` ID: ${form.getValues("memberId")}`}{form.getValues("dateRange.from") && ` from ${format(form.getValues("dateRange.from")!, "LLL dd, y")}`}{form.getValues("dateRange.to") && ` to ${format(form.getValues("dateRange.to")!, "LLL dd, y")}`}.</CardDescription>
               </div>
-              <div className="flex items-center gap-2 self-start w-full sm:w-auto md:self-center flex-wrap justify-end">
-                <Button variant="outline" onClick={handlePrint} size="sm" className="w-auto"><Printer className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Print</span></Button>
-                {isNonAttendanceReport && selectedMiqaatForForm && selectedIds.length > 0 && (<Button onClick={handleBulkMarkAsSafar} disabled={isBulkMarking} size="sm" className="w-auto">{isBulkMarking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}Mark ({selectedIds.length}) as Safar</Button>)}
+              <div className="flex items-center gap-1.5 w-full overflow-x-auto pb-1 flex-nowrap sm:flex-wrap sm:justify-end">
+                <Button variant="outline" onClick={handlePrint} size="sm" className="shrink-0"><Printer className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Print</span></Button>
+                {isNonAttendanceReport && selectedMiqaatForForm && selectedIds.length > 0 && (<Button onClick={handleBulkMarkAsSafar} disabled={isBulkMarking} size="sm" className="shrink-0">{isBulkMarking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}Mark ({selectedIds.length})</Button>)}
+                {selectedMiqaatForForm && (isNonAttendanceReport || watchedReportType === 'miqaat_safar_list') && (
+                  <Dialog open={isBulkSafarDialogOpen} onOpenChange={setIsBulkSafarDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="shrink-0">
+                        <UserCheck className="h-4 w-4 md:mr-2" />
+                        <span className="hidden md:inline">Bulk Safar</span>
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md w-[95vw]">
+                      <DialogHeader>
+                        <DialogTitle>Bulk Safar Marking (BGK ID)</DialogTitle>
+                        <DialogDescription>
+                          Enter BGK IDs separated by commas, spaces, or newlines to mark them as Safar for <strong className="text-foreground">{selectedMiqaatForForm.name}</strong>.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="bgk-ids-textarea">BGK IDs</Label>
+                          <Textarea
+                            id="bgk-ids-textarea"
+                            placeholder="e.g. BGK012, BGK045, BGK089"
+                            value={bulkBgkInput}
+                            onChange={(e) => setBulkBgkInput(e.target.value)}
+                            rows={6}
+                            className="font-mono text-sm"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setIsBulkSafarDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button 
+                          onClick={handleBulkSafarBgkSubmit} 
+                          disabled={isBulkSafarSubmitting}
+                          className="bg-primary hover:bg-primary/90"
+                        >
+                          {isBulkSafarSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Mark as Safar
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
                 {isNonAttendanceReport && selectedMiqaatForForm && (
                   <Button 
                     variant="outline" 
                     onClick={handleSendAbsenteeEmailsFromReport} 
                     disabled={isSendingAbsenteeEmails} 
                     size="sm" 
-                    className="w-auto"
+                    className="shrink-0"
                   >
                     {isSendingAbsenteeEmails ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin md:mr-2" />
                     ) : (
-                      <Mail className="mr-2 h-4 w-4" />
+                      <Mail className="h-4 w-4 md:mr-2" />
                     )}
-                    Email Absentees
+                    <span className="hidden md:inline">Email Absentees</span>
                   </Button>
                 )}
                 {canShowGraphButton && (
                   <Dialog open={isGraphDialogOpen} onOpenChange={setIsGraphDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-auto"><BarChart className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Graph</span></Button>
+                      <Button variant="outline" size="sm" className="shrink-0"><BarChart className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Graph</span></Button>
                     </DialogTrigger>
                     <DialogContent className="w-[95vw] max-w-4xl h-[90vh] flex flex-col">
                         <DialogHeader>
@@ -1686,56 +1892,69 @@ export default function ReportsPage() {
                     </DialogContent>
                   </Dialog>
                 )}
-                <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      disabled={!filteredReportData || filteredReportData.length === 0 || isLoading || isSyncingReport} 
-                      size="sm" 
-                      className="w-auto bg-green-50 hover:bg-green-100 dark:bg-green-950/30 dark:hover:bg-green-900/30 border-green-200 dark:border-green-900/50 text-green-700 dark:text-green-400"
-                      onClick={() => {
-                        const savedId = localStorage.getItem("lastReportSheetId") || "";
-                        setReportSheetId(savedId);
-                        setIsSyncDialogOpen(true);
-                      }}
-                    >
-                      {isSyncingReport ? <RefreshCw className="h-4 w-4 animate-spin md:mr-2" /> : <FileSpreadsheet className="h-4 w-4 md:mr-2" />}
-                      <span className="hidden md:inline">{isSyncingReport ? "Syncing..." : "Sync to Sheet"}</span>
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Sync Report to Google Sheet</DialogTitle>
-                      <DialogDescription>
-                        Pushes the generated report rows directly to a Google Sheet. Ensure your Google Sheet is set up to accept sync requests.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="report-sheet-id">Google Sheet ID</Label>
-                        <Input
-                          id="report-sheet-id"
-                          placeholder="e.g., 1x2y3z4w..."
-                          value={reportSheetId}
-                          onChange={(e) => setReportSheetId(e.target.value)}
-                        />
-                        <p className="text-[10px] text-muted-foreground leading-normal">
-                          Copy this from your spreadsheet URL: https://docs.google.com/spreadsheets/d/<strong>[SHEET_ID]</strong>/edit
-                        </p>
-                      </div>
-                    </div>
-                    <DialogFooter className="gap-2 sm:gap-0">
-                      <Button variant="outline" onClick={() => setIsSyncDialogOpen(false)}>Cancel</Button>
+                {isAlreadySynced ? (
+                  <Button 
+                    variant="outline" 
+                    disabled={!filteredReportData || filteredReportData.length === 0 || isLoading || isSyncingReport} 
+                    size="sm" 
+                    className="w-auto bg-green-50 hover:bg-green-100 dark:bg-green-950/30 dark:hover:bg-green-900/30 border-green-200 dark:border-green-900/50 text-green-700 dark:text-green-400"
+                    onClick={() => handleGoogleSheetsSyncReport(savedSheetId)}
+                  >
+                    {isSyncingReport ? <RefreshCw className="h-4 w-4 animate-spin md:mr-2" /> : <RefreshCw className="h-4 w-4 md:mr-2" />}
+                    <span className="hidden md:inline">{isSyncingReport ? "Syncing..." : "Reload Sync"}</span>
+                  </Button>
+                ) : (
+                  <Dialog open={isSyncDialogOpen} onOpenChange={setIsSyncDialogOpen}>
+                    <DialogTrigger asChild>
                       <Button 
-                        onClick={handleGoogleSheetsSyncReport} 
-                        disabled={!reportSheetId || isSyncingReport}
-                        className="bg-green-600 hover:bg-green-700 text-white"
+                        variant="outline" 
+                        disabled={!filteredReportData || filteredReportData.length === 0 || isLoading || isSyncingReport} 
+                        size="sm" 
+                        className="w-auto bg-green-50 hover:bg-green-100 dark:bg-green-950/30 dark:hover:bg-green-900/30 border-green-200 dark:border-green-900/50 text-green-700 dark:text-green-400"
+                        onClick={() => {
+                          const savedId = localStorage.getItem("lastReportSheetId") || "";
+                          setReportSheetId(savedId);
+                          setIsSyncDialogOpen(true);
+                        }}
                       >
-                        {isSyncingReport ? "Syncing..." : "Sync Now"}
+                        {isSyncingReport ? <RefreshCw className="h-4 w-4 animate-spin md:mr-2" /> : <FileSpreadsheet className="h-4 w-4 md:mr-2" />}
+                        <span className="hidden md:inline">{isSyncingReport ? "Syncing..." : "Sync to Sheet"}</span>
                       </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Sync Report to Google Sheet</DialogTitle>
+                        <DialogDescription>
+                          Pushes the generated report rows directly to a Google Sheet. Ensure your Google Sheet is set up to accept sync requests.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="report-sheet-id">Google Sheet ID</Label>
+                          <Input
+                            id="report-sheet-id"
+                            placeholder="e.g., 1x2y3z4w..."
+                            value={reportSheetId}
+                            onChange={(e) => setReportSheetId(e.target.value)}
+                          />
+                          <p className="text-[10px] text-muted-foreground leading-normal">
+                            Copy this from your spreadsheet URL: https://docs.google.com/spreadsheets/d/<strong>[SHEET_ID]</strong>/edit
+                          </p>
+                        </div>
+                      </div>
+                      <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setIsSyncDialogOpen(false)}>Cancel</Button>
+                        <Button 
+                          onClick={() => handleGoogleSheetsSyncReport()} 
+                          disabled={!reportSheetId || isSyncingReport}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          {isSyncingReport ? "Syncing..." : "Sync Now"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
 
                 {syncReportStatus && (
                   <span className="text-xs text-muted-foreground flex items-center px-1">
@@ -1743,15 +1962,15 @@ export default function ReportsPage() {
                   </span>
                 )}
 
-                <Button variant="outline" onClick={handleExport} disabled={!filteredReportData || filteredReportData.length === 0 || isLoading} size="sm" className="w-auto"><Download className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Export</span></Button>
+                <Button variant="outline" onClick={handleExport} disabled={!filteredReportData || filteredReportData.length === 0 || isLoading} size="sm" className="shrink-0"><Download className="h-4 w-4 md:mr-2" /><span className="hidden md:inline">Export</span></Button>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-6">
               <div className="relative mb-4 print-hide">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search"
-                  placeholder="Search report results by name, ITS, or BGK ID..."
+                  placeholder="Search by name, ITS, or BGK ID..."
                   className="pl-8 w-full md:w-1/2 lg:w-1/3"
                   value={reportSearchTerm}
                   onChange={(e) => setReportSearchTerm(e.target.value)}
@@ -1793,7 +2012,7 @@ export default function ReportsPage() {
                                   record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400' :
                                   'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'
                                 )}>
-                                  {record.status === 'early' || record.status === 'late' ? `Present (${record.status.charAt(0).toUpperCase() + record.status.slice(1)})` : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                                  {getFormattedStatus(record.status)}
                                 </span>
                               </div>
                             </AccordionTrigger>
@@ -1829,7 +2048,7 @@ export default function ReportsPage() {
                   </div>
 
 
-                  <div ref={printRef} className="hidden md:block overflow-x-auto border rounded-lg">
+                  <div ref={printRef} className="hidden md:block w-full overflow-x-auto border rounded-lg">
                       <Table>
                       <TableHeader>
                           <TableRow>
@@ -1901,7 +2120,7 @@ export default function ReportsPage() {
                                       record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
                                       'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                                   )}>
-                                     {record.status === 'early' || record.status === 'late' ? `Present (${record.status.charAt(0).toUpperCase() + record.status.slice(1)})` : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                                     {getFormattedStatus(record.status)}
                                   </span>
                               </TableCell>
                               {reportMiqaatType === 'local' && <>

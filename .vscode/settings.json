@@ -1,5 +1,9 @@
 {
   "IDX.aI.enableInlineCompletion": true,
   "IDX.aI.enableCodebaseIndexing": true,
-  "workbench.startupEditor": "readme"
+  "workbench.startupEditor": "readme",
+  "css.validate": false,
+  "less.validate": false,
+  "scss.validate": false,
+  "css.lint.unknownAtRules": "ignore"
 }

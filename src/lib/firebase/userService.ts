@@ -10,7 +10,20 @@ import { addAuditLog } from './auditLogService';
 export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'fcmTokens' > & { avatarUrl?: string };
 
 
-export const addUser = async (userData: UserDataForAdd, mohallahId: string): Promise<User> => {
+const getMohallahName = async (mohallahId: string): Promise<string> => {
+  if (!mohallahId) return 'Unknown';
+  try {
+    const docSnap = await getDoc(doc(db, 'mohallahs', mohallahId));
+    if (docSnap.exists()) {
+      return docSnap.data()?.name || 'Unknown';
+    }
+  } catch (err) {
+    console.error("Error fetching mohallah name:", err);
+  }
+  return 'Unknown';
+};
+
+export const addUser = async (userData: UserDataForAdd, mohallahId: string, oldMohallahId?: string): Promise<User> => {
   if (!mohallahId) {
     throw new Error("Mohallah ID is required to add a user.");
   }
@@ -55,9 +68,36 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string): Pro
       role: userData.role
     });
 
+    // Email notifications
+    if (userData.email) {
+      const emailTo = userData.email;
+      // Trigger non-blocking email notification
+      (async () => {
+        try {
+          const { sendEmail, userCreatedEmailTemplate, userTransferredEmailTemplate } = await import('@/lib/email');
+          const mohallahName = await getMohallahName(mohallahId);
+          if (oldMohallahId) {
+            const oldMohallahName = await getMohallahName(oldMohallahId);
+            await sendEmail(
+              emailTo,
+              'Account Transferred - BGK Attendance',
+              userTransferredEmailTemplate(userData.name, userData.itsId, oldMohallahName, mohallahName)
+            );
+          } else {
+            await sendEmail(
+              emailTo,
+              'Account Created - BGK Attendance',
+              userCreatedEmailTemplate(userData.name, userData.itsId, mohallahName, userData.role, userData.designation || 'Member')
+            );
+          }
+        } catch (emailErr) {
+          console.error("Failed to send user registration/transfer email:", emailErr);
+        }
+      })();
+    }
+
     return { ...payloadForFirestore, id: docRef.id } as User;
   } catch (error) {
-    
     throw error;
   }
 };
@@ -129,7 +169,7 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
   }
 };
 
-export const deleteUser = async (userId: string, mohallahId: string): Promise<void> => {
+export const deleteUser = async (userId: string, mohallahId: string, isTransfer = false): Promise<void> => {
   if (!mohallahId) {
     throw new Error("Mohallah ID is required to delete a user.");
   }
@@ -152,8 +192,24 @@ export const deleteUser = async (userId: string, mohallahId: string): Promise<vo
       targetUserName: userData.name
     });
 
+    // Email notifications
+    if (!isTransfer && userData.email) {
+      // Trigger non-blocking email notification
+      (async () => {
+        try {
+          const { sendEmail, userDeletedEmailTemplate } = await import('@/lib/email');
+          await sendEmail(
+            userData.email,
+            'Account Deactivated - BGK Attendance',
+            userDeletedEmailTemplate(userData.name, userData.itsId)
+          );
+        } catch (emailErr) {
+          console.error("Failed to send user deletion email:", emailErr);
+        }
+      })();
+    }
+
   } catch (error) {
-    
     throw error;
   }
 };

@@ -209,10 +209,10 @@ export default function FormsListPage() {
                                           className="border border-border/60 rounded-lg p-1 bg-card/60 backdrop-blur-sm shadow-sm mb-3"
                                         >
                                             <AccordionTrigger className="px-3 hover:no-underline py-2">
-                                                <div className="flex-grow text-left">
-                                                    <p className="font-bold text-card-foreground text-sm leading-snug">{form.title}</p>
-                                                    <Badge variant={currentStatus === 'open' ? 'default' : 'destructive'} className="mt-1.5 text-[10px] h-5 px-2">
-                                                        {expired ? "Expired" : (currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1))}
+                                                <div className="flex-grow text-left flex items-center gap-2 flex-wrap">
+                                                    <span className="font-bold text-card-foreground text-sm leading-snug">{form.title}</span>
+                                                    <Badge variant={currentStatus === 'open' ? 'default' : 'destructive'} className="text-[10px] h-5 px-2 shrink-0">
+                                                        {expired ? "Expired" : (currentStatus === 'open' ? 'Live' : 'Closed')}
                                                     </Badge>
                                                 </div>
                                             </AccordionTrigger>

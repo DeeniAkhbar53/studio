@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Bell, LogOut, Menu, UserCircle, Settings, HelpCircle, FileText, X, Moon, Sun, Check, Palette, Sparkles } from "lucide-react";
+import { Bell, LogOut, Menu, UserCircle, Settings, HelpCircle, FileText, X, Moon, Sun, Check, Palette, Sparkles, Clock, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,7 +26,7 @@ import { useEffect, useState, useCallback } from "react";
 import type { NotificationItem, UserRole, Form as FormType, User } from "@/types";
 import Image from "next/image";
 import { db } from "@/lib/firebase/firebase";
-import { collection, query, where, orderBy, onSnapshot, Timestamp, limit, Unsubscribe } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, Timestamp, limit, Unsubscribe, getDocs } from "firebase/firestore";
 import { getForms, getFormResponsesForUser } from "@/lib/firebase/formService";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { useTheme } from "next-themes";
@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { getFeatureFlags } from "@/lib/firebase/settingsService";
+import { format } from "date-fns";
 
 
 const pageTitles: { [key: string]: string } = {
@@ -74,6 +75,65 @@ export function Header() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentUserItsId, setCurrentUserItsId] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  
+  const [lastLoginText, setLastLoginText] = useState<string>("Loading...");
+  const [sessionMinutes, setSessionMinutes] = useState<number>(0);
+
+  useEffect(() => {
+    if (!currentUserItsId) return;
+
+    const fetchLastLogin = async () => {
+      try {
+        const q = query(
+          collection(db, "login_logs"),
+          where("userItsId", "==", currentUserItsId)
+        );
+        const snap = await getDocs(q);
+        const logs = snap.docs.map(d => {
+          const data = d.data();
+          const date = data.timestamp instanceof Timestamp 
+            ? data.timestamp.toDate() 
+            : data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+          return { ...data, date };
+        });
+
+        logs.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+        if (logs.length > 1) {
+          const prevLogin = logs[1];
+          setLastLoginText(format(prevLogin.date, "PPpp"));
+        } else if (logs.length === 1) {
+          setLastLoginText(format(logs[0].date, "PPpp"));
+        } else {
+          setLastLoginText("First login session");
+        }
+      } catch (err) {
+        console.error("Error fetching last login in header:", err);
+        setLastLoginText("Unavailable");
+      }
+    };
+
+    fetchLastLogin();
+  }, [currentUserItsId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sessionId = localStorage.getItem("sessionId");
+    if (!sessionId) return;
+    const parts = sessionId.split("-");
+    if (parts.length < 2) return;
+    const loginTimeMs = parseInt(parts[1], 10);
+    if (isNaN(loginTimeMs)) return;
+
+    const updateMinutes = () => {
+      const mins = Math.max(0, Math.floor((Date.now() - loginTimeMs) / 60000));
+      setSessionMinutes(mins);
+    };
+
+    updateMinutes();
+    const interval = setInterval(updateMinutes, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("colorTheme") || "blue";
@@ -395,9 +455,20 @@ export function Header() {
             <span className="sr-only">Toggle user menu</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
+          {/* Mobile Only: Last Login & Session Details */}
+          <div className="md:hidden px-2 py-1.5 text-[11px] text-muted-foreground bg-muted/30 border border-border/50 rounded-sm my-1 space-y-1">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3 w-3 text-primary/70 shrink-0" />
+              <span>Last login: <strong className="font-medium text-foreground">{lastLoginText}</strong></span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Timer className="h-3 w-3 text-primary/70 shrink-0" />
+              <span>Session: <strong className="font-medium text-foreground">{sessionMinutes} min</strong></span>
+            </div>
+          </div>
           <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>Profile</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>

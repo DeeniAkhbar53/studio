@@ -9,9 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX, Star, PieChart, BarChart2, ChevronDown, RefreshCw, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Trash2, Users, FileWarning, Download, UserCheck, UserX, Star, PieChart, BarChart2, ChevronDown, RefreshCw, FileSpreadsheet, ExternalLink } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import type { FormResponse, UserRole, UserDesignation, User, Form as FormType, Mohallah } from "@/types";
-import { getFormResponsesRealtime, deleteFormResponse, getForm } from "@/lib/firebase/formService";
+import { getFormResponsesRealtime, deleteFormResponse, getForm, updateForm } from "@/lib/firebase/formService";
 import { getUsers, getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { format } from "date-fns";
@@ -37,6 +38,7 @@ import {
   Cell,
   ResponsiveContainer,
 } from "@/components/ui/chart";
+import { LineChart, Line } from "recharts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,6 +81,88 @@ const CHART_COLORS = [
   "hsl(var(--primary) / 0.4)",
   "hsl(var(--secondary) / 0.4)",
 ];
+
+const QuestionAnalyticsCard = ({ 
+  questionId, 
+  result, 
+  chartConfig 
+}: { 
+  questionId: string; 
+  result: { type: string; label: string; data: { name: string; value: number; fill: string }[] }; 
+  chartConfig: any;
+}) => {
+  const [chartType, setChartType] = useState<'pie' | 'bar' | 'line'>(
+    result.type === 'radio' || result.type === 'select' ? 'pie' : 'bar'
+  );
+
+  return (
+    <Card key={questionId} className="shadow-sm flex flex-col h-[400px]">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardTitle className="text-base font-semibold truncate max-w-[70%]">{result.label}</CardTitle>
+        <Select value={chartType} onValueChange={(v) => setChartType(v as any)}>
+          <SelectTrigger className="h-8 w-28 text-xs shrink-0">
+            <SelectValue placeholder="Chart Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="pie" className="text-xs">Pie Chart</SelectItem>
+            <SelectItem value="bar" className="text-xs">Bar Chart</SelectItem>
+            <SelectItem value="line" className="text-xs">Line Chart</SelectItem>
+          </SelectContent>
+        </Select>
+      </CardHeader>
+      <CardContent className="flex-grow min-h-0 pb-6">
+        <ChartContainer config={chartConfig} className="h-full w-full">
+          {chartType === 'pie' ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsPieChart>
+                <ChartTooltip cursor={false} content={<ChartTooltipContent nameKey="name" indicator="dot" />} />
+                <Pie 
+                  data={result.data} 
+                  dataKey="value" 
+                  nameKey="name" 
+                  cx="50%" 
+                  cy="50%" 
+                  outerRadius={70} 
+                  labelLine={false}
+                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                >
+                  {result.data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <ChartLegend content={<ChartLegendContent />} />
+              </RechartsPieChart>
+            </ResponsiveContainer>
+          ) : chartType === 'bar' ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={result.data}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} />
+                <YAxis allowDecimals={false} />
+                <ChartTooltip cursor={{ fill: 'hsl(var(--muted)/0.2)' }} content={<ChartTooltipContent />} />
+                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]}>
+                  {result.data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={result.data}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} />
+                <YAxis allowDecimals={false} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+};
 
 const FormAnalytics = ({ form, responses }: { form: FormType; responses: FormResponse[] }) => {
     const chartConfig = useMemo(() => {
@@ -169,44 +253,14 @@ const FormAnalytics = ({ form, responses }: { form: FormType; responses: FormRes
     }
 
     return (
-        <div className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {Object.entries(analyticsData).map(([questionId, result]) => (
-                <Card key={questionId} className="shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="text-lg">{result.label}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
-                        {result.type === 'radio' || result.type === 'select' ? (
-                            <ResponsiveContainer width="100%" height={300}>
-                                <RechartsPieChart>
-                                    <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                                    <Pie data={result.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                                       {result.data.map((entry, index) => (
-                                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                                       ))}
-                                    </Pie>
-                                    <ChartLegend content={<ChartLegendContent />} />
-                                </RechartsPieChart>
-                            </ResponsiveContainer>
-                        ) : (
-                           <ResponsiveContainer width="100%" height={300}>
-                             <BarChart data={result.data} layout="vertical">
-                               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                               <XAxis type="number" />
-                               <YAxis dataKey="name" type="category" width={150} />
-                               <ChartTooltip cursor={{fill: 'hsl(var(--muted))'}} content={<ChartTooltipContent />} />
-                               <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]}>
-                                  {result.data.map((entry, index) => (
-                                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                                  ))}
-                               </Bar>
-                             </BarChart>
-                           </ResponsiveContainer>
-                        )}
-                      </ChartContainer>
-                    </CardContent>
-                </Card>
+                <QuestionAnalyticsCard 
+                    key={questionId} 
+                    questionId={questionId} 
+                    result={result} 
+                    chartConfig={chartConfig} 
+                />
             ))}
         </div>
     );
@@ -229,6 +283,15 @@ export default function ViewResponsesClientPage() {
     const [isSyncing, setIsSyncing] = useState(false);
     const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
+    // Filter state for respondents and charts
+    const [respondentFilters, setRespondentFilters] = useState({
+        search: "",
+        mohallahId: "all",
+        team: "all"
+    });
+
+    const [sheetIdInput, setSheetIdInput] = useState("");
+
     // New filters for non-respondents tab
     const [nonRespondentFilters, setNonRespondentFilters] = useState({
         team: "all",
@@ -236,6 +299,12 @@ export default function ViewResponsesClientPage() {
         mohallahId: "all"
     });
     const [availableTeams, setAvailableTeams] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (form) {
+            setSheetIdInput(form.googleSheetId || "");
+        }
+    }, [form]);
 
     const tabOptions = [
         { value: "respondents", label: "Respondents", icon: UserCheck },
@@ -329,14 +398,18 @@ export default function ViewResponsesClientPage() {
                 description: "The submission has been successfully deleted.",
                 variant: "destructive",
             });
+            if (form?.googleSheetId) {
+                const updatedList = filteredResponses.filter(r => r.id !== responseId);
+                await handleGoogleSheetsSync(form.googleSheetId, updatedList);
+            }
         } catch (err) {
-            
             toast({ title: "Error", description: "Could not delete the response.", variant: "destructive" });
         }
     };
 
-    const handleGoogleSheetsSync = async () => {
-        if (!form || !form.googleSheetId) {
+    const handleGoogleSheetsSync = async (customSheetId?: string, responsesList?: FormResponse[]) => {
+        const targetSheetId = customSheetId || form?.googleSheetId;
+        if (!form || !targetSheetId) {
             toast({ title: "Sync Failed", description: "No Google Sheet ID configured for this form.", variant: "destructive" });
             return;
         }
@@ -345,8 +418,9 @@ export default function ViewResponsesClientPage() {
         setSyncStatus("Preparing data...");
 
         try {
+            const listToSync = responsesList || filteredResponses;
             const headers = ["Sr.No.", "Submitted At", "ITS ID", "Name", "BGK ID", ...form.questions.map(q => q.label)];
-            const dataToSync = filteredResponses.map((response, index) => {
+            const dataToSync = listToSync.map((response, index) => {
                 const row = [
                     index + 1,
                     format(new Date(response.submittedAt), "yyyy-MM-dd HH:mm:ss"),
@@ -366,7 +440,7 @@ export default function ViewResponsesClientPage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    sheetId: form.googleSheetId,
+                    sheetId: targetSheetId,
                     sheetName: form.title.substring(0, 30),
                     headers,
                     data: dataToSync,
@@ -386,6 +460,22 @@ export default function ViewResponsesClientPage() {
             setSyncStatus("Sync failed");
         } finally {
             setIsSyncing(false);
+        }
+    };
+
+    const handleSaveSheetId = async () => {
+        if (!form || !currentUser) return;
+        try {
+            const sheetId = sheetIdInput.trim();
+            await updateForm(form.id, { googleSheetId: sheetId || null as any, updatedBy: currentUser.itsId });
+            setForm(prev => prev ? { ...prev, googleSheetId: sheetId || undefined } : null);
+            toast({ title: "Sheet Linked", description: "Google Sheet ID has been successfully updated for this form." });
+            
+            if (sheetId) {
+                await handleGoogleSheetsSync(sheetId, filteredResponses);
+            }
+        } catch (err: any) {
+            toast({ title: "Failed to link sheet", description: err.message || "An error occurred.", variant: "destructive" });
         }
     };
     
@@ -444,6 +534,25 @@ export default function ViewResponsesClientPage() {
         }
         // Superadmin sees everything, so no filter is applied to baseEligibleUsers or allResponses.
 
+        // Filter responses dynamically by respondent search & select filters
+        const filteredResponsesByInputs = finalFilteredResponses.filter(res => {
+            const submitter = userMap.get(res.submittedBy);
+            
+            const searchLower = respondentFilters.search.toLowerCase().trim();
+            const searchMatch = !searchLower ||
+                (res.submitterName || "").toLowerCase().includes(searchLower) ||
+                (res.submittedBy || "").toLowerCase().includes(searchLower) ||
+                (res.submitterBgkId || "").toLowerCase().includes(searchLower);
+
+            const mohallahMatch = respondentFilters.mohallahId === "all" ||
+                (submitter?.mohallahId === respondentFilters.mohallahId);
+
+            const teamMatch = respondentFilters.team === "all" ||
+                (submitter?.team === respondentFilters.team);
+
+            return searchMatch && mohallahMatch && teamMatch;
+        });
+
         const respondentIds = new Set(finalFilteredResponses.map(r => r.submittedBy));
         const nonResponding = visibleEligibleUsers.filter(user => !respondentIds.has(user.itsId));
 
@@ -455,9 +564,13 @@ export default function ViewResponsesClientPage() {
             return teamMatch && designationMatch && mohallahMatch;
         });
 
-        return { eligibleUsers: visibleEligibleUsers, filteredNonRespondents: finalFilteredNonRespondents, filteredResponses: finalFilteredResponses };
+        return { 
+            eligibleUsers: visibleEligibleUsers, 
+            filteredNonRespondents: finalFilteredNonRespondents, 
+            filteredResponses: filteredResponsesByInputs 
+        };
 
-    }, [form, allUsers, allResponses, currentUser, nonRespondentFilters]);
+    }, [form, allUsers, allResponses, currentUser, nonRespondentFilters, respondentFilters]);
     
     const getMohallahNameById = (id?: string) => {
         if (!id) return 'N/A';
@@ -577,34 +690,74 @@ export default function ViewResponsesClientPage() {
 
     return (
         <div className="p-4 md:p-6 space-y-6">
-            <Card>
-                <CardHeader>
+            <Card className="glass-surface border-white/10 dark:border-white/5 shadow-xl overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-primary/5 via-background to-accent/5 border-b border-white/10 dark:border-white/5 py-6">
                     <div className="flex justify-between items-start gap-4">
-                        <div className="flex-1">
-                            <CardTitle className="text-2xl md:text-3xl font-bold">{form?.title || "Form Responses"}</CardTitle>
-                            <CardDescription>{form?.description || "Viewing all submitted responses."}</CardDescription>
+                        <div className="flex-1 space-y-1">
+                            <CardTitle className="text-2xl md:text-3xl font-bold text-foreground">{form?.title || "Form Responses"}</CardTitle>
+                            <CardDescription className="text-sm text-muted-foreground">{form?.description || "Viewing all submitted responses."}</CardDescription>
                         </div>
-                        <Button variant="outline" onClick={() => router.push('/dashboard/forms')} className="shrink-0">
+                        <Button variant="outline" onClick={() => router.push('/dashboard/forms')} className="shrink-0 bg-background/50 backdrop-blur-sm hover:bg-background/80">
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             <span className="hidden sm:inline">Back to Forms</span>
                         </Button>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center sm:text-left">
-                        <div className="p-4 rounded-lg bg-muted/50">
-                            <p className="text-sm font-medium text-muted-foreground">Total Responses</p>
-                            <p className="text-3xl font-bold">{filteredResponses.length}</p>
+                <CardContent className="pt-6 pb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        {/* Stat Card 1: Total Responses */}
+                        <div className="relative group overflow-hidden rounded-xl border border-white/10 dark:border-white/5 bg-gradient-to-br from-card to-muted/20 p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01]">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Responses</p>
+                                    <p className="text-3xl font-extrabold text-foreground">{filteredResponses.length}</p>
+                                </div>
+                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-inner">
+                                    <UserCheck className="h-6 w-6" />
+                                </div>
+                            </div>
+                            <div className="mt-4 flex items-center text-xs text-muted-foreground">
+                                <span className="font-medium text-foreground mr-1.5">{filteredResponses.length}</span> submissions recorded
+                            </div>
                         </div>
-                        <div className="p-4 rounded-lg bg-muted/50">
-                            <p className="text-sm font-medium text-muted-foreground">Eligible Members</p>
-                            <p className="text-3xl font-bold">{eligibleUsers.length}</p>
+
+                        {/* Stat Card 2: Eligible Members */}
+                        <div className="relative group overflow-hidden rounded-xl border border-white/10 dark:border-white/5 bg-gradient-to-br from-card to-muted/20 p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01]">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Eligible Members</p>
+                                    <p className="text-3xl font-extrabold text-foreground">{eligibleUsers.length}</p>
+                                </div>
+                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/25 text-accent-foreground shadow-inner">
+                                    <Users className="h-6 w-6" />
+                                </div>
+                            </div>
+                            <div className="mt-4 flex items-center text-xs text-muted-foreground">
+                                <span className="font-medium text-foreground mr-1.5">{eligibleUsers.length}</span> members in scope
+                            </div>
                         </div>
-                        <div className="p-4 rounded-lg bg-muted/50">
-                            <p className="text-sm font-medium text-muted-foreground">Response Rate</p>
-                            <p className="text-3xl font-bold">
-                                {eligibleUsers.length > 0 ? ((filteredResponses.length / eligibleUsers.length) * 100).toFixed(1) : 0}%
-                            </p>
+
+                        {/* Stat Card 3: Response Rate */}
+                        <div className="relative group overflow-hidden rounded-xl border border-white/10 dark:border-white/5 bg-gradient-to-br from-card to-muted/20 p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01]">
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Response Rate</p>
+                                    <p className="text-3xl font-extrabold text-foreground">
+                                        {eligibleUsers.length > 0 ? ((filteredResponses.length / eligibleUsers.length) * 100).toFixed(1) : 0}%
+                                    </p>
+                                </div>
+                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-500/10 text-green-600 dark:text-green-400 shadow-inner">
+                                    <BarChart2 className="h-6 w-6" />
+                                </div>
+                            </div>
+                            <div className="mt-4 space-y-1">
+                                <div className="w-full bg-muted rounded-full h-1.5">
+                                    <div 
+                                        className="bg-green-500 h-1.5 rounded-full transition-all duration-500" 
+                                        style={{ width: `${eligibleUsers.length > 0 ? Math.min(100, (filteredResponses.length / eligibleUsers.length) * 100) : 0}%` }}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </CardContent>
@@ -622,6 +775,9 @@ export default function ViewResponsesClientPage() {
                         </TabsTrigger>
                         <TabsTrigger value="analytics">
                             <PieChart className="mr-2 h-4 w-4" />Analytics
+                        </TabsTrigger>
+                        <TabsTrigger value="sheet" disabled={!form?.googleSheetId}>
+                            <FileSpreadsheet className="mr-2 h-4 w-4" />Google Sheet
                         </TabsTrigger>
                     </TabsList>
                 </div>
@@ -647,6 +803,10 @@ export default function ViewResponsesClientPage() {
                                 <PieChart className="mr-2 h-4 w-4" />
                                 Analytics
                             </DropdownMenuItem>
+                             <DropdownMenuItem onSelect={() => setActiveTab('sheet')} disabled={!form?.googleSheetId}>
+                                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                Google Sheet
+                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
@@ -654,41 +814,94 @@ export default function ViewResponsesClientPage() {
                 <div className="mt-4">
                     <TabsContent value="respondents">
                         <Card>
-                            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                <div>
-                                    <h3 className="text-lg font-semibold">Submitted Responses</h3>
-                                    {form?.googleSheetId ? (
-                                        <p className="text-xs text-muted-foreground mt-0.5">
-                                            Linked Sheet ID: <span className="font-mono text-foreground bg-muted px-1.5 py-0.5 rounded">{form.googleSheetId}</span>
-                                            {syncStatus && <span className="ml-2 text-primary font-medium">• {syncStatus}</span>}
-                                        </p>
-                                    ) : (
-                                        <p className="text-xs text-amber-600 mt-0.5">Google Sheets sync is not configured for this form.</p>
-                                    )}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    {form?.googleSheetId && (
-                                        <Button 
-                                            onClick={handleGoogleSheetsSync} 
-                                            disabled={isSyncing || filteredResponses.length === 0} 
-                                            size="sm" 
-                                            variant="outline"
-                                            className="bg-green-50 hover:bg-green-100 dark:bg-green-950/30 dark:hover:bg-green-900/30 border-green-200 dark:border-green-900/50 text-green-700 dark:text-green-400"
-                                        >
-                                            {isSyncing ? (
-                                                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                                            )}
-                                            {isSyncing ? "Syncing..." : "Sync to Google Sheet"}
+                            <CardHeader className="flex flex-col gap-4 border-b">
+                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">Submitted Responses</h3>
+                                        {form?.googleSheetId ? (
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                Linked Sheet ID: <span className="font-mono text-foreground bg-muted px-1.5 py-0.5 rounded">{form.googleSheetId}</span>
+                                                {syncStatus && <span className="ml-2 text-primary font-medium">• {syncStatus}</span>}
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs text-amber-600 mt-0.5">Google Sheets sync is not configured for this form.</p>
+                                        )}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {form?.googleSheetId && (
+                                            <>
+                                                <Button 
+                                                    onClick={() => window.open(`https://docs.google.com/spreadsheets/d/${form.googleSheetId}/edit`, '_blank')} 
+                                                    size="sm" 
+                                                    variant="outline"
+                                                    className="bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/30 dark:hover:bg-blue-900/30 border-blue-200 dark:border-blue-900/50 text-blue-700 dark:text-blue-400"
+                                                >
+                                                    <ExternalLink className="mr-2 h-4 w-4" /> Open Sheet
+                                                </Button>
+                                                <Button 
+                                                    onClick={() => handleGoogleSheetsSync()} 
+                                                    disabled={isSyncing || filteredResponses.length === 0} 
+                                                    size="sm" 
+                                                    variant="outline"
+                                                    className="bg-green-50 hover:bg-green-100 dark:bg-green-950/30 dark:hover:bg-green-900/30 border-green-200 dark:border-green-900/50 text-green-700 dark:text-green-400"
+                                                >
+                                                    {isSyncing ? (
+                                                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <FileSpreadsheet className="mr-2 h-4 w-4" />
+                                                    )}
+                                                    {isSyncing ? "Syncing..." : "Sync to Google Sheet"}
+                                                </Button>
+                                            </>
+                                        )}
+                                        <Button onClick={() => handleExport('respondents')} disabled={filteredResponses.length === 0} size="sm" variant="outline">
+                                            <Download className="mr-2 h-4 w-4" /> Export CSV
                                         </Button>
-                                    )}
-                                    <Button onClick={() => handleExport('respondents')} disabled={filteredResponses.length === 0} size="sm" variant="outline">
-                                        <Download className="mr-2 h-4 w-4" /> Export CSV
-                                    </Button>
+                                    </div>
                                 </div>
+
+                                {canManageResponses && (
+                                    <div className="flex flex-col sm:flex-row items-end gap-2 border-t pt-4">
+                                        <div className="w-full sm:flex-1 space-y-1">
+                                            <label className="text-xs font-semibold text-muted-foreground">Link Google Sheet ID</label>
+                                            <Input
+                                                placeholder="Enter Google Spreadsheet ID (e.g. 1aBcDeFgHiJkLmNoPqRsTuVwXyZ)"
+                                                value={sheetIdInput}
+                                                onChange={(e) => setSheetIdInput(e.target.value)}
+                                                className="h-9"
+                                            />
+                                        </div>
+                                        <Button onClick={handleSaveSheetId} size="sm" className="h-9 w-full sm:w-auto shrink-0">
+                                            Save Sheet ID
+                                        </Button>
+                                    </div>
+                                )}
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="pt-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                                    <Input
+                                        placeholder="Search by name, ITS, or BGK..."
+                                        value={respondentFilters.search}
+                                        onChange={(e) => setRespondentFilters(prev => ({ ...prev, search: e.target.value }))}
+                                        className="h-9"
+                                    />
+                                    {currentUser.role === 'superadmin' && (
+                                        <Select value={respondentFilters.mohallahId} onValueChange={(value) => setRespondentFilters(prev => ({ ...prev, mohallahId: value }))}>
+                                            <SelectTrigger className="h-9"><SelectValue placeholder="All Mohallahs" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Mohallahs</SelectItem>
+                                                {allMohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                    <Select value={respondentFilters.team} onValueChange={(value) => setRespondentFilters(prev => ({ ...prev, team: value }))}>
+                                        <SelectTrigger className="h-9"><SelectValue placeholder="All Teams" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Teams</SelectItem>
+                                            {availableTeams.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                                 {filteredResponses.length === 0 ? (
                                     <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
                                         <Users className="h-12 w-12 text-muted-foreground mx-auto"/>
@@ -916,10 +1129,75 @@ export default function ViewResponsesClientPage() {
                         </Card>
                     </TabsContent>
                     <TabsContent value="analytics">
-                        {form ? (
-                            <FormAnalytics form={form} responses={filteredResponses} />
+                        <div className="space-y-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-lg">Filter Analytics Data</CardTitle>
+                                    <CardDescription>Filter response data dynamically across charts.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <Input
+                                            placeholder="Search by name, ITS, or BGK..."
+                                            value={respondentFilters.search}
+                                            onChange={(e) => setRespondentFilters(prev => ({ ...prev, search: e.target.value }))}
+                                            className="h-9"
+                                        />
+                                        {currentUser.role === 'superadmin' && (
+                                            <Select value={respondentFilters.mohallahId} onValueChange={(value) => setRespondentFilters(prev => ({ ...prev, mohallahId: value }))}>
+                                                <SelectTrigger className="h-9"><SelectValue placeholder="All Mohallahs" /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">All Mohallahs</SelectItem>
+                                                    {allMohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                        <Select value={respondentFilters.team} onValueChange={(value) => setRespondentFilters(prev => ({ ...prev, team: value }))}>
+                                            <SelectTrigger className="h-9"><SelectValue placeholder="All Teams" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">All Teams</SelectItem>
+                                                {availableTeams.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            {form ? (
+                                <FormAnalytics form={form} responses={filteredResponses} />
+                            ) : (
+                                <div className="text-center py-20 text-muted-foreground">Loading form data for analytics...</div>
+                            )}
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="sheet">
+                        {form?.googleSheetId ? (
+                            <Card>
+                                <CardHeader className="flex flex-row items-center justify-between">
+                                    <div>
+                                        <CardTitle>Google Sheet Live View</CardTitle>
+                                        <CardDescription>View and edit the synchronized Google Sheet directly.</CardDescription>
+                                    </div>
+                                    <Button 
+                                        onClick={() => window.open(`https://docs.google.com/spreadsheets/d/${form.googleSheetId}/edit`, '_blank')} 
+                                        size="sm"
+                                        variant="outline"
+                                    >
+                                        Open in New Tab <ExternalLink className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <div className="w-full h-[600px] border-t rounded-b-lg overflow-hidden bg-white">
+                                        <iframe 
+                                            src={`https://docs.google.com/spreadsheets/d/${form.googleSheetId}/edit?rm=minimal`}
+                                            className="w-full h-full border-0"
+                                            allowFullScreen
+                                        />
+                                    </div>
+                                </CardContent>
+                            </Card>
                         ) : (
-                            <div className="text-center py-20 text-muted-foreground">Loading form data for analytics...</div>
+                            <div className="text-center py-20 text-muted-foreground">Google Sheet is not configured.</div>
                         )}
                     </TabsContent>
                 </div>

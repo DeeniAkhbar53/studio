@@ -310,7 +310,7 @@ export default function DashboardLayout({
     <div className="premium-shell grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
       <aside className="glass-sidebar hidden border-r border-white/10 md:block print-hide">
         <div className="flex h-full max-h-screen flex-col gap-2">
-          <div className="flex h-20 items-center border-b border-white/10 bg-white/5 px-4 lg:px-6">
+          <div className="flex h-16 items-center border-b border-white/10 bg-white/5 px-4 lg:px-6">
             <Link href="/dashboard" className="flex items-center gap-3 font-semibold text-sidebar-primary">
               <span className="flex h-12 w-12 items-center justify-center rounded-lg border border-white/10 bg-white/10 shadow-lg shadow-black/10">
                 <Image
@@ -329,9 +329,9 @@ export default function DashboardLayout({
           </div>
         </div>
       </aside>
-      <div className="flex flex-col md:h-screen md:overflow-hidden">
+      <div className="flex flex-col min-w-0 md:h-screen md:overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto bg-transparent p-4 md:p-6 lg:p-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-transparent p-4 md:p-6 lg:p-8 min-w-0">
           {children}
         </main>
         <Footer className="border-t border-border/50" />
