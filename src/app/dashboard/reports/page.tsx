@@ -1600,10 +1600,14 @@ export default function ReportsPage() {
                   <div className="md:hidden">
                     <Accordion type="single" collapsible className="w-full">
                       {filteredReportData.map((record, index) => (
-                        <AccordionItem value={`${record.id}-${record.date || index}`} key={`${record.id}-${record.date || index}`}>
+                        <AccordionItem 
+                          value={`${record.id}-${record.date || index}`} 
+                          key={`${record.id}-${record.date || index}`}
+                          className="border border-border/60 rounded-lg p-1 bg-card/60 backdrop-blur-sm shadow-sm mb-3"
+                        >
                           <div className="flex items-center w-full">
                             {isNonAttendanceReport && (
-                              <div className="pl-4 py-4">
+                              <div className="pl-3 py-4 shrink-0">
                                 <Checkbox
                                   id={`mobile-select-${record.userItsId}`}
                                   checked={selectedIds.includes(record.userItsId)}
@@ -1614,44 +1618,47 @@ export default function ReportsPage() {
                                 />
                               </div>
                             )}
-                            <AccordionTrigger className={cn("flex-grow", !isNonAttendanceReport && "pl-4")}>
-                              <div className="flex items-center gap-4 flex-grow text-left">
-                                <span className="text-sm font-mono text-muted-foreground">{index + 1}.</span>
-                                <div className="flex-grow">
-                                  <p className="font-semibold text-card-foreground">{record.userName}</p>
-                                  <p className="text-xs text-muted-foreground">ITS: {record.userItsId}</p>
+                            <AccordionTrigger className={cn("flex-grow hover:no-underline py-2", !isNonAttendanceReport && "pl-3")}>
+                              <div className="flex items-center gap-3 flex-grow text-left pr-2">
+                                <span className="text-xs font-mono text-muted-foreground shrink-0">{index + 1}.</span>
+                                <div className="flex-grow min-w-0 pr-1">
+                                  <p className="font-bold text-card-foreground text-sm leading-tight truncate">{record.userName}</p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5">ITS: {record.userItsId}</p>
                                 </div>
-                                <span className={cn("px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap",
-                                  record.status === 'absent' ? 'bg-red-100 text-red-800' :
-                                  record.status === 'safar' ? 'bg-blue-100 text-blue-800' :
-                                  'bg-green-100 text-green-800'
+                                <span className={cn("px-2 py-0.5 text-[10px] font-bold rounded-full whitespace-nowrap shrink-0",
+                                  record.status === 'absent' ? 'bg-destructive/10 text-destructive' :
+                                  record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400' :
+                                  'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'
                                 )}>
                                   {record.status === 'early' || record.status === 'late' ? `Present (${record.status.charAt(0).toUpperCase() + record.status.slice(1)})` : record.status.charAt(0).toUpperCase() + record.status.slice(1)}
                                 </span>
                               </div>
                             </AccordionTrigger>
                           </div>
-                          <AccordionContent className="space-y-2 pt-2">
-                            <div className="px-2 text-sm text-muted-foreground">
-                              <div><strong>BGK ID:</strong> {record.bgkId || "N/A"}</div>
-                              <div><strong>Team:</strong> {record.team || "N/A"}</div>
-                              <div><strong>Miqaat:</strong> {record.miqaatName}</div>
-                              <div><strong>Type:</strong> <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'}>{record.miqaatType}</Badge></div>
-                              <div><strong>Session:</strong> {record.sessionName || "N/A"}</div>
-                              <div><strong>Date:</strong> {record.date ? format(new Date(record.date), "PP p") : "N/A"}</div>
+                          <AccordionContent className="space-y-3 pt-2 px-3 border-t border-border/40 mt-1">
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+                              <div><strong>BGK ID:</strong> <span className="text-foreground">{record.bgkId || "N/A"}</span></div>
+                              <div><strong>Team:</strong> <span className="text-foreground">{record.team || "N/A"}</span></div>
+                              <div className="col-span-2"><strong>Miqaat:</strong> <span className="text-foreground">{record.miqaatName}</span></div>
+                              <div><strong>Type:</strong> <Badge variant={record.miqaatType === 'local' ? 'outline' : 'secondary'} className="h-4 py-0 px-1 text-[9px]">{record.miqaatType}</Badge></div>
+                              <div><strong>Session:</strong> <span className="text-foreground">{record.sessionName || "N/A"}</span></div>
+                              <div className="col-span-2"><strong>Date:</strong> <span className="text-foreground">{record.date ? format(new Date(record.date), "PP p") : "N/A"}</span></div>
                               {(watchedReportType === "miqaat_summary" || watchedReportType === "overall_activity" || watchedReportType === "member_attendance") &&
-                                <div><strong>Marked By:</strong> {record.markedByItsId || "N/A"}</div>
+                                <div className="col-span-2"><strong>Marked By:</strong> <span className="text-foreground">{record.markedByItsId || "N/A"}</span></div>
                               }
-                              {record.uniformCompliance && (
-                                <>
-                                  {(reportMiqaatType === 'local' || (reportMiqaatType === 'mixed' && record.miqaatType === 'local')) && <div><strong>Feta/Paghri:</strong> {record.uniformCompliance?.fetaPaghri ?? 'N/A'}</div>}
-                                  {(reportMiqaatType === 'local' || (reportMiqaatType === 'mixed' && record.miqaatType === 'local')) && <div><strong>Koti:</strong> {record.uniformCompliance?.koti ?? 'N/A'}</div>}
-                                  {(reportMiqaatType === 'international' || (reportMiqaatType === 'mixed' && record.miqaatType === 'international')) && <div><strong>Uniform:</strong> {record.uniformCompliance?.uniform ?? 'N/A'}</div>}
-                                  {(reportMiqaatType === 'international' || (reportMiqaatType === 'mixed' && record.miqaatType === 'international')) && <div><strong>Shoes:</strong> {record.uniformCompliance?.shoes ?? 'N/A'}</div>}
-                                  <div><strong>Nazrul Maqam:</strong> {record.uniformCompliance.nazrulMaqam ? `${record.uniformCompliance.nazrulMaqam.amount} ${record.uniformCompliance.nazrulMaqam.currency}` : 'N/A'}</div>
-                                </>
-                              )}
                             </div>
+                            {record.uniformCompliance && (
+                              <div className="border-t border-border/30 pt-2.5 space-y-1.5 text-xs text-muted-foreground">
+                                <span className="block font-bold text-[10px] uppercase tracking-wider text-muted-foreground/75 mb-0.5">Compliance Details</span>
+                                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                                  {(reportMiqaatType === 'local' || (reportMiqaatType === 'mixed' && record.miqaatType === 'local')) && <div><strong>Feta/Paghri:</strong> <span className="text-foreground">{record.uniformCompliance?.fetaPaghri ?? 'N/A'}</span></div>}
+                                  {(reportMiqaatType === 'local' || (reportMiqaatType === 'mixed' && record.miqaatType === 'local')) && <div><strong>Koti:</strong> <span className="text-foreground">{record.uniformCompliance?.koti ?? 'N/A'}</span></div>}
+                                  {(reportMiqaatType === 'international' || (reportMiqaatType === 'mixed' && record.miqaatType === 'international')) && <div><strong>Uniform:</strong> <span className="text-foreground">{record.uniformCompliance?.uniform ?? 'N/A'}</span></div>}
+                                  {(reportMiqaatType === 'international' || (reportMiqaatType === 'mixed' && record.miqaatType === 'international')) && <div><strong>Shoes:</strong> <span className="text-foreground">{record.uniformCompliance?.shoes ?? 'N/A'}</span></div>}
+                                  <div className="col-span-2"><strong>Nazrul Maqam:</strong> <span className="text-foreground">{record.uniformCompliance.nazrulMaqam ? `${record.uniformCompliance.nazrulMaqam.amount} ${record.uniformCompliance.nazrulMaqam.currency}` : 'N/A'}</span></div>
+                                </div>
+                              </div>
+                            )}
                           </AccordionContent>
                         </AccordionItem>
                       ))}

@@ -195,73 +195,83 @@ export default function FormsListPage() {
                         </div>
                     ) : (
                        <>
-                         {/* Mobile View: Accordion */}
-                         <div className="md:hidden">
+                          {/* Mobile View: Accordion */}
+                          <div className="md:hidden">
                             <Accordion type="single" collapsible className="w-full">
                                 {currentFormsToDisplay.map((form) => {
                                     const expired = isFormExpired(form);
                                     const currentStatus = expired ? 'closed' : form.status;
                                     
                                     return (
-                                        <AccordionItem value={form.id} key={form.id}>
-                                            <AccordionTrigger>
+                                        <AccordionItem 
+                                          value={form.id} 
+                                          key={form.id}
+                                          className="border border-border/60 rounded-lg p-1 bg-card/60 backdrop-blur-sm shadow-sm mb-3"
+                                        >
+                                            <AccordionTrigger className="px-3 hover:no-underline py-2">
                                                 <div className="flex-grow text-left">
-                                                    <p className="font-semibold text-card-foreground">{form.title}</p>
-                                                    <Badge variant={currentStatus === 'open' ? 'default' : 'destructive'} className="mt-1 text-xs">
-                                                        {currentStatus === 'open' ? <CheckCircle className="mr-1 h-3 w-3" /> : <XCircle className="mr-1 h-3 w-3" />}
+                                                    <p className="font-bold text-card-foreground text-sm leading-snug">{form.title}</p>
+                                                    <Badge variant={currentStatus === 'open' ? 'default' : 'destructive'} className="mt-1.5 text-[10px] h-5 px-2">
                                                         {expired ? "Expired" : (currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1))}
                                                     </Badge>
                                                 </div>
                                             </AccordionTrigger>
-                                            <AccordionContent className="space-y-4 pt-2">
-                                                <div className="px-2 space-y-3 text-sm text-muted-foreground">
-                                                    <p className="line-clamp-3">{form.description}</p>
-                                                    {canManageForms && (
-                                                        <div className="flex items-center gap-2">
-                                                            <Users className="h-4 w-4" />
-                                                            <span>{form.responseCount || 0} Responses</span>
-                                                        </div>
-                                                    )}
-                                                    <div className="flex items-center gap-2">
-                                                        <Calendar className="h-4 w-4" />
-                                                        <span>Created: {format(new Date(form.createdAt), "MMM d, yyyy")}</span>
+                                            <AccordionContent className="space-y-3 pt-2 px-3 border-t border-border/40 mt-1">
+                                                <div className="space-y-2 text-xs text-muted-foreground">
+                                                    <p className="text-foreground leading-relaxed text-xs">{form.description}</p>
+                                                    <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-border/30">
+                                                      <div className="flex items-center gap-1.5">
+                                                          <Calendar className="h-3.5 w-3.5 text-primary/70" />
+                                                          <span>Created: {format(new Date(form.createdAt), "MMM d, yyyy")}</span>
+                                                      </div>
+                                                      {form.endDate && (
+                                                          <div className={cn("flex items-center gap-1.5", expired ? "text-destructive" : "")}>
+                                                              <Clock className="h-3.5 w-3.5 text-primary/70" />
+                                                              <span>Ends: {format(new Date(form.endDate), "MMM d, yyyy")}</span>
+                                                          </div>
+                                                      )}
+                                                      {canManageForms && (
+                                                          <div className="flex items-center gap-1.5">
+                                                              <Users className="h-3.5 w-3.5 text-primary/70" />
+                                                              <span>{form.responseCount || 0} Responses</span>
+                                                          </div>
+                                                      )}
+                                                      {canManageForms && form.updatedAt && (
+                                                          <div className="flex items-center gap-1.5 col-span-2">
+                                                              <Pencil className="h-3.5 w-3.5 text-primary/70" />
+                                                              <span className="truncate">Updated by {form.updatedBy}</span>
+                                                          </div>
+                                                      )}
                                                     </div>
-                                                    {form.endDate && (
-                                                        <div className={cn("flex items-center gap-2", expired ? "text-destructive" : "")}>
-                                                            <Clock className="h-4 w-4" />
-                                                            <span>Ends: {format(new Date(form.endDate), "MMM d, yyyy")}</span>
-                                                        </div>
-                                                    )}
-                                                    {canManageForms && form.updatedAt && (
-                                                        <div className="flex items-center gap-2">
-                                                            <Pencil className="h-4 w-4" />
-                                                            <span>Updated: {format(new Date(form.updatedAt), "MMM d, yyyy")} by {form.updatedBy}</span>
-                                                        </div>
-                                                    )}
                                                 </div>
-                                                <Separator/>
-                                                <div className="flex items-center justify-end gap-2 px-2">
-                                                    {canManageForms && (
-                                                        <Button variant="ghost" size="icon" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
-                                                            <Eye className="h-4 w-4" />
-                                                            <span className="sr-only">Responses</span>
-                                                        </Button>
-                                                    )}
-                                                    <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={currentStatus === 'closed'}>
-                                                        Fill Form
-                                                    </Button>
-                                                    {canManageForms && (
-                                                        <div className="flex items-center gap-1">
+                                                <Separator className="my-2" />
+                                                <div className="flex items-center justify-between gap-2">
+                                                    {canManageForms ? (
+                                                        <div className="flex items-center gap-2">
                                                             <Switch 
                                                                 checked={currentStatus === 'open'}
                                                                 onCheckedChange={() => handleStatusToggle(form.id, form.status)}
                                                                 aria-label={`Toggle form status for ${form.title}`}
                                                                 disabled={expired}
                                                             />
+                                                            <span className="text-[11px] text-muted-foreground font-medium">Status</span>
+                                                        </div>
+                                                    ) : <div />}
+                                                    <div className="flex items-center gap-2">
+                                                        {canManageForms && (
+                                                            <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)} className="h-8 text-xs">
+                                                                <Eye className="h-3.5 w-3.5 mr-1" />
+                                                                Responses
+                                                            </Button>
+                                                        )}
+                                                        <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={currentStatus === 'closed'} className="h-8 text-xs font-semibold">
+                                                            Fill Form
+                                                        </Button>
+                                                        {canManageForms && (
                                                             <AlertDialog>
                                                                 <DropdownMenu>
                                                                     <DropdownMenuTrigger asChild>
-                                                                        <Button variant="ghost" size="icon">
+                                                                        <Button variant="ghost" size="icon" className="h-8 w-8">
                                                                             <MoreHorizontal className="h-4 w-4" />
                                                                         </Button>
                                                                     </DropdownMenuTrigger>
@@ -283,15 +293,15 @@ export default function FormsListPage() {
                                                                     <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteForm(form.id, form.title)}>Delete</AlertDialogAction></AlertDialogFooter>
                                                                 </AlertDialogContent>
                                                             </AlertDialog>
-                                                        </div>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </AccordionContent>
                                         </AccordionItem>
                                     )
                                 })}
                             </Accordion>
-                         </div>
+                          </div>
 
                          {/* Desktop View: Table */}
                          <div className="hidden md:block border rounded-lg overflow-hidden">

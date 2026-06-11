@@ -46,6 +46,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { FunkyLoader } from "@/components/ui/funky-loader";
+import { db } from "@/lib/firebase/firebase";
+import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
+import { Clock, Timer } from "lucide-react";
 
 
 interface AdminStat {
@@ -134,6 +137,8 @@ export default function DashboardOverviewPage() {
   const [selectedMiqaatForAbsentees, setSelectedMiqaatForAbsentees] = useState<string | null>(null);
   const [isSendingAbsenteeEmails, setIsSendingAbsenteeEmails] = useState(false);
   const [sendingEmailItsId, setSendingEmailItsId] = useState<string | null>(null);
+  const [lastLoginText, setLastLoginText] = useState<string>("Loading...");
+  const [sessionMinutes, setSessionMinutes] = useState<number>(0);
   
   // Non-Respondent Form State (New logic)
   const [formsWithNonRespondents, setFormsWithNonRespondents] = useState<FormType[]>([]);
@@ -214,6 +219,64 @@ export default function DashboardOverviewPage() {
     };
     fetchCurrentUserData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!currentUserItsId) return;
+
+    const fetchLastLogin = async () => {
+      try {
+        const q = query(
+          collection(db, "login_logs"),
+          where("userItsId", "==", currentUserItsId)
+        );
+        const snap = await getDocs(q);
+        const logs = snap.docs.map(d => {
+          const data = d.data();
+          const date = data.timestamp instanceof Timestamp 
+            ? data.timestamp.toDate() 
+            : data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+          return { ...data, date };
+        });
+
+        // Sort in memory by date desc
+        logs.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+        // The first log is the current login. The second is the previous login.
+        if (logs.length > 1) {
+          const prevLogin = logs[1];
+          setLastLoginText(format(prevLogin.date, "PPpp"));
+        } else if (logs.length === 1) {
+          setLastLoginText(format(logs[0].date, "PPpp"));
+        } else {
+          setLastLoginText("First login session");
+        }
+      } catch (err) {
+        console.error("Error fetching last login:", err);
+        setLastLoginText("Unavailable");
+      }
+    };
+
+    fetchLastLogin();
+  }, [currentUserItsId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sessionId = localStorage.getItem("sessionId");
+    if (!sessionId) return;
+    const parts = sessionId.split("-");
+    if (parts.length < 2) return;
+    const loginTimeMs = parseInt(parts[1], 10);
+    if (isNaN(loginTimeMs)) return;
+
+    const updateMinutes = () => {
+      const mins = Math.max(0, Math.floor((Date.now() - loginTimeMs) / 60000));
+      setSessionMinutes(mins);
+    };
+
+    updateMinutes();
+    const interval = setInterval(updateMinutes, 60000); // update every minute
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -1152,6 +1215,17 @@ export default function DashboardOverviewPage() {
             <CardDescription className="text-muted-foreground pt-1">
               Here's your overview. Use the sidebar to navigate to other sections.
             </CardDescription>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 pt-4 border-t border-primary/10 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-primary/70" />
+                <span>Last login: <strong className="text-foreground">{lastLoginText}</strong></span>
+              </div>
+              <div className="hidden sm:inline text-muted-foreground/30">•</div>
+              <div className="flex items-center gap-1.5">
+                <Timer className="h-3.5 w-3.5 text-primary/70" />
+                <span>Session Duration: <strong className="text-foreground">{sessionMinutes} min</strong></span>
+              </div>
+            </div>
           </CardHeader>
           {currentUserRole === 'user' && (
             <CardContent>
