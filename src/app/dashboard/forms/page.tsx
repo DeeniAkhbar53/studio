@@ -1,0 +1,437 @@
+
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { PlusCircle, FileText, Users, MoreHorizontal, Edit, Trash2, Calendar, Eye, CheckCircle, XCircle, Pencil, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import type { UserRole, Form as FormType, User } from "@/types";
+import { getForms, deleteForm, updateFormStatus } from "@/lib/firebase/formService";
+import { format } from "date-fns";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
+import { FunkyLoader } from "@/components/ui/funky-loader";
+import { findNavItem } from "@/components/dashboard/sidebar-nav";
+
+const ITEMS_PER_PAGE = 10;
+
+export default function FormsListPage() {
+    const router = useRouter();
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [forms, setForms] = useState<FormType[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { toast } = useToast();
+    const [currentPage, setCurrentPage] = useState(1);
+    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+
+
+    useEffect(() => {
+        const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') as UserRole : null;
+        const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
+        const navItem = findNavItem('/dashboard/forms');
+        
+        if (navItem) {
+            // Forms page is special - it's available if the feature flag is on, 
+            // but management requires specific rights.
+            // For now, we'll allow access to the page itself broadly.
+            setIsAuthorized(true);
+        } else {
+            setIsAuthorized(false);
+            setTimeout(() => router.replace('/dashboard'), 2000);
+        }
+        
+        const fetchInitialData = async () => {
+            setIsLoading(true);
+            try {
+                const userItsId = localStorage.getItem('userItsId');
+                if (userItsId) {
+                    const user = await getUserByItsOrBgkId(userItsId);
+                    setCurrentUser(user);
+                }
+                const fetchedForms = await getForms();
+                setForms(fetchedForms);
+            } catch (error) {
+                
+                toast({ title: "Error", description: "Could not load forms or user data.", variant: "destructive" });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [toast]);
+    
+    const fetchForms = async () => {
+        setIsLoading(true);
+        try {
+            const fetchedForms = await getForms();
+            setForms(fetchedForms);
+        } catch (error) {
+            
+            toast({ title: "Error", description: "Could not load forms.", variant: "destructive" });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+
+    const canCreateForms = useMemo(() => {
+        if (!currentUser) return false;
+        const hasRoleAccess = currentUser.role === 'admin' || currentUser.role === 'superadmin';
+        const hasPageRight = currentUser.pageRights?.includes('/dashboard/forms');
+        return hasRoleAccess || hasPageRight;
+    }, [currentUser]);
+
+    const canManageForms = canCreateForms; // Same logic for now
+    
+    const handleDeleteForm = async (formId: string, formTitle: string) => {
+        try {
+            await deleteForm(formId);
+            toast({
+                title: "Form Deleted",
+                description: `The form "${formTitle}" has been successfully deleted.`,
+                variant: "destructive"
+            });
+            await fetchForms(); // Refetch forms
+        } catch (error) {
+            
+            toast({ title: "Error", description: `Could not delete form "${formTitle}".`, variant: "destructive" });
+        }
+    };
+    
+    const handleStatusToggle = async (formId: string, currentStatus: 'open' | 'closed') => {
+        const newStatus = currentStatus === 'open' ? 'closed' : 'open';
+        try {
+            await updateFormStatus(formId, newStatus);
+            setForms(forms.map(f => f.id === formId ? { ...f, status: newStatus } : f));
+            toast({
+                title: "Status Updated",
+                description: `Form is now ${newStatus}.`,
+            });
+        } catch (error) {
+            
+            toast({ title: "Error", description: `Could not update the form's status.`, variant: "destructive" });
+        }
+    };
+    
+    const isFormExpired = (form: FormType) => {
+        return !!(form.endDate && new Date() > new Date(form.endDate));
+    };
+
+    const filteredForms = useMemo(() => {
+        if (!currentUser) return [];
+        return forms.filter(form => {
+            const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
+            if (isForEveryone) return true;
+            
+            const eligibleById = !!form.eligibleItsIds?.includes(currentUser.itsId);
+            const eligibleByTeam = !!currentUser.team && !!form.teams?.includes(currentUser.team);
+            const eligibleByMohallah = !!currentUser.mohallahId && !!form.mohallahIds?.includes(currentUser.mohallahId);
+
+            return eligibleById || eligibleByTeam || eligibleByMohallah;
+        });
+    }, [forms, currentUser]);
+
+    const totalPages = Math.ceil(filteredForms.length / ITEMS_PER_PAGE);
+    const currentFormsToDisplay = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        return filteredForms.slice(startIndex, endIndex);
+    }, [filteredForms, currentPage]);
+
+    const handlePreviousPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
+    const handleNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+
+
+    return (
+        <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <div className="flex flex-row items-center justify-between gap-4">
+                        <div>
+                            <CardTitle className="flex items-center">
+                                <FileText className="mr-2 h-5 w-5 text-primary"/>
+                                Forms & Surveys
+                            </CardTitle>
+                            <CardDescription className="mt-1">
+                                Fill out available forms{canCreateForms && " or create and manage them."}
+                            </CardDescription>
+                        </div>
+                        {canCreateForms && (
+                            <Button size="sm" onClick={() => router.push('/dashboard/forms/new')} className="shrink-0">
+                                <PlusCircle className="mr-2 h-4 w-4" /> 
+                                <span className="hidden sm:inline">Create New Form</span>
+                            </Button>
+                        )}
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {isLoading ? (
+                         <div className="flex justify-center items-center py-20">
+                            <FunkyLoader>Loading forms...</FunkyLoader>
+                        </div>
+                    ) : currentFormsToDisplay.length === 0 ? (
+                        <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
+                            <FileText className="h-12 w-12 text-muted-foreground mx-auto"/>
+                            <p className="text-lg font-medium text-muted-foreground">No Forms Available</p>
+                            <p className="text-sm text-muted-foreground">
+                                {canCreateForms ? "Create a new form to get started." : "No relevant forms or surveys have been published for you yet."}
+                            </p>
+                        </div>
+                    ) : (
+                       <>
+                         {/* Mobile View: Accordion */}
+                         <div className="md:hidden">
+                            <Accordion type="single" collapsible className="w-full">
+                                {currentFormsToDisplay.map((form) => {
+                                    const expired = isFormExpired(form);
+                                    const currentStatus = expired ? 'closed' : form.status;
+                                    
+                                    return (
+                                        <AccordionItem value={form.id} key={form.id}>
+                                            <AccordionTrigger>
+                                                <div className="flex-grow text-left">
+                                                    <p className="font-semibold text-card-foreground">{form.title}</p>
+                                                    <Badge variant={currentStatus === 'open' ? 'default' : 'destructive'} className="mt-1 text-xs">
+                                                        {currentStatus === 'open' ? <CheckCircle className="mr-1 h-3 w-3" /> : <XCircle className="mr-1 h-3 w-3" />}
+                                                        {expired ? "Expired" : (currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1))}
+                                                    </Badge>
+                                                </div>
+                                            </AccordionTrigger>
+                                            <AccordionContent className="space-y-4 pt-2">
+                                                <div className="px-2 space-y-3 text-sm text-muted-foreground">
+                                                    <p className="line-clamp-3">{form.description}</p>
+                                                    {canManageForms && (
+                                                        <div className="flex items-center gap-2">
+                                                            <Users className="h-4 w-4" />
+                                                            <span>{form.responseCount || 0} Responses</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center gap-2">
+                                                        <Calendar className="h-4 w-4" />
+                                                        <span>Created: {format(new Date(form.createdAt), "MMM d, yyyy")}</span>
+                                                    </div>
+                                                    {form.endDate && (
+                                                        <div className={cn("flex items-center gap-2", expired ? "text-destructive" : "")}>
+                                                            <Clock className="h-4 w-4" />
+                                                            <span>Ends: {format(new Date(form.endDate), "MMM d, yyyy")}</span>
+                                                        </div>
+                                                    )}
+                                                    {canManageForms && form.updatedAt && (
+                                                        <div className="flex items-center gap-2">
+                                                            <Pencil className="h-4 w-4" />
+                                                            <span>Updated: {format(new Date(form.updatedAt), "MMM d, yyyy")} by {form.updatedBy}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <Separator/>
+                                                <div className="flex items-center justify-end gap-2 px-2">
+                                                    {canManageForms && (
+                                                        <Button variant="ghost" size="icon" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
+                                                            <Eye className="h-4 w-4" />
+                                                            <span className="sr-only">Responses</span>
+                                                        </Button>
+                                                    )}
+                                                    <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={currentStatus === 'closed'}>
+                                                        Fill Form
+                                                    </Button>
+                                                    {canManageForms && (
+                                                        <div className="flex items-center gap-1">
+                                                            <Switch 
+                                                                checked={currentStatus === 'open'}
+                                                                onCheckedChange={() => handleStatusToggle(form.id, form.status)}
+                                                                aria-label={`Toggle form status for ${form.title}`}
+                                                                disabled={expired}
+                                                            />
+                                                            <AlertDialog>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="icon">
+                                                                            <MoreHorizontal className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
+                                                                            <Edit className="mr-2 h-4 w-4" /> Edit
+                                                                        </DropdownMenuItem>
+                                                                        {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
+                                                                            <AlertDialogTrigger asChild>
+                                                                                <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                                                </DropdownMenuItem>
+                                                                            </AlertDialogTrigger>
+                                                                        )}
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete "{form.title}" and all its responses.</AlertDialogDescription></AlertDialogHeader>
+                                                                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteForm(form.id, form.title)}>Delete</AlertDialogAction></AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    )
+                                })}
+                            </Accordion>
+                         </div>
+
+                         {/* Desktop View: Table */}
+                         <div className="hidden md:block border rounded-lg overflow-hidden">
+                           <Table>
+                               <TableHeader>
+                                   <TableRow>
+                                       <TableHead>Title</TableHead>
+                                       <TableHead>Status</TableHead>
+                                       {canManageForms && <TableHead>Responses</TableHead>}
+                                       <TableHead>Dates</TableHead>
+                                       <TableHead className="text-right">Actions</TableHead>
+                                   </TableRow>
+                               </TableHeader>
+                               <TableBody>
+                                   {currentFormsToDisplay.map((form) => {
+                                        const expired = isFormExpired(form);
+                                        const currentStatus = expired ? 'closed' : form.status;
+
+                                        return (
+                                       <TableRow key={form.id} className="hover:bg-muted/50">
+                                           <TableCell className="font-medium">
+                                                {form.title}
+                                               <p className="text-sm text-muted-foreground line-clamp-1">{form.description}</p>
+                                           </TableCell>
+                                           <TableCell>
+                                                <Badge variant={currentStatus === 'open' ? 'default' : 'destructive'}>
+                                                     {expired ? "Expired" : (currentStatus.charAt(0).toUpperCase() + currentStatus.slice(1))}
+                                                </Badge>
+                                           </TableCell>
+                                           {canManageForms && (
+                                               <TableCell className="text-center">
+                                                    {form.responseCount || 0}
+                                               </TableCell>
+                                           )}
+                                           <TableCell>
+                                               <div className="text-xs">Created: {format(new Date(form.createdAt), "MMM d, yyyy")}</div>
+                                                {form.endDate && <div className={cn("text-xs", expired ? "text-destructive" : "text-muted-foreground")}>Ends: {format(new Date(form.endDate), "MMM d, yyyy")}</div>}
+                                           </TableCell>
+                                           <TableCell className="text-right">
+                                               <div className="flex items-center justify-end gap-2">
+                                                    {canManageForms && (
+                                                        <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}/responses`)}>
+                                                        <Eye className="mr-2 h-4 w-4" /> Responses
+                                                        </Button>
+                                                    )}
+                                                    <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/forms/${form.id}`)} disabled={currentStatus === 'closed'}>
+                                                            Fill
+                                                    </Button>
+                                                    {canManageForms && (
+                                                        <>
+                                                            <Switch
+                                                                checked={currentStatus === 'open'}
+                                                                onCheckedChange={() => handleStatusToggle(form.id, form.status)}
+                                                                aria-label={`Toggle form status for ${form.title}`}
+                                                                disabled={expired}
+                                                            />
+                                                            <AlertDialog>
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="icon">
+                                                                            <MoreHorizontal className="h-4 w-4" />
+                                                                            <span className="sr-only">More actions</span>
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end">
+                                                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
+                                                                            <Edit className="mr-2 h-4 w-4" /> Edit
+                                                                        </DropdownMenuItem>
+                                                                        {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
+                                                                            <AlertDialogTrigger asChild>
+                                                                                <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                                                                </DropdownMenuItem>
+                                                                            </AlertDialogTrigger>
+                                                                        )}
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                                <AlertDialogContent>
+                                                                    <AlertDialogHeader>
+                                                                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                                        <AlertDialogDescription>
+                                                                            This action cannot be undone. This will permanently delete the form
+                                                                            <span className="font-semibold"> "{form.title}" </span> 
+                                                                            and all of its responses.
+                                                                        </AlertDialogDescription>
+                                                                    </AlertDialogHeader>
+                                                                    <AlertDialogFooter>
+                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                        <AlertDialogAction 
+                                                                            className="bg-destructive hover:bg-destructive/90"
+                                                                            onClick={() => handleDeleteForm(form.id, form.title)}
+                                                                        >
+                                                                            Continue
+                                                                        </AlertDialogAction>
+                                                                    </AlertDialogFooter>
+                                                                </AlertDialogContent>
+                                                            </AlertDialog>
+                                                        </>
+                                                    )}
+                                               </div>
+                                           </TableCell>
+                                       </TableRow>
+                                   )})}
+                               </TableBody>
+                           </Table>
+                       </div>
+                       </>
+                    )}
+                </CardContent>
+                <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
+                    <p className="text-xs text-muted-foreground">
+                        Showing {currentFormsToDisplay.length > 0 ? ((currentPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredForms.length)} of {filteredForms.length} forms
+                    </p>
+                    {totalPages > 1 && (
+                    <div className="flex items-center space-x-2">
+                        <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePreviousPage}
+                        disabled={currentPage === 1}
+                        >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                        Page {currentPage} of {totalPages}
+                        </span>
+                        <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleNextPage}
+                        disabled={currentPage === totalPages}
+                        >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    )}
+                </CardFooter>
+            </Card>
+        </div>
+    );
+}
