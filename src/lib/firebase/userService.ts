@@ -6,6 +6,7 @@ import { db } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp, Timestamp, orderBy, FieldPath, deleteField, limit } from 'firebase/firestore';
 import type { User, UserRole, UserDesignation, DuaAttendance } from '@/types';
 import { addAuditLog } from './auditLogService';
+import { sendEmail, userCreatedEmailTemplate, userTransferredEmailTemplate, userDeletedEmailTemplate } from '@/lib/email';
 
 export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'fcmTokens' > & { avatarUrl?: string };
 
@@ -71,29 +72,25 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string, oldM
     // Email notifications
     if (userData.email) {
       const emailTo = userData.email;
-      // Trigger non-blocking email notification
-      (async () => {
-        try {
-          const { sendEmail, userCreatedEmailTemplate, userTransferredEmailTemplate } = await import('@/lib/email');
-          const mohallahName = await getMohallahName(mohallahId);
-          if (oldMohallahId) {
-            const oldMohallahName = await getMohallahName(oldMohallahId);
-            await sendEmail(
-              emailTo,
-              'Account Transferred - BGK Attendance',
-              userTransferredEmailTemplate(userData.name, userData.itsId, oldMohallahName, mohallahName)
-            );
-          } else {
-            await sendEmail(
-              emailTo,
-              'Account Created - BGK Attendance',
-              userCreatedEmailTemplate(userData.name, userData.itsId, mohallahName, userData.role, userData.designation || 'Member')
-            );
-          }
-        } catch (emailErr) {
-          console.error("Failed to send user registration/transfer email:", emailErr);
+      try {
+        const mohallahName = await getMohallahName(mohallahId);
+        if (oldMohallahId) {
+          const oldMohallahName = await getMohallahName(oldMohallahId);
+          await sendEmail(
+            emailTo,
+            'Account Transferred - BGK Attendance',
+            userTransferredEmailTemplate(userData.name, userData.itsId, oldMohallahName, mohallahName)
+          );
+        } else {
+          await sendEmail(
+            emailTo,
+            'Account Created - BGK Attendance',
+            userCreatedEmailTemplate(userData.name, userData.itsId, mohallahName, userData.role, userData.designation || 'Member')
+          );
         }
-      })();
+      } catch (emailErr) {
+        console.error("Failed to send user registration/transfer email:", emailErr);
+      }
     }
 
     return { ...payloadForFirestore, id: docRef.id } as User;
@@ -194,19 +191,15 @@ export const deleteUser = async (userId: string, mohallahId: string, isTransfer 
 
     // Email notifications
     if (!isTransfer && userData.email) {
-      // Trigger non-blocking email notification
-      (async () => {
-        try {
-          const { sendEmail, userDeletedEmailTemplate } = await import('@/lib/email');
-          await sendEmail(
-            userData.email,
-            'Account Deactivated - BGK Attendance',
-            userDeletedEmailTemplate(userData.name, userData.itsId)
-          );
-        } catch (emailErr) {
-          console.error("Failed to send user deletion email:", emailErr);
-        }
-      })();
+      try {
+        await sendEmail(
+          userData.email,
+          'Account Deactivated - BGK Attendance',
+          userDeletedEmailTemplate(userData.name, userData.itsId)
+        );
+      } catch (emailErr) {
+        console.error("Failed to send user deletion email:", emailErr);
+      }
     }
 
   } catch (error) {

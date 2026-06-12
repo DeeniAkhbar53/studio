@@ -83,6 +83,13 @@ export default function FormsListPage() {
 
     const canManageForms = canCreateForms;
 
+    const shouldShowResponseCount = useMemo(() => {
+        if (!currentUser) return true;
+        const isStandardMember = currentUser.role === 'user' && 
+            (currentUser.designation === 'Member' || currentUser.designation === 'J.Member');
+        return !isStandardMember;
+    }, [currentUser]);
+
     const handleDeleteForm = async (formId: string, formTitle: string) => {
         try {
             await deleteForm(formId);
@@ -168,13 +175,13 @@ export default function FormsListPage() {
             </div>
 
             {/* ── Stats Bar ── */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className={cn("grid grid-cols-2 gap-3", shouldShowResponseCount ? "lg:grid-cols-4" : "lg:grid-cols-3")}>
                 {[
                     { label: "Total Forms", value: totalForms, icon: Layers, color: "text-blue-500", bg: "bg-blue-500/10 border-blue-500/20" },
                     { label: "Active", value: activeForms, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10 border-emerald-500/20" },
                     { label: "Closed", value: closedForms, icon: XCircle, color: "text-rose-500", bg: "bg-rose-500/10 border-rose-500/20" },
                     { label: "Total Responses", value: totalResponses, icon: TrendingUp, color: "text-violet-500", bg: "bg-violet-500/10 border-violet-500/20" },
-                ].map((stat) => (
+                ].filter(stat => shouldShowResponseCount || stat.label !== "Total Responses").map((stat) => (
                     <div key={stat.label} className="stat-card p-4 rounded-xl">
                         <div className="flex items-center justify-between mb-3">
                             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{stat.label}</p>
@@ -293,7 +300,7 @@ export default function FormsListPage() {
                                     </div>
 
                                     {/* Response Rate */}
-                                    {canManageForms && (
+                                    {canManageForms && shouldShowResponseCount && (
                                         <div className="space-y-1.5">
                                             <div className="flex items-center justify-between text-xs">
                                                 <span className="text-muted-foreground flex items-center gap-1.5">

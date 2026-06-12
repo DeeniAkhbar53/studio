@@ -92,7 +92,11 @@ function SidebarNavSkeleton() {
   );
 }
 
-export function SidebarNav() {
+interface SidebarNavProps {
+  onItemClick?: () => void;
+}
+
+export function SidebarNav({ onItemClick }: SidebarNavProps) {
   const pathname = usePathname();
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
@@ -234,6 +238,7 @@ export function SidebarNav() {
                   <li key={subpage.href}>
                     <Link
                       href={subpage.href}
+                      onClick={() => onItemClick?.()}
                       className={cn(
                         "group flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md border-r-2 transition-all duration-150",
                         isActive

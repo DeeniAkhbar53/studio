@@ -120,6 +120,8 @@ export default function MarkAttendancePage() {
   // Bulk Safar State
   const [bulkSafarBgkInput, setBulkSafarBgkInput] = useState("");
   const [isBulkSafarSubmitting, setIsBulkSafarSubmitting] = useState(false);
+  const [isBulkAttendanceOpen, setIsBulkAttendanceOpen] = useState(false);
+  const [isBulkSafarOpen, setIsBulkSafarOpen] = useState(false);
   
   // Admin Override State
   const [isAdminOverrideOpen, setIsAdminOverrideOpen] = useState(false);
@@ -958,6 +960,7 @@ export default function MarkAttendancePage() {
       setIsSaving(false);
       setIsAdminOverrideOpen(false);
       setOverrideReason("");
+      setIsBulkAttendanceOpen(false);
     };
 
   const handleBulkSafarBgkSubmit = async () => {
@@ -1046,6 +1049,7 @@ export default function MarkAttendancePage() {
         }
         
         setBulkSafarBgkInput("");
+        setIsBulkSafarOpen(false);
       } else {
         toast({
           title: "Update Failed",
@@ -1302,12 +1306,12 @@ export default function MarkAttendancePage() {
                 disabled={!selectedMiqaatId || !currentSessionDetails || isProcessing || isLoadingMiqaats}
               />
             </div>
-            <div className="md:col-span-2 flex flex-col sm:flex-row gap-2.5">
+            <div className="md:col-span-2 grid grid-cols-2 gap-2.5 h-10">
               <Button
                 type="submit"
                 disabled={!selectedMiqaatId || !currentSessionDetails || !memberIdInput || isProcessing || isLoadingMiqaats}
-                className="flex-1 font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
-                size="sm"
+                className="h-full w-full font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
+                size="default"
               >
                 {isProcessing ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>
@@ -1323,8 +1327,8 @@ export default function MarkAttendancePage() {
                 variant="outline"
                 onClick={handleIndividualMarkSafar}
                 disabled={!selectedMiqaatId || !currentSessionDetails || !memberIdInput || isProcessing || isLoadingMiqaats}
-                className="flex-1 border-amber-500/30 hover:border-amber-500/50 bg-amber-500/5 hover:bg-amber-500/12 text-amber-600 dark:text-amber-400 font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
-                size="sm"
+                className="h-full w-full border-amber-500/30 hover:border-amber-500/50 bg-amber-500/5 hover:bg-amber-500/12 text-amber-600 dark:text-amber-400 font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
+                size="default"
               >
                 {isProcessing ? (
                   <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>
@@ -1426,195 +1430,205 @@ export default function MarkAttendancePage() {
       </Card>
       
       {(currentUserRole === 'superadmin' || currentUserPageRights.includes('bulk-attendance')) && (
-        <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="bulk-attendance">
-                <Card className="glass-surface border-white/20 shadow-md">
-                    <AccordionTrigger className="w-full p-0">
-                        <CardHeader className="flex flex-row justify-between items-center w-full p-6">
-                            <div>
-                                <CardTitle className="flex items-center"><Users2 className="mr-2 h-6 w-6 text-primary" />Bulk Attendance</CardTitle>
-                                <CardDescription>Mark attendance for multiple members at once.</CardDescription>
-                            </div>
-                        </CardHeader>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                        <CardContent className="space-y-4 pt-0">
-                            <div className="space-y-2">
-                                <Label htmlFor="bulk-member-ids">Member IDs</Label>
-                                <Textarea
-                                    id="bulk-member-ids"
-                                    placeholder="52000001, 52000002\n52000003"
-                                    value={bulkMemberIdsInput}
-                                    onChange={(e) => setBulkMemberIdsInput(e.target.value)}
-                                    disabled={!selectedMiqaatId || !currentSessionDetails || isSearchingBulkMembers || isSaving}
-                                    rows={4}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="bulk-reason">Note / Reason (Optional)</Label>
-                                <Input
-                                    id="bulk-reason"
-                                    placeholder="e.g. Late arrival approved, bulk entry, etc."
-                                    value={bulkReason}
-                                    onChange={(e) => setBulkReason(e.target.value)}
-                                    disabled={!selectedMiqaatId || !currentSessionDetails || isSaving}
-                                />
-                            </div>
-                            <Button 
-                              onClick={handleBulkMemberSearch} 
-                              disabled={!selectedMiqaatId || !currentSessionDetails || !bulkMemberIdsInput || isSearchingBulkMembers || isSaving}
-                              className="font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
-                            >
-                                {isSearchingBulkMembers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserSearch className="mr-2 h-4 w-4" />}
-                                Find Members
-                            </Button>
-                            {bulkMarkingError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><ShadAlertTitle>Error</ShadAlertTitle><ShadAlertDesc>{bulkMarkingError}</ShadAlertDesc></Alert>}
-                            
-                            {bulkFoundMembers.length > 0 && (
-                                <div className="space-y-4 pt-4">
-                                    <h4 className="font-semibold">Found {bulkFoundMembers.length} Members</h4>
-                                     {miqaatHasAttendanceRequirements && (
-                                        <div className="p-3 border-b bg-muted/50 rounded-t-lg">
-                                            <h5 className="font-semibold mb-2">Apply to All ({bulkFoundMembers.length} members)</h5>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                 {currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
-                                                    <div className="flex items-center space-x-2">
-                                                        <Label className="font-normal text-sm">Feta/Paghri</Label>
-                                                        <RadioGroup onValueChange={(val) => handleApplyAllCompliance('fetaPaghri', val)} className="flex gap-2" id="all-feta-group">
-                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id="all-feta-yes" /><Label htmlFor="all-feta-yes" className="text-xs">Y</Label></div>
-                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="no" id="all-feta-no" /><Label htmlFor="all-feta-no" className="text-xs">N</Label></div>
-                                                        </RadioGroup>
-                                                    </div>
-                                                )}
-                                                 {currentMiqaatDetails?.attendanceRequirements?.koti && (
-                                                    <div className="flex items-center space-x-2">
-                                                        <Label className="font-normal text-sm">Koti</Label>
-                                                        <RadioGroup onValueChange={(val) => handleApplyAllCompliance('koti', val)} className="flex gap-2" id="all-koti-group">
-                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id="all-koti-yes" /><Label htmlFor="all-koti-yes" className="text-xs">Y</Label></div>
-                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="no" id="all-koti-no" /><Label htmlFor="all-koti-no" className="text-xs">N</Label></div>
-                                                        </RadioGroup>
-                                                    </div>
-                                                )}
-                                                 {currentMiqaatDetails?.attendanceRequirements?.uniform && (
-                                                    <div className="flex items-center space-x-2">
-                                                        <Label className="font-normal text-sm">Uniform</Label>
-                                                        <RadioGroup onValueChange={(val) => handleApplyAllCompliance('uniform', val)} className="flex gap-2" id="all-uniform-group">
-                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id="all-uniform-yes" /><Label htmlFor="all-uniform-yes" className="text-xs">P</Label></div>
-                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id="all-uniform-no" /><Label htmlFor="all-uniform-no" className="text-xs">I</Label></div>
-                                                        </RadioGroup>
-                                                    </div>
-                                                )}
-                                                 {currentMiqaatDetails?.attendanceRequirements?.shoes && (
-                                                    <div className="flex items-center space-x-2">
-                                                        <Label className="font-normal text-sm">Shoes</Label>
-                                                        <RadioGroup onValueChange={(val) => handleApplyAllCompliance('shoes', val)} className="flex gap-2" id="all-shoes-group">
-                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id="all-shoes-yes" /><Label htmlFor="all-shoes-yes" className="text-xs">P</Label></div>
-                                                            <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id="all-shoes-no" /><Label htmlFor="all-shoes-no" className="text-xs">I</Label></div>
-                                                        </RadioGroup>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                     <div className="max-h-80 overflow-y-auto rounded-md border p-4 space-y-4">
-                                       {bulkFoundMembers.map(member => (
-                                        <div key={member.itsId} className="p-3 border rounded-lg space-y-3">
-                                            <p className="font-medium">{member.name} ({member.itsId})</p>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                              {currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
-                                                <div className="flex items-center space-x-2">
-                                                 <Label className="font-normal text-sm">Feta/Paghri</Label>
-                                                  <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'fetaPaghri', val)} value={bulkComplianceState.get(member.itsId)?.fetaPaghri || 'no'} className="flex gap-2">
-                                                    <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id={`feta-yes-${member.itsId}`} /><Label htmlFor={`feta-yes-${member.itsId}`} className="text-xs">Y</Label></div>
-                                                    <div className="flex items-center space-x-1"><RadioGroupItem value="no" id={`feta-no-${member.itsId}`} /><Label htmlFor={`feta-no-${member.itsId}`} className="text-xs">N</Label></div>
-                                                  </RadioGroup>
-                                                </div>
-                                              )}
-                                              {currentMiqaatDetails?.attendanceRequirements?.koti && (
-                                                <div className="flex items-center space-x-2">
-                                                 <Label className="font-normal text-sm">Koti</Label>
-                                                  <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'koti', val)} value={bulkComplianceState.get(member.itsId)?.koti || 'no'} className="flex gap-2">
-                                                    <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id={`koti-yes-${member.itsId}`} /><Label htmlFor={`koti-yes-${member.itsId}`} className="text-xs">Y</Label></div>
-                                                    <div className="flex items-center space-x-1"><RadioGroupItem value="no" id={`koti-no-${member.itsId}`} /><Label htmlFor={`koti-no-${member.itsId}`} className="text-xs">N</Label></div>
-                                                  </RadioGroup>
-                                                </div>
-                                              )}
-                                               {currentMiqaatDetails?.attendanceRequirements?.uniform && (
-                                                 <div className="flex items-center space-x-2">
-                                                  <Label className="font-normal text-sm">Uniform</Label>
-                                                  <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'uniform', val)} value={bulkComplianceState.get(member.itsId)?.uniform || 'improper'} className="flex gap-2">
-                                                     <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id={`uniform-yes-${member.itsId}`} /><Label htmlFor={`uniform-yes-${member.itsId}`} className="text-xs">P</Label></div>
-                                                     <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id={`uniform-no-${member.itsId}`} /><Label htmlFor={`uniform-no-${member.itsId}`} className="text-xs">I</Label></div>
-                                                  </RadioGroup>
-                                                 </div>
-                                              )}
-                                               {currentMiqaatDetails?.attendanceRequirements?.shoes && (
-                                                 <div className="flex items-center space-x-2">
-                                                  <Label className="font-normal text-sm">Shoes</Label>
-                                                  <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'shoes', val)} value={bulkComplianceState.get(member.itsId)?.shoes || 'improper'} className="flex gap-2">
-                                                     <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id={`shoes-yes-${member.itsId}`} /><Label htmlFor={`shoes-yes-${member.itsId}`} className="text-xs">P</Label></div>
-                                                     <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id={`shoes-no-${member.itsId}`} /><Label htmlFor={`shoes-no-${member.itsId}`} className="text-xs">I</Label></div>
-                                                  </RadioGroup>
-                                                 </div>
-                                              )}
-                                            </div>
-                                        </div>
-                                       ))}
-                                     </div>
-                                    <Button 
-                                      onClick={() => handleBulkMarkAttendance()} 
-                                      disabled={isSaving}
-                                      className="font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
-                                    >
-                                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
-                                        Mark All ({bulkFoundMembers.length}) as Present
-                                    </Button>
-                                </div>
-                            )}
-                        </CardContent>
-                    </AccordionContent>
-                </Card>
-            </AccordionItem>
-            
-            <AccordionItem value="bulk-safar">
-                <Card className="glass-surface border-white/20 shadow-md mt-4">
-                    <AccordionTrigger className="w-full p-0">
-                        <CardHeader className="flex flex-row justify-between items-center w-full p-6">
-                            <div>
-                                <CardTitle className="flex items-center"><UserX className="mr-2 h-6 w-6 text-primary" />Bulk Safar Marking</CardTitle>
-                                <CardDescription>Mark multiple members as Safar (excused absence) by BGK ID.</CardDescription>
-                            </div>
-                        </CardHeader>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                        <CardContent className="space-y-4 pt-0">
-                            <div className="space-y-2">
-                                <Label htmlFor="bulk-safar-bgk-ids">BGK IDs</Label>
-                                <Textarea
-                                    id="bulk-safar-bgk-ids"
-                                    placeholder="e.g. BGK012, BGK045, BGK089"
-                                    value={bulkSafarBgkInput}
-                                    onChange={(e) => setBulkSafarBgkInput(e.target.value)}
-                                    disabled={!selectedMiqaatId || isSaving || isBulkSafarSubmitting}
-                                    rows={4}
-                                    className="font-mono text-sm"
-                                />
-                                <span className="text-[10px] text-muted-foreground block mt-1">Enter BGK IDs separated by commas, spaces, or newlines.</span>
-                            </div>
-                            <Button 
-                                onClick={handleBulkSafarBgkSubmit} 
-                                disabled={!selectedMiqaatId || !bulkSafarBgkInput.trim() || isBulkSafarSubmitting || isSaving}
-                                className="font-semibold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-500/90 hover:to-amber-600/90 text-white shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
-                            >
-                                {isBulkSafarSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
-                                Mark as Safar
-                            </Button>
-                        </CardContent>
-                    </AccordionContent>
-                </Card>
-            </AccordionItem>
-        </Accordion>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Button
+            onClick={() => setIsBulkAttendanceOpen(true)}
+            disabled={!selectedMiqaatId || !currentSessionDetails}
+            variant="outline"
+            className="w-full h-12 glass-surface border-white/20 hover:bg-primary/5 text-foreground font-semibold flex items-center justify-center gap-2 rounded-xl shadow-md transition-all duration-250 hover:-translate-y-[1px] active:translate-y-0"
+          >
+            <Users2 className="h-5 w-5 text-primary" />
+            Bulk Attendance
+          </Button>
+
+          <Button
+            onClick={() => setIsBulkSafarOpen(true)}
+            disabled={!selectedMiqaatId}
+            variant="outline"
+            className="w-full h-12 glass-surface border-white/20 hover:bg-primary/5 text-foreground font-semibold flex items-center justify-center gap-2 rounded-xl shadow-md transition-all duration-250 hover:-translate-y-[1px] active:translate-y-0"
+          >
+            <UserX className="h-5 w-5 text-amber-500" />
+            Bulk Safar Marking
+          </Button>
+        </div>
       )}
+
+      {/* Bulk Attendance Dialog */}
+      <Dialog open={isBulkAttendanceOpen} onOpenChange={setIsBulkAttendanceOpen}>
+        <DialogContent className="max-w-3xl bg-background border-white/10">
+          <DialogHeader>
+            <DialogTitle className="flex items-center"><Users2 className="mr-2 h-5 w-5 text-primary" />Bulk Attendance Marking</DialogTitle>
+            <DialogDescription>Mark attendance for multiple members at once for session: {currentSessionDetails?.name || currentSelectedMiqaatName}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+            <div className="space-y-2">
+                <Label htmlFor="bulk-member-ids">Member IDs</Label>
+                <Textarea
+                    id="bulk-member-ids"
+                    placeholder="52000001, 52000002&#10;52000003"
+                    value={bulkMemberIdsInput}
+                    onChange={(e) => setBulkMemberIdsInput(e.target.value)}
+                    disabled={!selectedMiqaatId || !currentSessionDetails || isSearchingBulkMembers || isSaving}
+                    rows={4}
+                />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="bulk-reason">Note / Reason (Optional)</Label>
+                <Input
+                    id="bulk-reason"
+                    placeholder="e.g. Late arrival approved, bulk entry, etc."
+                    value={bulkReason}
+                    onChange={(e) => setBulkReason(e.target.value)}
+                    disabled={!selectedMiqaatId || !currentSessionDetails || isSaving}
+                />
+            </div>
+            <Button 
+              onClick={handleBulkMemberSearch} 
+              disabled={!selectedMiqaatId || !currentSessionDetails || !bulkMemberIdsInput || isSearchingBulkMembers || isSaving}
+              className="font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
+            >
+                {isSearchingBulkMembers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserSearch className="mr-2 h-4 w-4" />}
+                Find Members
+            </Button>
+            {bulkMarkingError && <Alert variant="destructive"><AlertCircle className="h-4 w-4" /><ShadAlertTitle>Error</ShadAlertTitle><ShadAlertDesc>{bulkMarkingError}</ShadAlertDesc></Alert>}
+            
+            {bulkFoundMembers.length > 0 && (
+                <div className="space-y-4 pt-4">
+                    <h4 className="font-semibold">Found {bulkFoundMembers.length} Members</h4>
+                     {miqaatHasAttendanceRequirements && (
+                        <div className="p-3 border-b bg-muted/50 rounded-t-lg">
+                            <h5 className="font-semibold mb-2">Apply to All ({bulkFoundMembers.length} members)</h5>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                 {currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
+                                    <div className="flex items-center space-x-2">
+                                        <Label className="font-normal text-sm">Feta/Paghri</Label>
+                                        <RadioGroup onValueChange={(val) => handleApplyAllCompliance('fetaPaghri', val)} className="flex gap-2" id="all-feta-group">
+                                            <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id="all-feta-yes" /><Label htmlFor="all-feta-yes" className="text-xs">Y</Label></div>
+                                            <div className="flex items-center space-x-1"><RadioGroupItem value="no" id="all-feta-no" /><Label htmlFor="all-feta-no" className="text-xs">N</Label></div>
+                                        </RadioGroup>
+                                    </div>
+                                )}
+                                 {currentMiqaatDetails?.attendanceRequirements?.koti && (
+                                    <div className="flex items-center space-x-2">
+                                        <Label className="font-normal text-sm">Koti</Label>
+                                        <RadioGroup onValueChange={(val) => handleApplyAllCompliance('koti', val)} className="flex gap-2" id="all-koti-group">
+                                            <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id="all-koti-yes" /><Label htmlFor="all-koti-yes" className="text-xs">Y</Label></div>
+                                            <div className="flex items-center space-x-1"><RadioGroupItem value="no" id="all-koti-no" /><Label htmlFor="all-koti-no" className="text-xs">N</Label></div>
+                                        </RadioGroup>
+                                    </div>
+                                )}
+                                 {currentMiqaatDetails?.attendanceRequirements?.uniform && (
+                                    <div className="flex items-center space-x-2">
+                                        <Label className="font-normal text-sm">Uniform</Label>
+                                        <RadioGroup onValueChange={(val) => handleApplyAllCompliance('uniform', val)} className="flex gap-2" id="all-uniform-group">
+                                            <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id="all-uniform-yes" /><Label htmlFor="all-uniform-yes" className="text-xs">P</Label></div>
+                                            <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id="all-uniform-no" /><Label htmlFor="all-uniform-no" className="text-xs">I</Label></div>
+                                        </RadioGroup>
+                                    </div>
+                                )}
+                                 {currentMiqaatDetails?.attendanceRequirements?.shoes && (
+                                    <div className="flex items-center space-x-2">
+                                        <Label className="font-normal text-sm">Shoes</Label>
+                                        <RadioGroup onValueChange={(val) => handleApplyAllCompliance('shoes', val)} className="flex gap-2" id="all-shoes-group">
+                                            <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id="all-shoes-yes" /><Label htmlFor="all-shoes-yes" className="text-xs">P</Label></div>
+                                            <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id="all-shoes-no" /><Label htmlFor="all-shoes-no" className="text-xs">I</Label></div>
+                                        </RadioGroup>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                     )}
+                     <div className="max-h-80 overflow-y-auto rounded-md border p-4 space-y-4">
+                       {bulkFoundMembers.map(member => (
+                        <div key={member.itsId} className="p-3 border rounded-lg space-y-3">
+                            <p className="font-medium">{member.name} ({member.itsId})</p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              {currentMiqaatDetails?.attendanceRequirements?.fetaPaghri && (
+                                <div className="flex items-center space-x-2">
+                                 <Label className="font-normal text-sm">Feta/Paghri</Label>
+                                  <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'fetaPaghri', val)} value={bulkComplianceState.get(member.itsId)?.fetaPaghri || 'no'} className="flex gap-2">
+                                    <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id={`feta-yes-${member.itsId}`} /><Label htmlFor={`feta-yes-${member.itsId}`} className="text-xs">Y</Label></div>
+                                    <div className="flex items-center space-x-1"><RadioGroupItem value="no" id={`feta-no-${member.itsId}`} /><Label htmlFor={`feta-no-${member.itsId}`} className="text-xs">N</Label></div>
+                                  </RadioGroup>
+                                </div>
+                              )}
+                              {currentMiqaatDetails?.attendanceRequirements?.koti && (
+                                <div className="flex items-center space-x-2">
+                                 <Label className="font-normal text-sm">Koti</Label>
+                                  <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'koti', val)} value={bulkComplianceState.get(member.itsId)?.koti || 'no'} className="flex gap-2">
+                                    <div className="flex items-center space-x-1"><RadioGroupItem value="yes" id={`koti-yes-${member.itsId}`} /><Label htmlFor={`koti-yes-${member.itsId}`} className="text-xs">Y</Label></div>
+                                    <div className="flex items-center space-x-1"><RadioGroupItem value="no" id={`koti-no-${member.itsId}`} /><Label htmlFor={`koti-no-${member.itsId}`} className="text-xs">N</Label></div>
+                                  </RadioGroup>
+                                </div>
+                              )}
+                               {currentMiqaatDetails?.attendanceRequirements?.uniform && (
+                                 <div className="flex items-center space-x-2">
+                                  <Label className="font-normal text-sm">Uniform</Label>
+                                  <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'uniform', val)} value={bulkComplianceState.get(member.itsId)?.uniform || 'improper'} className="flex gap-2">
+                                     <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id={`uniform-yes-${member.itsId}`} /><Label htmlFor={`uniform-yes-${member.itsId}`} className="text-xs">P</Label></div>
+                                     <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id={`uniform-no-${member.itsId}`} /><Label htmlFor={`uniform-no-${member.itsId}`} className="text-xs">I</Label></div>
+                                  </RadioGroup>
+                                 </div>
+                              )}
+                               {currentMiqaatDetails?.attendanceRequirements?.shoes && (
+                                 <div className="flex items-center space-x-2">
+                                  <Label className="font-normal text-sm">Shoes</Label>
+                                  <RadioGroup onValueChange={(val) => handleBulkComplianceChange(member.itsId, 'shoes', val)} value={bulkComplianceState.get(member.itsId)?.shoes || 'improper'} className="flex gap-2">
+                                     <div className="flex items-center space-x-1"><RadioGroupItem value="proper" id={`shoes-yes-${member.itsId}`} /><Label htmlFor={`shoes-yes-${member.itsId}`} className="text-xs">P</Label></div>
+                                     <div className="flex items-center space-x-1"><RadioGroupItem value="improper" id={`shoes-no-${member.itsId}`} /><Label htmlFor={`shoes-no-${member.itsId}`} className="text-xs">I</Label></div>
+                                  </RadioGroup>
+                                 </div>
+                              )}
+                            </div>
+                        </div>
+                       ))}
+                     </div>
+                    <Button 
+                      onClick={() => handleBulkMarkAttendance()} 
+                      disabled={isSaving}
+                      className="font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
+                    >
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+                        Mark All ({bulkFoundMembers.length}) as Present
+                    </Button>
+                </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Safar Dialog */}
+      <Dialog open={isBulkSafarOpen} onOpenChange={setIsBulkSafarOpen}>
+        <DialogContent className="max-w-xl bg-background border-white/10">
+          <DialogHeader>
+            <DialogTitle className="flex items-center"><UserX className="mr-2 h-5 w-5 text-amber-500" />Bulk Safar Marking</DialogTitle>
+            <DialogDescription>Mark multiple members as Safar (excused absence) by BGK ID.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+                <Label htmlFor="bulk-safar-bgk-ids">BGK IDs</Label>
+                <Textarea
+                    id="bulk-safar-bgk-ids"
+                    placeholder="e.g. BGK012, BGK045, BGK089"
+                    value={bulkSafarBgkInput}
+                    onChange={(e) => setBulkSafarBgkInput(e.target.value)}
+                    disabled={!selectedMiqaatId || isSaving || isBulkSafarSubmitting}
+                    rows={4}
+                    className="font-mono text-sm"
+                />
+                <span className="text-[10px] text-muted-foreground block mt-1">Enter BGK IDs separated by commas, spaces, or newlines.</span>
+            </div>
+            <Button 
+                onClick={handleBulkSafarBgkSubmit} 
+                disabled={!selectedMiqaatId || !bulkSafarBgkInput.trim() || isBulkSafarSubmitting || isSaving}
+                className="font-semibold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-500/90 hover:to-amber-600/90 text-white shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
+            >
+                {isBulkSafarSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
+                Mark as Safar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       
       {failedSyncs.length > 0 && (
           <Card className="glass-surface border-destructive/30 shadow-md bg-destructive/5">

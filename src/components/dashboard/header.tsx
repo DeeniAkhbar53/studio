@@ -73,6 +73,7 @@ export function Header() {
   const router = useRouter();
   const { setTheme, theme } = useTheme();
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [unrespondedForms, setUnrespondedForms] = useState<FormType[]>([]);
   const [colorTheme, setColorTheme] = useState('blue');
   const [showThemeNewBadge, setShowThemeNewBadge] = useState(true);
@@ -299,7 +300,7 @@ export function Header() {
   return (
     <header className="glass-header sticky top-0 z-30 flex h-16 items-center gap-4 border-b px-4 md:px-6">
       <div className="md:hidden">
-        <Sheet>
+        <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
           <SheetTrigger asChild>
             <Button variant="outline" size="icon" className="bg-background/40">
               <Menu className="h-5 w-5" />
@@ -331,7 +332,7 @@ export function Header() {
               } as React.CSSProperties} 
               className="flex-grow overflow-y-auto"
             >
-              <SidebarNav />
+              <SidebarNav onItemClick={() => setIsMobileOpen(false)} />
             </div>
             <div className="mt-auto border-t border-border/70 p-4">
               <Accordion type="single" collapsible>
