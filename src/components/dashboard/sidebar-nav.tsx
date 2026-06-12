@@ -2,10 +2,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { UserDesignation, UserRole } from "@/types";
-import { Home, User, CalendarDays, Building, BarChart3, UserCheck, Bell, Settings, Users as UsersIcon, FileText, ScrollText, BookOpen, Shield, ChevronDown } from "lucide-react";
+import { Home, User, CalendarDays, Building, BarChart3, UserCheck, Bell, Settings, Users as UsersIcon, FileText, ScrollText, BookOpen, Shield, ChevronDown, UserX } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -21,6 +21,7 @@ interface NavSubItem {
   requiresCaptain?: boolean;
   isDuaPage?: boolean;
   featureFlag?: 'isDuaPageEnabled' | 'isFormsEnabled';
+  isChildOf?: string;
 }
 
 interface NavItem {
@@ -41,6 +42,8 @@ export const allNavItems: NavItem[] = [
       title: "Attendance",
       subpages: [
         { href: "/dashboard/mark-attendance", label: "Mark Attendance", icon: UserCheck, allowedRoles: ['admin', 'superadmin', 'attendance-marker'] },
+        { href: "/dashboard/mark-attendance/bulk-safar", label: "Bulk Safar", icon: UserX, allowedRoles: ['admin', 'superadmin', 'attendance-marker'], isChildOf: "/dashboard/mark-attendance" },
+        { href: "/dashboard/mark-attendance/bulk-attendance", label: "Bulk Attendance", icon: UsersIcon, allowedRoles: ['admin', 'superadmin', 'attendance-marker'], isChildOf: "/dashboard/mark-attendance" },
         { href: "/dashboard/miqaat-management", label: "Miqaats", icon: CalendarDays, allowedRoles: ['admin', 'superadmin', 'attendance-marker'] },
         { href: "/dashboard/dua", label: "Dua", icon: BookOpen, isDuaPage: true, featureFlag: 'isDuaPageEnabled' }
       ]
@@ -98,6 +101,7 @@ interface SidebarNavProps {
 
 export function SidebarNav({ onItemClick }: SidebarNavProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [currentUserDesignation, setCurrentUserDesignation] = useState<UserDesignation | null>(null);
   const [userPageRights, setUserPageRights] = useState<string[]>([]);
@@ -105,6 +109,7 @@ export function SidebarNav({ onItemClick }: SidebarNavProps) {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
   const [featureFlags, setFeatureFlags] = useState({ isDuaPageEnabled: true, isFormsEnabled: true });
+  const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>({});
   
   const TEAM_LEAD_DESIGNATIONS: UserDesignation[] = ["Captain", "Vice Captain", "Group Leader", "Asst.Grp Leader", "Major"];
   const TARGET_MOHALLAH_ID = "ZMGsLMWcFQEM97jWD03x";
@@ -170,12 +175,50 @@ export function SidebarNav({ onItemClick }: SidebarNavProps) {
         window.removeEventListener('featureFlagsUpdated', loadInitialData);
     };
   }, []);
-  
-  const getIsActive = (href: string, currentPath: string) => {
-    if (href === "/dashboard") {
-      return currentPath === href;
+
+  useEffect(() => {
+    if (!isMounted) return;
+    const initialExpanded = { ...expandedParents };
+    let changed = false;
+    
+    allNavItems.forEach(category => {
+      category.subpages.forEach(subpage => {
+        if (subpage.isChildOf && getIsActive(subpage.href)) {
+          if (!initialExpanded[subpage.isChildOf]) {
+            initialExpanded[subpage.isChildOf] = true;
+            changed = true;
+          }
+        }
+        if (!subpage.isChildOf && getIsActive(subpage.href)) {
+          const hasChildren = category.subpages.some(child => child.isChildOf === subpage.href);
+          if (hasChildren && !initialExpanded[subpage.href]) {
+            initialExpanded[subpage.href] = true;
+            changed = true;
+          }
+        }
+      });
+    });
+    
+    if (changed) {
+      setExpandedParents(initialExpanded);
     }
-    return currentPath.startsWith(href);
+  }, [pathname, searchParams, isMounted]);
+  
+  const getIsActive = (href: string) => {
+    const [hrefPath, hrefQuery] = href.split('?');
+    if (pathname !== hrefPath) return false;
+    
+    if (hrefQuery) {
+      const params = new URLSearchParams(hrefQuery);
+      for (const [key, value] of params.entries()) {
+        if (searchParams.get(key) !== value) return false;
+      }
+      return true;
+    }
+    
+    if (!hrefQuery && searchParams.get('open')) return false;
+    
+    return true;
   };
   
   const hasAccess = useCallback((item: NavSubItem) => {
@@ -230,56 +273,145 @@ export function SidebarNav({ onItemClick }: SidebarNavProps) {
             </h4>
             <ul className="flex flex-col gap-0.5">
               {visibleSubpages.map((subpage) => {
-                const isActive = getIsActive(subpage.href, pathname);
+                if (subpage.isChildOf) return null;
+
+                const isActive = getIsActive(subpage.href);
                 const Icon = subpage.icon;
                 const badgeCount = subpage.href === "/dashboard/notifications" ? unreadNotificationCount : 0;
                 
+                const children = visibleSubpages.filter(child => child.isChildOf === subpage.href);
+                const hasChildren = children.length > 0;
+                const isExpanded = !!expandedParents[subpage.href];
+
                 return (
-                  <li key={subpage.href}>
-                    <Link
-                      href={subpage.href}
-                      onClick={() => onItemClick?.()}
-                      className={cn(
-                        "group flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md border-r-2 transition-all duration-150",
-                        isActive
-                          ? "rounded-r-none"
-                          : "border-transparent"
-                      )}
+                  <li key={subpage.href} className="space-y-0.5">
+                    <div className="flex items-center w-full rounded-md transition-all duration-150"
                       style={isActive ? {
                         backgroundColor: 'hsl(var(--sidebar-primary) / 0.14)',
-                        color: 'hsl(var(--sidebar-primary))',
-                        borderRightColor: 'hsl(var(--sidebar-primary))',
-                      } : {
-                        color: 'hsl(var(--sidebar-foreground) / 0.78)',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          (e.currentTarget as HTMLElement).style.backgroundColor = 'hsl(var(--sidebar-accent))';
-                          (e.currentTarget as HTMLElement).style.color = 'hsl(var(--sidebar-accent-foreground))';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          (e.currentTarget as HTMLElement).style.backgroundColor = '';
-                          (e.currentTarget as HTMLElement).style.color = 'hsl(var(--sidebar-foreground) / 0.80)';
-                        }
-                      }}
+                      } : undefined}
                     >
-                      <Icon
-                        className="h-4 w-4 shrink-0 transition-colors"
-                        style={{
-                          color: isActive
-                            ? 'hsl(var(--sidebar-primary))'
-                            : 'hsl(var(--sidebar-foreground) / 0.50)',
+                      <Link
+                        href={subpage.href}
+                        onClick={() => onItemClick?.()}
+                        className={cn(
+                          "group flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md border-r-2 transition-all duration-150 flex-grow",
+                          isActive
+                            ? "rounded-r-none"
+                            : "border-transparent"
+                        )}
+                        style={isActive ? {
+                          color: 'hsl(var(--sidebar-primary))',
+                          borderRightColor: 'hsl(var(--sidebar-primary))',
+                        } : {
+                          color: 'hsl(var(--sidebar-foreground) / 0.78)',
                         }}
-                      />
-                      <span className="truncate flex-1">{subpage.label}</span>
-                      {badgeCount > 0 && (
-                        <span className="ml-auto min-w-[18px] h-5 flex items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] text-destructive-foreground font-bold">
-                          {badgeCount > 9 ? '9+' : badgeCount}
-                        </span>
+                        onMouseEnter={(e) => {
+                          if (!isActive) {
+                            (e.currentTarget as HTMLElement).style.backgroundColor = 'hsl(var(--sidebar-accent))';
+                            (e.currentTarget as HTMLElement).style.color = 'hsl(var(--sidebar-accent-foreground))';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isActive) {
+                            (e.currentTarget as HTMLElement).style.backgroundColor = '';
+                            (e.currentTarget as HTMLElement).style.color = 'hsl(var(--sidebar-foreground) / 0.80)';
+                          }
+                        }}
+                      >
+                        <Icon
+                          className="shrink-0 transition-colors h-4 w-4"
+                          style={{
+                            color: isActive
+                              ? 'hsl(var(--sidebar-primary))'
+                              : 'hsl(var(--sidebar-foreground) / 0.50)',
+                          }}
+                        />
+                        <span className="truncate flex-1">{subpage.label}</span>
+                        {badgeCount > 0 && (
+                          <span className="ml-auto min-w-[18px] h-5 flex items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] text-destructive-foreground font-bold">
+                            {badgeCount > 9 ? '9+' : badgeCount}
+                          </span>
+                        )}
+                      </Link>
+
+                      {hasChildren && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setExpandedParents(prev => ({
+                              ...prev,
+                              [subpage.href]: !prev[subpage.href]
+                            }));
+                          }}
+                          className={cn(
+                            "p-2 mr-1 text-muted-foreground hover:text-foreground rounded-md transition-colors hover:bg-sidebar-accent/50",
+                            isActive && "text-primary hover:text-primary hover:bg-transparent"
+                          )}
+                          aria-label={isExpanded ? "Collapse menu" : "Expand menu"}
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "h-3.5 w-3.5 transition-transform duration-200",
+                              isExpanded && "rotate-180"
+                            )}
+                          />
+                        </button>
                       )}
-                    </Link>
+                    </div>
+
+                    {hasChildren && isExpanded && (
+                      <ul className="flex flex-col gap-0.5 pl-4 border-l border-sidebar-accent/50 ml-5 mt-0.5">
+                        {children.map((child) => {
+                          const isChildActive = getIsActive(child.href);
+                          const ChildIcon = child.icon;
+
+                          return (
+                            <li key={child.href}>
+                              <Link
+                                href={child.href}
+                                onClick={() => onItemClick?.()}
+                                className={cn(
+                                  "group flex items-center gap-2 px-3 py-1.5 text-[12px] font-medium rounded-md border-r-2 transition-all duration-150 opacity-90",
+                                  isChildActive
+                                    ? "rounded-r-none"
+                                    : "border-transparent"
+                                )}
+                                style={isChildActive ? {
+                                  backgroundColor: 'hsl(var(--sidebar-primary) / 0.10)',
+                                  color: 'hsl(var(--sidebar-primary))',
+                                  borderRightColor: 'hsl(var(--sidebar-primary))',
+                                } : {
+                                  color: 'hsl(var(--sidebar-foreground) / 0.70)',
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isChildActive) {
+                                    (e.currentTarget as HTMLElement).style.backgroundColor = 'hsl(var(--sidebar-accent)/0.5)';
+                                    (e.currentTarget as HTMLElement).style.color = 'hsl(var(--sidebar-accent-foreground))';
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isChildActive) {
+                                    (e.currentTarget as HTMLElement).style.backgroundColor = '';
+                                    (e.currentTarget as HTMLElement).style.color = 'hsl(var(--sidebar-foreground) / 0.70)';
+                                  }
+                                }}
+                              >
+                                <ChildIcon
+                                  className="shrink-0 transition-colors h-3.5 w-3.5"
+                                  style={{
+                                    color: isChildActive
+                                      ? 'hsl(var(--sidebar-primary))'
+                                      : 'hsl(var(--sidebar-foreground) / 0.40)',
+                                  }}
+                                />
+                                <span className="truncate flex-1">{child.label}</span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
                   </li>
                 );
               })}
