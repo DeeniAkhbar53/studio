@@ -38,6 +38,7 @@ export default function SettingsPage() {
   const [defaultTheme, setDefaultTheme] = useState("blue");
   const [googleSheetsAppsScriptUrl, setGoogleSheetsAppsScriptUrl] = useState("");
   const [copiedScript, setCopiedScript] = useState(false);
+  const [activeYear, setActiveYear] = useState("1448H");
 
   useEffect(() => {
     const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') as UserRole : null;
@@ -94,10 +95,12 @@ export default function SettingsPage() {
                 setInactivityTimeout(data.inactivityTimeout || 10);
                 setDefaultTheme(data.defaultTheme || 'blue');
                 setGoogleSheetsAppsScriptUrl(data.googleSheetsAppsScriptUrl || "");
+                setActiveYear(data.activeYear || "1448H");
             } else {
                 setInactivityTimeout(10);
                 setDefaultTheme('blue');
                 setGoogleSheetsAppsScriptUrl("");
+                setActiveYear("1448H");
             }
         }));
 
@@ -137,6 +140,23 @@ export default function SettingsPage() {
         toast({ title: "Setting Updated", description: `The ${settingName.replace(/([A-Z])/g, ' $1').toLowerCase()} setting has been saved.` });
     } catch (error) {
         toast({ title: "Update Failed", description: "Could not save the setting.", variant: "destructive" });
+    }
+  };
+
+  const handleActiveYearUpdate = async () => {
+    if (!activeYear || activeYear.trim() === "") {
+        toast({ title: "Invalid Input", description: "Active year cannot be empty.", variant: "destructive" });
+        return;
+    }
+    try {
+        await updateSetting('activeYear', activeYear.trim());
+        document.cookie = `active_year=${activeYear.trim()}; path=/; max-age=31536000; SameSite=Lax`;
+        toast({ title: "Active Year Updated", description: `The active year has been changed to ${activeYear}. Reloading page...` });
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+    } catch (error) {
+        toast({ title: "Update Failed", description: "Could not save the active year.", variant: "destructive" });
     }
   };
 
@@ -208,6 +228,23 @@ export default function SettingsPage() {
                                     <Button onClick={() => handleSettingUpdate('defaultTheme', defaultTheme)}>Save Theme</Button>
                                 </div>
                                 <p className="text-xs text-muted-foreground">Set the initial color theme for all new users upon their first login.</p>
+                            </div>
+                            
+                            <Separator />
+                            
+                            <div className="space-y-2">
+                                <Label htmlFor="active-year" className="text-sm font-medium">Active Hijri Year</Label>
+                                <div className="flex items-center gap-4">
+                                    <Input
+                                        id="active-year"
+                                        value={activeYear}
+                                        onChange={(e) => setActiveYear(e.target.value)}
+                                        placeholder="e.g. 1448H"
+                                        className="w-[180px]"
+                                    />
+                                    <Button onClick={handleActiveYearUpdate}>Save Active Year</Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">Change the active year of the application. This segments operational data (Miqaats, Attendance, Forms, Logs, Notifications) by year. Global data like Mohallahs and Users remains shared.</p>
                             </div>
                         </div>
                     </AccordionContent>

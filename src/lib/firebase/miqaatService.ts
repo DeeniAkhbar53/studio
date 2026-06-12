@@ -1,4 +1,4 @@
-import { db, ACTIVE_YEAR, getYearPath } from './firebase';
+import { db, getActiveYear, getYearPath } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion, onSnapshot, Unsubscribe, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
 import type { Miqaat, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem, MiqaatSession } from '@/types';
 import { addAuditLog } from './auditLogService';
@@ -66,7 +66,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
   try {
     const firestorePayload: { [key: string]: any } = {
       ...miqaatData,
-      year: ACTIVE_YEAR, // Add active year
+      year: getActiveYear(), // Add active year
       attendanceType: miqaatData.attendanceType || null,
       startTime: new Date(miqaatData.startTime).toISOString(),
       endTime: new Date(miqaatData.endTime).toISOString(),

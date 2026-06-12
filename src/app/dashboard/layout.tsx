@@ -37,6 +37,9 @@ export default function DashboardLayout({
         if (settings.inactivityTimeout) {
             setInactivityTimeout(Number(settings.inactivityTimeout) * 60 * 1000);
         }
+        if (settings.activeYear) {
+            document.cookie = `active_year=${settings.activeYear}; path=/; max-age=31536000; SameSite=Lax`;
+        }
     });
   }, []);
 

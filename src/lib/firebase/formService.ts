@@ -1,5 +1,5 @@
 
-import { db, ACTIVE_YEAR, getYearPath } from './firebase';
+import { db, getActiveYear, getYearPath } from './firebase';
 import {
   collection,
   addDoc,
@@ -36,7 +36,7 @@ export const addForm = async (formData: FormForAdd): Promise<Form> => {
   try {
     const docRef = await addDoc(formsCollectionRef, {
       ...formData,
-      year: ACTIVE_YEAR,
+      year: getActiveYear(),
       responseCount: 0,
       createdAt: serverTimestamp(),
       status: 'open', // Forms are open by default
@@ -229,7 +229,7 @@ export const addFormResponse = async (formId: string, responseData: FormResponse
             
             transaction.set(newResponseRef, {
                 ...responseData,
-                year: ACTIVE_YEAR,
+                year: getActiveYear(),
                 submittedAt: serverTimestamp()
             });
 
@@ -323,7 +323,7 @@ export const getFormResponseForUser = async (formId: string, userId: string): Pr
 export const getFormResponsesForUser = async (userItsId: string): Promise<FormResponse[]> => {
     try {
         const responsesCollectionGroup = collectionGroup(db, 'responses');
-        const q = query(responsesCollectionGroup, where('submittedBy', '==', userItsId), where('year', '==', ACTIVE_YEAR));
+        const q = query(responsesCollectionGroup, where('submittedBy', '==', userItsId), where('year', '==', getActiveYear()));
         const querySnapshot = await getDocs(q);
         
         const responses: FormResponse[] = [];

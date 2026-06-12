@@ -25,11 +25,26 @@ if (getApps().length === 0) {
 
 const db = getFirestore(app);
 
-export const ACTIVE_YEAR = process.env.NEXT_PUBLIC_ACTIVE_YEAR || "1448H";
+export function getActiveYear(): string {
+  if (typeof window !== 'undefined') {
+    const match = document.cookie.match(/(?:^|; )active_year=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : (process.env.NEXT_PUBLIC_ACTIVE_YEAR || "1448H");
+  } else {
+    try {
+      const { cookies } = require('next/headers');
+      const cookieStore = cookies();
+      const activeYear = cookieStore.get('active_year')?.value;
+      return activeYear || (process.env.NEXT_PUBLIC_ACTIVE_YEAR || "1448H");
+    } catch (e) {
+      return process.env.NEXT_PUBLIC_ACTIVE_YEAR || "1448H";
+    }
+  }
+}
 
 export function getYearPath(subPath: string): string {
   if (subPath.startsWith('years/')) return subPath;
-  return `years/${ACTIVE_YEAR}/${subPath}`;
+  const activeYear = getActiveYear();
+  return `years/${activeYear}/${subPath}`;
 }
 
 // NOTE: We are removing the messaging export from here to avoid server-side execution issues.
