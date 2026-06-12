@@ -84,7 +84,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg">
+      <Card className="glass-surface border-white/20 shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center">
             <Bell className="mr-2 h-6 w-6 text-primary" />
@@ -103,7 +103,7 @@ export default function NotificationsPage() {
           ) : (
             <ul className="space-y-6">
               {notifications.map((notification) => (
-                <li key={notification.id} className={`p-6 border rounded-xl bg-card`}>
+                <li key={notification.id} className="p-6 glass-surface border-white/10 shadow-sm rounded-xl">
                   <h3 className="text-xl font-semibold text-foreground">{notification.title}</h3>
                   <p className="text-sm text-muted-foreground mt-1 mb-3">
                     Posted on: {format(new Date(notification.createdAt), "MMMM d, yyyy 'at' h:mm a")}

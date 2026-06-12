@@ -31,7 +31,7 @@ const MemberCard: React.FC<{ member: User; onMoveMember: (memberId: string, newT
   
   return (
     <>
-      <Card className="p-3 mb-2 flex justify-between items-center bg-card shadow-sm hover:shadow-md transition-shadow duration-200">
+      <Card className="p-3 mb-2 flex justify-between items-center glass-surface border-white/10 shadow-sm hover:bg-white/5 transition-all duration-200">
         <div>
           <p className="font-semibold text-sm">{member.name}</p>
           <p className="text-xs text-muted-foreground">{member.itsId}</p>
@@ -254,7 +254,7 @@ export default function ManageTeamsPage() {
 
   return (
       <div className="space-y-6">
-        <Card className="shadow-lg">
+        <Card className="glass-surface border-white/20 shadow-md">
           <CardHeader>
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
@@ -284,7 +284,7 @@ export default function ManageTeamsPage() {
         </Card>
         
         <Accordion type="single" collapsible className="w-full space-y-4" defaultValue="unassigned">
-            <Card>
+            <Card className="glass-surface border-white/20 shadow-md">
                  <AccordionItem value="unassigned" className="border-b-0">
                     <AccordionTrigger className="p-4 hover:no-underline">
                         <CardTitle className="text-base">Unassigned ({unassignedMembers.length})</CardTitle>
@@ -300,7 +300,7 @@ export default function ManageTeamsPage() {
             </Card>
 
             {teamNames.map(teamName => (
-                 <Card key={teamName}>
+                 <Card key={teamName} className="glass-surface border-white/20 shadow-md">
                     <AccordionItem value={teamName} className="border-b-0">
                         <div className="flex items-center p-4">
                             <AccordionTrigger className="p-0 hover:no-underline flex-grow">

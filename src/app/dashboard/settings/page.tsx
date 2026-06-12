@@ -159,7 +159,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
         <Accordion type="multiple" defaultValue={['item-1', 'item-2', 'item-3']} className="w-full space-y-6">
-            <Card className="shadow-lg">
+            <Card className="glass-surface border-white/20 shadow-md">
                 <AccordionItem value="item-1" className="border-b-0">
                     <AccordionTrigger className="p-0 hover:no-underline">
                         <CardHeader className="flex-grow">
@@ -214,7 +214,7 @@ export default function SettingsPage() {
                 </AccordionItem>
             </Card>
             
-            <Card className="shadow-lg">
+            <Card className="glass-surface border-white/20 shadow-md">
                  <AccordionItem value="item-2" className="border-b-0">
                     <AccordionTrigger className="p-0 hover:no-underline">
                         <CardHeader className="flex-grow">
@@ -240,7 +240,7 @@ export default function SettingsPage() {
                 </AccordionItem>
             </Card>
 
-            <Card className="shadow-lg">
+            <Card className="glass-surface border-white/20 shadow-md">
                  <AccordionItem value="item-3" className="border-b-0">
                     <AccordionTrigger className="p-0 hover:no-underline">
                         <CardHeader className="flex-grow">
@@ -299,7 +299,7 @@ export default function SettingsPage() {
                 </AccordionItem>
             </Card>
 
-            <Card className="shadow-lg">
+            <Card className="glass-surface border-white/20 shadow-md">
                 <AccordionItem value="item-4" className="border-b-0">
                     <AccordionTrigger className="p-0 hover:no-underline">
                         <CardHeader className="flex-grow">
