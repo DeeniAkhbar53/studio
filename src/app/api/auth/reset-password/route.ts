@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, getYearPath } from '@/lib/firebase/firebase';
+import { db } from '@/lib/firebase/firebase';
 import { doc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { hashPassword } from '@/lib/firebase/authService';
 
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     // Hash and update password
     const hashed = await hashPassword(newPassword);
-    const userDocRef = doc(db, getYearPath('mohallahs'), mohallahId, 'members', userId);
+    const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
     await updateDoc(userDocRef, { password: hashed });
 
     // Delete the used token

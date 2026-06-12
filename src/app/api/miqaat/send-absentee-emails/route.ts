@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, getYearPath, ACTIVE_YEAR } from '@/lib/firebase/firebase';
+import { db, getYearPath } from '@/lib/firebase/firebase';
 import { collectionGroup, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { sendEmail, miqaatAbsenceEmailTemplate } from '@/lib/email';
 import { format } from 'date-fns';
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Fetch all members
-    const membersQuery = query(collectionGroup(db, 'members'), where("year", "==", ACTIVE_YEAR));
+    const membersQuery = query(collectionGroup(db, 'members'));
     const membersSnap = await getDocs(membersQuery);
     const allMembers = membersSnap.docs.map(docSnap => {
       const data = docSnap.data();

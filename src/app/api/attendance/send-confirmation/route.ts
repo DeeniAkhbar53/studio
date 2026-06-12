@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, getYearPath, ACTIVE_YEAR } from '@/lib/firebase/firebase';
+import { db, getYearPath } from '@/lib/firebase/firebase';
 import { collectionGroup, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { sendEmail, attendanceConfirmationEmailTemplate } from '@/lib/email';
 import { format } from 'date-fns';
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Fetch user by ITS ID
-    const membersQuery = query(collectionGroup(db, 'members'), where('itsId', '==', userItsId), where('year', '==', ACTIVE_YEAR));
+    const membersQuery = query(collectionGroup(db, 'members'), where('itsId', '==', userItsId));
     const membersSnap = await getDocs(membersQuery);
     if (membersSnap.empty) {
       return NextResponse.json({ error: 'Member not found.' }, { status: 404 });

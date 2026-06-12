@@ -1,11 +1,11 @@
-import { db, getYearPath } from './firebase';
+import { db } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query as firestoreQuery, orderBy, onSnapshot, Unsubscribe, getCountFromServer, query, getDoc } from 'firebase/firestore';
 import type { Mohallah } from '@/types';
 import { deleteSubcollection } from './utils'; 
 import { addAuditLog } from './auditLogService';
 
 
-const mohallahsCollectionRef = collection(db, getYearPath('mohallahs'));
+const mohallahsCollectionRef = collection(db, 'mohallahs');
 
 // Modified to use onSnapshot for realtime updates
 export const getMohallahs = (onUpdate: (mohallahs: Mohallah[]) => void): Unsubscribe => {
@@ -43,7 +43,7 @@ export const addMohallah = async (name: string): Promise<Mohallah> => {
 
 export const updateMohallahName = async (mohallahId: string, newName: string): Promise<void> => {
   try {
-    const mohallahDoc = doc(db, getYearPath('mohallahs'), mohallahId);
+    const mohallahDoc = doc(db, 'mohallahs', mohallahId);
     const originalDoc = await getDoc(mohallahDoc);
 
     await updateDoc(mohallahDoc, { name: newName });
@@ -60,11 +60,11 @@ export const updateMohallahName = async (mohallahId: string, newName: string): P
 
 export const deleteMohallah = async (mohallahId: string): Promise<void> => {
   try {
-    const mohallahDoc = doc(db, getYearPath('mohallahs'), mohallahId);
+    const mohallahDoc = doc(db, 'mohallahs', mohallahId);
     const docToDelete = await getDoc(mohallahDoc);
     const mohallahName = docToDelete.data()?.name || 'Unknown';
 
-    const membersPath = `${getYearPath('mohallahs')}/${mohallahId}/members`;
+    const membersPath = `mohallahs/${mohallahId}/members`;
     await deleteSubcollection(db, membersPath, 100); 
 
     await deleteDoc(mohallahDoc);
@@ -81,7 +81,7 @@ export const deleteMohallah = async (mohallahId: string): Promise<void> => {
 
 export const getMohallahsCount = async (): Promise<number> => {
   try {
-    const q = query(collection(db, getYearPath('mohallahs')));
+    const q = query(collection(db, 'mohallahs'));
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count;
   } catch (error) {
@@ -90,19 +90,3 @@ export const getMohallahsCount = async (): Promise<number> => {
     return 0; 
   }
 };
-
-export const getLegacyMohallahs = async (): Promise<Mohallah[]> => {
-  try {
-    const q = query(collection(db, 'mohallahs'), orderBy('name', 'asc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      ...doc.data(),
-      id: doc.id
-    } as Mohallah));
-  } catch (error) {
-    console.error("Failed to fetch legacy mohallahs:", error);
-    return [];
-  }
-};
-
-    

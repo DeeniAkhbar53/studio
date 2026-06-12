@@ -1,9 +1,7 @@
-
-
 'use server';
 
-import { db, ACTIVE_YEAR, getYearPath } from './firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp, Timestamp, orderBy, FieldPath, deleteField, limit, setDoc } from 'firebase/firestore';
+import { db, getYearPath } from './firebase';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp, Timestamp, orderBy, FieldPath, deleteField, limit } from 'firebase/firestore';
 import type { User, UserRole, UserDesignation, DuaAttendance } from '@/types';
 import { addAuditLog } from './auditLogService';
 import { sendEmail, userCreatedEmailTemplate, userTransferredEmailTemplate, userDeletedEmailTemplate } from '@/lib/email';
@@ -14,7 +12,7 @@ export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'fcmTokens' > & { a
 const getMohallahName = async (mohallahId: string): Promise<string> => {
   if (!mohallahId) return 'Unknown';
   try {
-    const docSnap = await getDoc(doc(db, getYearPath('mohallahs'), mohallahId));
+    const docSnap = await getDoc(doc(db, 'mohallahs', mohallahId));
     if (docSnap.exists()) {
       return docSnap.data()?.name || 'Unknown';
     }
@@ -29,7 +27,7 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string, oldM
     throw new Error("Mohallah ID is required to add a user.");
   }
   try {
-    const membersCollectionRef = collection(db, getYearPath('mohallahs'), mohallahId, 'members');
+    const membersCollectionRef = collection(db, 'mohallahs', mohallahId, 'members');
 
     const payloadForFirestore: any = {
       name: userData.name,
@@ -37,7 +35,6 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string, oldM
       email: userData.email || null, // Add email
       role: userData.role,
       mohallahId: mohallahId, // Storing mohallahId in the member document for collectionGroup queries
-      year: ACTIVE_YEAR, // Store active year for filtering collectionGroup queries
       avatarUrl: userData.avatarUrl || `https://placehold.co/40x40.png?text=${userData.name.substring(0,2).toUpperCase()}`,
       designation: userData.designation || "Member",
       pageRights: userData.pageRights || [],
@@ -107,7 +104,7 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
     throw new Error("Mohallah ID is required to update a user.");
   }
   try {
-    const userDocRef = doc(db, getYearPath('mohallahs'), mohallahId, 'members', userId);
+    const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
     
     const updatePayload: any = { ...updatedData };
     // MohallahId cannot be changed via this function; it's part of the document path
@@ -172,7 +169,7 @@ export const deleteUser = async (userId: string, mohallahId: string, isTransfer 
     throw new Error("Mohallah ID is required to delete a user.");
   }
   try {
-    const userDocRef = doc(db, getYearPath('mohallahs'), mohallahId, 'members', userId);
+    const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
     const userToDelete = await getDoc(userDocRef);
 
     if (!userToDelete.exists()) {
@@ -213,10 +210,10 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
     let usersQuery;
     if (mohallahId && mohallahId !== 'all') {
       
-      usersQuery = query(collection(db, getYearPath('mohallahs'), mohallahId, 'members'));
+      usersQuery = query(collection(db, 'mohallahs', mohallahId, 'members'));
     } else {
       
-      usersQuery = query(collectionGroup(db, 'members'), where("year", "==", ACTIVE_YEAR));
+      usersQuery = query(collectionGroup(db, 'members'));
     }
     const data = await getDocs(usersQuery);
     return data.docs.map((doc) => {
@@ -248,7 +245,7 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
   try {
     const membersCollectionGroup = collectionGroup(db, 'members');
     
-    const itsQuery = query(membersCollectionGroup, where("itsId", "==", id), where("year", "==", ACTIVE_YEAR));
+    const itsQuery = query(membersCollectionGroup, where("itsId", "==", id));
     const itsSnapshot = await getDocs(itsQuery);
     if (!itsSnapshot.empty) {
       const userDoc = itsSnapshot.docs[0];
@@ -265,7 +262,7 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
       } as User;
     }
 
-    const bgkQuery = query(membersCollectionGroup, where("bgkId", "==", id), where("year", "==", ACTIVE_YEAR));
+    const bgkQuery = query(membersCollectionGroup, where("bgkId", "==", id));
     const bgkSnapshot = await getDocs(bgkQuery);
     if (!bgkSnapshot.empty) {
       const userDoc = bgkSnapshot.docs[0];
@@ -282,116 +279,13 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
       } as User;
     }
     
-    // Fallback: Check if user exists in the legacy root database (without year field constraint)
-    const legacyItsQuery = query(membersCollectionGroup, where("itsId", "==", id));
-    const legacyItsSnapshot = await getDocs(legacyItsQuery);
-    let legacyDoc = !legacyItsSnapshot.empty ? legacyItsSnapshot.docs.find(d => !d.data().year) : null;
-
-    if (!legacyDoc) {
-      const legacyBgkQuery = query(membersCollectionGroup, where("bgkId", "==", id));
-      const legacyBgkSnapshot = await getDocs(legacyBgkQuery);
-      legacyDoc = !legacyBgkSnapshot.empty ? legacyBgkSnapshot.docs.find(d => !d.data().year) : null;
-    }
-
-    if (legacyDoc) {
-      const userData = legacyDoc.data() as any;
-      const userId = legacyDoc.id;
-      const mohallahId = legacyDoc.ref.parent.parent?.id;
-
-      if (mohallahId) {
-        // Automatically migrate this user and their Mohallah to the active year
-        const activeMohallahRef = doc(db, getYearPath('mohallahs'), mohallahId);
-        const activeMohallahSnap = await getDoc(activeMohallahRef);
-        if (!activeMohallahSnap.exists()) {
-          const legacyMohallahSnap = await getDoc(doc(db, 'mohallahs', mohallahId));
-          const mohallahName = legacyMohallahSnap.exists() ? legacyMohallahSnap.data().name : 'Migrated Mohallah';
-          await setDoc(activeMohallahRef, {
-            name: mohallahName,
-            createdAt: serverTimestamp()
-          });
-        }
-
-        const activeMemberRef = doc(db, getYearPath('mohallahs'), mohallahId, 'members', userId);
-        const newUserData = {
-          ...userData,
-          year: ACTIVE_YEAR
-        };
-        await setDoc(activeMemberRef, newUserData);
-
-        const lastLogin = newUserData.lastLogin instanceof Timestamp ? newUserData.lastLogin.toDate().toISOString() : newUserData.lastLogin;
-        return {
-          ...newUserData,
-          id: userId,
-          lastLogin,
-          pageRights: newUserData.pageRights || [],
-          managedTeams: newUserData.managedTeams || [],
-          mohallahId,
-          fcmTokens: newUserData.fcmTokens || [],
-        } as User;
-      }
-    }
-    
     return null;
   } catch (error) {
-    console.error("Error fetching user or performing legacy fallback migration:", error);
+    
+    if (error instanceof Error && error.message.includes("index")) {
+        
+    }
     return null; 
-  }
-};
-
-export const transferMohallahMembers = async (mohallahId: string): Promise<{ success: boolean; count: number }> => {
-  try {
-    // 1. Ensure the Mohallah document exists under years/${ACTIVE_YEAR}/mohallahs
-    const activeMohallahRef = doc(db, getYearPath('mohallahs'), mohallahId);
-    const activeMohallahSnap = await getDoc(activeMohallahRef);
-    if (!activeMohallahSnap.exists()) {
-      const legacyMohallahSnap = await getDoc(doc(db, 'mohallahs', mohallahId));
-      if (legacyMohallahSnap.exists()) {
-        await setDoc(activeMohallahRef, {
-          name: legacyMohallahSnap.data().name,
-          createdAt: serverTimestamp()
-        });
-      } else {
-        throw new Error("Legacy Mohallah not found in root database");
-      }
-    }
-
-    // 2. Fetch all members from legacy mohallah members subcollection
-    const legacyMembersRef = collection(db, 'mohallahs', mohallahId, 'members');
-    const legacySnapshot = await getDocs(legacyMembersRef);
-    
-    if (legacySnapshot.empty) {
-      return { success: true, count: 0 };
-    }
-
-    // 3. Write all members to the new year
-    const batch = writeBatch(db);
-    let count = 0;
-    
-    for (const memberDoc of legacySnapshot.docs) {
-      const activeMemberRef = doc(db, getYearPath('mohallahs'), mohallahId, 'members', memberDoc.id);
-      const memberData = memberDoc.data();
-      
-      batch.set(activeMemberRef, {
-        ...memberData,
-        year: ACTIVE_YEAR
-      });
-      count++;
-    }
-    
-    await batch.commit();
-    
-    // Add Audit Log
-    const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
-    const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
-    await addAuditLog('mohallah_members_transferred', { itsId: actorItsId, name: actorName }, 'warning', {
-      mohallahId,
-      membersCount: count
-    });
-    
-    return { success: true, count };
-  } catch (error) {
-    console.error("Failed to transfer mohallah members:", error);
-    throw error;
   }
 };
 
@@ -400,9 +294,9 @@ export const getUsersCount = async (mohallahId?: string): Promise<number> => {
   try {
     let q;
     if (mohallahId) {
-      q = query(collection(db, getYearPath('mohallahs'), mohallahId, 'members'));
+      q = query(collection(db, 'mohallahs', mohallahId, 'members'));
     } else {
-      q = query(collectionGroup(db, 'members'), where("year", "==", ACTIVE_YEAR));
+      q = query(collectionGroup(db, 'members'));
     }
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count;
@@ -424,7 +318,7 @@ export const updateUserFcmToken = async (userItsId: string, userMohallahId: stri
             return;
         }
 
-        const userDocRef = doc(db, getYearPath('mohallahs'), user.mohallahId, 'members', user.id);
+        const userDocRef = doc(db, 'mohallahs', user.mohallahId, 'members', user.id);
         
         await updateDoc(userDocRef, {
             fcmTokens: arrayUnion(token)
@@ -446,7 +340,7 @@ export const updateUserLastLogin = async (user: User, sessionId: string): Promis
         const batch = writeBatch(db);
 
         // 1. Update the user's lastLogin and sessionId fields
-        const userDocRef = doc(db, getYearPath('mohallahs'), user.mohallahId, 'members', user.id);
+        const userDocRef = doc(db, 'mohallahs', user.mohallahId, 'members', user.id);
         batch.update(userDocRef, {
             lastLogin: serverTimestamp(),
             sessionId: sessionId
@@ -474,7 +368,7 @@ export const updateUserLastLogin = async (user: User, sessionId: string): Promis
 export const clearUserSession = async (userItsId: string): Promise<void> => {
   try {
     const membersCollectionGroup = collectionGroup(db, 'members');
-    const q = query(membersCollectionGroup, where("itsId", "==", userItsId), where("year", "==", ACTIVE_YEAR), limit(1));
+    const q = query(membersCollectionGroup, where("itsId", "==", userItsId), limit(1));
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
