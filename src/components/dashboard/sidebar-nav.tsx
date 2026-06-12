@@ -210,15 +210,18 @@ export function SidebarNav() {
   }
 
   return (
-    <nav className="flex flex-col gap-6 p-4 text-xs font-semibold select-none">
+    <nav className="flex flex-col gap-6 p-4 select-none">
       {allNavItems.map((category) => {
         const visibleSubpages = category.subpages.filter(hasAccess);
 
         if (visibleSubpages.length === 0) return null;
 
         return (
-          <div key={category.title} className="space-y-1">
-            <h4 className="px-3 text-xs font-semibold text-muted-foreground/80 mb-2">
+          <div key={category.title} className="space-y-0.5">
+            <h4
+              className="px-3 text-[10px] font-bold uppercase tracking-widest mb-1.5"
+              style={{ color: 'hsl(var(--sidebar-foreground) / 0.45)' }}
+            >
               {category.title}
             </h4>
             <ul className="flex flex-col gap-0.5">
@@ -232,13 +235,39 @@ export function SidebarNav() {
                     <Link
                       href={subpage.href}
                       className={cn(
-                        "flex items-center gap-3 px-3 py-2 text-sm font-medium transition-all border-r-2 relative",
-                        isActive 
-                          ? "bg-primary/12 text-primary font-semibold border-primary rounded-l-md rounded-r-none" 
-                          : "text-muted-foreground hover:bg-white/5 hover:text-foreground border-transparent hover:border-white/10 rounded-sm"
+                        "group flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium rounded-md border-r-2 transition-all duration-150",
+                        isActive
+                          ? "rounded-r-none"
+                          : "border-transparent"
                       )}
+                      style={isActive ? {
+                        backgroundColor: 'hsl(var(--sidebar-primary) / 0.14)',
+                        color: 'hsl(var(--sidebar-primary))',
+                        borderRightColor: 'hsl(var(--sidebar-primary))',
+                      } : {
+                        color: 'hsl(var(--sidebar-foreground) / 0.78)',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) {
+                          (e.currentTarget as HTMLElement).style.backgroundColor = 'hsl(var(--sidebar-accent))';
+                          (e.currentTarget as HTMLElement).style.color = 'hsl(var(--sidebar-accent-foreground))';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) {
+                          (e.currentTarget as HTMLElement).style.backgroundColor = '';
+                          (e.currentTarget as HTMLElement).style.color = 'hsl(var(--sidebar-foreground) / 0.80)';
+                        }
+                      }}
                     >
-                      <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground/70")} />
+                      <Icon
+                        className="h-4 w-4 shrink-0 transition-colors"
+                        style={{
+                          color: isActive
+                            ? 'hsl(var(--sidebar-primary))'
+                            : 'hsl(var(--sidebar-foreground) / 0.50)',
+                        }}
+                      />
                       <span className="truncate flex-1">{subpage.label}</span>
                       {badgeCount > 0 && (
                         <span className="ml-auto min-w-[18px] h-5 flex items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] text-destructive-foreground font-bold">

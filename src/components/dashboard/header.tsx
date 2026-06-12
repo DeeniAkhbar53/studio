@@ -320,7 +320,17 @@ export function Header() {
                 <span>BGK Attendance</span>
               </Link>
             </SheetHeader>
-            <div style={{ '--sidebar-foreground': 'hsl(var(--card-foreground))' } as React.CSSProperties} className="flex-grow overflow-y-auto">
+            <div 
+              style={{ 
+                '--sidebar-background': 'var(--card)',
+                '--sidebar-foreground': 'var(--card-foreground)',
+                '--sidebar-primary': 'var(--primary)',
+                '--sidebar-accent': 'var(--accent)',
+                '--sidebar-accent-foreground': 'var(--accent-foreground)',
+                '--sidebar-border': 'var(--border)',
+              } as React.CSSProperties} 
+              className="flex-grow overflow-y-auto"
+            >
               <SidebarNav />
             </div>
             <div className="mt-auto border-t border-border/70 p-4">

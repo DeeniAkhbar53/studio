@@ -311,7 +311,11 @@ export default function DashboardLayout({
       <aside className="glass-sidebar hidden border-r border-white/10 md:block print-hide">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-16 items-center border-b border-white/10 bg-white/5 px-4 lg:px-6">
-            <Link href="/dashboard" className="flex items-center gap-3 font-bold text-foreground">
+            <Link 
+              href="/dashboard" 
+              className="flex items-center gap-3 font-bold"
+              style={{ color: 'hsl(var(--sidebar-foreground))' }}
+            >
               <span className="flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/10 shadow-md">
                 <Image
                   src="/logo.png"
@@ -321,7 +325,7 @@ export default function DashboardLayout({
                   className="h-8 w-8"
                 />
               </span>
-              <span className="text-foreground tracking-tight">BGK Attendance</span>
+              <span className="tracking-tight" style={{ color: 'hsl(var(--sidebar-foreground))' }}>BGK Attendance</span>
             </Link>
           </div>
           <div className="flex-1 overflow-y-auto">
