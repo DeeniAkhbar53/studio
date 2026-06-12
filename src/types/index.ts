@@ -123,7 +123,7 @@ export type MarkedAttendanceEntry = {
   miqaatName: string;
   sessionId: string;
   sessionName: string;
-  status?: 'present' | 'late' | 'early';
+  status?: 'present' | 'late' | 'early' | 'safar';
 };
 
 export type NotificationItem = {

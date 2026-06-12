@@ -4,10 +4,12 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink, BookOpen, Mail } from "lucide-react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink, BookOpen, Mail, UserSearch, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -32,8 +34,8 @@ import {
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import type { UserRole, UserDesignation, Miqaat, MiqaatAttendanceEntryItem, Form as FormType, User } from "@/types";
-import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
+import type { UserRole, UserDesignation, Miqaat, MiqaatAttendanceEntryItem, MiqaatSession, MiqaatSafarEntryItem, Form as FormType, User } from "@/types";
+import { getMiqaats, markAttendanceInMiqaat, batchMarkSafarInMiqaat } from "@/lib/firebase/miqaatService";
 import { getUsers, getUsersCount, getUserByItsOrBgkId as fetchUserByItsId, checkDuaForWeek } from "@/lib/firebase/userService";
 import { getMohallahsCount } from "@/lib/firebase/mohallahService";
 import { getForms, getFormResponsesForUser, getFormResponses } from "@/lib/firebase/formService";
@@ -138,6 +140,12 @@ export default function DashboardOverviewPage() {
   const [isSendingAbsenteeEmails, setIsSendingAbsenteeEmails] = useState(false);
   const [sendingEmailItsId, setSendingEmailItsId] = useState<string | null>(null);
   const [lastLoginText, setLastLoginText] = useState<string>("Loading...");
+  
+  // Quick Attendance Widget State
+  const [quickMemberId, setQuickMemberId] = useState("");
+  const [quickMember, setQuickMember] = useState<User | null>(null);
+  const [isQuickProcessing, setIsQuickProcessing] = useState(false);
+  const [quickMarkStatus, setQuickMarkStatus] = useState<string | null>(null);
   const [sessionMinutes, setSessionMinutes] = useState<number>(0);
   
   // Non-Respondent Form State (New logic)
@@ -519,6 +527,152 @@ export default function DashboardOverviewPage() {
       });
     } finally {
       setSendingEmailItsId(null);
+    }
+  };
+
+  const handleQuickLookup = async () => {
+    if (!quickMemberId.trim()) {
+      toast({ title: "ID Required", description: "Please enter an ITS or BGK ID.", variant: "destructive" });
+      return;
+    }
+    setIsQuickProcessing(true);
+    setQuickMember(null);
+    setQuickMarkStatus(null);
+    try {
+      const user = await fetchUserByItsId(quickMemberId.trim());
+      if (!user) {
+        toast({ title: "Not Found", description: "No member found with this ID.", variant: "destructive" });
+      } else {
+        setQuickMember(user);
+        
+        // Find active Miqaat now
+        const activeMiqaat = allMiqaatsList.find(m => {
+          const now = new Date();
+          return new Date(m.startTime) <= now && new Date(m.endTime) >= now;
+        });
+
+        if (activeMiqaat) {
+          const alreadyMarked = activeMiqaat.attendance?.find(a => a.userItsId === user.itsId);
+          const alreadySafar = activeMiqaat.safarList?.find(s => s.userItsId === user.itsId);
+          if (alreadyMarked) {
+            setQuickMarkStatus(`Present (${alreadyMarked.status})`);
+          } else if (alreadySafar) {
+            setQuickMarkStatus("Safar");
+          }
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Error", description: "Failed to look up member.", variant: "destructive" });
+    } finally {
+      setIsQuickProcessing(false);
+    }
+  };
+
+  const handleQuickMark = async (status: 'present' | 'safar') => {
+    if (!quickMember) return;
+    const activeMiqaat = allMiqaatsList.find(m => {
+      const now = new Date();
+      return new Date(m.startTime) <= now && new Date(m.endTime) >= now;
+    });
+
+    if (!activeMiqaat) {
+      toast({ title: "No Active Miqaat", description: "There is no active Miqaat currently running.", variant: "destructive" });
+      return;
+    }
+
+    setIsQuickProcessing(true);
+    try {
+      const markerId = currentUserItsId || 'System';
+      const currentSession = (activeMiqaat.sessions?.[0] || { 
+        id: 'main', 
+        day: 1,
+        name: 'Main Session', 
+        startTime: activeMiqaat.startTime, 
+        endTime: activeMiqaat.endTime,
+        reportingTime: activeMiqaat.reportingTime
+      }) as MiqaatSession;
+      
+      if (status === 'present') {
+        const pad = (n: number) => n.toString().padStart(2, '0');
+        const now = new Date();
+        const currentTimeString = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        let sessionReportingTimeString = "00:00";
+        const miqaatReportingTime = currentSession.reportingTime || activeMiqaat.reportingTime;
+        if (miqaatReportingTime) {
+          if (miqaatReportingTime.includes('T')) {
+            const rDate = new Date(miqaatReportingTime);
+            sessionReportingTimeString = `${pad(rDate.getHours())}:${pad(rDate.getMinutes())}`;
+          } else {
+            sessionReportingTimeString = miqaatReportingTime;
+          }
+        }
+        const attendanceStatus = currentTimeString < sessionReportingTimeString ? 'early' : 'late';
+
+        const payload: MiqaatAttendanceEntryItem = {
+          userItsId: quickMember.itsId,
+          userName: quickMember.name,
+          sessionId: currentSession.id,
+          markedAt: new Date().toISOString(),
+          markedByItsId: markerId,
+          status: attendanceStatus as 'early' | 'late' | 'present',
+        };
+
+        await markAttendanceInMiqaat(activeMiqaat.id, payload);
+        setQuickMarkStatus(`Present (${attendanceStatus})`);
+        
+        // Refresh local Miqaat record
+        const updatedMiqaats = allMiqaatsList.map(m => {
+          if (m.id === activeMiqaat.id) {
+            return {
+              ...m,
+              attendance: [...(m.attendance || []), payload]
+            };
+          }
+          return m;
+        });
+        setAllMiqaatsList(updatedMiqaats as any);
+
+        toast({
+          title: "Attendance Marked",
+          description: `${quickMember.name} marked as present.`,
+          className: 'border-green-500 bg-green-50 dark:bg-green-900/30',
+        });
+      } else {
+        const payload: MiqaatSafarEntryItem = {
+          userItsId: quickMember.itsId,
+          userName: quickMember.name,
+          markedAt: new Date().toISOString(),
+          markedByItsId: markerId,
+          status: 'safar',
+          sessionId: currentSession.id,
+        };
+        await batchMarkSafarInMiqaat(activeMiqaat.id, [payload]);
+        setQuickMarkStatus("Safar");
+
+        // Refresh local Miqaat record
+        const updatedMiqaats = allMiqaatsList.map(m => {
+          if (m.id === activeMiqaat.id) {
+            return {
+              ...m,
+              safarList: [...(m.safarList || []), payload]
+            };
+          }
+          return m;
+        });
+        setAllMiqaatsList(updatedMiqaats as any);
+
+        toast({
+          title: "Marked as Safar",
+          description: `${quickMember.name} marked as Safar.`,
+          className: 'border-blue-500 bg-blue-50 dark:bg-blue-900/30',
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Failed", description: "Could not record status.", variant: "destructive" });
+    } finally {
+      setIsQuickProcessing(false);
     }
   };
 
@@ -1283,7 +1437,7 @@ export default function DashboardOverviewPage() {
             )}
           </div>
       
-        <Card className="shadow-md bg-gradient-to-r from-primary/5 via-background to-accent/5 border-primary/10">
+        <Card className="glass-surface border-white/20 shadow-md bg-gradient-to-r from-primary/10 via-card/25 to-accent/10">
           <CardHeader className="py-4 px-6">
             <CardTitle className="text-xl sm:text-2xl font-semibold text-foreground">
                 Welcome, {currentUserName}!
@@ -1317,6 +1471,207 @@ export default function DashboardOverviewPage() {
           )}
         </Card>
 
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          {/* Widget 1: Today's Miqaat Schedule */}
+          <Card className="glass-surface border-white/20 shadow-md">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CalendarClock className="h-5 w-5 text-primary shrink-0" />
+                Today's Miqaat Schedule
+              </CardTitle>
+              <CardDescription>Scheduled events and sessions for today.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {(() => {
+                const today = new Date();
+                const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+                
+                const todaysMiqaats = allMiqaatsList.filter(m => {
+                  const mStart = new Date(m.startTime);
+                  return mStart >= startOfToday && mStart <= endOfToday;
+                });
+
+                if (todaysMiqaats.length === 0) {
+                  return (
+                    <div className="py-6 text-center text-muted-foreground text-sm">
+                      No Miqaats scheduled for today.
+                    </div>
+                  );
+                }
+
+                return todaysMiqaats.map(miqaat => {
+                  const now = new Date();
+                  const mStart = new Date(miqaat.startTime);
+                  const mEnd = new Date(miqaat.endTime);
+                  const isLive = now >= mStart && now <= mEnd;
+                  const isUpcoming = now < mStart;
+                  const isCompleted = now > mEnd;
+
+                  // Check own attendance status if regular member
+                  let ownStatus = "Not Checked In";
+                  if (currentUserItsId) {
+                    const marked = miqaat.attendance?.find(a => a.userItsId === currentUserItsId);
+                    const safar = miqaat.safarList?.find(s => s.userItsId === currentUserItsId);
+                    if (marked) {
+                      ownStatus = `Checked In (${marked.status.charAt(0).toUpperCase() + marked.status.slice(1)})`;
+                    } else if (safar) {
+                      ownStatus = "Excused (Safar)";
+                    }
+                  }
+
+                  return (
+                    <div key={miqaat.id} className="p-3 border border-border/40 rounded-lg bg-card/10 space-y-2.5">
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <h4 className="font-bold text-sm text-foreground">{miqaat.name}</h4>
+                          <span className="text-xs text-muted-foreground">{miqaat.type.charAt(0).toUpperCase() + miqaat.type.slice(1)} Miqaat</span>
+                        </div>
+                        <span className={cn(
+                          "px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider",
+                          isLive ? "bg-green-500/10 text-green-600 animate-pulse border border-green-500/20" :
+                          isUpcoming ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" :
+                          "bg-muted text-muted-foreground"
+                        )}>
+                          {isLive ? "● Live Now" : isUpcoming ? "Upcoming" : "Completed"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground border-t border-border/20 pt-2">
+                        <div><strong>Starts:</strong> {format(mStart, "p")}</div>
+                        <div><strong>Ends:</strong> {format(mEnd, "p")}</div>
+                      </div>
+
+                      {/* Admin/Marker stats */}
+                      {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') ? (
+                        <div className="flex justify-between items-center text-xs border-t border-border/20 pt-2 mt-1">
+                          <div>
+                            <span>Present: <strong className="text-foreground">{miqaat.attendance?.length || 0}</strong></span>
+                            <span className="mx-2 text-muted-foreground/30">|</span>
+                            <span>Safar: <strong className="text-foreground">{miqaat.safarList?.length || 0}</strong></span>
+                          </div>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs font-semibold text-primary px-2" asChild>
+                            <Link href="/dashboard/mark-attendance">Mark Page →</Link>
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center text-xs border-t border-border/20 pt-2 mt-1">
+                          <span>Your Status:</span>
+                          <span className={cn(
+                            "font-semibold",
+                            ownStatus.startsWith("Checked In") ? "text-green-600 dark:text-green-400" :
+                            ownStatus === "Excused (Safar)" ? "text-blue-600 dark:text-blue-400" :
+                            "text-destructive"
+                          )}>
+                            {ownStatus}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Widget 2: Quick Lookup & Mark (only for admins/markers) */}
+          {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') ? (
+            <Card className="glass-surface border-white/20 shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <UserSearch className="h-5 w-5 text-primary shrink-0" />
+                  Quick Attendance Check
+                </CardTitle>
+                <CardDescription>Verify member status and mark present/safar instantly.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <form onSubmit={(e) => { e.preventDefault(); handleQuickLookup(); }} className="flex gap-2">
+                  <Input
+                    placeholder="Enter ITS or BGK ID"
+                    value={quickMemberId}
+                    onChange={(e) => setQuickMemberId(e.target.value)}
+                    className="text-sm h-9 flex-1"
+                    disabled={isQuickProcessing}
+                  />
+                  <Button type="submit" size="sm" className="h-9" disabled={isQuickProcessing}>
+                    {isQuickProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
+                  </Button>
+                </form>
+
+                {quickMember && (
+                  <div className="p-3 border border-border/40 rounded-lg bg-card/5 space-y-3 animate-in fade-in duration-300">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="font-bold text-sm">{quickMember.name}</p>
+                        <p className="text-xs text-muted-foreground">ITS: {quickMember.itsId} | BGK: {quickMember.bgkId || "N/A"}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{quickMember.team || "No Team"} | {quickMember.mohallahId || "No Mohallah"}</p>
+                      </div>
+                      {quickMarkStatus && (
+                        <span className={cn(
+                          "px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider",
+                          quickMarkStatus.startsWith("Present") ? "bg-green-500/10 text-green-600 border border-green-500/20" :
+                          quickMarkStatus === "Safar" ? "bg-blue-500/10 text-blue-600 border border-blue-500/20" :
+                          "bg-muted text-muted-foreground"
+                        )}>
+                          {quickMarkStatus}
+                        </span>
+                      )}
+                    </div>
+
+                    {(() => {
+                      const activeMiqaat = allMiqaatsList.find(m => {
+                        const now = new Date();
+                        return new Date(m.startTime) <= now && new Date(m.endTime) >= now;
+                      });
+
+                      if (!activeMiqaat) {
+                        return <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">No active Miqaat currently running to mark attendance.</p>;
+                      }
+
+                      return (
+                        <div className="space-y-2 pt-2 border-t border-border/10">
+                          <p className="text-xs text-muted-foreground">Active Event: <strong className="text-foreground">{activeMiqaat.name}</strong></p>
+                          {!quickMarkStatus ? (
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={() => handleQuickMark('present')}
+                                size="sm"
+                                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold text-xs h-8"
+                                disabled={isQuickProcessing}
+                              >
+                                Mark Present
+                              </Button>
+                              <Button
+                                onClick={() => handleQuickMark('safar')}
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-900/10 text-blue-600 dark:text-blue-400 font-semibold text-xs h-8"
+                                disabled={isQuickProcessing}
+                              >
+                                Mark Safar
+                              </Button>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">Already recorded for this event.</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="glass-surface border-white/20 shadow-md flex flex-col justify-center items-center p-6 text-center">
+              <Sparkles className="h-8 w-8 text-primary mb-3 shrink-0" />
+              <h4 className="font-bold text-base text-foreground">Welcome to BGK Portal</h4>
+              <CardDescription className="max-w-[80%] mt-1">
+                Your attendance, daily Duas, and reports can be managed right from your sidebar menu options.
+              </CardDescription>
+            </Card>
+          )}
+        </div>
+
         {scanDisplayMessage && (
           <Alert variant={scanDisplayMessage.type === 'error' ? 'destructive' : 'default'} className={`mt-4 ${scanDisplayMessage.type === 'success' ? 'border-green-500 bg-green-50 dark:bg-green-900/30' : scanDisplayMessage.type === 'info' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : ''}`}>
             {scanDisplayMessage.type === 'success' && <CheckCircle2 className="h-4 w-4" />}
@@ -1332,7 +1687,7 @@ export default function DashboardOverviewPage() {
         {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead) && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {statsToDisplay.map((stat) => (
-              <Card key={stat.title} className="shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden">
+              <Card key={stat.title} className="glass-surface border-white/20 glass-card-glow shadow-md overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground break-words">{stat.title}</CardTitle>
                   <stat.icon className="h-5 w-5 text-primary shrink-0" />
@@ -1350,7 +1705,7 @@ export default function DashboardOverviewPage() {
 
         {isTeamLead && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="shadow-lg col-span-1 lg:col-span-2">
+                <Card className="glass-surface border-white/20 shadow-md col-span-1 lg:col-span-2">
                     <CardHeader>
                         <CardTitle className="flex items-center"><BarChart2 className="mr-2 h-5 w-5 text-primary"/>Recent Miqaat Attendance</CardTitle>
                         <CardDescription>Attendance summary for the last 5 completed Miqaats.</CardDescription>
@@ -1387,7 +1742,7 @@ export default function DashboardOverviewPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="shadow-lg col-span-1 lg:col-span-2">
+                <Card className="glass-surface border-white/20 shadow-md col-span-1 lg:col-span-2">
                     <CardHeader>
                         <CardTitle className="flex items-center"><FilePenLine className="mr-2 h-5 w-5 text-primary"/>Active Form Response Rates</CardTitle>
                         <CardDescription>Overview of current form completion status within your scope.</CardDescription>

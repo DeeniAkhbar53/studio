@@ -10,9 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, UserRole, MiqaatSession } from "@/types";
+import type { Miqaat, User, MarkedAttendanceEntry, MiqaatAttendanceEntryItem, UserRole, MiqaatSession, MiqaatSafarEntryItem } from "@/types";
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
-import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
+import { getMiqaats, markAttendanceInMiqaat, batchMarkSafarInMiqaat } from "@/lib/firebase/miqaatService";
 import { savePendingAttendance, getPendingAttendance, removePendingAttendanceRecord, cacheAllUsers, getCachedUserByItsOrBgkId, OfflineAttendanceRecord } from "@/lib/offlineService";
 import { CheckCircle, AlertCircle, Users, ListChecks, Loader2, Clock, WifiOff, Wifi, CloudUpload, UserSearch, CalendarClock, Info, ShieldAlert, CheckSquare, UserX, HandCoins, Trash2, RefreshCw, XCircle, Users2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -116,6 +116,10 @@ export default function MarkAttendancePage() {
   const [isSearchingBulkMembers, setIsSearchingBulkMembers] = useState(false);
   const [bulkMarkingError, setBulkMarkingError] = useState<string | null>(null);
   const [bulkReason, setBulkReason] = useState("");
+  
+  // Bulk Safar State
+  const [bulkSafarBgkInput, setBulkSafarBgkInput] = useState("");
+  const [isBulkSafarSubmitting, setIsBulkSafarSubmitting] = useState(false);
   
   // Admin Override State
   const [isAdminOverrideOpen, setIsAdminOverrideOpen] = useState(false);
@@ -483,6 +487,114 @@ export default function MarkAttendancePage() {
       finalizeAttendance(member);
     }
   };
+
+  const handleIndividualMarkSafar = async () => {
+    if (!selectedMiqaatId) {
+      toast({ title: "Miqaat Not Selected", description: "Please select a Miqaat first.", variant: "destructive" });
+      return;
+    }
+    const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
+    if (!selectedMiqaatDetails) return;
+    
+    if (!memberIdInput.trim()) {
+      toast({ title: "ITS/BGK ID Required", description: "Please enter the member's ITS or BGK ID.", variant: "destructive" });
+      return;
+    }
+
+    if (isOffline) {
+      toast({ title: "Offline Mode", description: "Marking Safar requires an active internet connection.", variant: "destructive" });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const member = await getUserByItsOrBgkId(memberIdInput.trim());
+      if (!member) {
+        toast({ title: "Member Not Found", description: `No member found with ID: ${memberIdInput}.`, variant: "destructive" });
+        setIsProcessing(false);
+        return;
+      }
+
+      // Check eligibility
+      const isMiqaatForEveryone = 
+          (!selectedMiqaatDetails.mohallahIds || selectedMiqaatDetails.mohallahIds.length === 0) &&
+          (!selectedMiqaatDetails.teams || selectedMiqaatDetails.teams.length === 0) &&
+          (!selectedMiqaatDetails.eligibleItsIds || selectedMiqaatDetails.eligibleItsIds.length === 0);
+
+      if (!isMiqaatForEveryone) {
+          let isEligible = false;
+          const eligibleById = !!selectedMiqaatDetails.eligibleItsIds?.includes(member.itsId);
+          const eligibleByTeam = !!member.team && !!selectedMiqaatDetails.teams?.includes(member.team);
+          const eligibleByMohallah = !!member.mohallahId && !!selectedMiqaatDetails.mohallahIds?.includes(member.mohallahId);
+
+          if (selectedMiqaatDetails.eligibleItsIds && selectedMiqaatDetails.eligibleItsIds.length > 0) {
+              isEligible = eligibleById;
+          } else {
+              isEligible = eligibleByMohallah || eligibleByTeam;
+          }
+          
+          if (!isEligible) {
+              toast({
+                  title: "Not Eligible",
+                  description: `${member.name} (${member.itsId}) is not eligible for this Miqaat.`,
+                  variant: "destructive",
+              });
+              setIsProcessing(false);
+              return;
+          }
+      }
+
+      // Check if already in safarList
+      const alreadySafar = selectedMiqaatDetails.safarList?.some(s => s.userItsId === member.itsId);
+      if (alreadySafar) {
+          toast({ title: "Already Marked", description: `${member.name} is already marked as Safar for this Miqaat.` });
+          setMemberIdInput("");
+          setIsProcessing(false);
+          return;
+      }
+
+      const markerId = markerItsId || 'System';
+      const currentSession = selectedMiqaatDetails.type === 'international' 
+          ? selectedMiqaatDetails.sessions?.find(s => s.id === selectedSessionId) 
+          : selectedMiqaatDetails.sessions?.[0]; // Local Miqaat
+
+      const safarEntry: any = {
+        userItsId: member.itsId,
+        userName: member.name,
+        markedAt: new Date().toISOString(),
+        markedByItsId: markerId,
+        status: 'safar',
+        ...(currentSession && { sessionId: currentSession.id })
+      };
+
+      await batchMarkSafarInMiqaat(selectedMiqaatDetails.id, [safarEntry]);
+
+      // Add to local display of session marked items
+      const newSessionEntry: MarkedAttendanceEntry = {
+          memberItsId: member.itsId,
+          memberName: member.name,
+          timestamp: new Date(),
+          miqaatId: selectedMiqaatDetails.id,
+          miqaatName: selectedMiqaatDetails.name,
+          sessionId: currentSession?.id || 'main',
+          sessionName: currentSession?.name || 'Main',
+          status: 'safar',
+      };
+      setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
+
+      toast({
+        title: "Marked as Safar",
+        description: `Successfully marked ${member.name} as Safar.`,
+        className: 'border-blue-500 bg-blue-50 dark:bg-blue-900/30',
+      });
+      setMemberIdInput("");
+    } catch (error) {
+      console.error("Error marking Safar:", error);
+      toast({ title: "Error", description: "Failed to mark member as Safar. Please try again.", variant: "destructive" });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
   
   const finalizeAttendance = async (member: User, compliance?: UniformComplianceState, overrideTimestamp?: Date, overrideReason?: string) => {
     setIsSaving(true);
@@ -848,6 +960,111 @@ export default function MarkAttendancePage() {
       setOverrideReason("");
     };
 
+  const handleBulkSafarBgkSubmit = async () => {
+    const miqaatId = selectedMiqaatId;
+    if (!miqaatId) {
+      toast({ title: "Selection Required", description: "Please select a Miqaat first.", variant: "destructive" });
+      return;
+    }
+
+    const bgkIds = bulkSafarBgkInput
+      .split(/[\s,]+/)
+      .map(id => id.trim())
+      .filter(id => id.length > 0);
+
+    if (bgkIds.length === 0) {
+      toast({ title: "Input Required", description: "Please enter at least one BGK ID.", variant: "destructive" });
+      return;
+    }
+
+    setIsBulkSafarSubmitting(true);
+    try {
+      const markerId = markerItsId || 'System';
+
+      // Fetch all system users to match BGK IDs to ITS IDs
+      const allUsers = await getUsers();
+      const bgkToUserMap = new Map(
+        allUsers
+          .filter(u => u.bgkId)
+          .map(u => [u.bgkId!.toLowerCase().trim(), u])
+      );
+
+      const safarEntries: MiqaatSafarEntryItem[] = [];
+      const notFoundBgkIds: string[] = [];
+
+      const currentSession = currentMiqaatDetails?.type === 'international' 
+          ? currentMiqaatDetails.sessions?.find(s => s.id === selectedSessionId) 
+          : currentMiqaatDetails?.sessions?.[0]; // Local Miqaat
+
+      bgkIds.forEach(bgkId => {
+        const key = bgkId.toLowerCase();
+        const user = bgkToUserMap.get(key);
+        if (user) {
+          safarEntries.push({
+            userItsId: user.itsId,
+            userName: user.name,
+            markedAt: new Date().toISOString(),
+            markedByItsId: markerId,
+            status: 'safar',
+            ...(currentSession && { sessionId: currentSession.id })
+          });
+        } else {
+          notFoundBgkIds.push(bgkId);
+        }
+      });
+
+      if (safarEntries.length > 0) {
+        await batchMarkSafarInMiqaat(miqaatId, safarEntries);
+        
+        // Add to local display list too
+        safarEntries.forEach(entry => {
+          const newSessionEntry: MarkedAttendanceEntry = {
+              memberItsId: entry.userItsId,
+              memberName: entry.userName,
+              timestamp: new Date(),
+              miqaatId: miqaatId,
+              miqaatName: currentSelectedMiqaatName,
+              sessionId: entry.sessionId || 'main',
+              sessionName: currentSession?.name || 'Main',
+              status: 'safar',
+          };
+          setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
+        });
+
+        if (notFoundBgkIds.length > 0) {
+          toast({
+            title: "Bulk Safar Partial Success",
+            description: `Marked ${safarEntries.length} member(s) as Safar. The following ${notFoundBgkIds.length} BGK ID(s) were not found: ${notFoundBgkIds.join(", ")}`,
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Bulk Safar Success",
+            description: `Successfully marked all ${safarEntries.length} member(s) as Safar.`,
+            className: 'border-green-500 bg-green-50 dark:bg-green-900/30',
+          });
+        }
+        
+        setBulkSafarBgkInput("");
+      } else {
+        toast({
+          title: "Update Failed",
+          description: `No matching members found for the provided BGK IDs: ${notFoundBgkIds.join(", ")}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error during bulk Safar marking by BGK ID:", error);
+      toast({
+        title: "Update Failed",
+        description: `Could not mark members as Safar. ${error instanceof Error ? error.message : "Please try again."}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkSafarSubmitting(false);
+    }
+  };
+
   if (isAuthorized === null) {
     return (
       <div className="flex h-full w-full items-center justify-center">
@@ -913,7 +1130,7 @@ export default function MarkAttendancePage() {
             </ShadAlertDesc>
           </Alert>
       }
-      <Card className="shadow-lg">
+      <Card className="glass-surface border-white/20 shadow-md">
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex-grow">
@@ -1048,7 +1265,7 @@ export default function MarkAttendancePage() {
 
 
             {currentSessionDetails && (
-              <Card className="bg-muted/50 lg:col-span-3">
+              <Card className="glass-surface border-white/20 shadow-md lg:col-span-3">
                 <CardHeader className="p-4">
                   <CardTitle className="text-base flex items-center gap-2">
                      <CalendarClock className="h-5 w-5 text-primary" />
@@ -1069,7 +1286,7 @@ export default function MarkAttendancePage() {
             )}
           </div>
           
-          <form onSubmit={(e) => { e.preventDefault(); handleFindMember(); }} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <form onSubmit={(e) => { e.preventDefault(); handleFindMember(); }} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div className="md:col-span-2 space-y-2">
               <Label htmlFor="member-id">ITS / BGK ID</Label>
               <Input
@@ -1080,21 +1297,40 @@ export default function MarkAttendancePage() {
                 disabled={!selectedMiqaatId || !currentSessionDetails || isProcessing || isLoadingMiqaats}
               />
             </div>
-            <Button
-              type="submit"
-              disabled={!selectedMiqaatId || !currentSessionDetails || !memberIdInput || isProcessing || isLoadingMiqaats}
-              className="w-full"
-              size="sm"
-            >
-              {isProcessing ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>
-              ) : (
-                <>
-                  <UserSearch className="mr-2 h-4 w-4" />
-                  {miqaatHasAttendanceRequirements ? "Find & Check" : "Mark Attendance"}
-                </>
-              )}
-            </Button>
+            <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
+              <Button
+                type="submit"
+                disabled={!selectedMiqaatId || !currentSessionDetails || !memberIdInput || isProcessing || isLoadingMiqaats}
+                className="flex-1"
+                size="sm"
+              >
+                {isProcessing ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>
+                ) : (
+                  <>
+                    <UserSearch className="mr-2 h-4 w-4" />
+                    {miqaatHasAttendanceRequirements ? "Find & Check" : "Mark Present"}
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleIndividualMarkSafar}
+                disabled={!selectedMiqaatId || !currentSessionDetails || !memberIdInput || isProcessing || isLoadingMiqaats}
+                className="flex-1 border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-900/10 text-blue-600 dark:text-blue-400"
+                size="sm"
+              >
+                {isProcessing ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>
+                ) : (
+                  <>
+                    <UserX className="mr-2 h-4 w-4" />
+                    Mark Safar
+                  </>
+                )}
+              </Button>
+            </div>
           </form>
 
           {selectedMiqaatId && currentSessionDetails && (
@@ -1187,7 +1423,7 @@ export default function MarkAttendancePage() {
       {(currentUserRole === 'superadmin' || currentUserPageRights.includes('bulk-attendance')) && (
         <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="bulk-attendance">
-                <Card className="shadow-lg">
+                <Card className="glass-surface border-white/20 shadow-md">
                     <AccordionTrigger className="w-full p-0">
                         <CardHeader className="flex flex-row justify-between items-center w-full p-6">
                             <div>
@@ -1326,11 +1562,48 @@ export default function MarkAttendancePage() {
                     </AccordionContent>
                 </Card>
             </AccordionItem>
+            
+            <AccordionItem value="bulk-safar">
+                <Card className="glass-surface border-white/20 shadow-md mt-4">
+                    <AccordionTrigger className="w-full p-0">
+                        <CardHeader className="flex flex-row justify-between items-center w-full p-6">
+                            <div>
+                                <CardTitle className="flex items-center"><UserX className="mr-2 h-6 w-6 text-primary" />Bulk Safar Marking</CardTitle>
+                                <CardDescription>Mark multiple members as Safar (excused absence) by BGK ID.</CardDescription>
+                            </div>
+                        </CardHeader>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                        <CardContent className="space-y-4 pt-0">
+                            <div className="space-y-2">
+                                <Label htmlFor="bulk-safar-bgk-ids">BGK IDs</Label>
+                                <Textarea
+                                    id="bulk-safar-bgk-ids"
+                                    placeholder="e.g. BGK012, BGK045, BGK089"
+                                    value={bulkSafarBgkInput}
+                                    onChange={(e) => setBulkSafarBgkInput(e.target.value)}
+                                    disabled={!selectedMiqaatId || isSaving || isBulkSafarSubmitting}
+                                    rows={4}
+                                    className="font-mono text-sm"
+                                />
+                                <span className="text-[10px] text-muted-foreground block mt-1">Enter BGK IDs separated by commas, spaces, or newlines.</span>
+                            </div>
+                            <Button 
+                                onClick={handleBulkSafarBgkSubmit} 
+                                disabled={!selectedMiqaatId || !bulkSafarBgkInput.trim() || isBulkSafarSubmitting || isSaving}
+                            >
+                                {isBulkSafarSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
+                                Mark as Safar
+                            </Button>
+                        </CardContent>
+                    </AccordionContent>
+                </Card>
+            </AccordionItem>
         </Accordion>
       )}
       
       {failedSyncs.length > 0 && (
-          <Card className="shadow-lg border-destructive">
+          <Card className="glass-surface border-destructive/30 shadow-md bg-destructive/5">
               <CardHeader>
                   <CardTitle className="flex items-center text-destructive"><AlertCircle className="mr-2" />Requires Attention: {failedSyncs.length} Failed Syncs</CardTitle>
                   <CardDescription>These records failed to sync to the server. You can retry them individually or discard them.</CardDescription>

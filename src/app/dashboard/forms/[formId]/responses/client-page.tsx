@@ -691,7 +691,7 @@ export default function ViewResponsesClientPage() {
     return (
         <div className="p-4 md:p-6 space-y-6">
             <Card className="glass-surface border-white/10 dark:border-white/5 shadow-xl overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-primary/5 via-background to-accent/5 border-b border-white/10 dark:border-white/5 py-6">
+                <CardHeader className="bg-gradient-to-r from-primary/5 via-card/20 to-accent/5 border-b border-white/10 dark:border-white/5 py-6">
                     <div className="flex justify-between items-start gap-4">
                         <div className="flex-1 space-y-1">
                             <CardTitle className="text-2xl md:text-3xl font-bold text-foreground">{form?.title || "Form Responses"}</CardTitle>

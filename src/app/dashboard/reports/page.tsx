@@ -238,7 +238,7 @@ const MemberProfileReport = ({ data, generatorName }: { data: MemberProfileData;
     };
 
     return (
-        <Card className="shadow-lg mt-6" id="printable-area">
+        <Card className="glass-surface border-white/20 shadow-md mt-6" id="printable-area">
              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 print-hide">
                 <div className="flex-grow">
                     <CardTitle>Member Profile Report</CardTitle>
@@ -750,12 +750,56 @@ export default function ReportsPage() {
               const miqaatObj = allMiqaats.find(m => m.id === mId);
               if (!miqaatObj) continue;
               const safarList = miqaatObj.safarList || [];
-              const records: ReportResultItem[] = safarList.map(safarEntry => {
+              const attendanceList = miqaatObj.attendance || [];
+              const addedItsIds = new Set<string>();
+              const records: ReportResultItem[] = [];
+
+              // 1. Add from safarList (excused absence traveling)
+              safarList.forEach(safarEntry => {
+                if (addedItsIds.has(safarEntry.userItsId)) return;
+                addedItsIds.add(safarEntry.userItsId);
                 const session = miqaatObj.sessions?.find(s => s.id === safarEntry.sessionId);
-                return {
-                  id: `${miqaatObj.id}-${safarEntry.userItsId}`, userName: safarEntry.userName, userItsId: safarEntry.userItsId, bgkId: userMap.get(safarEntry.userItsId)?.bgkId, team: userMap.get(safarEntry.userItsId)?.team, miqaatName: miqaatObj.name, miqaatType: miqaatObj.type, day: session?.day, sessionName: session?.name || 'Main', date: safarEntry.markedAt, status: 'safar', markedByItsId: safarEntry.markedByItsId,
+                records.push({
+                  id: `${miqaatObj.id}-${safarEntry.userItsId}`,
+                  userName: safarEntry.userName,
+                  userItsId: safarEntry.userItsId,
+                  bgkId: userMap.get(safarEntry.userItsId)?.bgkId,
+                  team: userMap.get(safarEntry.userItsId)?.team,
+                  miqaatName: miqaatObj.name,
+                  miqaatType: miqaatObj.type,
+                  day: session?.day,
+                  sessionName: session?.name || 'Main',
+                  date: safarEntry.markedAt,
+                  status: 'safar',
+                  markedByItsId: safarEntry.markedByItsId,
+                });
+              });
+
+              // 2. Add from attendance where Feta/Paghri or Koti is marked as 'safar' (present traveling)
+              attendanceList.forEach(attEntry => {
+                if (addedItsIds.has(attEntry.userItsId)) return;
+                const isSafarCompliance = attEntry.uniformCompliance?.fetaPaghri === 'safar' || attEntry.uniformCompliance?.koti === 'safar';
+                if (isSafarCompliance) {
+                  addedItsIds.add(attEntry.userItsId);
+                  const session = miqaatObj.sessions?.find(s => s.id === attEntry.sessionId);
+                  records.push({
+                    id: `${miqaatObj.id}-${attEntry.userItsId}`,
+                    userName: attEntry.userName,
+                    userItsId: attEntry.userItsId,
+                    bgkId: userMap.get(attEntry.userItsId)?.bgkId,
+                    team: userMap.get(attEntry.userItsId)?.team,
+                    miqaatName: miqaatObj.name,
+                    miqaatType: miqaatObj.type,
+                    day: session?.day,
+                    sessionName: session?.name || 'Main',
+                    date: attEntry.markedAt,
+                    status: 'safar',
+                    markedByItsId: attEntry.markedByItsId,
+                    uniformCompliance: attEntry.uniformCompliance,
+                  });
                 }
               });
+
               allSafarRecords = [...allSafarRecords, ...records];
           }
           reportResultItems = allSafarRecords;
@@ -1366,7 +1410,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg print-hide">
+      <Card className="glass-surface border-white/20 shadow-md print-hide">
         <CardHeader>
           <CardTitle className="flex items-center"><BarChart className="mr-2 h-5 w-5 text-primary"/>Generate Report</CardTitle>
           <Separator className="my-2" />
@@ -1726,7 +1770,7 @@ export default function ReportsPage() {
       )}
 
       {reportData && !memberProfileData && (
-          <Card className="shadow-lg mt-6">
+          <Card className="glass-surface border-white/20 shadow-md mt-6">
             <CardHeader className="flex flex-col items-start gap-3 print-hide">
               <div className="flex-grow w-full">
                   <CardTitle>Report Results</CardTitle>
@@ -2157,7 +2201,7 @@ export default function ReportsPage() {
         )}
       
       {!isLoading && reportData === null && memberProfileData === null && !isLoadingOptions && (
-         <Card className="shadow-lg mt-6 print-hide">
+         <Card className="glass-surface border-white/20 shadow-md mt-6 print-hide">
             <CardContent className="py-10 flex flex-col items-center justify-center">
                 <AlertTriangle className="h-10 w-10 text-muted-foreground mb-3" />
                 <div className="text-center text-muted-foreground">
@@ -2167,7 +2211,7 @@ export default function ReportsPage() {
          </Card>
       )}
       {(isLoadingOptions && reportData === null) && (
-        <Card className="shadow-lg mt-6 print-hide">
+        <Card className="glass-surface border-white/20 shadow-md mt-6 print-hide">
             <CardContent className="py-10 flex justify-center items-center">
                 <FunkyLoader>
                     Loading report options...

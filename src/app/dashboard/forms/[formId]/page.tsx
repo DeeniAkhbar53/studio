@@ -158,7 +158,7 @@ const QuestionRenderer = ({ question, index, control, setValue }: { question: Fo
 
 
     return (
-        <Card className="p-4 md:p-6 rounded-lg border bg-background shadow-sm animate-in fade-in-0 duration-500">
+        <Card className="p-4 md:p-6 rounded-lg shadow-sm animate-in fade-in-0 duration-500">
             <FormField
                 key={question.id}
                 control={control}
