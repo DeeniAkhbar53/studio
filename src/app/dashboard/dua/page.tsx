@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, Lock, Video, BookOpen, PlusCircle, MinusCircle, Eye, ShieldAlert } from "lucide-react";
-import { db } from "@/lib/firebase/firebase";
+import { db, getYearPath } from "@/lib/firebase/firebase";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -163,7 +163,7 @@ export default function DuaPage() {
             if (!userItsId) return;
 
             const weekId = getWeekId(new Date());
-            const attendanceDocRef = doc(db, 'users', userItsId, 'duaAttendance', weekId);
+            const attendanceDocRef = doc(db, getYearPath('users'), userItsId, 'duaAttendance', weekId);
             
             setIsLoading(true);
             const docSnap = await getDoc(attendanceDocRef);
@@ -210,7 +210,7 @@ export default function DuaPage() {
         }
 
         const weekId = getWeekId(new Date());
-        const attendanceDocRef = doc(db, 'users', userItsId, 'duaAttendance', weekId);
+        const attendanceDocRef = doc(db, getYearPath('users'), userItsId, 'duaAttendance', weekId);
 
         try {
             await setDoc(attendanceDocRef, {

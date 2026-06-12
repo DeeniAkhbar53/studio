@@ -25,6 +25,13 @@ if (getApps().length === 0) {
 
 const db = getFirestore(app);
 
+export const ACTIVE_YEAR = process.env.NEXT_PUBLIC_ACTIVE_YEAR || "1448H";
+
+export function getYearPath(subPath: string): string {
+  if (subPath.startsWith('years/')) return subPath;
+  return `years/${ACTIVE_YEAR}/${subPath}`;
+}
+
 // NOTE: We are removing the messaging export from here to avoid server-side execution issues.
 // getMessaging will be called directly in the client-side component (DashboardLayout)
 // which ensures it only runs in the browser where it is supported.

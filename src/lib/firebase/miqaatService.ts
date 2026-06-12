@@ -1,9 +1,9 @@
-import { db } from './firebase';
+import { db, ACTIVE_YEAR, getYearPath } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, Timestamp, arrayUnion, onSnapshot, Unsubscribe, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
 import type { Miqaat, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem, MiqaatSession } from '@/types';
 import { addAuditLog } from './auditLogService';
 
-const miqaatsCollectionRef = collection(db, 'miqaats');
+const miqaatsCollectionRef = collection(db, getYearPath('miqaats'));
 
 export const getMiqaats = (onUpdate: (miqaats: Miqaat[]) => void): Unsubscribe => {
   const q = query(miqaatsCollectionRef, orderBy('createdAt', 'desc'));
@@ -66,6 +66,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
   try {
     const firestorePayload: { [key: string]: any } = {
       ...miqaatData,
+      year: ACTIVE_YEAR, // Add active year
       attendanceType: miqaatData.attendanceType || null,
       startTime: new Date(miqaatData.startTime).toISOString(),
       endTime: new Date(miqaatData.endTime).toISOString(),
@@ -107,7 +108,7 @@ export type MiqaatDataForUpdate = Partial<Omit<Miqaat, 'id' | 'createdAt' | 'att
 
 export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUpdate): Promise<void> => {
   try {
-    const miqaatDoc = doc(db, 'miqaats', miqaatId);
+    const miqaatDoc = doc(db, getYearPath('miqaats'), miqaatId);
     
     const firestorePayload: { [key: string]: any } = { ...miqaatData };
 
@@ -150,7 +151,7 @@ export const updateMiqaat = async (miqaatId: string, miqaatData: MiqaatDataForUp
 
 export const deleteMiqaat = async (miqaatId: string): Promise<void> => {
     try {
-        const miqaatDoc = doc(db, 'miqaats', miqaatId);
+        const miqaatDoc = doc(db, getYearPath('miqaats'), miqaatId);
         const docToDelete = await getDoc(miqaatDoc);
         const miqaatName = docToDelete.data()?.name || 'Unknown';
 
@@ -167,7 +168,7 @@ export const deleteMiqaat = async (miqaatId: string): Promise<void> => {
 };
 
 export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAttendanceEntryItem): Promise<void> => {
-  const miqaatDocRef = doc(db, 'miqaats', miqaatId);
+  const miqaatDocRef = doc(db, getYearPath('miqaats'), miqaatId);
   try {
       await runTransaction(db, async (transaction) => {
           const miqaatDoc = await transaction.get(miqaatDocRef);
@@ -207,7 +208,7 @@ export const batchMarkSafarInMiqaat = async (miqaatId: string, entries: MiqaatSa
         return;
     }
     
-    const miqaatDocRef = doc(db, 'miqaats', miqaatId);
+    const miqaatDocRef = doc(db, getYearPath('miqaats'), miqaatId);
 
     try {
         await runTransaction(db, async (transaction) => {

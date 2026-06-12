@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase/firebase';
+import { db, getYearPath, ACTIVE_YEAR } from '@/lib/firebase/firebase';
 import { collectionGroup, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { sendEmail, attendanceConfirmationEmailTemplate } from '@/lib/email';
 import { format } from 'date-fns';
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Fetch user by ITS ID
-    const membersQuery = query(collectionGroup(db, 'members'), where('itsId', '==', userItsId));
+    const membersQuery = query(collectionGroup(db, 'members'), where('itsId', '==', userItsId), where('year', '==', ACTIVE_YEAR));
     const membersSnap = await getDocs(membersQuery);
     if (membersSnap.empty) {
       return NextResponse.json({ error: 'Member not found.' }, { status: 404 });
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Fetch Miqaat details
-    const miqaatDocRef = doc(db, 'miqaats', miqaatId);
+    const miqaatDocRef = doc(db, getYearPath('miqaats'), miqaatId);
     const miqaatDoc = await getDoc(miqaatDocRef);
     if (!miqaatDoc.exists()) {
       return NextResponse.json({ error: 'Miqaat not found.' }, { status: 404 });

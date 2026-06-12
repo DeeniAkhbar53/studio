@@ -48,7 +48,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { FunkyLoader } from "@/components/ui/funky-loader";
-import { db } from "@/lib/firebase/firebase";
+import { db, getYearPath } from "@/lib/firebase/firebase";
 import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { Clock, Timer } from "lucide-react";
 
@@ -235,7 +235,7 @@ export default function DashboardOverviewPage() {
     const fetchLastLogin = async () => {
       try {
         const q = query(
-          collection(db, "login_logs"),
+          collection(db, getYearPath("login_logs")),
           where("userItsId", "==", currentUserItsId)
         );
         const snap = await getDocs(q);

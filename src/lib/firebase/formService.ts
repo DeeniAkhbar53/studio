@@ -1,5 +1,5 @@
 
-import { db } from './firebase';
+import { db, ACTIVE_YEAR, getYearPath } from './firebase';
 import {
   collection,
   addDoc,
@@ -24,7 +24,7 @@ import {
 import type { Form, FormQuestion, FormResponse } from '@/types';
 import { addAuditLog } from './auditLogService';
 
-const formsCollectionRef = collection(db, 'forms');
+const formsCollectionRef = collection(db, getYearPath('forms'));
 
 // --- Form Management ---
 
@@ -36,6 +36,7 @@ export const addForm = async (formData: FormForAdd): Promise<Form> => {
   try {
     const docRef = await addDoc(formsCollectionRef, {
       ...formData,
+      year: ACTIVE_YEAR,
       responseCount: 0,
       createdAt: serverTimestamp(),
       status: 'open', // Forms are open by default
@@ -101,7 +102,7 @@ export const getForms = async (): Promise<Form[]> => {
 
 export const getForm = async (formId: string): Promise<Form | null> => {
     try {
-        const formDocRef = doc(db, 'forms', formId);
+        const formDocRef = doc(db, getYearPath('forms'), formId);
         const formDocSnap = await getDoc(formDocRef);
 
         if (!formDocSnap.exists()) {
@@ -139,7 +140,7 @@ export const getForm = async (formId: string): Promise<Form | null> => {
 
 export const updateForm = async (formId: string, formData: FormForUpdate): Promise<void> => {
     try {
-        const formDocRef = doc(db, 'forms', formId);
+        const formDocRef = doc(db, getYearPath('forms'), formId);
         await updateDoc(formDocRef, {
             ...formData,
             updatedAt: serverTimestamp() // Add timestamp on every update
@@ -157,7 +158,7 @@ export const updateForm = async (formId: string, formData: FormForUpdate): Promi
 
 export const updateFormStatus = async (formId: string, status: 'open' | 'closed'): Promise<void> => {
     try {
-        const formDocRef = doc(db, 'forms', formId);
+        const formDocRef = doc(db, getYearPath('forms'), formId);
         await updateDoc(formDocRef, { status });
 
         const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
@@ -172,7 +173,7 @@ export const updateFormStatus = async (formId: string, status: 'open' | 'closed'
 
 
 export const deleteForm = async (formId: string): Promise<void> => {
-    const formDocRef = doc(db, 'forms', formId);
+    const formDocRef = doc(db, getYearPath('forms'), formId);
     const responsesRef = collection(formDocRef, 'responses');
     
     try {
@@ -205,7 +206,7 @@ export const deleteForm = async (formId: string): Promise<void> => {
 export type FormResponseForAdd = Omit<FormResponse, 'id' | 'submittedAt'>;
 
 export const addFormResponse = async (formId: string, responseData: FormResponseForAdd): Promise<string> => {
-    const formRef = doc(db, 'forms', formId);
+    const formRef = doc(db, getYearPath('forms'), formId);
     const responsesRef = collection(formRef, 'responses');
 
     try {
@@ -228,6 +229,7 @@ export const addFormResponse = async (formId: string, responseData: FormResponse
             
             transaction.set(newResponseRef, {
                 ...responseData,
+                year: ACTIVE_YEAR,
                 submittedAt: serverTimestamp()
             });
 
@@ -243,7 +245,7 @@ export const addFormResponse = async (formId: string, responseData: FormResponse
 };
 
 export const updateFormResponse = async (formId: string, responseId: string, responseData: Omit<FormResponse, 'id' | 'submittedAt' | 'formId'>): Promise<void> => {
-    const responseDocRef = doc(db, 'forms', formId, 'responses', responseId);
+    const responseDocRef = doc(db, getYearPath('forms'), formId, 'responses', responseId);
     try {
         await updateDoc(responseDocRef, {
             ...responseData,
@@ -257,7 +259,7 @@ export const updateFormResponse = async (formId: string, responseId: string, res
 
 export const getFormResponses = async (formId: string): Promise<FormResponse[]> => {
     try {
-        const responsesCollectionRef = collection(db, 'forms', formId, 'responses');
+        const responsesCollectionRef = collection(db, getYearPath('forms'), formId, 'responses');
         const q = query(responsesCollectionRef, orderBy('submittedAt', 'desc'));
         const querySnapshot = await getDocs(q);
         
@@ -275,7 +277,7 @@ export const getFormResponses = async (formId: string): Promise<FormResponse[]> 
 };
 
 export const getFormResponsesRealtime = (formId: string, onUpdate: (responses: FormResponse[]) => void): Unsubscribe => {
-    const responsesCollectionRef = collection(db, 'forms', formId, 'responses');
+    const responsesCollectionRef = collection(db, getYearPath('forms'), formId, 'responses');
     const q = query(responsesCollectionRef, orderBy('submittedAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -297,7 +299,7 @@ export const getFormResponsesRealtime = (formId: string, onUpdate: (responses: F
 
 export const getFormResponseForUser = async (formId: string, userId: string): Promise<FormResponse | null> => {
     try {
-        const responsesRef = collection(db, 'forms', formId, 'responses');
+        const responsesRef = collection(db, getYearPath('forms'), formId, 'responses');
         const q = query(responsesRef, where('submittedBy', '==', userId), limit(1));
         const querySnapshot = await getDocs(q);
         
@@ -321,7 +323,7 @@ export const getFormResponseForUser = async (formId: string, userId: string): Pr
 export const getFormResponsesForUser = async (userItsId: string): Promise<FormResponse[]> => {
     try {
         const responsesCollectionGroup = collectionGroup(db, 'responses');
-        const q = query(responsesCollectionGroup, where('submittedBy', '==', userItsId));
+        const q = query(responsesCollectionGroup, where('submittedBy', '==', userItsId), where('year', '==', ACTIVE_YEAR));
         const querySnapshot = await getDocs(q);
         
         const responses: FormResponse[] = [];
@@ -348,7 +350,7 @@ export const getFormResponsesForUser = async (userItsId: string): Promise<FormRe
 
 
 export const deleteFormResponse = async (formId: string, responseId: string): Promise<void> => {
-    const formRef = doc(db, 'forms', formId);
+    const formRef = doc(db, getYearPath('forms'), formId);
     const responseRef = doc(formRef, 'responses', responseId);
 
     try {
@@ -384,7 +386,7 @@ export const deleteFormResponse = async (formId: string, responseId: string): Pr
 
 export const checkIfUserHasResponded = async (formId: string, userId: string): Promise<boolean> => {
     try {
-        const responsesRef = collection(db, 'forms', formId, 'responses');
+        const responsesRef = collection(db, getYearPath('forms'), formId, 'responses');
         const q = query(responsesRef, where('submittedBy', '==', userId), limit(1));
         const querySnapshot = await getDocs(q);
         return !querySnapshot.empty;

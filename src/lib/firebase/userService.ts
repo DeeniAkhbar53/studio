@@ -2,7 +2,7 @@
 
 'use server';
 
-import { db } from './firebase';
+import { db, ACTIVE_YEAR, getYearPath } from './firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, where, getDoc, DocumentData, collectionGroup, writeBatch, queryEqual, getCountFromServer, arrayUnion, FieldValue, serverTimestamp, Timestamp, orderBy, FieldPath, deleteField, limit } from 'firebase/firestore';
 import type { User, UserRole, UserDesignation, DuaAttendance } from '@/types';
 import { addAuditLog } from './auditLogService';
@@ -14,7 +14,7 @@ export type UserDataForAdd = Omit<User, 'id' | 'avatarUrl' | 'fcmTokens' > & { a
 const getMohallahName = async (mohallahId: string): Promise<string> => {
   if (!mohallahId) return 'Unknown';
   try {
-    const docSnap = await getDoc(doc(db, 'mohallahs', mohallahId));
+    const docSnap = await getDoc(doc(db, getYearPath('mohallahs'), mohallahId));
     if (docSnap.exists()) {
       return docSnap.data()?.name || 'Unknown';
     }
@@ -29,7 +29,7 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string, oldM
     throw new Error("Mohallah ID is required to add a user.");
   }
   try {
-    const membersCollectionRef = collection(db, 'mohallahs', mohallahId, 'members');
+    const membersCollectionRef = collection(db, getYearPath('mohallahs'), mohallahId, 'members');
 
     const payloadForFirestore: any = {
       name: userData.name,
@@ -37,6 +37,7 @@ export const addUser = async (userData: UserDataForAdd, mohallahId: string, oldM
       email: userData.email || null, // Add email
       role: userData.role,
       mohallahId: mohallahId, // Storing mohallahId in the member document for collectionGroup queries
+      year: ACTIVE_YEAR, // Store active year for filtering collectionGroup queries
       avatarUrl: userData.avatarUrl || `https://placehold.co/40x40.png?text=${userData.name.substring(0,2).toUpperCase()}`,
       designation: userData.designation || "Member",
       pageRights: userData.pageRights || [],
@@ -106,7 +107,7 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
     throw new Error("Mohallah ID is required to update a user.");
   }
   try {
-    const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
+    const userDocRef = doc(db, getYearPath('mohallahs'), mohallahId, 'members', userId);
     
     const updatePayload: any = { ...updatedData };
     // MohallahId cannot be changed via this function; it's part of the document path
@@ -171,7 +172,7 @@ export const deleteUser = async (userId: string, mohallahId: string, isTransfer 
     throw new Error("Mohallah ID is required to delete a user.");
   }
   try {
-    const userDocRef = doc(db, 'mohallahs', mohallahId, 'members', userId);
+    const userDocRef = doc(db, getYearPath('mohallahs'), mohallahId, 'members', userId);
     const userToDelete = await getDoc(userDocRef);
 
     if (!userToDelete.exists()) {
@@ -212,10 +213,10 @@ export const getUsers = async (mohallahId?: string): Promise<User[]> => {
     let usersQuery;
     if (mohallahId && mohallahId !== 'all') {
       
-      usersQuery = query(collection(db, 'mohallahs', mohallahId, 'members'));
+      usersQuery = query(collection(db, getYearPath('mohallahs'), mohallahId, 'members'));
     } else {
       
-      usersQuery = query(collectionGroup(db, 'members'));
+      usersQuery = query(collectionGroup(db, 'members'), where("year", "==", ACTIVE_YEAR));
     }
     const data = await getDocs(usersQuery);
     return data.docs.map((doc) => {
@@ -247,7 +248,7 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
   try {
     const membersCollectionGroup = collectionGroup(db, 'members');
     
-    const itsQuery = query(membersCollectionGroup, where("itsId", "==", id));
+    const itsQuery = query(membersCollectionGroup, where("itsId", "==", id), where("year", "==", ACTIVE_YEAR));
     const itsSnapshot = await getDocs(itsQuery);
     if (!itsSnapshot.empty) {
       const userDoc = itsSnapshot.docs[0];
@@ -264,7 +265,7 @@ export const getUserByItsOrBgkId = async (id: string): Promise<User | null> => {
       } as User;
     }
 
-    const bgkQuery = query(membersCollectionGroup, where("bgkId", "==", id));
+    const bgkQuery = query(membersCollectionGroup, where("bgkId", "==", id), where("year", "==", ACTIVE_YEAR));
     const bgkSnapshot = await getDocs(bgkQuery);
     if (!bgkSnapshot.empty) {
       const userDoc = bgkSnapshot.docs[0];
@@ -296,9 +297,9 @@ export const getUsersCount = async (mohallahId?: string): Promise<number> => {
   try {
     let q;
     if (mohallahId) {
-      q = query(collection(db, 'mohallahs', mohallahId, 'members'));
+      q = query(collection(db, getYearPath('mohallahs'), mohallahId, 'members'));
     } else {
-      q = query(collectionGroup(db, 'members'));
+      q = query(collectionGroup(db, 'members'), where("year", "==", ACTIVE_YEAR));
     }
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count;
@@ -320,7 +321,7 @@ export const updateUserFcmToken = async (userItsId: string, userMohallahId: stri
             return;
         }
 
-        const userDocRef = doc(db, 'mohallahs', user.mohallahId, 'members', user.id);
+        const userDocRef = doc(db, getYearPath('mohallahs'), user.mohallahId, 'members', user.id);
         
         await updateDoc(userDocRef, {
             fcmTokens: arrayUnion(token)
@@ -342,14 +343,14 @@ export const updateUserLastLogin = async (user: User, sessionId: string): Promis
         const batch = writeBatch(db);
 
         // 1. Update the user's lastLogin and sessionId fields
-        const userDocRef = doc(db, 'mohallahs', user.mohallahId, 'members', user.id);
+        const userDocRef = doc(db, getYearPath('mohallahs'), user.mohallahId, 'members', user.id);
         batch.update(userDocRef, {
             lastLogin: serverTimestamp(),
             sessionId: sessionId
         });
 
         // 2. Create a new document in the login_logs collection
-        const logDocRef = doc(collection(db, 'login_logs'));
+        const logDocRef = doc(collection(db, getYearPath('login_logs')));
         batch.set(logDocRef, {
             level: 'info',
             message: `${user.name} - logged in.`,
@@ -370,7 +371,7 @@ export const updateUserLastLogin = async (user: User, sessionId: string): Promis
 export const clearUserSession = async (userItsId: string): Promise<void> => {
   try {
     const membersCollectionGroup = collectionGroup(db, 'members');
-    const q = query(membersCollectionGroup, where("itsId", "==", userItsId), limit(1));
+    const q = query(membersCollectionGroup, where("itsId", "==", userItsId), where("year", "==", ACTIVE_YEAR), limit(1));
     const querySnapshot = await getDocs(q);
 
     if (querySnapshot.empty) {
@@ -410,7 +411,7 @@ export const getUniqueTeamNames = async (): Promise<string[]> => {
 
 export const getDuaAttendanceForUser = async (userItsId: string): Promise<DuaAttendance[]> => {
     try {
-        const userDocRef = doc(db, 'users', userItsId);
+        const userDocRef = doc(db, getYearPath('users'), userItsId);
         const duaAttendanceColRef = collection(userDocRef, 'duaAttendance');
         const q = query(duaAttendanceColRef, orderBy('weekId', 'desc'));
         
@@ -436,7 +437,7 @@ export const getDuaAttendanceForUser = async (userItsId: string): Promise<DuaAtt
 
 export const checkDuaForWeek = async (userItsId: string, weekId: string): Promise<boolean> => {
     try {
-        const duaDocRef = doc(db, 'users', userItsId, 'duaAttendance', weekId);
+        const duaDocRef = doc(db, getYearPath('users'), userItsId, 'duaAttendance', weekId);
         const docSnap = await getDoc(duaDocRef);
         return docSnap.exists();
     } catch (error) {

@@ -1,12 +1,12 @@
 
-import { db } from './firebase';
+import { db, getYearPath } from './firebase';
 import { doc, getDoc, Timestamp, getDocs, collection, query as firestoreQuery, orderBy as firestoreOrderBy, where } from 'firebase/firestore';
 import type { AttendanceRecord, Miqaat, MiqaatAttendanceEntryItem } from '@/types';
 
 // This function now gets attendance from *within* a Miqaat document
 export const getAttendanceRecordsByMiqaat = async (miqaatId: string): Promise<AttendanceRecord[]> => {
   try {
-    const miqaatDocRef = doc(db, 'miqaats', miqaatId);
+    const miqaatDocRef = doc(db, getYearPath('miqaats'), miqaatId);
     const miqaatDocSnap = await getDoc(miqaatDocRef);
 
     if (!miqaatDocSnap.exists()) {
@@ -49,7 +49,7 @@ export const getAttendanceRecordsByMiqaat = async (miqaatId: string): Promise<At
 // This function now fetches Miqaats where the user attended and filters their attendance arrays
 export const getAttendanceRecordsByUser = async (userItsId: string): Promise<AttendanceRecord[]> => {
   try {
-    const miqaatsCollectionRef = collection(db, 'miqaats');
+    const miqaatsCollectionRef = collection(db, getYearPath('miqaats'));
     // We cannot sort here without an index. Sorting will be done in-memory.
     const q = firestoreQuery(
       miqaatsCollectionRef,

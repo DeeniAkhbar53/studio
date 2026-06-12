@@ -1,6 +1,6 @@
 // Auth utility service — used by both client components and API routes
 import bcrypt from 'bcryptjs';
-import { db } from './firebase';
+import { db, getYearPath } from './firebase';
 import { doc, updateDoc, collectionGroup, query, where, getDocs } from 'firebase/firestore';
 import type { User, UserDesignation } from '@/types';
 
@@ -59,7 +59,7 @@ export async function verifyPassword(
     if (user && user.id && user.mohallahId) {
       try {
         const hashed = await hashPassword(plain);
-        const userDocRef = doc(db, 'mohallahs', user.mohallahId, 'members', user.id);
+        const userDocRef = doc(db, getYearPath('mohallahs'), user.mohallahId, 'members', user.id);
         await updateDoc(userDocRef, { password: hashed });
       } catch {
         // Non-blocking: upgrade failure doesn't prevent login
@@ -79,7 +79,7 @@ export async function setUserPassword(user: User, newPassword: string): Promise<
     throw new Error('User ID and Mohallah ID are required to set password.');
   }
   const hashed = await hashPassword(newPassword);
-  const userDocRef = doc(db, 'mohallahs', user.mohallahId, 'members', user.id);
+  const userDocRef = doc(db, getYearPath('mohallahs'), user.mohallahId, 'members', user.id);
   await updateDoc(userDocRef, { password: hashed });
 }
 

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import type { AuditLog, UserRole } from "@/types";
-import { db } from "@/lib/firebase/firebase";
+import { db, getYearPath } from "@/lib/firebase/firebase";
 import { collection, query, orderBy, onSnapshot, Timestamp } from "firebase/firestore";
 import { Loader2, ShieldAlert, Shield, Trash2, AlertTriangle, FileWarning, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
@@ -50,7 +50,7 @@ export default function AuditLogsPage() {
         setIsLoading(false);
         return;
     }
-    const auditLogsCollectionRef = collection(db, 'audit_logs');
+    const auditLogsCollectionRef = collection(db, getYearPath('audit_logs'));
     const q = query(auditLogsCollectionRef, orderBy('timestamp', 'desc'));
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {

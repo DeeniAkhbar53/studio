@@ -14,7 +14,7 @@ import type { NotificationItem, UserRole } from "@/types";
 import { PlusCircle, Trash2, BellRing, Loader2, ShieldAlert, ChevronLeft, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { addNotification, deleteNotification } from "@/lib/firebase/notificationService";
-import { db } from "@/lib/firebase/firebase"; 
+import { db, getYearPath } from "@/lib/firebase/firebase"; 
 import { collection, query, orderBy, getDocs, Timestamp } from "firebase/firestore";
 import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
 import { FunkyLoader } from "@/components/ui/funky-loader";
@@ -70,7 +70,7 @@ export default function ManageNotificationsPage() {
   const fetchAllNotifications = useCallback(async () => {
     setIsLoading(true);
     try {
-      const notificationsCollectionRef = collection(db, 'notifications');
+      const notificationsCollectionRef = collection(db, getYearPath('notifications'));
       const q = query(notificationsCollectionRef, orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
       const fetchedNotifications: NotificationItem[] = [];

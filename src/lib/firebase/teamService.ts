@@ -1,6 +1,6 @@
 "use server";
 
-import { db } from './firebase';
+import { db, getYearPath } from './firebase';
 import { collection, writeBatch, getDocs, query, where, doc } from 'firebase/firestore';
 import { addAuditLog } from './auditLogService';
 
@@ -19,7 +19,7 @@ export async function createTeam(teamName: string, mohallahId: string): Promise<
 }
 
 export async function renameTeam(oldTeamName: string, newTeamName: string, mohallahId: string): Promise<void> {
-  const membersCollectionRef = collection(db, 'mohallahs', mohallahId, 'members');
+  const membersCollectionRef = collection(db, getYearPath('mohallahs'), mohallahId, 'members');
   const q = query(membersCollectionRef, where("team", "==", oldTeamName));
 
   try {

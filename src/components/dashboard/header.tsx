@@ -25,7 +25,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import type { NotificationItem, UserRole, Form as FormType, User } from "@/types";
 import Image from "next/image";
-import { db } from "@/lib/firebase/firebase";
+import { db, getYearPath } from "@/lib/firebase/firebase";
 import { collection, query, where, orderBy, onSnapshot, Timestamp, limit, Unsubscribe, getDocs } from "firebase/firestore";
 import { getForms, getFormResponsesForUser } from "@/lib/firebase/formService";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
@@ -91,7 +91,7 @@ export function Header() {
     const fetchLastLogin = async () => {
       try {
         const q = query(
-          collection(db, "login_logs"),
+          collection(db, getYearPath("login_logs")),
           where("userItsId", "==", currentUserItsId)
         );
         const snap = await getDocs(q);
@@ -212,7 +212,7 @@ export function Header() {
   
     const checkNotifications = async () => {
       // 1. Standard Notifications
-      const notificationsCollectionRef = collection(db, 'notifications');
+      const notificationsCollectionRef = collection(db, getYearPath('notifications'));
       const qAll = query(
         notificationsCollectionRef,
         where('targetAudience', '==', 'all'),

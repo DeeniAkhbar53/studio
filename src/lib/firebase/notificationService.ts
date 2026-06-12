@@ -1,5 +1,5 @@
 
-import { db } from './firebase';
+import { db, getYearPath } from './firebase';
 import {
   collection,
   addDoc,
@@ -20,7 +20,7 @@ import type { NotificationItem, UserRole } from '@/types';
 import { addAuditLog } from './auditLogService';
 
 
-const notificationsCollectionRef = collection(db, 'notifications');
+const notificationsCollectionRef = collection(db, getYearPath('notifications'));
 
 export type NotificationDataForAdd = Omit<NotificationItem, 'id' | 'createdAt' | 'readBy'>;
 
@@ -124,7 +124,7 @@ export const getNotificationsForUser = async (currentUserItsId: string, currentU
 
 export const markNotificationAsRead = async (notificationId: string, userItsId: string): Promise<void> => {
   try {
-    const notificationDocRef = doc(db, 'notifications', notificationId);
+    const notificationDocRef = doc(db, getYearPath('notifications'), notificationId);
     // Atomically add the user's ITS ID to the 'readBy' array.
     // arrayUnion ensures the ID is only added if it's not already present.
     await updateDoc(notificationDocRef, {
@@ -138,7 +138,7 @@ export const markNotificationAsRead = async (notificationId: string, userItsId: 
 
 export const deleteNotification = async (notificationId: string, actor: { itsId: string, name: string }): Promise<void> => {
   try {
-    const notificationDocRef = doc(db, 'notifications', notificationId);
+    const notificationDocRef = doc(db, getYearPath('notifications'), notificationId);
     const docToDelete = await getDoc(notificationDocRef);
     const title = docToDelete.data()?.title || 'Unknown';
 

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Download, Eye, FileWarning, Users, UserX, PieChart, ChevronDown, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { User, UserRole, UserDesignation, Mohallah } from "@/types";
-import { db } from "@/lib/firebase/firebase";
+import { db, getYearPath } from "@/lib/firebase/firebase";
 import { collection, doc, getDoc, getDocs, query, where, Timestamp, deleteDoc } from "firebase/firestore";
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
@@ -125,7 +125,7 @@ export default function DuaResponsesPage() {
             setError(null);
             try {
                  const submissionPromises = allUsers.map(user => {
-                    const docRef = doc(db, 'users', user.itsId, 'duaAttendance', weekId);
+                    const docRef = doc(db, getYearPath('users'), user.itsId, 'duaAttendance', weekId);
                     return getDoc(docRef);
                 });
 
@@ -227,7 +227,7 @@ export default function DuaResponsesPage() {
     
     const handleDeleteSubmission = async (submission: DuaSubmission) => {
         try {
-            const docRef = doc(db, 'users', submission.itsId, 'duaAttendance', submission.weekId);
+            const docRef = doc(db, getYearPath('users'), submission.itsId, 'duaAttendance', submission.weekId);
             await deleteDoc(docRef);
             setAllSubmissions(prev => prev.filter(s => s.id !== submission.id));
             toast({

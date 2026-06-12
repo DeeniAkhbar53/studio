@@ -1,7 +1,7 @@
 
 'use server';
 
-import { db } from './firebase';
+import { db, getYearPath } from './firebase';
 import {
   collection,
   addDoc,
@@ -9,7 +9,7 @@ import {
 } from 'firebase/firestore';
 import type { AuditLog } from '@/types';
 
-const auditLogsCollectionRef = collection(db, 'audit_logs');
+const auditLogsCollectionRef = collection(db, getYearPath('audit_logs'));
 
 /**
  * Adds a new log entry to the audit trail.

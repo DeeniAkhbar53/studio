@@ -1,5 +1,5 @@
 
-import { db } from './firebase';
+import { db, getYearPath } from './firebase';
 import {
   collection,
   addDoc,
@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import type { SystemLog } from '@/types';
 
-const logsCollectionRef = collection(db, 'login_logs');
+const logsCollectionRef = collection(db, getYearPath('login_logs'));
 
 // This function is for server-side use only now, called from a Cloud Function.
 export const addLoginLog = async (
