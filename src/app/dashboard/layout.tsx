@@ -38,7 +38,10 @@ export default function DashboardLayout({
             setInactivityTimeout(Number(settings.inactivityTimeout) * 60 * 1000);
         }
         if (settings.activeYear) {
-            document.cookie = `active_year=${settings.activeYear}; path=/; max-age=31536000; SameSite=Lax`;
+            const hasCookie = document.cookie.split(';').some(item => item.trim().startsWith('active_year='));
+            if (!hasCookie) {
+                document.cookie = `active_year=${settings.activeYear}; path=/; max-age=31536000; SameSite=Lax`;
+            }
         }
     });
   }, []);

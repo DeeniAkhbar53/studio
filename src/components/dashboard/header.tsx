@@ -33,7 +33,8 @@ import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { getFeatureFlags } from "@/lib/firebase/settingsService";
+import { getFeatureFlags, getSettings } from "@/lib/firebase/settingsService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 
 
@@ -84,6 +85,35 @@ export function Header() {
   
   const [lastLoginText, setLastLoginText] = useState<string>("Loading...");
   const [sessionMinutes, setSessionMinutes] = useState<number>(0);
+  const [activeYear, setActiveYear] = useState<string>("1448H");
+  const [availableYears, setAvailableYears] = useState<string[]>(["1447H", "1448H"]);
+
+  useEffect(() => {
+    const loadYears = async () => {
+      try {
+        const settings = await getSettings();
+        if (settings.availableYears) {
+          setAvailableYears(settings.availableYears);
+        }
+        if (typeof window !== 'undefined') {
+          const match = document.cookie.match(/(?:^|; )active_year=([^;]*)/);
+          const currentCookieYear = match ? decodeURIComponent(match[1]) : null;
+          setActiveYear(currentCookieYear || settings.activeYear || "1448H");
+        }
+      } catch (err) {
+        console.error("Error loading years in header:", err);
+      }
+    };
+    loadYears();
+  }, []);
+
+  const handleYearChange = (newYear: string) => {
+    setActiveYear(newYear);
+    if (typeof window !== 'undefined') {
+      document.cookie = `active_year=${newYear}; path=/; max-age=31536000; SameSite=Lax`;
+      window.location.reload();
+    }
+  };
 
   useEffect(() => {
     if (!currentUserItsId) return;
@@ -387,6 +417,20 @@ export function Header() {
 
       <div className="hidden md:flex flex-1 ml-auto max-w-sm">
         {/* Search functionality can be added here later */}
+      </div>
+
+      <div className="flex items-center gap-1.5 shrink-0">
+        <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">Year:</span>
+        <Select value={activeYear} onValueChange={handleYearChange}>
+            <SelectTrigger className="w-[100px] h-8 text-xs bg-background/50 border-white/10">
+                <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+                {availableYears.map(year => (
+                    <SelectItem key={year} value={year}>{year}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
       </div>
 
       <DropdownMenu>

@@ -24,8 +24,6 @@ import {
 import type { Form, FormQuestion, FormResponse } from '@/types';
 import { addAuditLog } from './auditLogService';
 
-const formsCollectionRef = collection(db, getYearPath('forms'));
-
 // --- Form Management ---
 
 export type FormForAdd = Omit<Form, 'id' | 'createdAt' | 'responseCount' | 'status' | 'updatedAt' | 'updatedBy'>;
@@ -34,7 +32,8 @@ export type FormForUpdate = Partial<Omit<Form, 'id' | 'createdAt' | 'responseCou
 
 export const addForm = async (formData: FormForAdd): Promise<Form> => {
   try {
-    const docRef = await addDoc(formsCollectionRef, {
+    const formsCol = collection(db, getYearPath('forms'));
+    const docRef = await addDoc(formsCol, {
       ...formData,
       year: getActiveYear(),
       responseCount: 0,

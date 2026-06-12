@@ -20,7 +20,7 @@ import type { NotificationItem, UserRole } from '@/types';
 import { addAuditLog } from './auditLogService';
 
 
-const notificationsCollectionRef = collection(db, getYearPath('notifications'));
+const getNotificationsCollectionRef = () => collection(db, getYearPath('notifications'));
 
 export type NotificationDataForAdd = Omit<NotificationItem, 'id' | 'createdAt' | 'readBy'>;
 
@@ -28,7 +28,7 @@ export const addNotification = async (notificationData: NotificationDataForAdd):
   try {
     // The Cloud Function 'onNewNotificationCreated' will be triggered by this action.
     // It will handle sending the push notifications.
-    const docRef = await addDoc(notificationsCollectionRef, {
+    const docRef = await addDoc(getNotificationsCollectionRef(), {
       ...notificationData,
       createdAt: serverTimestamp(),
       readBy: [], // Initialize readBy as an empty array
@@ -50,7 +50,7 @@ export const getNotificationsForUser = async (currentUserItsId: string, currentU
   try {
     // Query for 'all'
     const notificationsForAllQuery = query(
-        notificationsCollectionRef,
+        getNotificationsCollectionRef(),
         where('targetAudience', '==', 'all'),
         orderBy('createdAt', 'desc'),
         limit(50) // Limit results for performance
@@ -60,7 +60,7 @@ export const getNotificationsForUser = async (currentUserItsId: string, currentU
     let notificationsForRoleQuery = null;
     if ((currentUserRole as string) !== 'all') {
         notificationsForRoleQuery = query(
-            notificationsCollectionRef,
+            getNotificationsCollectionRef(),
             where('targetAudience', '==', currentUserRole),
             orderBy('createdAt', 'desc'),
             limit(50) // Limit results for performance

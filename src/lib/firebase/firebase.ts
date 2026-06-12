@@ -29,16 +29,22 @@ export function getActiveYear(): string {
   if (typeof window !== 'undefined') {
     const match = document.cookie.match(/(?:^|; )active_year=([^;]*)/);
     return match ? decodeURIComponent(match[1]) : (process.env.NEXT_PUBLIC_ACTIVE_YEAR || "1448H");
-  } else {
+  }
+  return process.env.NEXT_PUBLIC_ACTIVE_YEAR || "1448H";
+}
+
+export async function getActiveYearServer(): Promise<string> {
+  if (typeof window === 'undefined') {
     try {
       const { cookies } = require('next/headers');
-      const cookieStore = cookies();
+      const cookieStore = await cookies();
       const activeYear = cookieStore.get('active_year')?.value;
       return activeYear || (process.env.NEXT_PUBLIC_ACTIVE_YEAR || "1448H");
     } catch (e) {
       return process.env.NEXT_PUBLIC_ACTIVE_YEAR || "1448H";
     }
   }
+  return getActiveYear();
 }
 
 export function getYearPath(subPath: string, year?: string): string {

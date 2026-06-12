@@ -9,16 +9,6 @@ import {
 } from 'firebase/firestore';
 import type { AuditLog } from '@/types';
 
-const auditLogsCollectionRef = collection(db, getYearPath('audit_logs'));
-
-/**
- * Adds a new log entry to the audit trail.
- * This should be called from other server-side service functions.
- * @param action - A string describing the action, e.g., "user_created".
- * @param actor - An object containing the ITS ID and name of the person performing the action.
- * @param context - Optional additional information about the event, e.g., { targetUserId: '...', targetUserName: '...' }.
- * @param level - The severity level of the log entry.
- */
 export const addAuditLog = async (
   action: string,
   actor: { itsId: string; name: string },
@@ -35,7 +25,8 @@ export const addAuditLog = async (
       timestamp: serverTimestamp(),
     };
 
-    await addDoc(auditLogsCollectionRef, logEntry);
+    const auditLogsCol = collection(db, getYearPath('audit_logs'));
+    await addDoc(auditLogsCol, logEntry);
   } catch (error) {
     console.error("Failed to add audit log:", {
       action,

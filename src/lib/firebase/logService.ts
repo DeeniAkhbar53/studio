@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import type { SystemLog } from '@/types';
 
-const logsCollectionRef = collection(db, getYearPath('login_logs'));
+const getLogsCollectionRef = () => collection(db, getYearPath('login_logs'));
 
 // This function is for server-side use only now, called from a Cloud Function.
 export const addLoginLog = async (
@@ -31,7 +31,7 @@ export const addLoginLog = async (
       sessionStatus: 'Active',
     };
 
-    const docRef = await addDoc(logsCollectionRef, logEntry);
+    const docRef = await addDoc(getLogsCollectionRef(), logEntry);
     return docRef.id;
   } catch (error) {
     
@@ -53,7 +53,7 @@ export const addLogoutLog = async (
       sessionStatus: 'Inactive',
       timestamp: serverTimestamp(),
     };
-    const docRef = await addDoc(logsCollectionRef, logEntry);
+    const docRef = await addDoc(getLogsCollectionRef(), logEntry);
     return docRef.id;
   } catch (error) {
     console.error("Failed to add logout log:", error);
@@ -67,7 +67,7 @@ export const getLoginLogs = (
   onUpdate: (logs: SystemLog[]) => void,
   onError: (error: Error) => void
 ): Unsubscribe => {
-  const q = query(logsCollectionRef, orderBy('timestamp', 'desc'));
+  const q = query(getLogsCollectionRef(), orderBy('timestamp', 'desc'));
 
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
     const logs = querySnapshot.docs.map(docSnapshot => {
@@ -114,7 +114,7 @@ export const getLoginLogsForUser = async (userItsId: string, year?: string): Pro
 
 export const clearLoginLogs = async (): Promise<void> => {
     try {
-        const querySnapshot = await getDocs(logsCollectionRef);
+        const querySnapshot = await getDocs(getLogsCollectionRef());
         const batch = writeBatch(db);
         querySnapshot.docs.forEach(doc => {
             batch.delete(doc.ref);
