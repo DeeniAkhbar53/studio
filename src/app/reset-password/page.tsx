@@ -110,16 +110,15 @@ function ResetPasswordForm() {
   return (
     <main className="premium-shell flex min-h-screen flex-col items-center justify-between p-4 md:p-8">
       <div className="flex-1 flex items-center justify-center w-full max-w-md my-8">
-        <Card className="w-full overflow-hidden border-white/70 shadow-2xl dark:border-white/10">
+        <Card className="w-full overflow-hidden glass-surface border-white/20 shadow-md">
           <CardHeader className="relative px-8 pb-5 pt-8 text-center">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-amber-400 to-teal-500" />
-            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-lg border border-white/60 bg-white/45 text-primary shadow-xl shadow-primary/10 backdrop-blur-xl dark:border-white/10 dark:bg-white/10">
+            <div className="mx-auto mb-4 flex justify-center items-center">
               <Image
                 src="/logo.png"
                 alt="BGK Attendance Logo"
-                width={60}
-                height={60}
-                className="h-14 w-14"
+                width={64}
+                height={64}
+                className="h-16 w-16"
               />
             </div>
             <CardTitle>
@@ -127,7 +126,7 @@ function ResetPasswordForm() {
                 Reset Password
               </h1>
             </CardTitle>
-            <CardDescription className="pt-1 text-muted-foreground">
+            <CardDescription className="pt-1 text-muted-foreground text-xs">
               Set a new password for your BGK Attendance account.
             </CardDescription>
           </CardHeader>
