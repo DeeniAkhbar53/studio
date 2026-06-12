@@ -242,7 +242,7 @@ export function SidebarNav() {
               <AccordionItem value={item.title} key={item.title} className="border-b-0">
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <AccordionTrigger className="rounded-lg border border-transparent px-3 py-2 text-sidebar-foreground transition-all hover:border-sidebar-border hover:bg-sidebar-accent/30 hover:text-sidebar-accent-foreground hover:no-underline data-[state=open]:border-sidebar-border data-[state=open]:bg-sidebar-accent/10 data-[state=open]:text-sidebar-accent-foreground">
+                        <AccordionTrigger className="rounded-lg border border-transparent px-3 py-2 text-sidebar-foreground transition-all hover:border-white/10 hover:bg-sidebar-accent/20 hover:text-sidebar-accent-foreground hover:no-underline data-[state=open]:border-white/10 data-[state=open]:bg-sidebar-accent/10 data-[state=open]:text-sidebar-accent-foreground">
                             <div className="flex items-center gap-3">
                                 <Icon className="h-4 w-4" />
                                 <span className="truncate">{item.title}</span>
@@ -261,8 +261,8 @@ export function SidebarNav() {
                           <Link
                             href={subpage.href}
                             className={cn(
-                              "flex items-center justify-between gap-3 rounded-md border border-transparent px-3 py-2 text-sidebar-foreground/90 transition-all hover:border-sidebar-border hover:bg-sidebar-accent/40 hover:text-sidebar-accent-foreground",
-                              isActive ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold border-l-2 border-sidebar-primary rounded-r-md pl-2.5" : ""
+                              "flex items-center justify-between gap-3 rounded-md border border-transparent px-3 py-2 text-sidebar-foreground/90 transition-all hover:border-white/10 hover:bg-sidebar-accent/20 hover:text-sidebar-accent-foreground",
+                              isActive ? "bg-sidebar-accent/60 text-sidebar-accent-foreground font-semibold border-l-2 border-sidebar-primary rounded-r-md pl-2.5" : ""
                             )}
                           >
                             <span>{subpage.label}</span>

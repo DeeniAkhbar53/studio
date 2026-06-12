@@ -308,11 +308,11 @@ export default function DashboardLayout({
 
   return (
     <div className="premium-shell grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
-      <aside className="glass-sidebar hidden border-r md:block print-hide">
+      <aside className="glass-sidebar hidden border-r border-white/10 md:block print-hide">
         <div className="flex h-full max-h-screen flex-col gap-2">
-          <div className="flex h-16 items-center border-b border-sidebar-border bg-sidebar-background px-4 lg:px-6">
+          <div className="flex h-16 items-center border-b border-white/10 bg-white/5 px-4 lg:px-6">
             <Link href="/dashboard" className="flex items-center gap-3 font-bold text-foreground">
-              <span className="flex h-10 w-10 items-center justify-center rounded-md border border-sidebar-border bg-card shadow-sm">
+              <span className="flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/10 shadow-md">
                 <Image
                   src="/logo.png"
                   alt="BGK Attendance Logo"
