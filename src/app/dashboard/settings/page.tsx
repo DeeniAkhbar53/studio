@@ -267,7 +267,12 @@ export default function SettingsPage() {
                                         <SelectContent>
                                             <SelectItem value="blue">Blue (Default)</SelectItem>
                                             <SelectItem value="purple">Purple</SelectItem>
-                                            <SelectItem value="gray">Gray</SelectItem>
+                                            <SelectItem value="indigo">Indigo</SelectItem>
+                                            <SelectItem value="teal">Teal</SelectItem>
+                                            <SelectItem value="emerald">Emerald</SelectItem>
+                                            <SelectItem value="rose">Rose</SelectItem>
+                                            <SelectItem value="amber">Amber</SelectItem>
+                                            <SelectItem value="gray">Slate (Gray)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <Button onClick={() => handleSettingUpdate('defaultTheme', defaultTheme)}>Save Theme</Button>

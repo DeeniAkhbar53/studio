@@ -22,7 +22,8 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
             }
         }
         
-        document.body.classList.remove('theme-blue', 'theme-purple', 'theme-gray');
+        const allThemeClasses = ['theme-blue', 'theme-purple', 'theme-indigo', 'theme-teal', 'theme-emerald', 'theme-rose', 'theme-amber', 'theme-gray'];
+        document.body.classList.remove(...allThemeClasses);
         if (savedTheme && savedTheme !== "blue") {
             document.body.classList.add(`theme-${savedTheme}`);
         }
