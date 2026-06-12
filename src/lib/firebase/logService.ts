@@ -86,10 +86,11 @@ export const getLoginLogs = (
   return unsubscribe;
 };
 
-export const getLoginLogsForUser = async (userItsId: string): Promise<SystemLog[]> => {
+export const getLoginLogsForUser = async (userItsId: string, year?: string): Promise<SystemLog[]> => {
     try {
+        const logsCol = collection(db, getYearPath('login_logs', year));
         const q = query(
-            logsCollectionRef,
+            logsCol,
             where('userItsId', '==', userItsId),
             orderBy('timestamp', 'desc')
         );

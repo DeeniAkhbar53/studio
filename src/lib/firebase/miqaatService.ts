@@ -3,10 +3,10 @@ import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, serverTimestamp
 import type { Miqaat, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem, MiqaatSession } from '@/types';
 import { addAuditLog } from './auditLogService';
 
-const miqaatsCollectionRef = collection(db, getYearPath('miqaats'));
+const getMiqaatsColRef = (year?: string) => collection(db, getYearPath('miqaats', year));
 
-export const getMiqaats = (onUpdate: (miqaats: Miqaat[]) => void): Unsubscribe => {
-  const q = query(miqaatsCollectionRef, orderBy('createdAt', 'desc'));
+export const getMiqaats = (onUpdate: (miqaats: Miqaat[]) => void, year?: string): Unsubscribe => {
+  const q = query(getMiqaatsColRef(year), orderBy('createdAt', 'desc'));
 
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
     const miqaats = querySnapshot.docs.map((docSnapshot) => {
@@ -90,7 +90,7 @@ export const addMiqaat = async (miqaatData: MiqaatDataForAdd): Promise<Miqaat> =
       firestorePayload.barcodeData = `MIQAAT-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     }
 
-    const docRef = await addDoc(miqaatsCollectionRef, firestorePayload);
+    const docRef = await addDoc(getMiqaatsColRef(), firestorePayload);
 
     const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
     const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';

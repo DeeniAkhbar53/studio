@@ -18,10 +18,12 @@ import * as z from "zod";
 import { getUserByItsOrBgkId, getUsers, updateUser, getDuaAttendanceForUser } from "@/lib/firebase/userService";
 import { requiresPasswordAndOtp } from "@/lib/firebase/authService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getActiveYear } from "@/lib/firebase/firebase";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getMiqaats } from "@/lib/firebase/miqaatService";
 import { getFormResponsesForUser, getForms } from "@/lib/firebase/formService";
 import { getLoginLogsForUser } from "@/lib/firebase/logService";
+import { getSettings } from "@/lib/firebase/settingsService";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Separator } from "@/components/ui/separator";
@@ -63,6 +65,8 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
 
 export default function ProfilePage() {
+  const [selectedYear, setSelectedYear] = useState(getActiveYear());
+  const [availableYears, setAvailableYears] = useState<string[]>(["1447H", "1448H"]);
   const [user, setUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
@@ -243,15 +247,15 @@ export default function ProfilePage() {
             } finally {
                 if (isMounted) setIsLoadingHistory(false);
             }
-          });
+          }, selectedYear);
 
           // Fetch Form History
             setIsLoadingFormHistory(true);
             setFormHistoryError(null);
             try {
                 const [allForms, userResponses] = await Promise.all([
-                    getForms(),
-                    getFormResponsesForUser(fetchedUser.itsId)
+                    getForms(selectedYear),
+                    getFormResponsesForUser(fetchedUser.itsId, selectedYear)
                 ]);
 
                 if (!isMounted) return;
@@ -293,7 +297,7 @@ export default function ProfilePage() {
             setIsLoadingLoginHistory(true);
             setLoginHistoryError(null);
             try {
-                const fetchedLoginLogs = await getLoginLogsForUser(fetchedUser.itsId);
+                const fetchedLoginLogs = await getLoginLogsForUser(fetchedUser.itsId, selectedYear);
                 if (isMounted) {
                     setLoginHistory(fetchedLoginLogs);
                 }
@@ -312,7 +316,7 @@ export default function ProfilePage() {
             setIsLoadingDuaHistory(true);
             setDuaHistoryError(null);
             try {
-                const fetchedDuaLogs = await getDuaAttendanceForUser(fetchedUser.itsId);
+                const fetchedDuaLogs = await getDuaAttendanceForUser(fetchedUser.itsId, selectedYear);
                  if (isMounted) {
                     setDuaHistory(fetchedDuaLogs);
                 }
@@ -347,17 +351,36 @@ export default function ProfilePage() {
     } else {
        if (isMounted) setIsLoading(false);
     }
-    
+
     return () => {
       isMounted = false;
       if (unsubscribeMohallahs) unsubscribeMohallahs();
       if (unsubscribeMiqaats) unsubscribeMiqaats();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  }, [selectedYear]);
 
   useEffect(() => {
-    fetchProfileData();
+    const fetchAvailableYears = async () => {
+      try {
+        const settings = await getSettings();
+        if (settings.availableYears) {
+          setAvailableYears(settings.availableYears);
+        }
+      } catch (err) {
+        console.error("Error loading available years in profile page:", err);
+      }
+    };
+    fetchAvailableYears();
+  }, []);
+
+  useEffect(() => {
+    let cleanupFn: any = null;
+    fetchProfileData().then(fn => {
+      cleanupFn = fn;
+    });
+    return () => {
+      if (cleanupFn) cleanupFn();
+    };
   }, [fetchProfileData]);
 
   const teamLeaders = useMemo(() => {
@@ -482,11 +505,22 @@ export default function ProfilePage() {
             <AvatarFallback>{user.name.substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div className="flex-grow text-center md:text-left w-full">
-            <div className="flex flex-row items-center justify-center md:justify-between mb-1">
+            <div className="flex flex-col sm:flex-row items-center justify-center md:justify-between mb-1 gap-2">
               <h3 className="text-2xl font-bold text-foreground">{user.name}</h3>
+              <div className="flex items-center gap-2">
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                    <SelectTrigger className="w-[120px] h-9 text-xs bg-background">
+                        <SelectValue placeholder="Year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {availableYears.map(year => (
+                            <SelectItem key={year} value={year}>{year}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
                 <Sheet open={isEditSheetOpen} onOpenChange={setIsEditSheetOpen}>
                   <SheetTrigger asChild>
-                    <Button variant="outline" size="sm" className="ml-4 shrink-0">
+                    <Button variant="outline" size="sm" className="shrink-0">
                         <Edit3 className="h-4 w-4 md:mr-2" />
                         <span className="hidden md:inline">Edit Profile</span>
                     </Button>
@@ -596,6 +630,7 @@ export default function ProfilePage() {
                     </UIForm>
                   </SheetContent>
                 </Sheet>
+              </div>
             </div>
             <p className="text-muted-foreground">ITS: {user.itsId} {user.bgkId && `/ BGK: ${user.bgkId}`}</p>
             <p className="text-sm text-muted-foreground mt-1">{user.designation || "Member"}</p>

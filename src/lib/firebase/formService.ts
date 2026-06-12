@@ -67,8 +67,9 @@ export const addForm = async (formData: FormForAdd): Promise<Form> => {
   }
 };
 
-export const getForms = async (): Promise<Form[]> => {
-    const q = query(formsCollectionRef, orderBy('createdAt', 'desc'));
+export const getForms = async (year?: string): Promise<Form[]> => {
+    const formsCol = collection(db, getYearPath('forms', year));
+    const q = query(formsCol, orderBy('createdAt', 'desc'));
     
     try {
         const querySnapshot = await getDocs(q);
@@ -320,10 +321,10 @@ export const getFormResponseForUser = async (formId: string, userId: string): Pr
     }
 };
 
-export const getFormResponsesForUser = async (userItsId: string): Promise<FormResponse[]> => {
+export const getFormResponsesForUser = async (userItsId: string, year?: string): Promise<FormResponse[]> => {
     try {
         const responsesCollectionGroup = collectionGroup(db, 'responses');
-        const q = query(responsesCollectionGroup, where('submittedBy', '==', userItsId), where('year', '==', getActiveYear()));
+        const q = query(responsesCollectionGroup, where('submittedBy', '==', userItsId), where('year', '==', year || getActiveYear()));
         const querySnapshot = await getDocs(q);
         
         const responses: FormResponse[] = [];

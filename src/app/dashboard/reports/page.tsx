@@ -30,6 +30,8 @@ import { getUsers, getDuaAttendanceForUser, getUserByItsOrBgkId } from "@/lib/fi
 import { getLoginLogsForUser } from "@/lib/firebase/logService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getFormResponsesForUser, getForms } from "@/lib/firebase/formService";
+import { getActiveYear } from "@/lib/firebase/firebase";
+import { getSettings } from "@/lib/firebase/settingsService";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogTrigger, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -348,6 +350,8 @@ const FullTable = ({ title, data, headers, renderRow }: { title: string, data: a
 export default function ReportsPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const [selectedYear, setSelectedYear] = useState(getActiveYear());
+  const [availableYears, setAvailableYears] = useState<string[]>(["1447H", "1448H"]);
   const [reportData, setReportData] = useState<ReportResultItem[] | null>(null);
   const [memberProfileData, setMemberProfileData] = useState<MemberProfileData | null>(null);
   const [reportSearchTerm, setReportSearchTerm] = useState("");
@@ -481,6 +485,20 @@ export default function ReportsPage() {
        setTimeout(() => router.replace('/dashboard'), 2000);
     }
   }, [router]);
+
+  useEffect(() => {
+    const fetchAvailableYears = async () => {
+      try {
+        const settings = await getSettings();
+        if (settings.availableYears) {
+          setAvailableYears(settings.availableYears);
+        }
+      } catch (err) {
+        console.error("Error loading available years in reports page:", err);
+      }
+    };
+    fetchAvailableYears();
+  }, []);
   
   useEffect(() => {
     if (!isAuthorized) return;
@@ -490,7 +508,7 @@ export default function ReportsPage() {
         try {
             const [users, miqaats, mohallahs, userDetails] = await Promise.all([
                 getUsers(),
-                new Promise<Miqaat[]>(resolve => getMiqaats(resolve)),
+                new Promise<Miqaat[]>(resolve => getMiqaats(resolve, selectedYear)),
                 new Promise<Mohallah[]>(resolve => getMohallahs(resolve)),
                 getUserByItsOrBgkId(localStorage.getItem('userItsId')!)
             ]);
@@ -512,7 +530,7 @@ export default function ReportsPage() {
         }
     };
     fetchData();
-  }, [isAuthorized, toast, form]);
+  }, [isAuthorized, toast, form, selectedYear]);
 
   const { availableMiqaats, availableMohallahs, availableTeams } = useMemo(() => {
     if (!currentUser) return { availableMiqaats: [], availableMohallahs: [], availableTeams: [] };
@@ -621,9 +639,9 @@ export default function ReportsPage() {
                     });
                     return records.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());
                 })(),
-                getDuaAttendanceForUser(member.itsId),
+                getDuaAttendanceForUser(member.itsId, selectedYear),
                 (async () => {
-                     const [allForms, userResponses] = await Promise.all([ getForms(), getFormResponsesForUser(member.itsId) ]);
+                     const [allForms, userResponses] = await Promise.all([ getForms(selectedYear), getFormResponsesForUser(member.itsId, selectedYear) ]);
                      const userResponseMap = new Map(userResponses.map(res => [res.formId, res]));
                      return allForms.filter(form => {
                             const isForEveryone = !form.mohallahIds?.length && !form.teams?.length && !form.eligibleItsIds?.length;
@@ -638,7 +656,7 @@ export default function ReportsPage() {
                             submittedAt: userResponseMap.get(form.id)?.submittedAt,
                         })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
                 })(),
-                getLoginLogsForUser(member.itsId)
+                getLoginLogsForUser(member.itsId, selectedYear)
             ]);
 
             setMemberProfileData({
@@ -1412,7 +1430,22 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <Card className="glass-surface border-white/20 shadow-md print-hide">
         <CardHeader>
-          <CardTitle className="flex items-center"><BarChart className="mr-2 h-5 w-5 text-primary"/>Generate Report</CardTitle>
+          <div className="flex flex-row justify-between items-center">
+             <CardTitle className="flex items-center"><BarChart className="mr-2 h-5 w-5 text-primary"/>Generate Report</CardTitle>
+             <div className="flex items-center gap-2">
+                 <Label htmlFor="report-year-select" className="text-xs font-semibold">Select Year:</Label>
+                 <Select value={selectedYear} onValueChange={setSelectedYear}>
+                     <SelectTrigger id="report-year-select" className="w-[120px] h-8 text-xs bg-background">
+                         <SelectValue placeholder="Year" />
+                     </SelectTrigger>
+                     <SelectContent>
+                         {availableYears.map(year => (
+                             <SelectItem key={year} value={year}>{year}</SelectItem>
+                         ))}
+                     </SelectContent>
+                 </Select>
+             </div>
+          </div>
           <Separator className="my-2" />
           <CardDescription>Select criteria to generate a detailed attendance report from the system data.</CardDescription>
         </CardHeader>

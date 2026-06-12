@@ -41,9 +41,9 @@ export function getActiveYear(): string {
   }
 }
 
-export function getYearPath(subPath: string): string {
+export function getYearPath(subPath: string, year?: string): string {
   if (subPath.startsWith('years/')) return subPath;
-  const activeYear = getActiveYear();
+  const activeYear = year || getActiveYear();
   return `years/${activeYear}/${subPath}`;
 }
 

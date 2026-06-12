@@ -24,12 +24,13 @@ export const getSettings = async (): Promise<{ [key: string]: any }> => {
                 inactivityTimeout: data.inactivityTimeout || 10,
                 defaultTheme: data.defaultTheme || 'blue',
                 activeYear: data.activeYear || '1448H',
+                availableYears: data.availableYears || ['1447H', '1448H'],
             };
         }
-        return { inactivityTimeout: 10, defaultTheme: 'blue', activeYear: '1448H' }; // Default values
+        return { inactivityTimeout: 10, defaultTheme: 'blue', activeYear: '1448H', availableYears: ['1447H', '1448H'] }; // Default values
     } catch (error) {
         console.error("Error fetching general settings:", error);
-        return { inactivityTimeout: 10, defaultTheme: 'blue', activeYear: '1448H' };
+        return { inactivityTimeout: 10, defaultTheme: 'blue', activeYear: '1448H', availableYears: ['1447H', '1448H'] };
     }
 };
 

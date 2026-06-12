@@ -21,7 +21,7 @@ import { doc, onSnapshot, Unsubscribe } from "firebase/firestore";
 
 import { findNavItem } from "@/components/dashboard/sidebar-nav";
 import { FunkyLoader } from "@/components/ui/funky-loader";
-import { Sparkles, ShieldAlert, Video, Palette as PaletteIcon, SlidersHorizontal, BookOpen, FileText as FileTextIcon, ScanLine, FileSpreadsheet, Copy, Check } from "lucide-react";
+import { Sparkles, ShieldAlert, Video, Palette as PaletteIcon, SlidersHorizontal, BookOpen, FileText as FileTextIcon, ScanLine, FileSpreadsheet, Copy, Check, Database as DatabaseIcon, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -39,6 +39,9 @@ export default function SettingsPage() {
   const [googleSheetsAppsScriptUrl, setGoogleSheetsAppsScriptUrl] = useState("");
   const [copiedScript, setCopiedScript] = useState(false);
   const [activeYear, setActiveYear] = useState("1448H");
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [availableYears, setAvailableYears] = useState<string[]>(["1447H", "1448H"]);
+  const [newYearInput, setNewYearInput] = useState("");
 
   useEffect(() => {
     const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') as UserRole : null;
@@ -96,11 +99,13 @@ export default function SettingsPage() {
                 setDefaultTheme(data.defaultTheme || 'blue');
                 setGoogleSheetsAppsScriptUrl(data.googleSheetsAppsScriptUrl || "");
                 setActiveYear(data.activeYear || "1448H");
+                setAvailableYears(data.availableYears || ["1447H", "1448H"]);
             } else {
                 setInactivityTimeout(10);
                 setDefaultTheme('blue');
                 setGoogleSheetsAppsScriptUrl("");
                 setActiveYear("1448H");
+                setAvailableYears(["1447H", "1448H"]);
             }
         }));
 
@@ -158,6 +163,46 @@ export default function SettingsPage() {
     } catch (error) {
         toast({ title: "Update Failed", description: "Could not save the active year.", variant: "destructive" });
     }
+  };
+
+  const handleAddYear = async () => {
+    const trimmed = newYearInput.trim();
+    if (!trimmed) {
+        toast({ title: "Invalid Input", description: "Year name cannot be empty.", variant: "destructive" });
+        return;
+    }
+    if (availableYears.includes(trimmed)) {
+        toast({ title: "Duplicate Year", description: "This year already exists.", variant: "destructive" });
+        return;
+    }
+    try {
+        const updatedYears = [...availableYears, trimmed];
+        await updateSetting('availableYears', updatedYears);
+        toast({ title: "Year Added", description: `Year ${trimmed} was successfully added.` });
+        setNewYearInput("");
+    } catch (error) {
+        toast({ title: "Update Failed", description: "Could not add the year.", variant: "destructive" });
+    }
+  };
+
+  const handleMigration = async () => {
+     if (!confirm("Are you sure you want to copy all root database collections into the 1447H year subcollection? This should only be done once.")) {
+         return;
+     }
+     setIsMigrating(true);
+     try {
+         const { transfer1447HData } = await import("@/lib/firebase/migrationService");
+         const result = await transfer1447HData();
+         if (result.success) {
+             toast({ title: "Migration Complete", description: result.message });
+         } else {
+             toast({ title: "Migration Failed", description: result.message, variant: "destructive" });
+         }
+     } catch (error: any) {
+         toast({ title: "Migration Failed", description: error.message || "An unexpected error occurred.", variant: "destructive" });
+     } finally {
+         setIsMigrating(false);
+     }
   };
 
 
@@ -235,16 +280,30 @@ export default function SettingsPage() {
                             <div className="space-y-2">
                                 <Label htmlFor="active-year" className="text-sm font-medium">Active Hijri Year</Label>
                                 <div className="flex items-center gap-4">
-                                    <Input
-                                        id="active-year"
-                                        value={activeYear}
-                                        onChange={(e) => setActiveYear(e.target.value)}
-                                        placeholder="e.g. 1448H"
-                                        className="w-[180px]"
-                                    />
+                                    <Select value={activeYear} onValueChange={setActiveYear}>
+                                        <SelectTrigger className="w-[180px] bg-background">
+                                            <SelectValue placeholder="Select year" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableYears.map(year => (
+                                                <SelectItem key={year} value={year}>{year}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                     <Button onClick={handleActiveYearUpdate}>Save Active Year</Button>
                                 </div>
                                 <p className="text-xs text-muted-foreground">Change the active year of the application. This segments operational data (Miqaats, Attendance, Forms, Logs, Notifications) by year. Global data like Mohallahs and Users remains shared.</p>
+                                
+                                <div className="flex items-center gap-2 pt-4">
+                                    <Input 
+                                        placeholder="Add new year (e.g. 1449H)" 
+                                        value={newYearInput} 
+                                        onChange={(e) => setNewYearInput(e.target.value)}
+                                        className="w-[180px] bg-background"
+                                    />
+                                    <Button variant="outline" onClick={handleAddYear}>Add New Year</Button>
+                                </div>
+                                <p className="text-[11px] text-muted-foreground mt-1">Create a new Hijri year dynamically to start fresh database collections for it.</p>
                             </div>
                         </div>
                     </AccordionContent>
@@ -461,6 +520,45 @@ export default function SettingsPage() {
   }
 }`}</pre>
                                 </div>
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Card>
+
+            <Card className="shadow-lg border-yellow-500/20 bg-yellow-500/5">
+                <AccordionItem value="item-5" className="border-b-0">
+                    <AccordionTrigger className="p-0 hover:no-underline">
+                        <CardHeader className="flex-grow">
+                            <CardTitle className="flex items-center text-yellow-600 dark:text-yellow-400 text-base">
+                                <DatabaseIcon className="mr-2 h-4 w-4" />
+                                Database Migration & Maintenance
+                            </CardTitle>
+                            <CardDescription className="mt-1 text-xs text-left">
+                                Run database migration utilities to align your data structure year-by-year.
+                            </CardDescription>
+                        </CardHeader>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6">
+                        <div className="space-y-4 pt-2">
+                            <div className="rounded-lg border border-yellow-500/30 p-4 space-y-3 bg-card">
+                                <h4 className="text-sm font-semibold text-yellow-600 dark:text-yellow-400">Transfer 1447H Last Year Data</h4>
+                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                    Copies your legacy root collections (Miqaats, Forms, Responses, Logs, Notifications, and User attendance histories) into the 1447H database space. This ensures you can access all historic reports when selecting 1447H.
+                                </p>
+                                <Button 
+                                    onClick={handleMigration} 
+                                    disabled={isMigrating}
+                                    className="bg-yellow-600 text-white hover:bg-yellow-700"
+                                >
+                                    {isMigrating ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Migrating Data...
+                                        </>
+                                    ) : (
+                                        "Transfer 1447H Data"
+                                    )}
+                                </Button>
                             </div>
                         </div>
                     </AccordionContent>

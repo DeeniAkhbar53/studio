@@ -406,9 +406,9 @@ export const getUniqueTeamNames = async (): Promise<string[]> => {
     }
 };
 
-export const getDuaAttendanceForUser = async (userItsId: string): Promise<DuaAttendance[]> => {
+export const getDuaAttendanceForUser = async (userItsId: string, year?: string): Promise<DuaAttendance[]> => {
     try {
-        const userDocRef = doc(db, getYearPath('users'), userItsId);
+        const userDocRef = doc(db, getYearPath('users', year), userItsId);
         const duaAttendanceColRef = collection(userDocRef, 'duaAttendance');
         const q = query(duaAttendanceColRef, orderBy('weekId', 'desc'));
         
