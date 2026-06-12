@@ -4,89 +4,89 @@
 
 @layer base {
   :root {
-    --background: 210 36% 97%;
-    --foreground: 215 34% 14%;
-    --radius: 0.5rem;
+    --background: 220 15% 97%; /* #fafafb (off-white) */
+    --foreground: 215 25% 15%;
+    --radius: 4px; /* Mantis clean sharp corners */
 
-    --card: 0 0% 100%;
-    --card-foreground: 215 34% 14%;
+    --card: 0 0% 100%; /* solid white card */
+    --card-foreground: 215 25% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 34% 14%;
+    --popover-foreground: 215 25% 15%;
     
-    --primary: 207 67% 21%;
+    --primary: 215 100% 54%; /* Ant Design/Mantis Blue #1890ff */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 203 28% 88%;
-    --secondary-foreground: 213 39% 18%;
+    --secondary: 220 10% 90%;
+    --secondary-foreground: 215 25% 15%;
 
-    --muted: 210 23% 92%;
-    --muted-foreground: 214 19% 43%;
+    --muted: 220 10% 95%;
+    --muted-foreground: 215 15% 45%;
 
-    --accent: 42 78% 88%;
-    --accent-foreground: 213 39% 18%;
+    --accent: 215 100% 96%; /* #e6f7ff active item bg highlight */
+    --accent-foreground: 215 100% 54%; /* blue active text */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 213 27% 84%;
-    --input: 213 25% 86%;
-    --ring: 207 67% 28%;
+    --border: 220 15% 91%; /* #e6ebf1 thin gray border */
+    --input: 220 15% 91%;
+    --ring: 215 100% 54%; /* focus ring blue */
 
-    --chart-1: 207 67% 32%;
-    --chart-2: 171 45% 38%;
-    --chart-3: 42 76% 52%;
-    --chart-4: 18 66% 56%;
-    --chart-5: 263 32% 48%;
+    --chart-1: 215 100% 54%;
+    --chart-2: 145 63% 42%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 358 84% 56%;
+    --chart-5: 271 70% 60%;
 
-    /* Sidebar specific colors */
-    --sidebar-background: 209 62% 14%;
-    --sidebar-foreground: 213 38% 91%;
-    --sidebar-primary: 42 78% 55%;
-    --sidebar-primary-foreground: 213 39% 15%;
-    --sidebar-accent: 208 49% 23%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 209 48% 26%;
-    --sidebar-ring: 42 78% 58%;
+    /* Sidebar specific colors for Mantis clean light sidebar layout */
+    --sidebar-background: 0 0% 100%; /* flat white */
+    --sidebar-foreground: 215 20% 25%;
+    --sidebar-primary: 215 100% 54%; /* active blue */
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 100% 96%; /* active hover light blue highlight */
+    --sidebar-accent-foreground: 215 100% 54%;
+    --sidebar-border: 220 15% 91%;
+    --sidebar-ring: 215 100% 54%;
   }
 
   .dark {
-    --background: 217 32% 9%;
-    --foreground: 210 25% 92%;
+    --background: 220 20% 8%; /* dark flat */
+    --foreground: 210 20% 90%;
     
-    --card: 215 30% 13%;
-    --card-foreground: 210 25% 92%;
+    --card: 220 20% 11%;
+    --card-foreground: 210 20% 90%;
     
-    --popover: 215 30% 12%;
-    --popover-foreground: 210 25% 92%;
+    --popover: 220 20% 10%;
+    --popover-foreground: 210 20% 90%;
 
-    --primary: 204 68% 42%;
+    --primary: 215 100% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 214 22% 22%;
-    --secondary-foreground: 210 25% 92%;
+    --secondary: 220 15% 16%;
+    --secondary-foreground: 210 20% 90%;
 
-    --muted: 214 20% 19%;
-    --muted-foreground: 213 15% 68%;
+    --muted: 220 15% 14%;
+    --muted-foreground: 210 15% 65%;
     
-    --accent: 42 52% 23%;
-    --accent-foreground: 42 92% 88%;
+    --accent: 220 20% 16%;
+    --accent-foreground: 215 100% 70%;
 
-    --destructive: 0 63% 51%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 213 22% 24%;
-    --input: 213 22% 24%;
-    --ring: 204 68% 50%;
+    --border: 220 20% 16%;
+    --input: 220 20% 16%;
+    --ring: 215 100% 60%;
     
-    --sidebar-background: 214 39% 10%;
-    --sidebar-foreground: 214 28% 92%;
-    --sidebar-primary: 42 76% 55%;
-    --sidebar-primary-foreground: 214 35% 11%;
-    --sidebar-accent: 213 30% 18%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 213 28% 22%;
-    --sidebar-ring: 42 78% 58%;
+    --sidebar-background: 220 20% 10%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 215 100% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 16%;
+    --sidebar-accent-foreground: 215 100% 70%;
+    --sidebar-border: 220 20% 16%;
+    --sidebar-ring: 215 100% 60%;
   }
 
   /* --- Purple Theme --- */
@@ -145,18 +145,9 @@
     min-height: 100vh;
     overflow-x: hidden;
     background-color: hsl(var(--background));
-    background-image:
-      linear-gradient(90deg, hsl(var(--foreground) / 0.035) 1px, transparent 1px),
-      linear-gradient(0deg, hsl(var(--foreground) / 0.028) 1px, transparent 1px),
-      linear-gradient(135deg, hsl(210 46% 98%) 0%, hsl(174 42% 96%) 46%, hsl(42 80% 95%) 100%);
-    background-attachment: fixed;
-    background-size: 72px 72px, 72px 72px, cover;
   }
   .dark body {
-    background-image:
-      linear-gradient(90deg, hsl(0 0% 100% / 0.035) 1px, transparent 1px),
-      linear-gradient(0deg, hsl(0 0% 100% / 0.025) 1px, transparent 1px),
-      linear-gradient(135deg, hsl(217 34% 9%) 0%, hsl(204 32% 12%) 50%, hsl(169 24% 10%) 100%);
+    background-color: hsl(var(--background));
   }
   ::selection {
     background: hsl(var(--primary) / 0.2);
@@ -180,82 +171,70 @@
 
 @layer components {
   .premium-shell {
-    background-image:
-      linear-gradient(120deg, hsl(var(--primary) / 0.08), transparent 34%),
-      linear-gradient(310deg, hsl(42 80% 52% / 0.12), transparent 40%);
+    background-color: hsl(var(--background));
   }
 
   .glass-surface {
-    border: 1px solid hsl(0 0% 100% / 0.38);
-    background: hsl(var(--card) / 0.36);
-    box-shadow:
-      0 12px 36px hsl(215 48% 22% / 0.05),
-      inset 0 1px 0 hsl(0 0% 100% / 0.45);
-    backdrop-filter: blur(16px) saturate(120%);
-    -webkit-backdrop-filter: blur(16px) saturate(120%);
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    box-shadow: 0px 1px 4px rgba(0, 0, 0, 0.015);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .dark .glass-surface {
-    border-color: hsl(0 0% 100% / 0.08);
-    background: hsl(var(--card) / 0.30);
-    box-shadow:
-      0 12px 36px hsl(0 0% 0% / 0.28),
-      inset 0 1px 0 hsl(0 0% 100% / 0.05);
+    border-color: hsl(var(--border));
+    background: hsl(var(--card));
+    box-shadow: 0px 1px 4px rgba(0, 0, 0, 0.12);
   }
 
   .glass-card-glow {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .glass-card-glow:hover {
-    border-color: hsl(var(--primary) / 0.45);
-    box-shadow: 
-      0 20px 40px hsl(var(--primary) / 0.06),
-      inset 0 1px 0 hsl(0 0% 100% / 0.55);
-    transform: translateY(-2px);
+    border-color: hsl(var(--primary) / 0.5);
+    box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.04);
+    transform: translateY(-1px);
   }
   .dark .glass-card-glow:hover {
-    border-color: hsl(var(--primary) / 0.4);
-    box-shadow: 
-      0 20px 40px hsl(0 0% 0% / 0.38),
-      inset 0 1px 0 hsl(0 0% 100% / 0.08);
-    transform: translateY(-2px);
+    border-color: hsl(var(--primary) / 0.5);
+    box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
   }
 
   .glass-header {
-    border-color: hsl(0 0% 100% / 0.55);
-    background: hsl(var(--card) / 0.7);
-    box-shadow: 0 14px 36px hsl(215 48% 22% / 0.08);
-    backdrop-filter: blur(20px) saturate(145%);
-    -webkit-backdrop-filter: blur(20px) saturate(145%);
+    border-bottom: 1px solid hsl(var(--border));
+    background: hsl(var(--card));
+    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.01);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .dark .glass-header {
-    border-color: hsl(0 0% 100% / 0.1);
-    background: hsl(var(--card) / 0.62);
-    box-shadow: 0 14px 36px hsl(0 0% 0% / 0.24);
+     border-bottom: 1px solid hsl(var(--border));
+     background: hsl(var(--card));
+     box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.08);
   }
 
   .glass-sidebar {
-    background:
-      linear-gradient(180deg, hsl(var(--sidebar-background) / 0.94), hsl(var(--sidebar-background) / 0.82)),
-      linear-gradient(145deg, hsl(var(--sidebar-primary) / 0.16), transparent 42%);
-    box-shadow:
-      inset -1px 0 0 hsl(0 0% 100% / 0.08),
-      18px 0 55px hsl(215 48% 14% / 0.18);
-    backdrop-filter: blur(26px) saturate(135%);
-    -webkit-backdrop-filter: blur(26px) saturate(135%);
+    background: hsl(var(--sidebar-background));
+    border-right: 1px solid hsl(var(--sidebar-border));
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .glass-field {
-    background: hsl(var(--background) / 0.58);
-    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.52);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .dark .glass-field {
-    background: hsl(var(--background) / 0.34);
-    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.06);
+    background: hsl(var(--card));
+    border-color: hsl(var(--border));
   }
 }
 

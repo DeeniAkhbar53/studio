@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink, BookOpen, Mail, UserSearch, Sparkles, ChevronUp, ChevronDown, Check, TrendingUp, ArrowUpRight, LayoutDashboard, CheckCircle, Bell } from "lucide-react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink, BookOpen, Mail, UserSearch, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -189,113 +189,6 @@ export default function DashboardOverviewPage() {
     const hasLeadershipDesignation = TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation);
     return hasLeadershipDesignation;
   }, [currentUserRole, currentUserDesignation]);
-
-  // Tab State for Majestic Tabs Card
-  const [activeTab, setActiveTab] = useState<'overview' | 'dua' | 'forms'>('overview');
-
-  const todayStats = useMemo(() => {
-    const today = new Date();
-    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-    
-    const todaysMiqaats = allMiqaatsList.filter(m => {
-      const mStart = new Date(m.startTime);
-      return mStart >= startOfToday && mStart <= endOfToday;
-    });
-
-    let present = 0;
-    let late = 0;
-    let safar = 0;
-    let totalEligible = 0;
-
-    todaysMiqaats.forEach(m => {
-      present += m.attendance?.filter(a => a.status === 'present' || a.status === 'early').length || 0;
-      late += m.attendance?.filter(a => a.status === 'late').length || 0;
-      safar += m.safarList?.length || 0;
-      
-      if (m.eligibleItsIds?.length) {
-        totalEligible += m.eligibleItsIds.length;
-      } else {
-        totalEligible += stats.totalMembersCount || 100;
-      }
-    });
-
-    const totalAttended = present + late;
-    const attendanceRate = totalEligible > 0 ? Math.round((totalAttended / totalEligible) * 100) : 0;
-
-    return {
-      todaysMiqaatsCount: todaysMiqaats.length,
-      present,
-      late,
-      safar,
-      attendanceRate
-    };
-  }, [allMiqaatsList, stats.totalMembersCount]);
-
-  const tabStats = useMemo(() => {
-    switch (activeTab) {
-      case 'overview':
-        return [
-          { label: "Active Miqaats", value: stats.activeMiqaatsCount, icon: CalendarDays, desc: "Scheduled for today" },
-          { label: "Present Today", value: todayStats.present, icon: CheckCircle2, desc: "Marked present/early" },
-          { label: "Late Today", value: todayStats.late, icon: Clock, desc: "Checked in late" },
-          { label: "Safar Today", value: todayStats.safar, icon: UserX, desc: "Marked as excused safar" },
-          { label: "Attendance Rate", value: `${todayStats.attendanceRate}%`, icon: BarChart2, desc: "Present out of eligible" },
-        ];
-      case 'dua':
-        return [
-          { label: "Weekly Dua Tilawat", value: isDuaPending ? "Pending" : "Completed", icon: BookOpen, desc: "Tilawat Kamil status" },
-          { label: "Surah Kahf Status", value: isDuaPending ? "Pending" : "Completed", icon: Files, desc: "Kahf recitation status" },
-          { label: "Recitation Target", value: "1 / week", icon: Timer, desc: "Required Kamil tilawat" },
-          { label: "Kahf Target", value: "1 / week", icon: CalendarClock, desc: "Required Friday recitation" },
-          { label: "Deadline Status", value: isDuaPending ? "Urgent" : "Good", icon: AlertCircleIcon, desc: "Tilawat deadline: Saturday" },
-        ];
-      case 'forms':
-        return [
-          { label: "Active Forms", value: stats.activeFormsCount, icon: FilePenLine, desc: "Accepting submissions" },
-          { label: "Pending Forms", value: pendingForms.length, icon: FileText, desc: "Forms to be completed by you" },
-          { label: "Total Forms", value: stats.totalFormsCount, icon: Files, desc: "Total created in system" },
-          { label: "Form Notifications", value: formsWithNonRespondents.length, icon: Mail, desc: "Forms with active alerts" },
-          { label: "Form Response Rate", value: activeFormsWithResponses && activeFormsWithResponses.length > 0 ? `${Math.round(activeFormsWithResponses.reduce((acc, f) => acc + f.responseRate, 0) / activeFormsWithResponses.length)}%` : "0%", icon: BarChart2, desc: "Average completion rate" },
-        ];
-    }
-  }, [activeTab, stats, todayStats, isDuaPending, pendingForms.length, formsWithNonRespondents.length, activeFormsWithResponses]);
-
-  const recentCheckIns = useMemo(() => {
-    const list: { name: string; itsId: string; status: string; miqaatName: string; markedAt: string; markedBy: string }[] = [];
-    const isAdminOrMarker = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker';
-    const canSeeSystemWide = isAdminOrMarker || isTeamLead;
-
-    allMiqaatsList.forEach(m => {
-      m.attendance?.forEach(a => {
-        if (canSeeSystemWide || a.userItsId === currentUserItsId) {
-          list.push({
-            name: a.userName,
-            itsId: a.userItsId,
-            status: a.status,
-            miqaatName: m.name,
-            markedAt: a.markedAt,
-            markedBy: a.markedByItsId
-          });
-        }
-      });
-      m.safarList?.forEach(s => {
-        if (canSeeSystemWide || s.userItsId === currentUserItsId) {
-          list.push({
-            name: s.userName,
-            itsId: s.userItsId,
-            status: 'safar',
-            miqaatName: m.name,
-            markedAt: s.markedAt,
-            markedBy: s.markedByItsId
-          });
-        }
-      });
-    });
-    // Sort in memory by markedAt descending
-    list.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());
-    return list.slice(0, 8);
-  }, [allMiqaatsList, currentUserRole, isTeamLead, currentUserItsId]);
 
 
   useEffect(() => {
@@ -1450,866 +1343,437 @@ export default function DashboardOverviewPage() {
   }
 
   return (
-    <div className="flex flex-col h-full space-y-6">
-      {/* SECTION 1: Greeting & Title Bar */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/10 pb-4">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight flex items-center gap-2">
-            Welcome back, <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">{currentUserName}</span>!
-          </h2>
-          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">{currentUserDesignation || 'Member'}</span>
-            <span>(Role: {currentUserRole?.toUpperCase()})</span>
-            <span>•</span>
-            <span className="hover:underline flex items-center gap-1">
-              <LayoutDashboard className="h-3 w-3" /> Dashboard
-            </span>
-            <span>/</span>
-            <span className="text-foreground font-medium">Overview</span>
-          </div>
-        </div>
-        
-        {/* Right Side Action Buttons */}
-        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 shrink-0">
-          <Button variant="outline" size="sm" className="h-9 glass-surface border-white/20 text-xs gap-1.5 hover:bg-white/5" asChild>
-            <Link href="/dashboard/profile">
-              <Clock className="h-3.5 w-3.5 text-primary" />
-              <span className="hidden sm:inline">Recent Logs</span>
-            </Link>
-          </Button>
-          {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') && (
-            <Button variant="outline" size="sm" className="h-9 glass-surface border-white/20 text-xs gap-1.5 hover:bg-white/5" asChild>
-              <Link href="/dashboard/mark-attendance">
-                <CalendarCheck className="h-3.5 w-3.5 text-accent" />
-                <span className="hidden sm:inline">Mark Page</span>
-              </Link>
-            </Button>
-          )}
-          {isBarcodeScanningEnabled && (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') && (
-            <Button
-              onClick={() => { setScanDisplayMessage(null); setScannerError(null); setIsScannerDialogOpen(true); }}
-              size="sm"
-              className="h-9 text-xs bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
-            >
-              <ScanLine className="h-3.5 w-3.5" />
-              Scan QR
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Mobile Banners Carousel */}
-      {combinedMobileAlerts.length > 0 && (
-        <div className="block md:hidden relative w-full">
-          <Carousel className="w-full">
-            <CarouselContent>
-              {combinedMobileAlerts.map(alert => (
-                <CarouselItem key={alert.id}>
-                  <div className="p-1">
-                    <Alert variant={alert.variant} className="relative glass-surface border-white/20">
-                      <alert.icon className="h-4 w-4" />
-                      <AlertTitle>{alert.title}</AlertTitle>
-                      <AlertDescription className="flex flex-col items-start justify-between gap-2">
-                        <span className="text-xs">{alert.description}</span>
-                        <Button variant={alert.variant === 'destructive' ? 'destructive' : 'default'} size="sm" onClick={alert.action} className="mt-2 shrink-0 self-end">
-                          {alert.actionLabel}
-                        </Button>
-                      </AlertDescription>
-                    </Alert>
-                  </div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            {combinedMobileAlerts.length > 1 && (
-              <>
-                <CarouselPrevious className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6" />
-                <CarouselNext className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6" />
-              </>
-            )}
-          </Carousel>
-        </div>
-      )}
-
-      {/* Desktop Alerts */}
-      <div className="hidden md:block space-y-4">
-        {isDuaPending && !isLoadingDuaStatus && (
-          <Alert variant='default' className="relative glass-surface border-primary/20 bg-primary/5">
-              <BookOpen className="h-4 w-4 text-primary" />
-              <AlertTitle className="font-semibold text-primary">Weekly Dua Pending</AlertTitle>
-              <AlertDescription className="flex items-center justify-between gap-2">
-                  <span className="text-sm">Your weekly Dua Tilawat submission is pending. Please submit it before Saturday.</span>
-                  <Button variant='default' size="sm" onClick={() => router.push('/dashboard/dua')} className="shrink-0">
-                      Submit Now
-                  </Button>
-              </AlertDescription>
-          </Alert>
-        )}
-
-        {pendingForms.length > 0 && !isLoadingPendingForms && !isTeamLead && (
-           <Alert variant='default' className="relative glass-surface border-accent/20 bg-accent/5">
-              <FileText className="h-4 w-4 text-accent" />
-              <AlertTitle className="font-semibold text-accent">Pending Forms</AlertTitle>
-              <AlertDescription className="flex items-center justify-between gap-2">
-                  <span className="text-sm">You have {pendingForms.length} form(s) that need to be filled out.</span>
-                  <Button variant='default' size="sm" onClick={() => setIsPendingFormsSheetOpen(true)} className="shrink-0">
-                      View Forms
-                  </Button>
-              </AlertDescription>
-          </Alert>
-        )}
-        
-        {dashboardAlerts.length > 0 && (
-            <div className="relative w-full">
+    <div className="flex flex-col h-full">
+       <div className="flex-grow space-y-6">
+          {/* Mobile alerts grouped in a Carousel slider */}
+          {combinedMobileAlerts.length > 0 && (
+            <div className="block md:hidden relative w-full">
               <Carousel className="w-full">
-                  <CarouselContent>
-                      {dashboardAlerts.map(alert => (
-                          <CarouselItem key={alert.id}>
-                              <div className="p-1">
-                                  <Alert variant={alert.variant} className="relative glass-surface border-white/20">
-                                      <alert.icon className="h-4 w-4" />
-                                      <AlertTitle className="font-semibold">{alert.title}</AlertTitle>
-                                      <AlertDescription className="flex items-center justify-between gap-2">
-                                          <span className="text-sm">{alert.description}</span>
-                                          <Button variant={alert.variant === 'destructive' ? 'destructive' : 'default'} size="sm" onClick={alert.action} className="shrink-0">
-                                              {alert.actionLabel}
-                                          </Button>
-                                      </AlertDescription>
-                                  </Alert>
-                              </div>
-                          </CarouselItem>
-                      ))}
-                  </CarouselContent>
-                  {dashboardAlerts.length > 1 && (
-                      <>
-                          <CarouselPrevious className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:-left-4 md:-left-12" />
-                          <CarouselNext className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:-right-4 md:-right-12" />
-                      </>
-                  )}
+                <CarouselContent>
+                  {combinedMobileAlerts.map(alert => (
+                    <CarouselItem key={alert.id}>
+                      <div className="p-1">
+                        <Alert variant={alert.variant} className="relative">
+                          <alert.icon className="h-4 w-4" />
+                          <AlertTitle>{alert.title}</AlertTitle>
+                          <AlertDescription className="flex flex-col items-start justify-between gap-2">
+                            <span className="text-xs">{alert.description}</span>
+                            <Button variant={alert.variant === 'destructive' ? 'destructive' : 'default'} size="sm" onClick={alert.action} className="mt-2 shrink-0 self-end">
+                              {alert.actionLabel}
+                            </Button>
+                          </AlertDescription>
+                        </Alert>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                {combinedMobileAlerts.length > 1 && (
+                  <>
+                    <CarouselPrevious className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6" />
+                    <CarouselNext className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6" />
+                  </>
+                )}
               </Carousel>
             </div>
-        )}
-      </div>
-
-      {/* SECTION 2: Majestic Horizontal Tabs Metrics Card */}
-      <Card className="glass-surface border-white/20 shadow-md overflow-hidden">
-        <div className="flex border-b border-white/10 bg-white/5 px-4 overflow-x-auto whitespace-nowrap">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={cn(
-              "px-6 py-4.5 font-bold text-sm border-b-2 transition-all cursor-pointer flex items-center gap-2",
-              activeTab === 'overview' 
-                ? "border-primary text-foreground bg-white/5" 
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <CalendarCheck className="h-4 w-4" />
-            Attendance Overview
-          </button>
-          <button
-            onClick={() => setActiveTab('dua')}
-            className={cn(
-              "px-6 py-4.5 font-bold text-sm border-b-2 transition-all cursor-pointer flex items-center gap-2",
-              activeTab === 'dua' 
-                ? "border-primary text-foreground bg-white/5" 
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <BookOpen className="h-4 w-4" />
-            Dua Tilawat
-          </button>
-          <button
-            onClick={() => setActiveTab('forms')}
-            className={cn(
-              "px-6 py-4.5 font-bold text-sm border-b-2 transition-all cursor-pointer flex items-center gap-2",
-              activeTab === 'forms' 
-                ? "border-primary text-foreground bg-white/5" 
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <FileText className="h-4 w-4" />
-            Forms & Surveys
-          </button>
-        </div>
-        
-        <CardContent className="p-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {tabStats.map((stat, idx) => (
-              <div 
-                key={stat.label} 
-                className={cn(
-                  "p-4 rounded-lg bg-white/5 border border-white/10 flex items-center gap-4 transition-all hover:bg-white/10 glass-card-glow",
-                  idx === 4 && "col-span-2 sm:col-span-1"
-                )}
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary shrink-0 shadow-inner">
-                  <stat.icon className="h-6 w-6" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground font-semibold uppercase tracking-wider truncate">{stat.label}</p>
-                  <h4 className="text-xl sm:text-2xl font-black text-foreground mt-0.5 truncate">{stat.value}</h4>
-                  <p className="text-[10px] text-muted-foreground/85 mt-0.5 truncate">{stat.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* SECTION 3: Grid of 4 Carousel Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        
-        {/* Card 1: Today's Attendance */}
-        <Card className="glass-surface border-white/20 shadow-md">
-          <Carousel className="w-full">
-            <CarouselContent>
-              <CarouselItem>
-                <div className="p-6 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Today's Attendance</h4>
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
-                      <ChevronUp className="h-4 w-4" />
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="relative flex items-center justify-center h-16 w-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin-slow shrink-0 shadow-inner">
-                      <span className="font-black text-sm text-foreground">{todayStats.attendanceRate}%</span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Attendance Rate</p>
-                      <h3 className="text-2xl font-black text-foreground mt-0.5">{todayStats.attendanceRate}%</h3>
-                      <div className="flex items-center gap-1 text-[10px] text-green-500 font-semibold mt-1">
-                        <TrendingUp className="h-3 w-3" />
-                        <span>Highly Active Today</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="border-t border-white/10 pt-3 flex justify-between items-center text-xs">
-                    <div>
-                      <p className="text-muted-foreground">Present Today</p>
-                      <h5 className="font-bold text-foreground text-sm mt-0.5">{todayStats.present} members</h5>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-muted-foreground">Safar Today</p>
-                      <h5 className="font-bold text-foreground text-sm mt-0.5">{todayStats.safar} excused</h5>
-                    </div>
-                  </div>
-                </div>
-              </CarouselItem>
-              <CarouselItem>
-                <div className="p-6 space-y-4">
-                  <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Active Events</h4>
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-foreground">Today's Events: {todayStats.todaysMiqaatsCount}</p>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      All checks and scanning are online. Make sure members scan their barcodes at entry.
-                    </p>
-                  </div>
-                  <Button size="sm" variant="ghost" className="w-full text-xs font-bold text-primary border border-primary/20 hover:bg-primary/5 mt-4" asChild>
-                    <Link href="/dashboard/mark-attendance">Open Marker Screen →</Link>
-                  </Button>
-                </div>
-              </CarouselItem>
-            </CarouselContent>
-          </Carousel>
-        </Card>
-
-        {/* Card 2: Dua & Kahf Logs */}
-        <Card className="glass-surface border-white/20 shadow-md">
-          <Carousel className="w-full">
-            <CarouselContent>
-              <CarouselItem>
-                <div className="p-6 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Dua Tilawat</h4>
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/10 text-accent border border-accent/20">
-                      <BookOpen className="h-4 w-4" />
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/10 border border-accent/20 text-accent shrink-0">
-                      <CheckCircle className="h-8 w-8" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Weekly Status</p>
-                      <h3 className="text-xl sm:text-2xl font-black text-foreground mt-0.5">{isDuaPending ? "Pending" : "Submitted"}</h3>
-                      <p className="text-[10px] text-muted-foreground/80 mt-1">Dua Kamil recitation log</p>
-                    </div>
-                  </div>
-                  <div className="border-t border-white/10 pt-3 flex justify-between items-center text-xs">
-                    <div>
-                      <p className="text-muted-foreground">Kamil Status</p>
-                      <h5 className="font-bold text-foreground text-sm mt-0.5">{isDuaPending ? "Not Done" : "Done"}</h5>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-muted-foreground">Kahf Recited</p>
-                      <h5 className="font-bold text-foreground text-sm mt-0.5">{isDuaPending ? "Pending" : "Recited"}</h5>
-                    </div>
-                  </div>
-                </div>
-              </CarouselItem>
-              <CarouselItem>
-                <div className="p-6 space-y-4">
-                  <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Weekly Requirements</h4>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Dua Tilawat Kamil:</span>
-                      <span className={cn("font-bold", isDuaPending ? "text-amber-500" : "text-green-500")}>{isDuaPending ? "Pending" : "Completed"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Surah Kahf:</span>
-                      <span className={cn("font-bold", isDuaPending ? "text-amber-500" : "text-green-500")}>{isDuaPending ? "Pending" : "Completed"}</span>
-                    </div>
-                  </div>
-                  <Button size="sm" variant="ghost" className="w-full text-xs font-bold text-accent border border-accent/20 hover:bg-accent/5 mt-4" asChild>
-                    <Link href="/dashboard/dua">Submit Recitations →</Link>
-                  </Button>
-                </div>
-              </CarouselItem>
-            </CarouselContent>
-          </Carousel>
-        </Card>
-
-        {/* Card 3: Active Surveys */}
-        <Card className="glass-surface border-white/20 shadow-md">
-          <Carousel className="w-full">
-            <CarouselContent>
-              <CarouselItem>
-                <div className="p-6 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Pending Forms</h4>
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                      <FileText className="h-4 w-4" />
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 shrink-0 font-black text-2xl">
-                      {pendingForms.length}
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">To-Do Forms</p>
-                      <h3 className="text-xl sm:text-2xl font-black text-foreground mt-0.5">{pendingForms.length} Pending</h3>
-                      <p className="text-[10px] text-muted-foreground/80 mt-1">Please fill pending surveys</p>
-                    </div>
-                  </div>
-                  <div className="border-t border-white/10 pt-3 flex justify-between items-center text-xs">
-                    <div>
-                      <p className="text-muted-foreground">Active Surveys</p>
-                      <h5 className="font-bold text-foreground text-sm mt-0.5">{stats.activeFormsCount} Open</h5>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-muted-foreground">Total Forms</p>
-                      <h5 className="font-bold text-foreground text-sm mt-0.5">{stats.totalFormsCount} Created</h5>
-                    </div>
-                  </div>
-                </div>
-              </CarouselItem>
-              <CarouselItem>
-                <div className="p-6 space-y-3">
-                  <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Forms Quick Links</h4>
-                  <div className="max-h-24 overflow-y-auto space-y-1.5 scrollbar-thin">
-                    {pendingForms.length > 0 ? (
-                      pendingForms.map(form => (
-                        <Link key={form.id} href={`/dashboard/forms/${form.id}`} className="block text-[11px] hover:underline text-foreground/90 font-medium truncate">
-                          • {form.title}
-                        </Link>
-                      ))
-                    ) : (
-                      <p className="text-[11px] text-muted-foreground italic">No pending surveys.</p>
-                    )}
-                  </div>
-                  <Button onClick={() => setIsPendingFormsSheetOpen(true)} size="sm" variant="ghost" className="w-full text-xs font-bold text-primary border border-primary/20 hover:bg-primary/5 mt-2">
-                    Open Surveys Sheet →
-                  </Button>
-                </div>
-              </CarouselItem>
-            </CarouselContent>
-          </Carousel>
-        </Card>
-
-        {/* Card 4: System Directory (for leads) or My Profile (for regular members) */}
-        <Card className="glass-surface border-white/20 shadow-md">
-          <Carousel className="w-full">
-            <CarouselContent>
-              {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || isTeamLead) ? (
-                <>
-                  <CarouselItem>
-                    <div className="p-6 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Member Registry</h4>
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                          <Users className="h-4 w-4" />
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 shrink-0 font-black text-2xl">
-                          {stats.totalMembersCount || "..."}
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Registered Members</p>
-                          <h3 className="text-xl sm:text-2xl font-black text-foreground mt-0.5">{stats.totalMembersCount || "..."} Members</h3>
-                          <p className="text-[10px] text-muted-foreground/80 mt-1">Total database directory</p>
-                        </div>
-                      </div>
-                      <div className="border-t border-white/10 pt-3 flex justify-between items-center text-xs">
-                        <div>
-                          <p className="text-muted-foreground">Total Mohallahs</p>
-                          <h5 className="font-bold text-foreground text-sm mt-0.5">{stats.totalMohallahsCount || "..."} Mohallahs</h5>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-muted-foreground">Active Forms</p>
-                          <h5 className="font-bold text-foreground text-sm mt-0.5">{stats.activeFormsCount} Forms</h5>
-                        </div>
-                      </div>
-                    </div>
-                  </CarouselItem>
-                  <CarouselItem>
-                    <div className="p-6 space-y-3">
-                      <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Directory Summary</h4>
-                      <div className="space-y-1 text-[11px] text-muted-foreground">
-                        <p>Mohallah IDs tracked: {stats.totalMohallahsCount || "Multiple"}</p>
-                        <p>Admin Control Panel active: {currentUserRole === 'superadmin' ? 'Superadmin Level' : 'Standard Level'}</p>
-                      </div>
-                      <Button size="sm" variant="ghost" className="w-full text-xs font-bold text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/5 mt-4" asChild>
-                        <Link href="/dashboard/manage-members">Open Directory →</Link>
-                      </Button>
-                    </div>
-                  </CarouselItem>
-                </>
-              ) : (
-                <>
-                  <CarouselItem>
-                    <div className="p-6 space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">My Profile</h4>
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                          <Users className="h-4 w-4" />
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 shrink-0 font-black text-sm uppercase">
-                          {currentUser?.bgkId || "BGK"}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">ITS ID: {currentUserItsId}</p>
-                          <h3 className="text-lg font-black text-foreground mt-0.5 truncate">{currentUserName}</h3>
-                          <p className="text-[10px] text-muted-foreground/80 mt-1 truncate">{currentUser?.email || "No Email Verified"}</p>
-                        </div>
-                      </div>
-                      <div className="border-t border-white/10 pt-3 flex justify-between items-center text-xs">
-                        <div>
-                          <p className="text-muted-foreground">My Team</p>
-                          <h5 className="font-bold text-foreground text-sm mt-0.5 truncate max-w-[100px]">{currentUser?.team || "Unassigned"}</h5>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-muted-foreground">Designation</p>
-                          <h5 className="font-bold text-foreground text-sm mt-0.5 truncate max-w-[100px]">{currentUserDesignation || "Member"}</h5>
-                        </div>
-                      </div>
-                    </div>
-                  </CarouselItem>
-                  <CarouselItem>
-                    <div className="p-6 space-y-3">
-                      <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Account Settings</h4>
-                      <div className="space-y-1 text-[11px] text-muted-foreground">
-                        <p>Phone: {currentUser?.phoneNumber || "Not provided"}</p>
-                        <p>Prefer: {currentUser?.loginPreference?.toUpperCase() || "BOTH"}</p>
-                      </div>
-                      <Button size="sm" variant="ghost" className="w-full text-xs font-bold text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/5 mt-4" asChild>
-                        <Link href="/dashboard/profile">View Profile Details →</Link>
-                      </Button>
-                    </div>
-                  </CarouselItem>
-                </>
-              )}
-            </CarouselContent>
-          </Carousel>
-        </Card>
-      </div>
-
-      {/* SECTION 4: Two-Column Charts Grid */}
-      {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || isTeamLead) && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Left Card: Miqaat Attendance Trends (col-span-2) */}
-          <Card className="glass-surface border-white/20 shadow-md col-span-1 lg:col-span-2">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BarChart2 className="h-5 w-5 text-primary shrink-0" />
-                Miqaat Attendance Trends
-              </CardTitle>
-              <CardDescription>Visual stats for the last 5 completed events.</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-2">
-              {isLoadingChartData ? (
-                 <div className="flex items-center justify-center h-[300px]">
-                  <FunkyLoader>Loading Attendance Statistics...</FunkyLoader>
-                 </div>
-              ) : attendanceChartData && attendanceChartData.length > 0 ? (
-                  <ChartContainer config={chartConfig} className="w-full h-[300px]">
-                      <BarChart accessibilityLayer data={attendanceChartData}>
-                          <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                          <XAxis
-                              dataKey="name"
-                              tickLine={false}
-                              tickMargin={10}
-                              axisLine={false}
-                              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                              tickFormatter={(value) => value.slice(0, 12) + (value.length > 12 ? '...' : '')}
-                          />
-                          <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-                          <ChartTooltip content={<ChartTooltipContent />} />
-                          <ChartLegend content={<ChartLegendContent />} />
-                          <Bar dataKey="present" fill="var(--color-present)" radius={[4, 4, 0, 0]} stackId="a" />
-                          <Bar dataKey="late" fill="var(--color-late)" radius={[4, 4, 0, 0]} stackId="a" />
-                          <Bar dataKey="absent" fill="var(--color-absent)" radius={[4, 4, 0, 0]} stackId="a" />
-                      </BarChart>
-                  </ChartContainer>
-              ) : (
-                  <div className="flex items-center justify-center h-[300px] text-muted-foreground text-sm italic">
-                      No completed events data available.
-                  </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Right Card: Overall Performance Summary (col-span-1) */}
-          <Card className="glass-surface border-white/20 shadow-md col-span-1 flex flex-col">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-accent shrink-0" />
-                Overall Summary
-              </CardTitle>
-              <CardDescription>General performance metrics.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1 flex flex-col justify-around py-4">
-              <div className="text-center py-6">
-                <h1 className="text-5xl sm:text-6xl font-black tracking-tight text-foreground bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent">{todayStats.attendanceRate}%</h1>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-2">Average Attendance Rate</h4>
-                <p className="text-xs text-muted-foreground/80 max-w-[80%] mx-auto mt-2">
-                  Overall check-in compliance calculated across today's active Miqaat sessions.
-                </p>
-              </div>
-              
-              <div className="border-t border-white/10 pt-4 space-y-2.5 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" /> Present Today</span>
-                  <span className="font-bold text-foreground">{todayStats.present} members</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-accent" /> Late Check-Ins</span>
-                  <span className="font-bold text-foreground">{todayStats.late} members</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-500" /> Excused (Safar)</span>
-                  <span className="font-bold text-foreground">{todayStats.safar} members</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* SECTION 5: Recent Check-ins Activity Table */}
-      <Card className="glass-surface border-white/20 shadow-md">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary shrink-0" />
-              Recent Attendance Check-Ins
-            </span>
-            <span className="text-xs font-semibold bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Real-Time</span>
-          </CardTitle>
-          <CardDescription>Live log of the last 8 attendance check-ins recorded in the system.</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-2 overflow-x-auto">
-          {recentCheckIns.length > 0 ? (
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-white/10 text-muted-foreground font-semibold">
-                  <th className="py-2.5">Member Name</th>
-                  <th className="py-2.5">ITS ID</th>
-                  <th className="py-2.5">Miqaat Event</th>
-                  <th className="py-2.5">Time</th>
-                  <th className="py-2.5 text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {recentCheckIns.map((log, idx) => (
-                  <tr key={idx} className="hover:bg-white/5 transition-colors">
-                    <td className="py-2.5 font-semibold text-foreground">{log.name}</td>
-                    <td className="py-2.5 text-muted-foreground">{log.itsId}</td>
-                    <td className="py-2.5 text-muted-foreground max-w-[200px] truncate">{log.miqaatName}</td>
-                    <td className="py-2.5 text-muted-foreground">{format(new Date(log.markedAt), "p")}</td>
-                    <td className="py-2.5 text-right">
-                      <span className={cn(
-                        "px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider border",
-                        log.status === 'present' || log.status === 'early' 
-                          ? "bg-green-500/10 text-green-500 border-green-500/20" 
-                          : log.status === 'late' 
-                            ? "bg-amber-500/10 text-amber-500 border-amber-500/20" 
-                            : "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                      )}>
-                        {log.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="py-6 text-center text-muted-foreground text-sm italic">
-              No recent check-ins recorded today.
-            </div>
           )}
-        </CardContent>
-      </Card>
 
-      {/* SECTION 6: Bottom Grid (3 Columns) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Column 1: Quick Check-In Lookup (Blue Theme Glassmorphism) */}
-        {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') ? (
-          <Card className="glass-surface border-white/20 shadow-md bg-gradient-to-b from-blue-500/5 to-transparent">
+          {/* Desktop alerts separated / stacked as originally designed */}
+          <div className="hidden md:block space-y-4">
+            {isDuaPending && !isLoadingDuaStatus && (
+              <Alert variant='default' className="relative bg-primary/10 border-primary/20">
+                  <BookOpen className="h-4 w-4" />
+                  <AlertTitle>Weekly Dua Pending</AlertTitle>
+                  <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                      <span>Your weekly Dua Tilawat submission is pending. Please submit it before Saturday.</span>
+                      <Button variant='default' size="sm" onClick={() => router.push('/dashboard/dua')} className="mt-2 sm:mt-0 shrink-0">
+                          Submit Now
+                      </Button>
+                  </AlertDescription>
+              </Alert>
+            )}
+
+            {pendingForms.length > 0 && !isLoadingPendingForms && !isTeamLead && (
+               <Alert variant='default'>
+                  <FileText className="h-4 w-4" />
+                  <AlertTitle>Pending Forms</AlertTitle>
+                  <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                      <span>You have {pendingForms.length} form(s) that need to be filled out.</span>
+                      <Button variant='default' size="sm" onClick={() => setIsPendingFormsSheetOpen(true)} className="mt-2 sm:mt-0 shrink-0">
+                          View Forms
+                      </Button>
+                  </AlertDescription>
+              </Alert>
+            )}
+            
+            {dashboardAlerts.length > 0 && (
+                <div className="relative w-full">
+                  <Carousel className="w-full">
+                      <CarouselContent>
+                          {dashboardAlerts.map(alert => (
+                              <CarouselItem key={alert.id}>
+                                  <div className="p-1">
+                                      <Alert variant={alert.variant} className="relative">
+                                          <alert.icon className="h-4 w-4" />
+                                          <AlertTitle>{alert.title}</AlertTitle>
+                                          <AlertDescription className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                                              <span>{alert.description}</span>
+                                              <Button variant={alert.variant === 'destructive' ? 'destructive' : 'default'} size="sm" onClick={alert.action} className="mt-2 sm:mt-0 shrink-0">
+                                                  {alert.actionLabel}
+                                              </Button>
+                                          </AlertDescription>
+                                      </Alert>
+                                  </div>
+                              </CarouselItem>
+                          ))}
+                      </CarouselContent>
+                      {dashboardAlerts.length > 1 && (
+                          <>
+                              <CarouselPrevious className="absolute left-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8 sm:-left-4 md:-left-12" />
+                              <CarouselNext className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 sm:h-8 sm:w-8 sm:-right-4 md:-right-12" />
+                          </>
+                      )}
+                  </Carousel>
+                </div>
+            )}
+          </div>
+      
+        <Card className="glass-surface border-white/20 shadow-sm">
+          <CardHeader className="py-4 px-6">
+            <CardTitle className="text-xl sm:text-2xl font-semibold text-foreground">
+                Welcome, {currentUserName}!
+            </CardTitle>
+            <div className="flex flex-nowrap items-center gap-x-2 mt-1.5 text-xs sm:text-sm text-muted-foreground overflow-x-auto whitespace-nowrap pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <span className="font-medium text-foreground shrink-0">{currentUserDesignation || 'Member'}</span>
+              {currentUserRole && (
+                <span className="text-muted-foreground/80 shrink-0">
+                  ({currentUserRole.charAt(0).toUpperCase() + currentUserRole.slice(1).replace(/-/g, ' ')})
+                </span>
+              )}
+              <span className="text-muted-foreground/30 shrink-0 hidden md:inline">•</span>
+              <span className="hidden md:inline-flex items-center gap-1 shrink-0">
+                <Clock className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                <span className="shrink-0">Last login: <strong className="font-medium text-foreground">{lastLoginText}</strong></span>
+              </span>
+              <span className="text-muted-foreground/30 shrink-0 hidden md:inline">•</span>
+              <span className="hidden md:inline-flex items-center gap-1 shrink-0">
+                <Timer className="h-3.5 w-3.5 text-primary/70 shrink-0" />
+                <span className="shrink-0">Session: <strong className="font-medium text-foreground">{sessionMinutes} min</strong></span>
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+              Here's your overview. Use the sidebar to navigate to other sections.
+            </p>
+          </CardHeader>
+          {currentUserRole === 'user' && (
+            <CardContent>
+              <p className="text-foreground">Please ensure you are on time for all Miqaats. Use the scanner button for quick check-in.</p>
+            </CardContent>
+          )}
+        </Card>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          {/* Widget 1: Today's Miqaat Schedule */}
+          <Card className="glass-surface border-white/20 shadow-md">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg flex items-center gap-2">
-                <UserSearch className="h-5 w-5 text-blue-500 shrink-0" />
-                Quick Attendance Check
+                <CalendarClock className="h-5 w-5 text-primary shrink-0" />
+                Today's Miqaat Schedule
               </CardTitle>
-              <CardDescription>Verify member status and mark present/safar instantly.</CardDescription>
+              <CardDescription>Scheduled events and sessions for today.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4 pt-2">
-              <form onSubmit={(e) => { e.preventDefault(); handleQuickLookup(); }} className="flex gap-2">
-                <Input
-                  placeholder="Enter ITS or BGK ID"
-                  value={quickMemberId}
-                  onChange={(e) => setQuickMemberId(e.target.value)}
-                  className="text-sm h-9 flex-1 glass-field"
-                  disabled={isQuickProcessing}
-                />
-                <Button type="submit" size="sm" className="h-9 bg-blue-600 hover:bg-blue-700 text-white" disabled={isQuickProcessing}>
-                  {isQuickProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
-                </Button>
-              </form>
+            <CardContent className="space-y-4">
+              {(() => {
+                const today = new Date();
+                const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+                
+                const todaysMiqaats = allMiqaatsList.filter(m => {
+                  const mStart = new Date(m.startTime);
+                  return mStart >= startOfToday && mStart <= endOfToday;
+                });
 
-              {quickMember && (
-                <div className="p-3 border border-blue-500/20 rounded-lg bg-blue-500/5 space-y-3 animate-in fade-in duration-300">
-                  <div className="flex justify-between items-start gap-2">
-                    <div>
-                      <p className="font-bold text-sm text-foreground">{quickMember.name}</p>
-                      <p className="text-xs text-muted-foreground">ITS: {quickMember.itsId} | BGK: {quickMember.bgkId || "N/A"}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{quickMember.team || "No Team"} | {quickMember.mohallahId || "No Mohallah"}</p>
+                if (todaysMiqaats.length === 0) {
+                  return (
+                    <div className="py-6 text-center text-muted-foreground text-sm">
+                      No Miqaats scheduled for today.
                     </div>
-                    {quickMarkStatus && (
-                      <span className={cn(
-                        "px-2 py-0.5 text-[9px] font-bold rounded-full uppercase tracking-wider border",
-                        quickMarkStatus.startsWith("Present") ? "bg-green-500/10 text-green-500 border-green-500/20" :
-                        quickMarkStatus === "Safar" ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
-                        "bg-muted text-muted-foreground border-muted-foreground/20"
-                      )}>
-                        {quickMarkStatus}
-                      </span>
-                    )}
-                  </div>
-
-                  {(() => {
-                    const activeMiqaat = allMiqaatsList.find(m => {
-                      const now = new Date();
-                      return new Date(m.startTime) <= now && new Date(m.endTime) >= now;
-                    });
-
-                    if (!activeMiqaat) {
-                      return <p className="text-[11px] text-amber-500 font-semibold">No active event currently running to mark attendance.</p>;
-                    }
-
-                    return (
-                      <div className="space-y-2 pt-2 border-t border-white/5">
-                        <p className="text-[11px] text-muted-foreground">Active Event: <strong className="text-foreground">{activeMiqaat.name}</strong></p>
-                        {!quickMarkStatus ? (
-                          <div className="flex gap-2 pt-1">
-                            <Button
-                              onClick={() => handleQuickMark('present')}
-                              size="sm"
-                              className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold text-[11px] h-8"
-                              disabled={isQuickProcessing}
-                            >
-                              Mark Present
-                            </Button>
-                            <Button
-                              onClick={() => handleQuickMark('safar')}
-                              size="sm"
-                              variant="outline"
-                              className="flex-1 border-blue-500/30 hover:bg-blue-500/10 text-blue-400 font-semibold text-[11px] h-8"
-                              disabled={isQuickProcessing}
-                            >
-                              Mark Safar
-                            </Button>
-                          </div>
-                        ) : (
-                          <p className="text-[11px] text-muted-foreground italic">Recorded for this session.</p>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="glass-surface border-white/20 shadow-md flex flex-col justify-center items-center p-6 text-center bg-gradient-to-b from-blue-500/5 to-transparent">
-            <Sparkles className="h-8 w-8 text-blue-500 mb-3 shrink-0" />
-            <h4 className="font-bold text-base text-foreground">Welcome to BGK Portal</h4>
-            <CardDescription className="max-w-[80%] mt-1 text-xs leading-relaxed">
-              Your attendance, daily Duas, and reports can be managed right from your sidebar menu options.
-            </CardDescription>
-          </Card>
-        )}
-
-        {/* Column 2: Today's Schedule & Countdown (Amber Theme Glassmorphism) */}
-        <Card className="glass-surface border-white/20 shadow-md bg-gradient-to-b from-amber-500/5 to-transparent">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-amber-500 shrink-0" />
-              Today's Schedule
-            </CardTitle>
-            <CardDescription>Scheduled events and active countdowns.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 pt-2">
-            {(() => {
-              const today = new Date();
-              const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-              const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-              
-              const todaysMiqaats = allMiqaatsList.filter(m => {
-                const mStart = new Date(m.startTime);
-                return mStart >= startOfToday && mStart <= endOfToday;
-              });
-
-              if (todaysMiqaats.length === 0) {
-                return (
-                  <div className="py-8 text-center text-muted-foreground text-xs italic">
-                    No events scheduled for today.
-                  </div>
-                );
-              }
-
-              return todaysMiqaats.map(miqaat => {
-                const now = new Date();
-                const mStart = new Date(miqaat.startTime);
-                const mEnd = new Date(miqaat.endTime);
-                const isLive = now >= mStart && now <= mEnd;
-                const isUpcoming = now < mStart;
-
-                let ownStatus = "Unmarked";
-                if (currentUserItsId) {
-                  const marked = miqaat.attendance?.find(a => a.userItsId === currentUserItsId);
-                  const safar = miqaat.safarList?.find(s => s.userItsId === currentUserItsId);
-                  if (marked) {
-                    ownStatus = `Present (${marked.status})`;
-                  } else if (safar) {
-                    ownStatus = "Safar";
-                  }
+                  );
                 }
 
-                return (
-                  <div key={miqaat.id} className="p-3 border border-amber-500/20 rounded-lg bg-amber-500/5 space-y-2">
-                    <div className="flex justify-between items-center gap-2">
-                      <h4 className="font-bold text-xs text-foreground truncate max-w-[120px]">{miqaat.name}</h4>
-                      <span className={cn(
-                        "px-1.5 py-0.5 text-[9px] font-bold rounded-full uppercase tracking-wider border",
-                        isLive ? "bg-green-500/10 text-green-500 border-green-500/20 animate-pulse" :
-                        isUpcoming ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
-                        "bg-muted text-muted-foreground border-muted-foreground/20"
-                      )}>
-                        {isLive ? "● Live" : isUpcoming ? "Upcoming" : "Ended"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] text-muted-foreground border-t border-white/5 pt-1.5">
-                      <span>Time: {format(mStart, "p")} - {format(mEnd, "p")}</span>
-                      <span className={cn(
-                        "font-semibold",
-                        ownStatus.startsWith("Present") ? "text-green-500" :
-                        ownStatus === "Safar" ? "text-blue-400" : "text-destructive"
-                      )}>
-                        {ownStatus}
-                      </span>
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-          </CardContent>
-        </Card>
+                return todaysMiqaats.map(miqaat => {
+                  const now = new Date();
+                  const mStart = new Date(miqaat.startTime);
+                  const mEnd = new Date(miqaat.endTime);
+                  const isLive = now >= mStart && now <= mEnd;
+                  const isUpcoming = now < mStart;
+                  const isCompleted = now > mEnd;
 
-        {/* Column 3: Quick Navigation Shortcuts (Green Theme Glassmorphism) */}
-        <Card className="glass-surface border-white/20 shadow-md bg-gradient-to-b from-green-500/5 to-transparent">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-green-500 shrink-0" />
-              Quick Operations
-            </CardTitle>
-            <CardDescription>One-click links to core pages.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-2.5 pt-2">
-            {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') ? (
-              <>
-                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
-                  <Link href="/dashboard/mark-attendance">
-                    <CalendarCheck className="h-5 w-5 text-primary" />
-                    <span>Attendance</span>
-                  </Link>
-                </Button>
-                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
-                  <Link href="/dashboard/dua">
-                    <BookOpen className="h-5 w-5 text-accent" />
-                    <span>Dua Entry</span>
-                  </Link>
-                </Button>
-                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
-                  <Link href="/dashboard/reports">
-                    <BarChart2 className="h-5 w-5 text-blue-500" />
-                    <span>Reports</span>
-                  </Link>
-                </Button>
-                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
-                  <Link href="/dashboard/profile">
-                    <Users className="h-5 w-5 text-emerald-500" />
-                    <span>My Profile</span>
-                  </Link>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
-                  <Link href="/dashboard/profile">
-                    <Users className="h-5 w-5 text-emerald-500" />
-                    <span>My Profile</span>
-                  </Link>
-                </Button>
-                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
-                  <Link href="/dashboard/dua">
-                    <BookOpen className="h-5 w-5 text-accent" />
-                    <span>Dua Tilawat</span>
-                  </Link>
-                </Button>
-                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
-                  <Link href="/dashboard/notifications">
-                    <Bell className="h-5 w-5 text-primary" />
-                    <span>Notifications</span>
-                  </Link>
-                </Button>
-                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
-                  <Link href="/dashboard/forms">
-                    <FileText className="h-5 w-5 text-blue-500" />
-                    <span>Forms</span>
-                  </Link>
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-        
+                  // Check own attendance status if regular member
+                  let ownStatus = "Not Checked In";
+                  if (currentUserItsId) {
+                    const marked = miqaat.attendance?.find(a => a.userItsId === currentUserItsId);
+                    const safar = miqaat.safarList?.find(s => s.userItsId === currentUserItsId);
+                    if (marked) {
+                      ownStatus = `Checked In (${marked.status.charAt(0).toUpperCase() + marked.status.slice(1)})`;
+                    } else if (safar) {
+                      ownStatus = "Excused (Safar)";
+                    }
+                  }
+
+                  return (
+                    <div key={miqaat.id} className="p-3 border border-border/40 rounded-lg bg-card/10 space-y-2.5">
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <h4 className="font-bold text-sm text-foreground">{miqaat.name}</h4>
+                          <span className="text-xs text-muted-foreground">{miqaat.type.charAt(0).toUpperCase() + miqaat.type.slice(1)} Miqaat</span>
+                        </div>
+                        <span className={cn(
+                          "px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider",
+                          isLive ? "bg-green-500/10 text-green-600 animate-pulse border border-green-500/20" :
+                          isUpcoming ? "bg-amber-500/10 text-amber-600 border border-amber-500/20" :
+                          "bg-muted text-muted-foreground"
+                        )}>
+                          {isLive ? "● Live Now" : isUpcoming ? "Upcoming" : "Completed"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground border-t border-border/20 pt-2">
+                        <div><strong>Starts:</strong> {format(mStart, "p")}</div>
+                        <div><strong>Ends:</strong> {format(mEnd, "p")}</div>
+                      </div>
+
+                      {/* Admin/Marker stats */}
+                      {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') ? (
+                        <div className="flex justify-between items-center text-xs border-t border-border/20 pt-2 mt-1">
+                          <div>
+                            <span>Present: <strong className="text-foreground">{miqaat.attendance?.length || 0}</strong></span>
+                            <span className="mx-2 text-muted-foreground/30">|</span>
+                            <span>Safar: <strong className="text-foreground">{miqaat.safarList?.length || 0}</strong></span>
+                          </div>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs font-semibold text-primary px-2" asChild>
+                            <Link href="/dashboard/mark-attendance">Mark Page →</Link>
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center text-xs border-t border-border/20 pt-2 mt-1">
+                          <span>Your Status:</span>
+                          <span className={cn(
+                            "font-semibold",
+                            ownStatus.startsWith("Checked In") ? "text-green-600 dark:text-green-400" :
+                            ownStatus === "Excused (Safar)" ? "text-blue-600 dark:text-blue-400" :
+                            "text-destructive"
+                          )}>
+                            {ownStatus}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </CardContent>
+          </Card>
+
+          {/* Widget 2: Quick Lookup & Mark (only for admins/markers) */}
+          {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') ? (
+            <Card className="glass-surface border-white/20 shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <UserSearch className="h-5 w-5 text-primary shrink-0" />
+                  Quick Attendance Check
+                </CardTitle>
+                <CardDescription>Verify member status and mark present/safar instantly.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <form onSubmit={(e) => { e.preventDefault(); handleQuickLookup(); }} className="flex gap-2">
+                  <Input
+                    placeholder="Enter ITS or BGK ID"
+                    value={quickMemberId}
+                    onChange={(e) => setQuickMemberId(e.target.value)}
+                    className="text-sm h-9 flex-1"
+                    disabled={isQuickProcessing}
+                  />
+                  <Button type="submit" size="sm" className="h-9" disabled={isQuickProcessing}>
+                    {isQuickProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
+                  </Button>
+                </form>
+
+                {quickMember && (
+                  <div className="p-3 border border-border/40 rounded-lg bg-card/5 space-y-3 animate-in fade-in duration-300">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="font-bold text-sm">{quickMember.name}</p>
+                        <p className="text-xs text-muted-foreground">ITS: {quickMember.itsId} | BGK: {quickMember.bgkId || "N/A"}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{quickMember.team || "No Team"} | {quickMember.mohallahId || "No Mohallah"}</p>
+                      </div>
+                      {quickMarkStatus && (
+                        <span className={cn(
+                          "px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider",
+                          quickMarkStatus.startsWith("Present") ? "bg-green-500/10 text-green-600 border border-green-500/20" :
+                          quickMarkStatus === "Safar" ? "bg-blue-500/10 text-blue-600 border border-blue-500/20" :
+                          "bg-muted text-muted-foreground"
+                        )}>
+                          {quickMarkStatus}
+                        </span>
+                      )}
+                    </div>
+
+                    {(() => {
+                      const activeMiqaat = allMiqaatsList.find(m => {
+                        const now = new Date();
+                        return new Date(m.startTime) <= now && new Date(m.endTime) >= now;
+                      });
+
+                      if (!activeMiqaat) {
+                        return <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">No active Miqaat currently running to mark attendance.</p>;
+                      }
+
+                      return (
+                        <div className="space-y-2 pt-2 border-t border-border/10">
+                          <p className="text-xs text-muted-foreground">Active Event: <strong className="text-foreground">{activeMiqaat.name}</strong></p>
+                          {!quickMarkStatus ? (
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={() => handleQuickMark('present')}
+                                size="sm"
+                                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold text-xs h-8"
+                                disabled={isQuickProcessing}
+                              >
+                                Mark Present
+                              </Button>
+                              <Button
+                                onClick={() => handleQuickMark('safar')}
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-900/10 text-blue-600 dark:text-blue-400 font-semibold text-xs h-8"
+                                disabled={isQuickProcessing}
+                              >
+                                Mark Safar
+                              </Button>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">Already recorded for this event.</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="glass-surface border-white/20 shadow-md flex flex-col justify-center items-center p-6 text-center">
+              <Sparkles className="h-8 w-8 text-primary mb-3 shrink-0" />
+              <h4 className="font-bold text-base text-foreground">Welcome to BGK Portal</h4>
+              <CardDescription className="max-w-[80%] mt-1">
+                Your attendance, daily Duas, and reports can be managed right from your sidebar menu options.
+              </CardDescription>
+            </Card>
+          )}
+        </div>
+
+        {scanDisplayMessage && (
+          <Alert variant={scanDisplayMessage.type === 'error' ? 'destructive' : 'default'} className={`mt-4 ${scanDisplayMessage.type === 'success' ? 'border-green-500 bg-green-50 dark:bg-green-900/30' : scanDisplayMessage.type === 'info' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : ''}`}>
+            {scanDisplayMessage.type === 'success' && <CheckCircle2 className="h-4 w-4" />}
+            {scanDisplayMessage.type === 'error' && <XCircle className="h-4 w-4" />}
+            {scanDisplayMessage.type === 'info' && <AlertCircleIcon className="h-4 w-4" />}
+            <AlertTitle>
+              {scanDisplayMessage.type === 'success' ? `Scan Successful ${scanDisplayMessage.status === 'late' ? '(Late)' : (scanDisplayMessage.status === 'early' ? '(Early)' : '')}` : scanDisplayMessage.type === 'error' ? "Scan Error" : "Scan Info"}
+            </AlertTitle>
+            <AlertDescription>{scanDisplayMessage.text}</AlertDescription>
+          </Alert>
+        )}
+
+        {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead) && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {statsToDisplay.map((stat) => (
+              <Card key={stat.title} className="glass-surface border-white/20 glass-card-glow shadow-md overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground break-words">{stat.title}</CardTitle>
+                  <stat.icon className="h-5 w-5 text-primary shrink-0" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground break-all">
+                    {stat.isLoading ? <FunkyLoader size="sm" /> : stat.value}
+                  </div>
+                  {stat.trend && <p className="text-xs text-muted-foreground break-words">{stat.trend}</p>}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {isTeamLead && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className="glass-surface border-white/20 shadow-md col-span-1 lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center"><BarChart2 className="mr-2 h-5 w-5 text-primary"/>Recent Miqaat Attendance</CardTitle>
+                        <CardDescription>Attendance summary for the last 5 completed Miqaats.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {isLoadingChartData ? (
+                           <div className="flex items-center justify-center h-[350px]">
+                            <FunkyLoader>Loading Chart Data...</FunkyLoader>
+                           </div>
+                        ) : attendanceChartData && attendanceChartData.length > 0 ? (
+                            <ChartContainer config={chartConfig} className="w-full h-[350px]">
+                                <BarChart accessibilityLayer data={attendanceChartData}>
+                                    <CartesianGrid vertical={false} />
+                                    <XAxis
+                                        dataKey="name"
+                                        tickLine={false}
+                                        tickMargin={10}
+                                        axisLine={false}
+                                        tickFormatter={(value) => value.slice(0, 15) + (value.length > 15 ? '...' : '')}
+                                    />
+                                    <YAxis />
+                                    <ChartTooltip content={<ChartTooltipContent />} />
+                                    <ChartLegend content={<ChartLegendContent />} />
+                                    <Bar dataKey="present" fill="var(--color-present)" radius={4} stackId="a" />
+                                    <Bar dataKey="late" fill="var(--color-late)" radius={4} stackId="a" />
+                                    <Bar dataKey="absent" fill="var(--color-absent)" radius={4} stackId="a" />
+                                </BarChart>
+                            </ChartContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+                                No completed Miqaat data available to display.
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card className="glass-surface border-white/20 shadow-md col-span-1 lg:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center"><FilePenLine className="mr-2 h-5 w-5 text-primary"/>Active Form Response Rates</CardTitle>
+                        <CardDescription>Overview of current form completion status within your scope.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {isLoadingFormsData ? (
+                             <div className="flex items-center justify-center py-10">
+                               <FunkyLoader>Loading Form Data...</FunkyLoader>
+                             </div>
+                        ) : activeFormsWithResponses && activeFormsWithResponses.length > 0 ? (
+                            activeFormsWithResponses.map(form => (
+                                <div key={form.id}>
+                                    <div className="flex justify-between items-center mb-1">
+                                        <Link href={`/dashboard/forms/${form.id}/responses`} className="font-medium text-sm hover:underline">{form.title}</Link>
+                                        <span className="text-sm font-semibold">{form.responseRate.toFixed(0)}%</span>
+                                    </div>
+                                    <Progress value={form.responseRate} />
+                                    <p className="text-xs text-muted-foreground mt-1">{form.nonRespondentCount} member(s) have not responded.</p>
+                                </div>
+                            ))
+                        ) : (
+                             <div className="text-center py-10 text-muted-foreground">
+                                No active forms to display.
+                             </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+        )}
       </div>
-      {isBarcodeScanningEnabled && (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') && (
+      {isBarcodeScanningEnabled && (
         <Button
           onClick={() => { setScanDisplayMessage(null); setScannerError(null); setIsScannerDialogOpen(true); }}
           className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50 bg-primary hover:bg-primary/90 text-primary-foreground"
