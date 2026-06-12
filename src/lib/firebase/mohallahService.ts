@@ -91,4 +91,18 @@ export const getMohallahsCount = async (): Promise<number> => {
   }
 };
 
+export const getLegacyMohallahs = async (): Promise<Mohallah[]> => {
+  try {
+    const q = query(collection(db, 'mohallahs'), orderBy('name', 'asc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      ...doc.data(),
+      id: doc.id
+    } as Mohallah));
+  } catch (error) {
+    console.error("Failed to fetch legacy mohallahs:", error);
+    return [];
+  }
+};
+
     

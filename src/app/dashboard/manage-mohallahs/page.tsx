@@ -7,7 +7,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Mohallah, User, UserRole } from "@/types";
-import { PlusCircle, Edit, Trash2, Loader2, Home, Pencil, ShieldAlert } from "lucide-react";
+import { PlusCircle, Edit, Trash2, Loader2, Home, Pencil, ShieldAlert, Sparkles } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ACTIVE_YEAR } from "@/lib/firebase/firebase";
 import { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
 import { useForm } from "react-hook-form";
@@ -15,8 +18,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel as ShadFormLabel } from "@/components/ui/form";
-import { getMohallahs, addMohallah, updateMohallahName, deleteMohallah as fbDeleteMohallah } from "@/lib/firebase/mohallahService";
-import { getUsers } from "@/lib/firebase/userService"; 
+import { getMohallahs, addMohallah, updateMohallahName, deleteMohallah as fbDeleteMohallah, getLegacyMohallahs } from "@/lib/firebase/mohallahService";
+import { getUsers, transferMohallahMembers } from "@/lib/firebase/userService"; 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
 import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -38,6 +41,9 @@ export default function ManageMohallahsPage() {
   const [isMohallahDialogOpen, setIsMohallahDialogOpen] = useState(false);
   const [editingMohallah, setEditingMohallah] = useState<Mohallah | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
+  const [legacyMohallahs, setLegacyMohallahs] = useState<Mohallah[]>([]);
+  const [selectedLegacyMohallah, setSelectedLegacyMohallah] = useState<string>("");
+  const [isTransferring, setIsTransferring] = useState(false);
   const { toast } = useToast();
 
   const mohallahForm = useForm<MohallahFormValues>({
@@ -103,6 +109,45 @@ export default function ManageMohallahsPage() {
       mohallahForm.reset({ name: "" });
     }
   }, [editingMohallah, mohallahForm, isMohallahDialogOpen]);
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+    const fetchLegacyData = async () => {
+      try {
+        const legacy = await getLegacyMohallahs();
+        setLegacyMohallahs(legacy);
+      } catch (error) {
+        console.error("Failed to load legacy mohallahs:", error);
+      }
+    };
+    fetchLegacyData();
+  }, [isAuthorized]);
+
+  const handleTransferMembers = async () => {
+    if (!selectedLegacyMohallah || selectedLegacyMohallah === 'none') return;
+    setIsTransferring(true);
+    try {
+      const result = await transferMohallahMembers(selectedLegacyMohallah);
+      toast({
+        title: "Transfer Complete",
+        description: `Successfully transferred ${result.count} members to the new year ${ACTIVE_YEAR}!`,
+      });
+      setSelectedLegacyMohallah("");
+      
+      // Update local members list to refresh validation counts
+      const updatedMembers = await getUsers();
+      setMembers(updatedMembers);
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        title: "Transfer Failed",
+        description: error.message || "An error occurred during transfer.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTransferring(false);
+    }
+  };
 
   const handleMohallahFormSubmit = async (values: MohallahFormValues) => {
     try {
@@ -333,6 +378,53 @@ export default function ManageMohallahsPage() {
             <p className="text-xs text-muted-foreground">Total Mohallahs: {mohallahs.length}</p>
         </CardFooter>
       </Card>
+
+      {canManage && (
+        <Card className="shadow-lg border-primary/20 bg-primary/5 mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center text-primary">
+              <Sparkles className="mr-2 h-5 w-5" /> Legacy Member Transfer
+            </CardTitle>
+            <CardDescription>
+              Select a legacy Mohallah to transfer all its members (along with their teams and designations/groups) into the active year ({ACTIVE_YEAR}).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-end gap-4">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="legacy-mohallah-select">Select Legacy Mohallah</Label>
+                <Select value={selectedLegacyMohallah} onValueChange={setSelectedLegacyMohallah}>
+                  <SelectTrigger id="legacy-mohallah-select" className="bg-background">
+                    <SelectValue placeholder="Choose a legacy Mohallah" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {legacyMohallahs.length === 0 ? (
+                      <SelectItem value="none" disabled>No legacy Mohallahs found</SelectItem>
+                    ) : (
+                      legacyMohallahs.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button 
+                onClick={handleTransferMembers} 
+                disabled={isTransferring || !selectedLegacyMohallah || selectedLegacyMohallah === 'none'}
+                className="shrink-0"
+              >
+                {isTransferring ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Transferring...
+                  </>
+                ) : (
+                  "Transfer Members"
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
