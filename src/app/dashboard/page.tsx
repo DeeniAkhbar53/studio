@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink, BookOpen, Mail, UserSearch, Sparkles, ChevronUp, ChevronDown, Check, TrendingUp, ArrowUpRight, LayoutDashboard, CheckCircle } from "lucide-react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink, BookOpen, Mail, UserSearch, Sparkles, ChevronUp, ChevronDown, Check, TrendingUp, ArrowUpRight, LayoutDashboard, CheckCircle, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -263,32 +263,39 @@ export default function DashboardOverviewPage() {
 
   const recentCheckIns = useMemo(() => {
     const list: { name: string; itsId: string; status: string; miqaatName: string; markedAt: string; markedBy: string }[] = [];
+    const isAdminOrMarker = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker';
+    const canSeeSystemWide = isAdminOrMarker || isTeamLead;
+
     allMiqaatsList.forEach(m => {
       m.attendance?.forEach(a => {
-        list.push({
-          name: a.userName,
-          itsId: a.userItsId,
-          status: a.status,
-          miqaatName: m.name,
-          markedAt: a.markedAt,
-          markedBy: a.markedByItsId
-        });
+        if (canSeeSystemWide || a.userItsId === currentUserItsId) {
+          list.push({
+            name: a.userName,
+            itsId: a.userItsId,
+            status: a.status,
+            miqaatName: m.name,
+            markedAt: a.markedAt,
+            markedBy: a.markedByItsId
+          });
+        }
       });
       m.safarList?.forEach(s => {
-        list.push({
-          name: s.userName,
-          itsId: s.userItsId,
-          status: 'safar',
-          miqaatName: m.name,
-          markedAt: s.markedAt,
-          markedBy: s.markedByItsId
-        });
+        if (canSeeSystemWide || s.userItsId === currentUserItsId) {
+          list.push({
+            name: s.userName,
+            itsId: s.userItsId,
+            status: 'safar',
+            miqaatName: m.name,
+            markedAt: s.markedAt,
+            markedBy: s.markedByItsId
+          });
+        }
       });
     });
     // Sort in memory by markedAt descending
     list.sort((a, b) => new Date(b.markedAt).getTime() - new Date(a.markedAt).getTime());
     return list.slice(0, 8);
-  }, [allMiqaatsList]);
+  }, [allMiqaatsList, currentUserRole, isTeamLead, currentUserItsId]);
 
 
   useEffect(() => {
@@ -1470,13 +1477,15 @@ export default function DashboardOverviewPage() {
               <span className="hidden sm:inline">Recent Logs</span>
             </Link>
           </Button>
-          <Button variant="outline" size="sm" className="h-9 glass-surface border-white/20 text-xs gap-1.5 hover:bg-white/5" asChild>
-            <Link href="/dashboard/mark-attendance">
-              <CalendarCheck className="h-3.5 w-3.5 text-accent" />
-              <span className="hidden sm:inline">Mark Page</span>
-            </Link>
-          </Button>
-          {isBarcodeScanningEnabled && (
+          {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') && (
+            <Button variant="outline" size="sm" className="h-9 glass-surface border-white/20 text-xs gap-1.5 hover:bg-white/5" asChild>
+              <Link href="/dashboard/mark-attendance">
+                <CalendarCheck className="h-3.5 w-3.5 text-accent" />
+                <span className="hidden sm:inline">Mark Page</span>
+              </Link>
+            </Button>
+          )}
+          {isBarcodeScanningEnabled && (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') && (
             <Button
               onClick={() => { setScanDisplayMessage(null); setScannerError(null); setIsScannerDialogOpen(true); }}
               size="sm"
@@ -1817,137 +1826,188 @@ export default function DashboardOverviewPage() {
           </Carousel>
         </Card>
 
-        {/* Card 4: System Directory */}
+        {/* Card 4: System Directory (for leads) or My Profile (for regular members) */}
         <Card className="glass-surface border-white/20 shadow-md">
           <Carousel className="w-full">
             <CarouselContent>
-              <CarouselItem>
-                <div className="p-6 space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Member Registry</h4>
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                      <Users className="h-4 w-4" />
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 shrink-0 font-black text-2xl">
-                      {stats.totalMembersCount || "..."}
+              {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || isTeamLead) ? (
+                <>
+                  <CarouselItem>
+                    <div className="p-6 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Member Registry</h4>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                          <Users className="h-4 w-4" />
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 shrink-0 font-black text-2xl">
+                          {stats.totalMembersCount || "..."}
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Registered Members</p>
+                          <h3 className="text-xl sm:text-2xl font-black text-foreground mt-0.5">{stats.totalMembersCount || "..."} Members</h3>
+                          <p className="text-[10px] text-muted-foreground/80 mt-1">Total database directory</p>
+                        </div>
+                      </div>
+                      <div className="border-t border-white/10 pt-3 flex justify-between items-center text-xs">
+                        <div>
+                          <p className="text-muted-foreground">Total Mohallahs</p>
+                          <h5 className="font-bold text-foreground text-sm mt-0.5">{stats.totalMohallahsCount || "..."} Mohallahs</h5>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-muted-foreground">Active Forms</p>
+                          <h5 className="font-bold text-foreground text-sm mt-0.5">{stats.activeFormsCount} Forms</h5>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Registered Members</p>
-                      <h3 className="text-xl sm:text-2xl font-black text-foreground mt-0.5">{stats.totalMembersCount || "..."} Members</h3>
-                      <p className="text-[10px] text-muted-foreground/80 mt-1">Total database directory</p>
+                  </CarouselItem>
+                  <CarouselItem>
+                    <div className="p-6 space-y-3">
+                      <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Directory Summary</h4>
+                      <div className="space-y-1 text-[11px] text-muted-foreground">
+                        <p>Mohallah IDs tracked: {stats.totalMohallahsCount || "Multiple"}</p>
+                        <p>Admin Control Panel active: {currentUserRole === 'superadmin' ? 'Superadmin Level' : 'Standard Level'}</p>
+                      </div>
+                      <Button size="sm" variant="ghost" className="w-full text-xs font-bold text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/5 mt-4" asChild>
+                        <Link href="/dashboard/manage-members">Open Directory →</Link>
+                      </Button>
                     </div>
-                  </div>
-                  <div className="border-t border-white/10 pt-3 flex justify-between items-center text-xs">
-                    <div>
-                      <p className="text-muted-foreground">Total Mohallahs</p>
-                      <h5 className="font-bold text-foreground text-sm mt-0.5">{stats.totalMohallahsCount || "..."} Mohallahs</h5>
+                  </CarouselItem>
+                </>
+              ) : (
+                <>
+                  <CarouselItem>
+                    <div className="p-6 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">My Profile</h4>
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                          <Users className="h-4 w-4" />
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 shrink-0 font-black text-sm uppercase">
+                          {currentUser?.bgkId || "BGK"}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">ITS ID: {currentUserItsId}</p>
+                          <h3 className="text-lg font-black text-foreground mt-0.5 truncate">{currentUserName}</h3>
+                          <p className="text-[10px] text-muted-foreground/80 mt-1 truncate">{currentUser?.email || "No Email Verified"}</p>
+                        </div>
+                      </div>
+                      <div className="border-t border-white/10 pt-3 flex justify-between items-center text-xs">
+                        <div>
+                          <p className="text-muted-foreground">My Team</p>
+                          <h5 className="font-bold text-foreground text-sm mt-0.5 truncate max-w-[100px]">{currentUser?.team || "Unassigned"}</h5>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-muted-foreground">Designation</p>
+                          <h5 className="font-bold text-foreground text-sm mt-0.5 truncate max-w-[100px]">{currentUserDesignation || "Member"}</h5>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-muted-foreground">Active Forms</p>
-                      <h5 className="font-bold text-foreground text-sm mt-0.5">{stats.activeFormsCount} Forms</h5>
+                  </CarouselItem>
+                  <CarouselItem>
+                    <div className="p-6 space-y-3">
+                      <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Account Settings</h4>
+                      <div className="space-y-1 text-[11px] text-muted-foreground">
+                        <p>Phone: {currentUser?.phoneNumber || "Not provided"}</p>
+                        <p>Prefer: {currentUser?.loginPreference?.toUpperCase() || "BOTH"}</p>
+                      </div>
+                      <Button size="sm" variant="ghost" className="w-full text-xs font-bold text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/5 mt-4" asChild>
+                        <Link href="/dashboard/profile">View Profile Details →</Link>
+                      </Button>
                     </div>
-                  </div>
-                </div>
-              </CarouselItem>
-              <CarouselItem>
-                <div className="p-6 space-y-3">
-                  <h4 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Directory Summary</h4>
-                  <div className="space-y-1 text-[11px] text-muted-foreground">
-                    <p>Mohallah IDs tracked: {stats.totalMohallahsCount || "Multiple"}</p>
-                    <p>Admin Control Panel active: {currentUserRole === 'superadmin' ? 'Superadmin Level' : 'Standard Level'}</p>
-                  </div>
-                  <Button size="sm" variant="ghost" className="w-full text-xs font-bold text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/5 mt-4" asChild>
-                    <Link href="/dashboard/manage-members">Open Directory →</Link>
-                  </Button>
-                </div>
-              </CarouselItem>
+                  </CarouselItem>
+                </>
+              )}
             </CarouselContent>
           </Carousel>
         </Card>
       </div>
 
       {/* SECTION 4: Two-Column Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left Card: Miqaat Attendance Trends (col-span-2) */}
-        <Card className="glass-surface border-white/20 shadow-md col-span-1 lg:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <BarChart2 className="h-5 w-5 text-primary shrink-0" />
-              Miqaat Attendance Trends
-            </CardTitle>
-            <CardDescription>Visual stats for the last 5 completed events.</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-2">
-            {isLoadingChartData ? (
-               <div className="flex items-center justify-center h-[300px]">
-                <FunkyLoader>Loading Attendance Statistics...</FunkyLoader>
-               </div>
-            ) : attendanceChartData && attendanceChartData.length > 0 ? (
-                <ChartContainer config={chartConfig} className="w-full h-[300px]">
-                    <BarChart accessibilityLayer data={attendanceChartData}>
-                        <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                        <XAxis
-                            dataKey="name"
-                            tickLine={false}
-                            tickMargin={10}
-                            axisLine={false}
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                            tickFormatter={(value) => value.slice(0, 12) + (value.length > 12 ? '...' : '')}
-                        />
-                        <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <ChartLegend content={<ChartLegendContent />} />
-                        <Bar dataKey="present" fill="var(--color-present)" radius={[4, 4, 0, 0]} stackId="a" />
-                        <Bar dataKey="late" fill="var(--color-late)" radius={[4, 4, 0, 0]} stackId="a" />
-                        <Bar dataKey="absent" fill="var(--color-absent)" radius={[4, 4, 0, 0]} stackId="a" />
-                    </BarChart>
-                </ChartContainer>
-            ) : (
-                <div className="flex items-center justify-center h-[300px] text-muted-foreground text-sm italic">
-                    No completed events data available.
-                </div>
-            )}
-          </CardContent>
-        </Card>
+      {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || isTeamLead) && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Left Card: Miqaat Attendance Trends (col-span-2) */}
+          <Card className="glass-surface border-white/20 shadow-md col-span-1 lg:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart2 className="h-5 w-5 text-primary shrink-0" />
+                Miqaat Attendance Trends
+              </CardTitle>
+              <CardDescription>Visual stats for the last 5 completed events.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-2">
+              {isLoadingChartData ? (
+                 <div className="flex items-center justify-center h-[300px]">
+                  <FunkyLoader>Loading Attendance Statistics...</FunkyLoader>
+                 </div>
+              ) : attendanceChartData && attendanceChartData.length > 0 ? (
+                  <ChartContainer config={chartConfig} className="w-full h-[300px]">
+                      <BarChart accessibilityLayer data={attendanceChartData}>
+                          <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                          <XAxis
+                              dataKey="name"
+                              tickLine={false}
+                              tickMargin={10}
+                              axisLine={false}
+                              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                              tickFormatter={(value) => value.slice(0, 12) + (value.length > 12 ? '...' : '')}
+                          />
+                          <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <ChartLegend content={<ChartLegendContent />} />
+                          <Bar dataKey="present" fill="var(--color-present)" radius={[4, 4, 0, 0]} stackId="a" />
+                          <Bar dataKey="late" fill="var(--color-late)" radius={[4, 4, 0, 0]} stackId="a" />
+                          <Bar dataKey="absent" fill="var(--color-absent)" radius={[4, 4, 0, 0]} stackId="a" />
+                      </BarChart>
+                  </ChartContainer>
+              ) : (
+                  <div className="flex items-center justify-center h-[300px] text-muted-foreground text-sm italic">
+                      No completed events data available.
+                  </div>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Right Card: Overall Performance Summary (col-span-1) */}
-        <Card className="glass-surface border-white/20 shadow-md col-span-1 flex flex-col">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-accent shrink-0" />
-              Overall Summary
-            </CardTitle>
-            <CardDescription>General performance metrics.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col justify-around py-4">
-            <div className="text-center py-6">
-              <h1 className="text-5xl sm:text-6xl font-black tracking-tight text-foreground bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent">{todayStats.attendanceRate}%</h1>
-              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-2">Average Attendance Rate</h4>
-              <p className="text-xs text-muted-foreground/80 max-w-[80%] mx-auto mt-2">
-                Overall check-in compliance calculated across today's active Miqaat sessions.
-              </p>
-            </div>
-            
-            <div className="border-t border-white/10 pt-4 space-y-2.5 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" /> Present Today</span>
-                <span className="font-bold text-foreground">{todayStats.present} members</span>
+          {/* Right Card: Overall Performance Summary (col-span-1) */}
+          <Card className="glass-surface border-white/20 shadow-md col-span-1 flex flex-col">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-accent shrink-0" />
+                Overall Summary
+              </CardTitle>
+              <CardDescription>General performance metrics.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col justify-around py-4">
+              <div className="text-center py-6">
+                <h1 className="text-5xl sm:text-6xl font-black tracking-tight text-foreground bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent">{todayStats.attendanceRate}%</h1>
+                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-2">Average Attendance Rate</h4>
+                <p className="text-xs text-muted-foreground/80 max-w-[80%] mx-auto mt-2">
+                  Overall check-in compliance calculated across today's active Miqaat sessions.
+                </p>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-accent" /> Late Check-Ins</span>
-                <span className="font-bold text-foreground">{todayStats.late} members</span>
+              
+              <div className="border-t border-white/10 pt-4 space-y-2.5 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" /> Present Today</span>
+                  <span className="font-bold text-foreground">{todayStats.present} members</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-accent" /> Late Check-Ins</span>
+                  <span className="font-bold text-foreground">{todayStats.late} members</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-500" /> Excused (Safar)</span>
+                  <span className="font-bold text-foreground">{todayStats.safar} members</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-500" /> Excused (Safar)</span>
-                <span className="font-bold text-foreground">{todayStats.safar} members</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* SECTION 5: Recent Check-ins Activity Table */}
       <Card className="glass-surface border-white/20 shadow-md">
@@ -2190,35 +2250,66 @@ export default function DashboardOverviewPage() {
             <CardDescription>One-click links to core pages.</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-2.5 pt-2">
-            <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
-              <Link href="/dashboard/mark-attendance">
-                <CalendarCheck className="h-5 w-5 text-primary" />
-                <span>Attendance</span>
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
-              <Link href="/dashboard/dua">
-                <BookOpen className="h-5 w-5 text-accent" />
-                <span>Dua Entry</span>
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
-              <Link href="/dashboard/reports">
-                <BarChart2 className="h-5 w-5 text-blue-500" />
-                <span>Reports</span>
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
-              <Link href="/dashboard/profile">
-                <Users className="h-5 w-5 text-emerald-500" />
-                <span>My Profile</span>
-              </Link>
-            </Button>
+            {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') ? (
+              <>
+                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
+                  <Link href="/dashboard/mark-attendance">
+                    <CalendarCheck className="h-5 w-5 text-primary" />
+                    <span>Attendance</span>
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
+                  <Link href="/dashboard/dua">
+                    <BookOpen className="h-5 w-5 text-accent" />
+                    <span>Dua Entry</span>
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
+                  <Link href="/dashboard/reports">
+                    <BarChart2 className="h-5 w-5 text-blue-500" />
+                    <span>Reports</span>
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
+                  <Link href="/dashboard/profile">
+                    <Users className="h-5 w-5 text-emerald-500" />
+                    <span>My Profile</span>
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
+                  <Link href="/dashboard/profile">
+                    <Users className="h-5 w-5 text-emerald-500" />
+                    <span>My Profile</span>
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
+                  <Link href="/dashboard/dua">
+                    <BookOpen className="h-5 w-5 text-accent" />
+                    <span>Dua Tilawat</span>
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
+                  <Link href="/dashboard/notifications">
+                    <Bell className="h-5 w-5 text-primary" />
+                    <span>Notifications</span>
+                  </Link>
+                </Button>
+                <Button variant="outline" size="sm" className="h-14 glass-surface border-white/10 flex flex-col justify-center items-center gap-1 hover:bg-white/5 cursor-pointer text-xs" asChild>
+                  <Link href="/dashboard/forms">
+                    <FileText className="h-5 w-5 text-blue-500" />
+                    <span>Forms</span>
+                  </Link>
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
         
       </div>
-      {isBarcodeScanningEnabled && (
+      {isBarcodeScanningEnabled && (currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') && (
         <Button
           onClick={() => { setScanDisplayMessage(null); setScannerError(null); setIsScannerDialogOpen(true); }}
           className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50 bg-primary hover:bg-primary/90 text-primary-foreground"
