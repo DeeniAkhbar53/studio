@@ -1094,7 +1094,13 @@ export default function MarkAttendancePage() {
           <ShadAlertTitle>Cache Mismatch</ShadAlertTitle>
           <ShadAlertDesc className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             The offline member list may be incorrect for this Miqaat.
-            <Button variant="destructive" size="sm" onClick={fetchAllUsersForCache} disabled={isCachingUsers}>
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={fetchAllUsersForCache} 
+              disabled={isCachingUsers}
+              className="font-semibold shadow-sm shadow-destructive/10 hover:shadow-md hover:shadow-destructive/20 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
+            >
               {isCachingUsers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
               Update Offline List
             </Button>
@@ -1118,8 +1124,7 @@ export default function MarkAttendancePage() {
                   onClick={() => handleSync()}
                   disabled={isOffline || isSyncing || pendingRecordsCount === 0}
                   size="sm"
-                  variant="secondary"
-                  className="mt-2 sm:mt-0"
+                  className="mt-2 sm:mt-0 font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
               >
                   {isSyncing ? (
                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Syncing...</>
@@ -1143,7 +1148,7 @@ export default function MarkAttendancePage() {
               size="sm"
               onClick={fetchAllUsersForCache}
               disabled={isCachingUsers || isOffline}
-              className="w-full md:w-auto self-start md:self-center"
+              className="w-full md:w-auto self-start md:self-center font-medium border-primary/20 hover:border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
             >
               {isCachingUsers ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Caching...</>
@@ -1297,11 +1302,11 @@ export default function MarkAttendancePage() {
                 disabled={!selectedMiqaatId || !currentSessionDetails || isProcessing || isLoadingMiqaats}
               />
             </div>
-            <div className="md:col-span-2 flex flex-col sm:flex-row gap-2">
+            <div className="md:col-span-2 flex flex-col sm:flex-row gap-2.5">
               <Button
                 type="submit"
                 disabled={!selectedMiqaatId || !currentSessionDetails || !memberIdInput || isProcessing || isLoadingMiqaats}
-                className="flex-1"
+                className="flex-1 font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
                 size="sm"
               >
                 {isProcessing ? (
@@ -1318,7 +1323,7 @@ export default function MarkAttendancePage() {
                 variant="outline"
                 onClick={handleIndividualMarkSafar}
                 disabled={!selectedMiqaatId || !currentSessionDetails || !memberIdInput || isProcessing || isLoadingMiqaats}
-                className="flex-1 border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-900/10 text-blue-600 dark:text-blue-400"
+                className="flex-1 border-amber-500/30 hover:border-amber-500/50 bg-amber-500/5 hover:bg-amber-500/12 text-amber-600 dark:text-amber-400 font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
                 size="sm"
               >
                 {isProcessing ? (
@@ -1455,7 +1460,11 @@ export default function MarkAttendancePage() {
                                     disabled={!selectedMiqaatId || !currentSessionDetails || isSaving}
                                 />
                             </div>
-                            <Button onClick={handleBulkMemberSearch} disabled={!selectedMiqaatId || !currentSessionDetails || !bulkMemberIdsInput || isSearchingBulkMembers || isSaving}>
+                            <Button 
+                              onClick={handleBulkMemberSearch} 
+                              disabled={!selectedMiqaatId || !currentSessionDetails || !bulkMemberIdsInput || isSearchingBulkMembers || isSaving}
+                              className="font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
+                            >
                                 {isSearchingBulkMembers ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserSearch className="mr-2 h-4 w-4" />}
                                 Find Members
                             </Button>
@@ -1552,7 +1561,11 @@ export default function MarkAttendancePage() {
                                         </div>
                                        ))}
                                      </div>
-                                    <Button onClick={() => handleBulkMarkAttendance()} disabled={isSaving}>
+                                    <Button 
+                                      onClick={() => handleBulkMarkAttendance()} 
+                                      disabled={isSaving}
+                                      className="font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
+                                    >
                                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
                                         Mark All ({bulkFoundMembers.length}) as Present
                                     </Button>
@@ -1591,6 +1604,7 @@ export default function MarkAttendancePage() {
                             <Button 
                                 onClick={handleBulkSafarBgkSubmit} 
                                 disabled={!selectedMiqaatId || !bulkSafarBgkInput.trim() || isBulkSafarSubmitting || isSaving}
+                                className="font-semibold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-500/90 hover:to-amber-600/90 text-white shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
                             >
                                 {isBulkSafarSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserX className="mr-2 h-4 w-4" />}
                                 Mark as Safar
@@ -1825,6 +1839,7 @@ export default function MarkAttendancePage() {
                 }
               }}
               disabled={isSaving}
+              className="font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
             >
               {isSaving ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
@@ -1891,7 +1906,11 @@ export default function MarkAttendancePage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAdminOverrideOpen(false)}>Cancel</Button>
-            <Button onClick={() => handleBulkMarkAttendance({ timestamp: overrideTimestamp!, reason: overrideReason })} disabled={!overrideReason.trim() || !overrideTimestamp}>
+            <Button 
+              onClick={() => handleBulkMarkAttendance({ timestamp: overrideTimestamp!, reason: overrideReason })} 
+              disabled={!overrideReason.trim() || !overrideTimestamp}
+              className="font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
+            >
               Confirm & Mark Attendance
             </Button>
           </DialogFooter>
@@ -1934,7 +1953,7 @@ export default function MarkAttendancePage() {
             )}
              <DialogFooter>
                 <DialogClose asChild>
-                    <Button>Close</Button>
+                    <Button className="font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0">Close</Button>
                 </DialogClose>
             </DialogFooter>
         </DialogContent>
