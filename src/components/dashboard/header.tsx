@@ -57,9 +57,14 @@ const pageTitles: { [key: string]: string } = {
 };
 
 const colorThemes = [
-    { name: 'blue', label: 'Blue', color: '#0A314D' },
-    { name: 'purple', label: 'Purple', color: '#552645' },
-    { name: 'gray', label: 'Gray', color: '#516F7E' },
+    { name: 'blue',    label: 'Blue',    color: '#1677FF' },
+    { name: 'purple',  label: 'Purple',  color: '#7C3AED' },
+    { name: 'indigo',  label: 'Indigo',  color: '#4338CA' },
+    { name: 'teal',    label: 'Teal',    color: '#0D9488' },
+    { name: 'emerald', label: 'Emerald', color: '#059669' },
+    { name: 'rose',    label: 'Rose',    color: '#E11D48' },
+    { name: 'amber',   label: 'Amber',   color: '#D97706' },
+    { name: 'gray',    label: 'Slate',   color: '#475569' },
 ];
 
 
@@ -136,18 +141,21 @@ export function Header() {
   }, []);
 
   useEffect(() => {
+    const ALL_CLASSES = ['theme-blue','theme-purple','theme-indigo','theme-teal','theme-emerald','theme-rose','theme-amber','theme-gray'];
     const savedTheme = localStorage.getItem("colorTheme") || "blue";
     setColorTheme(savedTheme);
-    document.body.classList.remove('theme-blue', 'theme-purple', 'theme-gray');
+    document.body.classList.remove(...ALL_CLASSES);
     if (savedTheme !== "blue") {
         document.body.classList.add(`theme-${savedTheme}`);
     }
   }, []);
 
+  const ALL_THEME_CLASSES = ['theme-blue','theme-purple','theme-indigo','theme-teal','theme-emerald','theme-rose','theme-amber','theme-gray'];
+
   const handleSetColorTheme = (newTheme: string) => {
     setColorTheme(newTheme);
     localStorage.setItem("colorTheme", newTheme);
-    document.body.classList.remove('theme-blue', 'theme-purple', 'theme-gray');
+    document.body.classList.remove(...ALL_THEME_CLASSES);
     if (newTheme !== "blue") {
         document.body.classList.add(`theme-${newTheme}`);
     }
@@ -335,19 +343,24 @@ export function Header() {
                     </div>
                     <div>
                       <span className="text-sm font-medium text-muted-foreground">Color Theme (Beta)</span>
-                      <div className="flex items-center justify-around gap-2 mt-2">
+                       <div className="grid grid-cols-4 gap-1.5 mt-2">
                          {colorThemes.map((ct) => (
                           <button
                             key={ct.name}
                             onClick={() => handleSetColorTheme(ct.name)}
-                            className={cn("h-6 w-6 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-2 ring-offset-background")}
-                            style={{ backgroundColor: ct.color }}
+                            className={cn("flex flex-col items-center gap-1 p-1 rounded-md transition-all hover:bg-muted", colorTheme === ct.name && "bg-muted")}
                             aria-label={`Select ${ct.label} theme`}
                           >
-                            {colorTheme === ct.name && <Check className="h-4 w-4 text-white" />}
+                            <div
+                              className={cn("h-5 w-5 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-offset-1 ring-offset-background")}
+                              style={{ backgroundColor: ct.color }}
+                            >
+                              {colorTheme === ct.name && <Check className="h-3 w-3 text-white" />}
+                            </div>
+                            <span className="text-[9px] text-muted-foreground">{ct.label}</span>
                           </button>
                         ))}
-                      </div>
+                       </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -433,15 +446,33 @@ export function Header() {
                 </DropdownMenuSubTrigger>
                  <DropdownMenuPortal>
                     <DropdownMenuSubContent>
-                        <DropdownMenuRadioGroup value={colorTheme} onValueChange={handleSetColorTheme} className="grid grid-cols-3 gap-2 p-2">
+                        <div className="p-2">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-2">Color Theme</p>
+                          <div className="grid grid-cols-4 gap-1.5">
                             {colorThemes.map((ct) => (
-                                <DropdownMenuRadioItem key={ct.name} value={ct.name} className="flex items-center justify-center p-0 h-8 w-8 rounded-md border-2 border-transparent focus:border-primary focus:ring-0 focus:ring-offset-0">
-                                     <div className={cn("h-6 w-6 rounded-full flex items-center justify-center", colorTheme === ct.name && "ring-2 ring-primary ring-offset-1 ring-offset-background")} style={{backgroundColor: ct.color}}>
-                                        {colorTheme === ct.name && <Check className="h-4 w-4 text-white" />}
-                                    </div>
-                                </DropdownMenuRadioItem>
+                              <button
+                                key={ct.name}
+                                onClick={() => handleSetColorTheme(ct.name)}
+                                className={cn(
+                                  "flex flex-col items-center gap-1 p-1.5 rounded-md transition-all hover:bg-muted",
+                                  colorTheme === ct.name && "bg-muted"
+                                )}
+                                title={ct.label}
+                              >
+                                <div
+                                  className={cn(
+                                    "h-6 w-6 rounded-full flex items-center justify-center shadow-sm",
+                                    colorTheme === ct.name && "ring-2 ring-offset-1 ring-offset-background"
+                                  )}
+                                  style={{ backgroundColor: ct.color }}
+                                >
+                                  {colorTheme === ct.name && <Check className="h-3.5 w-3.5 text-white" />}
+                                </div>
+                                <span className="text-[9px] text-muted-foreground leading-none">{ct.label}</span>
+                              </button>
                             ))}
-                        </DropdownMenuRadioGroup>
+                          </div>
+                        </div>
                     </DropdownMenuSubContent>
                 </DropdownMenuPortal>
             </DropdownMenuSub>

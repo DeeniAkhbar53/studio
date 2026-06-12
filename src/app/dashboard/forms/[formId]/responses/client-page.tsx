@@ -96,21 +96,21 @@ const QuestionAnalyticsCard = ({
   );
 
   return (
-    <Card key={questionId} className="shadow-sm flex flex-col h-[400px]">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-        <CardTitle className="text-base font-semibold truncate max-w-[70%]">{result.label}</CardTitle>
+    <div key={questionId} className="glass-surface rounded-2xl border border-white/30 dark:border-white/8 flex flex-col h-[400px] overflow-hidden">
+      <div className="flex flex-row items-center justify-between gap-3 p-4 pb-3 border-b border-border/40">
+        <h3 className="text-sm font-semibold text-foreground truncate max-w-[65%]">{result.label}</h3>
         <Select value={chartType} onValueChange={(v) => setChartType(v as any)}>
-          <SelectTrigger className="h-8 w-28 text-xs shrink-0">
+          <SelectTrigger className="h-7 w-26 text-[11px] shrink-0 bg-muted/50">
             <SelectValue placeholder="Chart Type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="pie" className="text-xs">Pie Chart</SelectItem>
-            <SelectItem value="bar" className="text-xs">Bar Chart</SelectItem>
-            <SelectItem value="line" className="text-xs">Line Chart</SelectItem>
+            <SelectItem value="pie" className="text-xs">Pie</SelectItem>
+            <SelectItem value="bar" className="text-xs">Bar</SelectItem>
+            <SelectItem value="line" className="text-xs">Line</SelectItem>
           </SelectContent>
         </Select>
-      </CardHeader>
-      <CardContent className="flex-grow min-h-0 pb-6">
+      </div>
+      <div className="flex-grow min-h-0 p-4 pb-6">
         <ChartContainer config={chartConfig} className="h-full w-full">
           {chartType === 'pie' ? (
             <ResponsiveContainer width="100%" height="100%">
@@ -159,8 +159,8 @@ const QuestionAnalyticsCard = ({
             </ResponsiveContainer>
           )}
         </ChartContainer>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
@@ -253,7 +253,7 @@ const FormAnalytics = ({ form, responses }: { form: FormType; responses: FormRes
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {Object.entries(analyticsData).map(([questionId, result]) => (
                 <QuestionAnalyticsCard 
                     key={questionId} 
@@ -689,95 +689,63 @@ export default function ViewResponsesClientPage() {
     const canManageNonRespondents = currentUser.role === 'admin' || currentUser.role === 'superadmin';
 
     return (
-        <div className="p-4 md:p-6 space-y-6">
-            <Card className="glass-surface border-white/10 dark:border-white/5 shadow-xl overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-primary/5 via-card/20 to-accent/5 border-b border-white/10 dark:border-white/5 py-6">
+        <div className="space-y-6 animate-fade-up">
+            {/* ── Hero Header ── */}
+            <div className="glass-surface rounded-2xl overflow-hidden">
+                <div className="bg-gradient-to-r from-primary/8 via-transparent to-accent/8 px-6 py-5 border-b border-white/20 dark:border-white/6">
                     <div className="flex justify-between items-start gap-4">
-                        <div className="flex-1 space-y-1">
-                            <CardTitle className="text-2xl md:text-3xl font-bold text-foreground">{form?.title || "Form Responses"}</CardTitle>
-                            <CardDescription className="text-sm text-muted-foreground">{form?.description || "Viewing all submitted responses."}</CardDescription>
+                        <div className="flex-1 min-w-0">
+                            <h1 className="text-xl md:text-2xl font-bold text-foreground truncate">{form?.title || "Form Responses"}</h1>
+                            <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">{form?.description || "Viewing all submitted responses."}</p>
                         </div>
-                        <Button variant="outline" onClick={() => router.push('/dashboard/forms')} className="shrink-0 bg-background/50 backdrop-blur-sm hover:bg-background/80">
+                        <Button variant="outline" onClick={() => router.push('/dashboard/forms')} className="shrink-0 glass-field border-white/30 hover:bg-white/20" size="sm">
                             <ArrowLeft className="mr-2 h-4 w-4" />
                             <span className="hidden sm:inline">Back to Forms</span>
                         </Button>
                     </div>
-                </CardHeader>
-                <CardContent className="pt-6 pb-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                        {/* Stat Card 1: Total Responses */}
-                        <div className="relative group overflow-hidden rounded-xl border border-white/10 dark:border-white/5 bg-gradient-to-br from-card to-muted/20 p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01]">
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Responses</p>
-                                    <p className="text-3xl font-extrabold text-foreground">{filteredResponses.length}</p>
-                                </div>
-                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-inner">
-                                    <UserCheck className="h-6 w-6" />
-                                </div>
+                </div>
+                {/* ── Stat Cards Row ── */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-border/40">
+                    {[
+                        { label: "Total Responses", value: filteredResponses.length, icon: UserCheck, sub: `${filteredResponses.length} submissions recorded`, iconClass: "text-primary bg-primary/10" },
+                        { label: "Eligible Members", value: eligibleUsers.length, icon: Users, sub: `${eligibleUsers.length} members in scope`, iconClass: "text-violet-500 bg-violet-500/10" },
+                        { label: "Response Rate", value: `${eligibleUsers.length > 0 ? ((filteredResponses.length / eligibleUsers.length) * 100).toFixed(1) : 0}%`, icon: BarChart2, sub: null, isRate: true, iconClass: "text-emerald-500 bg-emerald-500/10" },
+                    ].map((s) => (
+                        <div key={s.label} className="p-5 flex items-center justify-between group">
+                            <div className="space-y-1">
+                                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{s.label}</p>
+                                <p className="text-3xl font-extrabold text-foreground tabular-nums">{s.value}</p>
+                                {(s as any).isRate ? (
+                                    <div className="w-32 bg-muted rounded-full h-1.5 mt-2">
+                                        <div className="bg-emerald-500 h-1.5 rounded-full transition-all duration-700" style={{ width: `${eligibleUsers.length > 0 ? Math.min(100, (filteredResponses.length / eligibleUsers.length) * 100) : 0}%` }} />
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground">{(s as any).sub}</p>
+                                )}
                             </div>
-                            <div className="mt-4 flex items-center text-xs text-muted-foreground">
-                                <span className="font-medium text-foreground mr-1.5">{filteredResponses.length}</span> submissions recorded
-                            </div>
-                        </div>
-
-                        {/* Stat Card 2: Eligible Members */}
-                        <div className="relative group overflow-hidden rounded-xl border border-white/10 dark:border-white/5 bg-gradient-to-br from-card to-muted/20 p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01]">
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Eligible Members</p>
-                                    <p className="text-3xl font-extrabold text-foreground">{eligibleUsers.length}</p>
-                                </div>
-                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/25 text-accent-foreground shadow-inner">
-                                    <Users className="h-6 w-6" />
-                                </div>
-                            </div>
-                            <div className="mt-4 flex items-center text-xs text-muted-foreground">
-                                <span className="font-medium text-foreground mr-1.5">{eligibleUsers.length}</span> members in scope
+                            <div className={`flex h-12 w-12 items-center justify-center rounded-xl shadow-sm ${(s as any).iconClass}`}>
+                                <s.icon className="h-5 w-5" />
                             </div>
                         </div>
-
-                        {/* Stat Card 3: Response Rate */}
-                        <div className="relative group overflow-hidden rounded-xl border border-white/10 dark:border-white/5 bg-gradient-to-br from-card to-muted/20 p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:scale-[1.01]">
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Response Rate</p>
-                                    <p className="text-3xl font-extrabold text-foreground">
-                                        {eligibleUsers.length > 0 ? ((filteredResponses.length / eligibleUsers.length) * 100).toFixed(1) : 0}%
-                                    </p>
-                                </div>
-                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-500/10 text-green-600 dark:text-green-400 shadow-inner">
-                                    <BarChart2 className="h-6 w-6" />
-                                </div>
-                            </div>
-                            <div className="mt-4 space-y-1">
-                                <div className="w-full bg-muted rounded-full h-1.5">
-                                    <div 
-                                        className="bg-green-500 h-1.5 rounded-full transition-all duration-500" 
-                                        style={{ width: `${eligibleUsers.length > 0 ? Math.min(100, (filteredResponses.length / eligibleUsers.length) * 100) : 0}%` }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    ))}
+                </div>
+            </div>
             
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 {/* Desktop Tabs */}
                 <div className="hidden md:block">
-                    <TabsList>
-                        <TabsTrigger value="respondents">
-                            <UserCheck className="mr-2 h-4 w-4"/>Respondents ({filteredResponses.length})
+                    <TabsList className="glass-surface border border-white/30 dark:border-white/8 p-1 h-auto gap-1">
+                        <TabsTrigger value="respondents" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-md">
+                            <UserCheck className="h-3.5 w-3.5"/>Respondents <span className="ml-1 text-[10px] opacity-70">({filteredResponses.length})</span>
                         </TabsTrigger>
-                        <TabsTrigger value="non-respondents" disabled={!canManageNonRespondents}>
-                            <UserX className="mr-2 h-4 w-4"/>Non-Respondents ({filteredNonRespondents.length})
+                        <TabsTrigger value="non-respondents" disabled={!canManageNonRespondents} className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-md">
+                            <UserX className="h-3.5 w-3.5"/>Non-Respondents <span className="ml-1 text-[10px] opacity-70">({filteredNonRespondents.length})</span>
                         </TabsTrigger>
-                        <TabsTrigger value="analytics">
-                            <PieChart className="mr-2 h-4 w-4" />Analytics
+                        <TabsTrigger value="analytics" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-md">
+                            <PieChart className="h-3.5 w-3.5" />Analytics
                         </TabsTrigger>
-                        <TabsTrigger value="sheet" disabled={!form?.googleSheetId}>
-                            <FileSpreadsheet className="mr-2 h-4 w-4" />Google Sheet
+                        <TabsTrigger value="sheet" disabled={!form?.googleSheetId} className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm rounded-md">
+                            <FileSpreadsheet className="h-3.5 w-3.5" />Google Sheet
                         </TabsTrigger>
                     </TabsList>
                 </div>
@@ -785,7 +753,7 @@ export default function ViewResponsesClientPage() {
                 <div className="md:hidden">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="w-full justify-between">
+                            <Button variant="outline" className="w-full justify-between glass-field">
                                 Viewing: {currentTabLabel}
                                 <ChevronDown className="h-4 w-4" />
                             </Button>
@@ -812,19 +780,19 @@ export default function ViewResponsesClientPage() {
                 </div>
 
                 <div className="mt-4">
-                    <TabsContent value="respondents">
-                        <Card>
-                            <CardHeader className="flex flex-col gap-4 border-b">
+                    <TabsContent value="respondents" className="mt-0">
+                        <div className="glass-surface rounded-2xl overflow-hidden">
+                            <div className="flex flex-col gap-4 border-b border-border/40 p-4 md:p-5">
                                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                     <div>
-                                        <h3 className="text-lg font-semibold">Submitted Responses</h3>
+                                        <h3 className="text-base font-semibold text-foreground">Submitted Responses</h3>
                                         {form?.googleSheetId ? (
                                             <p className="text-xs text-muted-foreground mt-0.5">
-                                                Linked Sheet ID: <span className="font-mono text-foreground bg-muted px-1.5 py-0.5 rounded">{form.googleSheetId}</span>
-                                                {syncStatus && <span className="ml-2 text-primary font-medium">• {syncStatus}</span>}
+                                                Linked Sheet: <span className="font-mono text-foreground bg-muted px-1.5 py-0.5 rounded text-[11px]">{form.googleSheetId}</span>
+                                                {syncStatus && <span className="ml-2 text-primary font-medium text-[11px]">• {syncStatus}</span>}
                                             </p>
                                         ) : (
-                                            <p className="text-xs text-amber-600 mt-0.5">Google Sheets sync is not configured for this form.</p>
+                                            <p className="text-xs text-amber-500 mt-0.5">Google Sheets sync not configured.</p>
                                         )}
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2">
@@ -861,14 +829,14 @@ export default function ViewResponsesClientPage() {
                                 </div>
 
                                 {canManageResponses && (
-                                    <div className="flex flex-col sm:flex-row items-end gap-2 border-t pt-4">
+                                    <div className="flex flex-col sm:flex-row items-end gap-2 border-t border-border/40 pt-4">
                                         <div className="w-full sm:flex-1 space-y-1">
                                             <label className="text-xs font-semibold text-muted-foreground">Link Google Sheet ID</label>
                                             <Input
                                                 placeholder="Enter Google Spreadsheet ID (e.g. 1aBcDeFgHiJkLmNoPqRsTuVwXyZ)"
                                                 value={sheetIdInput}
                                                 onChange={(e) => setSheetIdInput(e.target.value)}
-                                                className="h-9"
+                                                className="h-9 glass-field"
                                             />
                                         </div>
                                         <Button onClick={handleSaveSheetId} size="sm" className="h-9 w-full sm:w-auto shrink-0">
@@ -876,18 +844,18 @@ export default function ViewResponsesClientPage() {
                                         </Button>
                                     </div>
                                 )}
-                            </CardHeader>
-                            <CardContent className="pt-6">
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                            </div>
+                            <div className="p-4 md:p-5 pt-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                                     <Input
                                         placeholder="Search by name, ITS, or BGK..."
                                         value={respondentFilters.search}
                                         onChange={(e) => setRespondentFilters(prev => ({ ...prev, search: e.target.value }))}
-                                        className="h-9"
+                                        className="h-9 glass-field"
                                     />
                                     {currentUser.role === 'superadmin' && (
                                         <Select value={respondentFilters.mohallahId} onValueChange={(value) => setRespondentFilters(prev => ({ ...prev, mohallahId: value }))}>
-                                            <SelectTrigger className="h-9"><SelectValue placeholder="All Mohallahs" /></SelectTrigger>
+                                            <SelectTrigger className="h-9 glass-field"><SelectValue placeholder="All Mohallahs" /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">All Mohallahs</SelectItem>
                                                 {allMohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
@@ -895,7 +863,7 @@ export default function ViewResponsesClientPage() {
                                         </Select>
                                     )}
                                     <Select value={respondentFilters.team} onValueChange={(value) => setRespondentFilters(prev => ({ ...prev, team: value }))}>
-                                        <SelectTrigger className="h-9"><SelectValue placeholder="All Teams" /></SelectTrigger>
+                                        <SelectTrigger className="h-9 glass-field"><SelectValue placeholder="All Teams" /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">All Teams</SelectItem>
                                             {availableTeams.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -903,9 +871,11 @@ export default function ViewResponsesClientPage() {
                                     </Select>
                                 </div>
                                 {filteredResponses.length === 0 ? (
-                                    <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
-                                        <Users className="h-12 w-12 text-muted-foreground mx-auto"/>
-                                        <p className="text-lg font-medium text-muted-foreground">No Responses Yet</p>
+                                    <div className="text-center py-16 space-y-3 border-2 border-dashed border-border/50 rounded-xl">
+                                        <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto">
+                                            <Users className="h-7 w-7 text-muted-foreground/60"/>
+                                        </div>
+                                        <p className="text-base font-semibold text-muted-foreground">No Responses Yet</p>
                                         <p className="text-sm text-muted-foreground">
                                             No relevant submissions found for your scope.
                                         </p>
@@ -966,7 +936,7 @@ export default function ViewResponsesClientPage() {
                                     </div>
 
                                     {/* Desktop View: Table */}
-                                    <div className="hidden md:block border rounded-lg max-w-full overflow-x-auto">
+                                    <div className="hidden md:block glass-table max-w-full overflow-x-auto">
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
@@ -1028,17 +998,17 @@ export default function ViewResponsesClientPage() {
                                     </div>
                                     </>
                                 )}
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     </TabsContent>
                     
                     <TabsContent value="non-respondents">
-                        <Card>
-                            <CardHeader>
+                        <div className="glass-surface rounded-2xl overflow-hidden">
+                            <div className="p-4 md:p-5 border-b border-border/40">
                                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                                   <div>
-                                    <h3 className="text-lg font-semibold">Non-Respondents</h3>
-                                    <p className="text-sm text-muted-foreground">List of eligible members who have not submitted a response.</p>
+                                    <h3 className="text-base font-semibold text-foreground">Non-Respondents</h3>
+                                    <p className="text-sm text-muted-foreground mt-0.5">Eligible members who have not submitted yet.</p>
                                   </div>
                                   <Button onClick={() => handleExport('non-respondents')} disabled={filteredNonRespondents.length === 0} size="sm" variant="outline">
                                     <Download className="mr-2 h-4 w-4" /> Export
@@ -1071,12 +1041,14 @@ export default function ViewResponsesClientPage() {
                                       </Select>
                                   </div>
                                 )}
-                            </CardHeader>
-                            <CardContent>
+                            </div>
+                            <div className="p-4 md:p-5">
                                 {filteredNonRespondents.length === 0 ? (
-                                    <div className="text-center py-20 space-y-2 border-2 border-dashed rounded-lg">
-                                        <Users className="h-12 w-12 text-muted-foreground mx-auto"/>
-                                        <p className="text-lg font-medium text-muted-foreground">All relevant members have responded!</p>
+                                    <div className="text-center py-16 space-y-3 border-2 border-dashed border-border/50 rounded-xl">
+                                        <div className="h-14 w-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center mx-auto">
+                                            <Users className="h-7 w-7 text-emerald-500"/>
+                                        </div>
+                                        <p className="text-base font-semibold text-emerald-600 dark:text-emerald-400">All members have responded! 🎉</p>
                                     </div>
                                 ) : (
                                     <>
@@ -1095,7 +1067,7 @@ export default function ViewResponsesClientPage() {
                                     ))}
                                     </div>
                                     {/* Desktop View: Table */}
-                                    <div className="hidden md:block border rounded-lg max-w-full overflow-x-auto">
+                                    <div className="hidden md:block glass-table max-w-full overflow-x-auto">
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
@@ -1125,43 +1097,42 @@ export default function ViewResponsesClientPage() {
                                     </div>
                                     </>
                                 )}
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     </TabsContent>
-                    <TabsContent value="analytics">
-                        <div className="space-y-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">Filter Analytics Data</CardTitle>
-                                    <CardDescription>Filter response data dynamically across charts.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <Input
-                                            placeholder="Search by name, ITS, or BGK..."
-                                            value={respondentFilters.search}
-                                            onChange={(e) => setRespondentFilters(prev => ({ ...prev, search: e.target.value }))}
-                                            className="h-9"
-                                        />
-                                        {currentUser.role === 'superadmin' && (
-                                            <Select value={respondentFilters.mohallahId} onValueChange={(value) => setRespondentFilters(prev => ({ ...prev, mohallahId: value }))}>
-                                                <SelectTrigger className="h-9"><SelectValue placeholder="All Mohallahs" /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="all">All Mohallahs</SelectItem>
-                                                    {allMohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                        )}
-                                        <Select value={respondentFilters.team} onValueChange={(value) => setRespondentFilters(prev => ({ ...prev, team: value }))}>
-                                            <SelectTrigger className="h-9"><SelectValue placeholder="All Teams" /></SelectTrigger>
+                    <TabsContent value="analytics" className="mt-0">
+                        <div className="space-y-4">
+                            <div className="glass-surface rounded-2xl p-4">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <PieChart className="h-4 w-4 text-primary" />
+                                    <h3 className="text-sm font-semibold text-foreground">Filter Analytics Data</h3>
+                                    <p className="text-xs text-muted-foreground ml-1">— filter response data across charts</p>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <Input
+                                        placeholder="Search by name, ITS, or BGK..."
+                                        value={respondentFilters.search}
+                                        onChange={(e) => setRespondentFilters(prev => ({ ...prev, search: e.target.value }))}
+                                        className="h-9 glass-field"
+                                    />
+                                    {currentUser.role === 'superadmin' && (
+                                        <Select value={respondentFilters.mohallahId} onValueChange={(value) => setRespondentFilters(prev => ({ ...prev, mohallahId: value }))}>
+                                            <SelectTrigger className="h-9 glass-field"><SelectValue placeholder="All Mohallahs" /></SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="all">All Teams</SelectItem>
-                                                {availableTeams.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                                <SelectItem value="all">All Mohallahs</SelectItem>
+                                                {allMohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                    )}
+                                    <Select value={respondentFilters.team} onValueChange={(value) => setRespondentFilters(prev => ({ ...prev, team: value }))}>
+                                        <SelectTrigger className="h-9 glass-field"><SelectValue placeholder="All Teams" /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">All Teams</SelectItem>
+                                            {availableTeams.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
                             {form ? (
                                 <FormAnalytics form={form} responses={filteredResponses} />
                             ) : (
@@ -1170,34 +1141,33 @@ export default function ViewResponsesClientPage() {
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="sheet">
+                    <TabsContent value="sheet" className="mt-0">
                         {form?.googleSheetId ? (
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between">
+                            <div className="glass-surface rounded-2xl overflow-hidden">
+                                <div className="flex flex-row items-center justify-between p-4 border-b border-border/40">
                                     <div>
-                                        <CardTitle>Google Sheet Live View</CardTitle>
-                                        <CardDescription>View and edit the synchronized Google Sheet directly.</CardDescription>
+                                        <h3 className="text-base font-semibold text-foreground">Google Sheet Live View</h3>
+                                        <p className="text-xs text-muted-foreground mt-0.5">View and edit the synchronized Google Sheet.</p>
                                     </div>
                                     <Button 
                                         onClick={() => window.open(`https://docs.google.com/spreadsheets/d/${form.googleSheetId}/edit`, '_blank')} 
                                         size="sm"
                                         variant="outline"
+                                        className="gap-2 glass-field border-white/30"
                                     >
-                                        Open in New Tab <ExternalLink className="ml-2 h-4 w-4" />
+                                        Open in New Tab <ExternalLink className="h-3.5 w-3.5" />
                                     </Button>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    <div className="w-full h-[600px] border-t rounded-b-lg overflow-hidden bg-white">
-                                        <iframe 
-                                            src={`https://docs.google.com/spreadsheets/d/${form.googleSheetId}/edit?rm=minimal`}
-                                            className="w-full h-full border-0"
-                                            allowFullScreen
-                                        />
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                                <div className="w-full h-[600px] overflow-hidden bg-white rounded-b-2xl">
+                                    <iframe 
+                                        src={`https://docs.google.com/spreadsheets/d/${form.googleSheetId}/edit?rm=minimal`}
+                                        className="w-full h-full border-0"
+                                        allowFullScreen
+                                    />
+                                </div>
+                            </div>
                         ) : (
-                            <div className="text-center py-20 text-muted-foreground">Google Sheet is not configured.</div>
+                            <div className="glass-surface rounded-2xl text-center py-20 text-muted-foreground">Google Sheet is not configured.</div>
                         )}
                     </TabsContent>
                 </div>
