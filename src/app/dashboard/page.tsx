@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink, BookOpen, Mail, UserSearch, Sparkles, Radio, TvMinimal, Maximize2, Minimize2, UserCheck, UserMinus, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink, BookOpen, Mail, UserSearch, Sparkles, Radio, TvMinimal, Maximize2, Minimize2, UserCheck, UserMinus, ChevronDown, ChevronUp, Search, Plane } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -187,6 +187,9 @@ export default function DashboardOverviewPage() {
   const [liveDetailFilter, setLiveDetailFilter] = useState<'all' | 'present' | 'safar' | 'absent'>('all');
   const [scopedLiveUsers, setScopedLiveUsers] = useState<User[]>([]);
   const [isLoadingLiveUsers, setIsLoadingLiveUsers] = useState(false);
+  const [liveSearchQuery, setLiveSearchQuery] = useState("");
+  const [hasAutoSetLiveMode, setHasAutoSetLiveMode] = useState(false);
+  const [liveTeamFilter, setLiveTeamFilter] = useState<string | null>(null);
 
 
   const isTeamLead = useMemo(() => {
@@ -280,8 +283,12 @@ export default function DashboardOverviewPage() {
       else entry.absent++;
     }
     const teamBreakdown = Array.from(teamMap.entries())
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .map(([name, data]) => {
+        const markedVal = data.present + data.safar;
+        const pct = data.total > 0 ? Math.round((markedVal / data.total) * 100) : 0;
+        return { name, ...data, pct };
+      })
+      .sort((a, b) => b.pct - a.pct || a.name.localeCompare(b.name));
 
     return {
       total: scopedLiveUsers.length,
@@ -294,12 +301,18 @@ export default function DashboardOverviewPage() {
     };
   }, [liveMiqaat, scopedLiveUsers]);
 
-  // Auto-exit live mode when miqaat ends
+  // Auto-toggle live mode based on presence of a live miqaat
   useEffect(() => {
-    if (!liveMiqaat) {
+    if (liveMiqaat && canSeeLiveTracker) {
+      if (!hasAutoSetLiveMode) {
+        setIsLiveMode(true);
+        setHasAutoSetLiveMode(true);
+      }
+    } else {
       setIsLiveMode(false);
+      setHasAutoSetLiveMode(false);
     }
-  }, [liveMiqaat]);
+  }, [liveMiqaat?.id, canSeeLiveTracker, hasAutoSetLiveMode]);
 
 
   useEffect(() => {
@@ -1586,203 +1599,512 @@ export default function DashboardOverviewPage() {
         {canSeeLiveTracker && liveMiqaat && liveStats && (
           <div className={cn(
             "transition-all duration-500",
-            isLiveMode ? "fixed inset-0 z-40 bg-background/95 backdrop-blur-sm overflow-y-auto p-4 sm:p-6" : "mt-6"
+            isLiveMode ? "fixed inset-0 z-40 overflow-y-auto bg-background" : "mt-6"
           )}>
+            {/* Live Mode immersive background */}
+            {isLiveMode && (
+              <div className="fixed inset-0 bg-background/95 pointer-events-none" />
+            )}
             <div className={cn(
-              "rounded-2xl border-2 border-red-500/40 bg-gradient-to-br from-red-950/30 via-background to-background shadow-xl shadow-red-500/10 overflow-hidden",
-              isLiveMode ? "max-w-4xl mx-auto" : ""
+              "relative",
+              isLiveMode ? "min-h-screen flex flex-col p-4 sm:p-8 pt-6 max-w-7xl mx-auto w-full" : ""
             )}>
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-red-500/20 bg-red-500/5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="relative flex h-3 w-3 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">Live Now</p>
-                    <h3 className="font-bold text-base sm:text-lg text-foreground truncate">{liveMiqaat.name}</h3>
+              {/* Fullscreen Live Mode Header */}
+              {isLiveMode && (
+                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-5 border-b border-border">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="relative shrink-0 flex items-center justify-center">
+                      <span className="absolute h-5 w-5 rounded-full bg-red-500 animate-ping opacity-60" />
+                      <span className="relative flex h-4 w-4 rounded-full bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.8)]" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">LIVE COMMAND CENTER</span>
+                        <span className="text-xs text-muted-foreground">Real-time Attendance Tracker</span>
+                      </div>
+                      <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight truncate">{liveMiqaat.name}</h1>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground font-mono hidden md:inline">
+                      Starts: {format(new Date(liveMiqaat.startTime), "p")} · Ends: {format(new Date(liveMiqaat.endTime), "p")}
+                    </span>
+                    <button
+                      onClick={() => setIsLiveMode(false)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-bold text-muted-foreground hover:text-foreground border border-border hover:border-border/80 bg-muted/50 hover:bg-muted transition-all duration-200"
+                    >
+                      <Minimize2 className="h-3.5 w-3.5" />
+                      Exit Live Mode
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs border-red-500/30 hover:bg-red-500/10 hover:text-red-500 gap-1.5"
-                    onClick={() => setIsLiveMode(v => !v)}
-                  >
-                    {isLiveMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                    {isLiveMode ? 'Exit Live Mode' : 'Live Mode'}
-                  </Button>
-                </div>
-              </div>
+              )}
 
-              <div className="p-5 space-y-5">
-                {/* Stat tiles */}
-                {isLoadingLiveUsers ? (
-                  <div className="flex justify-center py-8"><FunkyLoader>Loading live data...</FunkyLoader></div>
-                ) : (
+              <div className={cn(
+                "relative overflow-hidden rounded-3xl transition-all duration-300",
+                isLiveMode 
+                  ? "border border-border bg-card shadow-2xl flex-1 flex flex-col" 
+                  : "border border-primary/20 bg-card/60 backdrop-blur-md shadow-xl"
+              )}>
+                {/* Decorative glows */}
+                {!isLiveMode && (
                   <>
-                    <div className="grid grid-cols-3 gap-3">
-                      {/* Total */}
-                      <button
-                        onClick={() => { setLiveDetailFilter('all'); setIsLiveDetailsOpen(true); }}
-                        className="group flex flex-col items-center justify-center p-4 rounded-xl bg-muted/50 hover:bg-primary/10 border border-border/50 hover:border-primary/40 transition-all cursor-pointer text-center"
-                      >
-                        <Users className="h-5 w-5 text-muted-foreground group-hover:text-primary mb-1.5 transition-colors" />
-                        <span className="text-2xl sm:text-3xl font-black text-foreground">{liveStats.total}</span>
-                        <span className="text-[11px] text-muted-foreground mt-1">Total</span>
-                      </button>
-                      {/* Present (attendance + safar) */}
-                      <button
-                        onClick={() => { setLiveDetailFilter('present'); setIsLiveDetailsOpen(true); }}
-                        className="group flex flex-col items-center justify-center p-4 rounded-xl bg-green-500/5 hover:bg-green-500/15 border border-green-500/20 hover:border-green-500/50 transition-all cursor-pointer text-center"
-                      >
-                        <UserCheck className="h-5 w-5 text-green-500 mb-1.5" />
-                        <span className="text-2xl sm:text-3xl font-black text-green-500">{liveStats.markedCount}</span>
-                        <span className="text-[11px] text-green-600/80 mt-1">Marked</span>
-                      </button>
-                      {/* Remaining */}
-                      <button
-                        onClick={() => { setLiveDetailFilter('absent'); setIsLiveDetailsOpen(true); }}
-                        className="group flex flex-col items-center justify-center p-4 rounded-xl bg-red-500/5 hover:bg-red-500/15 border border-red-500/20 hover:border-red-500/50 transition-all cursor-pointer text-center"
-                      >
-                        <UserMinus className="h-5 w-5 text-red-500 mb-1.5" />
-                        <span className="text-2xl sm:text-3xl font-black text-red-500">{liveStats.absentMembers.length}</span>
-                        <span className="text-[11px] text-red-600/80 mt-1">Remaining</span>
-                      </button>
-                    </div>
-
-                    {/* Progress bar */}
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>{liveStats.markedCount} of {liveStats.total} marked</span>
-                        <span className="font-bold text-foreground">{liveStats.percentage}%</span>
-                      </div>
-                      <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-700"
-                          style={{ width: `${liveStats.percentage}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Team breakdown table */}
-                    {liveStats.teamBreakdown.length > 0 && (
-                      <div className="border border-border/40 rounded-xl overflow-hidden">
-                        <table className="w-full text-sm">
-                          <thead className="bg-muted/60">
-                            <tr>
-                              <th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground">Team</th>
-                              <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground">Total</th>
-                              <th className="text-center px-3 py-2 text-xs font-semibold text-green-600">Present</th>
-                              <th className="text-center px-3 py-2 text-xs font-semibold text-blue-600">Safar</th>
-                              <th className="text-center px-3 py-2 text-xs font-semibold text-red-500">Absent</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {liveStats.teamBreakdown.map((row, i) => (
-                              <tr key={row.name} className={cn("border-t border-border/20", i % 2 === 0 ? "bg-card/20" : "bg-card/5")}>
-                                <td className="px-4 py-2 font-medium text-foreground truncate max-w-[140px]">{row.name}</td>
-                                <td className="text-center px-3 py-2 text-muted-foreground">{row.total}</td>
-                                <td className="text-center px-3 py-2 text-green-600 font-semibold">{row.present}</td>
-                                <td className="text-center px-3 py-2 text-blue-600 font-semibold">{row.safar}</td>
-                                <td className="text-center px-3 py-2 text-red-500 font-semibold">{row.absent}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                    <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
                   </>
                 )}
+
+                {/* Inline Card Header (only in Normal mode) */}
+                {!isLiveMode && (
+                  <div className="relative flex items-center justify-between px-6 py-5 border-b border-border/50">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="relative shrink-0 flex items-center justify-center">
+                        <span className="absolute h-4 w-4 rounded-full bg-red-500 animate-ping opacity-60" />
+                        <span className="relative flex h-3.5 w-3.5 rounded-full bg-red-500 shadow-md" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-red-400">Live now</span>
+                          <span className="text-[9px] text-muted-foreground/50">• Scoped Attendance</span>
+                        </div>
+                        <h3 className="font-extrabold text-base sm:text-lg text-foreground truncate tracking-tight">{liveMiqaat.name}</h3>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setIsLiveMode(true)}
+                      className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-muted-foreground hover:text-foreground border border-border hover:border-primary/30 bg-muted/40 hover:bg-primary/5 transition-all duration-200"
+                    >
+                      <Maximize2 className="h-3 w-3 text-red-500" />
+                      Live Mode
+                    </button>
+                  </div>
+                )}
+
+                {/* Body Content */}
+                <div className={cn("p-6 flex flex-col gap-6", isLiveMode ? "flex-1 overflow-y-auto" : "")}>
+                  {isLoadingLiveUsers ? (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                      <div className="relative h-12 w-12">
+                        <span className="absolute inset-0 rounded-full bg-red-500/20 animate-ping" />
+                        <span className="relative flex h-12 w-12 rounded-full bg-red-500/10 border border-red-500/30 items-center justify-center">
+                          <Radio className="h-5 w-5 text-red-400 animate-pulse" />
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Synergizing Live Data...</p>
+                    </div>
+                  ) : (
+                    <div className={cn("grid grid-cols-1 gap-6", isLiveMode ? "lg:grid-cols-12" : "")}>
+                      
+                      {/* Left Block: Radial Progress & Stat Overview */}
+                      <div className={cn("space-y-6 flex flex-col justify-center", isLiveMode ? "lg:col-span-5" : "")}>
+                        
+                        {/* Radial Indicator + Large Percentage info */}
+                        <div className="flex flex-col sm:flex-row items-center gap-6 p-6 rounded-3xl bg-muted/20 border border-border/70 shadow-sm relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-red-500/5 blur-2xl pointer-events-none" />
+                          
+                          {/* Radial SVG meter */}
+                          <div className="relative flex items-center justify-center w-28 h-28 sm:w-32 sm:h-32 shrink-0">
+                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
+                              <defs>
+                                <linearGradient id="liveProgressGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                  <stop offset="0%" stopColor="hsl(var(--primary))" />
+                                  <stop offset="100%" stopColor="hsl(var(--primary) / 0.75)" />
+                                </linearGradient>
+                                <filter id="liveGlow" x="-20%" y="-20%" width="140%" height="140%">
+                                  <feGaussianBlur stdDeviation="3" result="blur" />
+                                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                </filter>
+                              </defs>
+                              {/* Background circle */}
+                              <circle cx="60" cy="60" r="48" className="stroke-muted dark:stroke-white/5" strokeWidth="8" fill="none" />
+                              {/* Colored progress circle */}
+                              <circle cx="60" cy="60" r="48" stroke="url(#liveProgressGrad)" strokeWidth="8" fill="none"
+                                strokeDasharray={301.59} strokeDashoffset={301.59 - (301.59 * liveStats.percentage) / 100}
+                                strokeLinecap="round" className="transition-all duration-1000 ease-out" filter="url(#liveGlow)" />
+                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                              <span className="text-3xl font-black text-foreground tracking-tight leading-none">{liveStats.percentage}%</span>
+                              <span className="text-[9px] font-bold text-muted-foreground mt-1 uppercase tracking-widest">Marked</span>
+                            </div>
+                          </div>
+
+                          {/* Info Column */}
+                          <div className="flex-1 text-center sm:text-left min-w-0">
+                            <span className="text-[9px] font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 dark:bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-500/10 dark:border-emerald-500/20 inline-block mb-3">
+                              {liveStats.percentage >= 80 ? '✓ High Attendance' : liveStats.percentage >= 50 ? '● Active' : '○ Starting'}
+                            </span>
+                            <h4 className="text-foreground font-black text-lg tracking-tight leading-snug truncate">{liveMiqaat.name}</h4>
+                            <p className="text-xs text-muted-foreground mt-1.5 font-medium">
+                              {liveStats.markedCount} of {liveStats.total} members resolved.
+                            </p>
+                            <div className="mt-3.5 flex items-center justify-center sm:justify-start gap-1.5 text-xs text-muted-foreground/80">
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                                <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                              </span>
+                              <span className="font-semibold tracking-wide text-[11px] uppercase">Real-time Syncing</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Interactive Stat Cards Grid */}
+                        <div className="grid grid-cols-3 gap-3.5">
+                          {/* Total Card */}
+                          <button
+                            onClick={() => { setLiveDetailFilter('all'); setLiveTeamFilter(null); setIsLiveDetailsOpen(true); }}
+                            className="group relative flex flex-col items-start p-4 rounded-3xl border border-border bg-card hover:bg-muted/40 hover:shadow-md transition-all duration-300 text-left overflow-hidden shadow-sm"
+                          >
+                            <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+                              <Users className="h-10 w-10 text-foreground" />
+                            </div>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total</span>
+                            <span className="text-2xl sm:text-3xl font-black text-foreground mt-2.5 tabular-nums tracking-tight leading-none">{liveStats.total}</span>
+                            <span className="text-[9px] font-semibold text-primary mt-3 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                              View All &rarr;
+                            </span>
+                          </button>
+
+                          {/* Present Card */}
+                          <button
+                            onClick={() => { setLiveDetailFilter('present'); setLiveTeamFilter(null); setIsLiveDetailsOpen(true); }}
+                            className="group relative flex flex-col items-start p-4 rounded-3xl border border-emerald-100 dark:border-emerald-950/60 bg-emerald-500/[0.02] dark:bg-emerald-500/[0.04] hover:bg-emerald-500/[0.06] dark:hover:bg-emerald-500/[0.08] hover:border-emerald-300 dark:hover:border-emerald-800 transition-all duration-300 text-left overflow-hidden shadow-sm"
+                          >
+                            <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+                              <UserCheck className="h-10 w-10 text-emerald-500" />
+                            </div>
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">Marked</span>
+                            <span className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-2.5 tabular-nums tracking-tight leading-none">{liveStats.markedCount}</span>
+                            <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 mt-3 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                              View List &rarr;
+                            </span>
+                          </button>
+
+                          {/* Remaining Card */}
+                          <button
+                            onClick={() => { setLiveDetailFilter('absent'); setLiveTeamFilter(null); setIsLiveDetailsOpen(true); }}
+                            className="group relative flex flex-col items-start p-4 rounded-3xl border border-rose-100 dark:border-rose-950/60 bg-rose-500/[0.02] dark:bg-rose-500/[0.04] hover:bg-rose-500/[0.06] dark:hover:bg-rose-500/[0.08] hover:border-rose-300 dark:hover:border-rose-800 transition-all duration-300 text-left overflow-hidden shadow-sm"
+                          >
+                            <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+                              <UserMinus className="h-10 w-10 text-rose-500" />
+                            </div>
+                            <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest">Remaining</span>
+                            <span className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400 mt-2.5 tabular-nums tracking-tight leading-none">{liveStats.absentMembers.length}</span>
+                            <span className="text-[9px] font-semibold text-rose-600 dark:text-rose-400 mt-3 flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                              View List &rarr;
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Right Block: Team Breakdown & Leaderboard */}
+                      <div className={cn("flex flex-col gap-4", isLiveMode ? "lg:col-span-7" : "")}>
+                        
+                        {/* A unified, styled panel for Team standings */}
+                        <div className="border border-border bg-card rounded-3xl p-5 shadow-sm flex-grow flex flex-col min-h-0">
+                          <div className="flex items-center justify-between pb-4 border-b border-border/60">
+                            <div>
+                              <h4 className="text-sm font-black text-foreground tracking-tight">Team Performance Ranks</h4>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">Click any team to filter its list</p>
+                            </div>
+                            <span className="text-[10px] font-bold bg-muted px-2.5 py-1 rounded-full text-muted-foreground font-mono">
+                              {liveStats.teamBreakdown.length} Teams
+                            </span>
+                          </div>
+
+                          {liveStats.teamBreakdown.length > 0 ? (
+                            <div className={cn(
+                              "grid gap-1.5 overflow-y-auto pr-1 mt-3 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-track]:bg-transparent",
+                              isLiveMode ? "max-h-[50vh] lg:max-h-[55vh]" : "max-h-60"
+                            )}>
+                              {liveStats.teamBreakdown.map((row, idx) => {
+                                const markedVal = row.present + row.safar;
+                                const pct = row.total > 0 ? Math.round((markedVal / row.total) * 100) : 0;
+                                return (
+                                  <div
+                                    key={row.name}
+                                    onClick={() => { setLiveTeamFilter(row.name); setLiveDetailFilter('all'); setIsLiveDetailsOpen(true); }}
+                                    className="group relative flex flex-col p-3 rounded-2xl border border-transparent hover:border-border hover:bg-muted/30 transition-all duration-200 cursor-pointer"
+                                  >
+                                    <div className="flex justify-between items-center gap-3">
+                                      <div className="min-w-0 flex items-center gap-2.5">
+                                        {/* Rank number or check dot */}
+                                        <span className={cn(
+                                          "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold font-mono shrink-0 shadow-sm border border-border/80",
+                                          pct === 100
+                                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900"
+                                            : "bg-muted text-muted-foreground"
+                                        )}>
+                                          {idx + 1}
+                                        </span>
+                                        <div className="min-w-0">
+                                          <span className="font-bold text-sm text-foreground group-hover:text-primary transition-colors block truncate max-w-[200px] sm:max-w-xs">{row.name}</span>
+                                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                                            <span>{row.present} present</span>
+                                            {row.safar > 0 && (
+                                              <>
+                                                <span>•</span>
+                                                <span>{row.safar} safar</span>
+                                              </>
+                                            )}
+                                            <span>•</span>
+                                            <span>{row.absent} remaining</span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="text-right shrink-0">
+                                        <span className="font-black text-sm text-foreground tabular-nums">{pct}%</span>
+                                        <p className="text-[10px] text-muted-foreground font-semibold mt-0.5 font-mono">{markedVal}/{row.total}</p>
+                                      </div>
+                                    </div>
+
+                                    {/* Progress track */}
+                                    <div className="mt-3 relative h-2 w-full rounded-full bg-muted overflow-hidden">
+                                      {pct > 0 && (
+                                        <div className="h-full rounded-full transition-all duration-700 ease-out"
+                                          style={{
+                                            width: `${pct}%`,
+                                            background: pct >= 80 
+                                              ? 'linear-gradient(90deg, #10b981, #34d399)' 
+                                              : pct >= 40 
+                                              ? 'linear-gradient(90deg, #f59e0b, #fbbf24)' 
+                                              : 'linear-gradient(90deg, #ef4444, #f87171)'
+                                          }}
+                                        />
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                              <span className="text-xs text-muted-foreground">No scoped teams found</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Live Details Dialog */}
-        <Dialog open={isLiveDetailsOpen} onOpenChange={setIsLiveDetailsOpen}>
-          <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Radio className="h-4 w-4 text-red-500" />
-                {liveDetailFilter === 'all' ? 'All Members' :
-                 liveDetailFilter === 'present' ? 'Marked Members' :
-                 liveDetailFilter === 'safar' ? 'Safar Members' : 'Remaining Members'}
-                {liveMiqaat && <span className="text-sm font-normal text-muted-foreground">— {liveMiqaat.name}</span>}
-              </DialogTitle>
-              <DialogDescription>
-                {liveDetailFilter === 'all' && `${liveStats?.total ?? 0} total members in your scope.`}
-                {liveDetailFilter === 'present' && `${liveStats?.markedCount ?? 0} members have been marked.`}
-                {liveDetailFilter === 'absent' && `${liveStats?.absentMembers.length ?? 0} members are yet to be marked.`}
-              </DialogDescription>
-            </DialogHeader>
-            {/* Filter tabs */}
+        {/* ========== LIVE DETAILS DIALOG (PREMIUM) ========== */}
+        <Dialog open={isLiveDetailsOpen} onOpenChange={(open) => {
+          setIsLiveDetailsOpen(open);
+          if (!open) {
+            setLiveSearchQuery("");
+            setLiveTeamFilter(null);
+          }
+        }}>
+          <DialogContent className="p-0 gap-0 sm:max-w-xl max-h-[85vh] flex flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-2xl backdrop-blur-xl relative [&>button]:hidden">
+            
+            {/* Pulsing top red strip to indicate "Live" status */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-rose-400 to-red-600 animate-pulse z-10" />
+
+            {/* Header */}
+            <div className="relative px-6 pt-7 pb-5 border-b border-border shrink-0 bg-muted/10">
+              <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                    </span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">Live Attendance List</span>
+                    {liveTeamFilter && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted border border-border text-muted-foreground">
+                        {liveTeamFilter}
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-xl font-black text-foreground tracking-tight">
+                    {liveDetailFilter === 'all' ? 'All Eligible Members' :
+                     liveDetailFilter === 'present' ? 'Present Members' :
+                     liveDetailFilter === 'safar' ? 'Safar Members' : 'Remaining (Absent)'}
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 font-medium">
+                    <span>{liveMiqaat?.name}</span>
+                  </p>
+                </div>
+                <DialogClose className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all duration-200">
+                  <X className="h-4 w-4" />
+                </DialogClose>
+              </div>
+
+              {/* Search Box */}
+              <div className="relative mt-4">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search name, ITS, or BGK ID..."
+                  value={liveSearchQuery}
+                  onChange={(e) => setLiveSearchQuery(e.target.value)}
+                  className="w-full bg-background border-border hover:border-border/80 focus:border-primary/30 pl-10 pr-9 text-sm text-foreground placeholder:text-muted-foreground rounded-2xl h-10 transition-all focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary/50"
+                />
+                {liveSearchQuery && (
+                  <button onClick={() => setLiveSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1">
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Filter Tabs (Segmented Control style) */}
             {liveStats && (
-              <div className="flex gap-2 flex-wrap pb-2 border-b border-border/20">
-                {(['all', 'present', 'safar', 'absent'] as const).map(f => (
-                  <Button
-                    key={f}
-                    variant={liveDetailFilter === f ? 'default' : 'outline'}
-                    size="sm"
-                    className="h-7 text-xs capitalize"
-                    onClick={() => setLiveDetailFilter(f)}
-                  >
-                    {f === 'all' && `All (${liveStats.total})`}
-                    {f === 'present' && `Present (${liveStats.presentMembers.length})`}
-                    {f === 'safar' && `Safar (${liveStats.safarMembers.length})`}
-                    {f === 'absent' && `Absent (${liveStats.absentMembers.length})`}
-                  </Button>
-                ))}
+              <div className="px-6 py-3 border-b border-border shrink-0 bg-muted/10">
+                <div className="bg-muted/65 p-1 rounded-2xl flex gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+                  {([
+                    { key: 'all' as const, label: 'All', count: liveStats.total },
+                    { key: 'present' as const, label: 'Present', count: liveStats.presentMembers.length },
+                    { key: 'safar' as const, label: 'Safar', count: liveStats.safarMembers.length },
+                    { key: 'absent' as const, label: 'Absent', count: liveStats.absentMembers.length },
+                  ]).map(({ key, label, count }) => (
+                    <button
+                      key={key}
+                      onClick={() => setLiveDetailFilter(key)}
+                      className={cn(
+                        "flex-1 shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-all duration-300",
+                        liveDetailFilter === key
+                          ? "bg-background text-foreground shadow-sm font-black scale-[1.01]"
+                          : "text-muted-foreground hover:text-foreground font-semibold"
+                      )}
+                    >
+                      <span>{label}</span>
+                      <span className={cn(
+                        "px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none",
+                        liveDetailFilter === key ? "bg-muted text-foreground" : "bg-foreground/5 text-muted-foreground/80"
+                      )}>
+                        {count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
-            <div className="overflow-y-auto flex-1 -mx-2 px-2">
+
+            {/* List */}
+            <div className="overflow-y-auto flex-1 px-5 py-4 min-h-[300px] bg-muted/5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
               {liveStats && (() => {
-                const list =
-                  liveDetailFilter === 'all' ? scopedLiveUsers :
-                  liveDetailFilter === 'present' ? liveStats.presentMembers :
-                  liveDetailFilter === 'safar' ? liveStats.safarMembers :
-                  liveStats.absentMembers;
-                if (list.length === 0) {
-                  return <p className="text-center text-muted-foreground py-8 text-sm">No members in this category.</p>;
+                // Filter by type
+                let list = liveDetailFilter === 'all'
+                  ? scopedLiveUsers
+                  : liveDetailFilter === 'present'
+                  ? liveStats.presentMembers
+                  : liveDetailFilter === 'safar'
+                  ? liveStats.safarMembers
+                  : liveStats.absentMembers;
+
+                // Filter by team if clicked
+                if (liveTeamFilter) {
+                  list = list.filter(u => (u.team || 'No Team') === liveTeamFilter);
                 }
+
+                // Filter by search query
+                if (liveSearchQuery.trim()) {
+                  const q = liveSearchQuery.toLowerCase();
+                  list = list.filter(u =>
+                    u.name.toLowerCase().includes(q) ||
+                    u.itsId.includes(q) ||
+                    (u.bgkId && u.bgkId.toLowerCase().includes(q))
+                  );
+                }
+
+                if (list.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center py-20 gap-3">
+                      <div className="h-12 w-12 rounded-2xl bg-muted border border-border flex items-center justify-center">
+                        <Users className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground font-medium">No matching members found</p>
+                    </div>
+                  );
+                }
+
+                const getStatus = (m: User) => {
+                  if (liveMiqaat?.attendance?.find(a => a.userItsId === m.itsId)) return 'present';
+                  if (liveMiqaat?.safarList?.find(s => s.userItsId === m.itsId)) return 'safar';
+                  return 'absent';
+                };
+
                 return (
-                  <ul className="space-y-1.5 py-2">
-                    {list.map(m => (
-                      <li key={m.id} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/20">
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm text-foreground truncate">{m.name}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            ITS: {m.itsId}
-                            {m.bgkId ? ` | BGK: ${m.bgkId}` : ''}
-                            {m.team ? ` | ${m.team}` : ''}
-                          </p>
-                        </div>
-                        <span className={cn(
-                          "ml-2 shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider",
-                          liveDetailFilter === 'present' || (liveDetailFilter === 'all' && liveMiqaat?.attendance?.find(a => a.userItsId === m.itsId))
-                            ? "bg-green-500/10 text-green-600 border border-green-500/20"
-                            : liveDetailFilter === 'safar' || (liveDetailFilter === 'all' && liveMiqaat?.safarList?.find(s => s.userItsId === m.itsId))
-                            ? "bg-blue-500/10 text-blue-600 border border-blue-500/20"
-                            : "bg-red-500/10 text-red-500 border border-red-500/20"
-                        )}>
-                          {liveDetailFilter === 'present' ? 'Present' :
-                           liveDetailFilter === 'safar' ? 'Safar' :
-                           liveDetailFilter === 'absent' ? 'Absent' :
-                           liveMiqaat?.attendance?.find(a => a.userItsId === m.itsId) ? 'Present' :
-                           liveMiqaat?.safarList?.find(s => s.userItsId === m.itsId) ? 'Safar' : 'Absent'}
-                        </span>
-                      </li>
-                    ))}
+                  <ul className="space-y-3 pb-4">
+                    {list.map(m => {
+                      const status = getStatus(m);
+                      const initials = m.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+                      return (
+                        <li key={m.id} className="flex items-center gap-4 p-3.5 rounded-3xl border border-border bg-card hover:bg-muted/40 transition-all duration-200 shadow-sm hover:shadow-md">
+                          <div className={cn(
+                            "shrink-0 h-11 w-11 rounded-2xl flex items-center justify-center text-xs font-black relative overflow-hidden",
+                            status === 'present'
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-950"
+                              : status === 'safar'
+                              ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-950"
+                              : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-950"
+                          )}>
+                            {initials || '?'}
+                            {/* status small dot at bottom right */}
+                            <span className={cn(
+                              "absolute bottom-0 right-0 h-2.5 w-2.5 border-2 border-background rounded-full",
+                              status === 'present' ? "bg-emerald-500" : status === 'safar' ? "bg-sky-500" : "bg-rose-500"
+                            )} />
+                          </div>
+                          
+                          <div className="flex-grow min-w-0">
+                            <p className="font-extrabold text-sm text-foreground truncate">{m.name}</p>
+                            <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground mt-1 font-medium">
+                              <span>ITS: <strong className="font-mono text-foreground/75 font-semibold">{m.itsId}</strong></span>
+                              {m.bgkId && (
+                                <>
+                                  <span className="text-muted-foreground/35">•</span>
+                                  <span>BGK: <strong className="font-mono text-foreground/75 font-semibold">{m.bgkId}</strong></span>
+                                </>
+                              )}
+                              {m.team && (
+                                <>
+                                  <span className="text-muted-foreground/35">•</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[9px] uppercase tracking-wide truncate max-w-[150px]">{m.team}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <span className={cn(
+                            "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-[9px] font-black uppercase tracking-widest border shadow-sm",
+                            status === 'present'
+                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-950"
+                              : status === 'safar'
+                              ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-950"
+                              : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-950"
+                          )}>
+                            {status === 'present' ? (
+                              <>
+                                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                                <span>Present</span>
+                              </>
+                            ) : status === 'safar' ? (
+                              <>
+                                <Plane className="h-3 w-3 shrink-0" />
+                                <span>Safar</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                                <span>Absent</span>
+                              </>
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 );
               })()}
-            </div>
-            <div className="pt-2 border-t border-border/20">
-              <DialogClose asChild>
-                <Button variant="outline" className="w-full" size="sm">Close</Button>
-              </DialogClose>
             </div>
           </DialogContent>
         </Dialog>
