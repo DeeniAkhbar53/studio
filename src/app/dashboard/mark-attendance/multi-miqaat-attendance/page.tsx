@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Loader2, CalendarRange, UserSearch, CheckSquare, ShieldAlert, BadgeInfo, Check, AlertTriangle, AlertCircle } from "lucide-react";
 import { getMiqaats, markAttendanceInMiqaat, batchMarkSafarInMiqaat, editUserAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { getUserByItsOrBgkId } from "@/lib/firebase/userService";
+import { getActiveYear } from "@/lib/firebase/firebase";
 import type { Miqaat, User, UserRole, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem, MiqaatSession } from "@/types";
 import { findNavItem } from "@/components/dashboard/sidebar-nav";
 import { format } from "date-fns";
@@ -62,6 +63,7 @@ export default function MultiMiqaatAttendancePage() {
   const [nazrulMaqamCurrency, setNazrulMaqamCurrency] = useState("KES");
   const [manualNote, setManualNote] = useState("");
 
+  const [bypassEligibility, setBypassEligibility] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isOffline, setIsOffline] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
@@ -227,8 +229,10 @@ export default function MultiMiqaatAttendancePage() {
 
     setIsSaving(true);
     let successCount = 0;
+    let skippedCount = 0;
     let failedCount = 0;
     const markerId = markerItsId || 'System';
+    const activeYear = getActiveYear();
 
     for (const miqaat of selectedMiqaats) {
       try {
@@ -236,27 +240,29 @@ export default function MultiMiqaatAttendancePage() {
         const session = miqaat.sessions?.find(s => s.id === sessionId);
 
         // Check if eligibility applies
-        const isEligibleForMiqaat = 
-            (!miqaat.mohallahIds || miqaat.mohallahIds.length === 0) &&
-            (!miqaat.teams || miqaat.teams.length === 0) &&
-            (!miqaat.eligibleItsIds || miqaat.eligibleItsIds.length === 0);
+        if (!bypassEligibility) {
+          const isEligibleForMiqaat = 
+              (!miqaat.mohallahIds || miqaat.mohallahIds.length === 0) &&
+              (!miqaat.teams || miqaat.teams.length === 0) &&
+              (!miqaat.eligibleItsIds || miqaat.eligibleItsIds.length === 0);
 
-        if (!isEligibleForMiqaat) {
-          let hasAccess = false;
-          const eligibleById = !!miqaat.eligibleItsIds?.includes(foundMember.itsId);
-          const eligibleByTeam = !!foundMember.team && !!miqaat.teams?.includes(foundMember.team);
-          const eligibleByMohallah = !!foundMember.mohallahId && !!miqaat.mohallahIds?.includes(foundMember.mohallahId);
+          if (!isEligibleForMiqaat) {
+            let hasAccess = false;
+            const eligibleById = !!miqaat.eligibleItsIds?.includes(foundMember.itsId);
+            const eligibleByTeam = !!foundMember.team && !!miqaat.teams?.includes(foundMember.team);
+            const eligibleByMohallah = !!foundMember.mohallahId && !!miqaat.mohallahIds?.includes(foundMember.mohallahId);
 
-          if (miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0) {
-             hasAccess = eligibleById;
-          } else {
-             hasAccess = eligibleByMohallah || eligibleByTeam;
-          }
+            if (miqaat.eligibleItsIds && miqaat.eligibleItsIds.length > 0) {
+               hasAccess = eligibleById;
+            } else {
+               hasAccess = eligibleByMohallah || eligibleByTeam;
+            }
 
-          if (!hasAccess) {
-             console.warn(`User ${foundMember.itsId} is not eligible for Miqaat ${miqaat.name}`);
-             failedCount++;
-             continue; // Skip this miqaat
+            if (!hasAccess) {
+               console.warn(`User ${foundMember.itsId} is not eligible for Miqaat ${miqaat.name}`);
+               skippedCount++;
+               continue; // Skip this miqaat
+            }
           }
         }
 
@@ -279,7 +285,9 @@ export default function MultiMiqaatAttendancePage() {
           foundMember.itsId,
           attendanceStatus,
           sessionId || undefined,
-          foundMember.name
+          foundMember.name,
+          activeYear,
+          finalCompliance
         );
 
         // Trigger confirmation email
@@ -307,7 +315,7 @@ export default function MultiMiqaatAttendancePage() {
 
     toast({
       title: "Batch Marking Complete",
-      description: `Successfully marked user in ${successCount} Miqaat(s). Failed: ${failedCount}.`,
+      description: `Successfully marked: ${successCount} | Skipped: ${skippedCount} | Failed: ${failedCount}`,
       variant: failedCount > 0 ? "destructive" : "default"
     });
 
@@ -548,6 +556,18 @@ export default function MultiMiqaatAttendancePage() {
                           <Label htmlFor="status-absent">Absent (Remove)</Label>
                         </div>
                       </RadioGroup>
+                    </div>
+
+                    {/* Bypass eligibility check option */}
+                    <div className="flex items-center space-x-2 pt-2 pb-2">
+                      <Checkbox 
+                        id="bypass-eligibility" 
+                        checked={bypassEligibility} 
+                        onCheckedChange={(checked) => setBypassEligibility(!!checked)} 
+                      />
+                      <label htmlFor="bypass-eligibility" className="text-xs font-semibold cursor-pointer select-none text-foreground/80 hover:text-foreground">
+                        Bypass member eligibility rules (Mark even if user is not in selected Mohallah/Team)
+                      </label>
                     </div>
 
                     {/* Uniform requirements */}

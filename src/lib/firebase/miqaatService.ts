@@ -248,7 +248,8 @@ export const editUserAttendanceInMiqaat = async (
     newStatus: 'present' | 'late' | 'early' | 'absent' | 'safar',
     sessionId?: string,
     userName?: string,
-    year?: string
+    year?: string,
+    uniformCompliance?: MiqaatAttendanceEntryItem['uniformCompliance']
 ): Promise<void> => {
     const miqaatDocRef = doc(db, getYearPath('miqaats', year), miqaatId);
     const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
@@ -298,7 +299,8 @@ export const editUserAttendanceInMiqaat = async (
                     markedAt: new Date().toISOString(),
                     markedByItsId: actorItsId,
                     status: newStatus,
-                    ...(sessionId && { sessionId })
+                    ...(sessionId && { sessionId }),
+                    ...(uniformCompliance && { uniformCompliance })
                 });
                 if (!attendedUserItsIds.includes(userItsId)) {
                     attendedUserItsIds.push(userItsId);
