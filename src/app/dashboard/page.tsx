@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink, BookOpen, Mail, UserSearch, Sparkles } from "lucide-react";
+import { Users, CalendarCheck, ScanLine, Loader2, Camera, CheckCircle2, XCircle, AlertCircleIcon, SwitchCamera, FileText, UserX, Edit, X, CalendarClock, CalendarDays, FilePenLine, Files, Building, BarChart2, ExternalLink, BookOpen, Mail, UserSearch, Sparkles, Radio, TvMinimal, Maximize2, Minimize2, UserCheck, UserMinus, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -181,6 +181,13 @@ export default function DashboardOverviewPage() {
   const [activeFormsWithResponses, setActiveFormsWithResponses] = useState< (FormType & { responseRate: number, nonRespondentCount: number })[] | null >(null);
   const [isLoadingFormsData, setIsLoadingFormsData] = useState(true);
 
+  // Live Attendance Tracker State
+  const [isLiveMode, setIsLiveMode] = useState(false);
+  const [isLiveDetailsOpen, setIsLiveDetailsOpen] = useState(false);
+  const [liveDetailFilter, setLiveDetailFilter] = useState<'all' | 'present' | 'safar' | 'absent'>('all');
+  const [scopedLiveUsers, setScopedLiveUsers] = useState<User[]>([]);
+  const [isLoadingLiveUsers, setIsLoadingLiveUsers] = useState(false);
+
 
   const isTeamLead = useMemo(() => {
     if (!currentUserRole || !currentUserDesignation) return false;
@@ -189,6 +196,110 @@ export default function DashboardOverviewPage() {
     const hasLeadershipDesignation = TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation);
     return hasLeadershipDesignation;
   }, [currentUserRole, currentUserDesignation]);
+
+  // Derived: current live miqaat
+  const liveMiqaat = useMemo(() => {
+    const now = new Date();
+    return allMiqaatsList.find(m => new Date(m.startTime) <= now && new Date(m.endTime) >= now) || null;
+  }, [allMiqaatsList]);
+
+  // Is user eligible to see live tracker
+  const canSeeLiveTracker = useMemo(() => {
+    if (!currentUserRole) return false;
+    if (currentUserRole === 'admin' || currentUserRole === 'superadmin') return true;
+    if (currentUserDesignation && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation)) return true;
+    return false;
+  }, [currentUserRole, currentUserDesignation]);
+
+  // Load scoped users for live tracker (only when a live miqaat exists and user can see it)
+  useEffect(() => {
+    if (!liveMiqaat || !canSeeLiveTracker || !currentUser) {
+      setScopedLiveUsers([]);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      setIsLoadingLiveUsers(true);
+      try {
+        const allUsers = await getUsers();
+        let scoped: User[] = [];
+        if (currentUser.role === 'superadmin') {
+          scoped = allUsers;
+        } else if (currentUser.role === 'admin' && currentUser.mohallahId) {
+          scoped = allUsers.filter(u => u.mohallahId === currentUser.mohallahId);
+        } else if (currentUser.designation && TOP_LEVEL_LEADERS.includes(currentUser.designation)) {
+          scoped = allUsers.filter(u => u.mohallahId === currentUser.mohallahId);
+        } else if (currentUser.designation && MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams) {
+          const mt = new Set(currentUser.managedTeams);
+          scoped = allUsers.filter(u => u.team && mt.has(u.team) && u.mohallahId === currentUser.mohallahId);
+        } else if (currentUser.designation && GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
+          scoped = allUsers.filter(u => u.team === currentUser.team && u.mohallahId === currentUser.mohallahId);
+        }
+        // Further filter by miqaat eligibility
+        const isForEveryone = !liveMiqaat.mohallahIds?.length && !liveMiqaat.teams?.length && !liveMiqaat.eligibleItsIds?.length;
+        const eligible = scoped.filter(u => {
+          if (liveMiqaat.eligibleItsIds?.length) return liveMiqaat.eligibleItsIds.includes(u.itsId);
+          if (isForEveryone) return true;
+          let ok = false;
+          if (liveMiqaat.mohallahIds?.length) ok = ok || (!!u.mohallahId && liveMiqaat.mohallahIds.includes(u.mohallahId));
+          if (liveMiqaat.teams?.length) ok = ok || (!!u.team && liveMiqaat.teams.includes(u.team));
+          return ok;
+        });
+        if (!cancelled) setScopedLiveUsers(eligible);
+      } catch (e) {
+        console.error('Failed to load live tracker users', e);
+      } finally {
+        if (!cancelled) setIsLoadingLiveUsers(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveMiqaat?.id, canSeeLiveTracker, currentUser]);
+
+  // Live stats derived from real-time miqaat data
+  const liveStats = useMemo(() => {
+    if (!liveMiqaat || scopedLiveUsers.length === 0) return null;
+    const attendedSet = new Set(liveMiqaat.attendance?.map(a => a.userItsId) || []);
+    const safarSet = new Set(liveMiqaat.safarList?.map(s => s.userItsId) || []);
+
+    const presentMembers = scopedLiveUsers.filter(u => attendedSet.has(u.itsId));
+    const safarMembers = scopedLiveUsers.filter(u => safarSet.has(u.itsId));
+    const absentMembers = scopedLiveUsers.filter(u => !attendedSet.has(u.itsId) && !safarSet.has(u.itsId));
+    const markedCount = presentMembers.length + safarMembers.length;
+
+    // Team breakdown
+    const teamMap = new Map<string, { total: number; present: number; safar: number; absent: number }>();
+    for (const u of scopedLiveUsers) {
+      const team = u.team || 'No Team';
+      if (!teamMap.has(team)) teamMap.set(team, { total: 0, present: 0, safar: 0, absent: 0 });
+      const entry = teamMap.get(team)!;
+      entry.total++;
+      if (attendedSet.has(u.itsId)) entry.present++;
+      else if (safarSet.has(u.itsId)) entry.safar++;
+      else entry.absent++;
+    }
+    const teamBreakdown = Array.from(teamMap.entries())
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return {
+      total: scopedLiveUsers.length,
+      markedCount,
+      presentMembers,
+      safarMembers,
+      absentMembers,
+      teamBreakdown,
+      percentage: scopedLiveUsers.length > 0 ? Math.round((markedCount / scopedLiveUsers.length) * 100) : 0,
+    };
+  }, [liveMiqaat, scopedLiveUsers]);
+
+  // Auto-exit live mode when miqaat ends
+  useEffect(() => {
+    if (!liveMiqaat) {
+      setIsLiveMode(false);
+    }
+  }, [liveMiqaat]);
 
 
   useEffect(() => {
@@ -1471,6 +1582,213 @@ export default function DashboardOverviewPage() {
           )}
         </Card>
 
+        {/* ========== LIVE ATTENDANCE TRACKER ========== */}
+        {canSeeLiveTracker && liveMiqaat && liveStats && (
+          <div className={cn(
+            "transition-all duration-500",
+            isLiveMode ? "fixed inset-0 z-40 bg-background/95 backdrop-blur-sm overflow-y-auto p-4 sm:p-6" : "mt-6"
+          )}>
+            <div className={cn(
+              "rounded-2xl border-2 border-red-500/40 bg-gradient-to-br from-red-950/30 via-background to-background shadow-xl shadow-red-500/10 overflow-hidden",
+              isLiveMode ? "max-w-4xl mx-auto" : ""
+            )}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-red-500/20 bg-red-500/5">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="relative flex h-3 w-3 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-red-500">Live Now</p>
+                    <h3 className="font-bold text-base sm:text-lg text-foreground truncate">{liveMiqaat.name}</h3>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs border-red-500/30 hover:bg-red-500/10 hover:text-red-500 gap-1.5"
+                    onClick={() => setIsLiveMode(v => !v)}
+                  >
+                    {isLiveMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                    {isLiveMode ? 'Exit Live Mode' : 'Live Mode'}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="p-5 space-y-5">
+                {/* Stat tiles */}
+                {isLoadingLiveUsers ? (
+                  <div className="flex justify-center py-8"><FunkyLoader>Loading live data...</FunkyLoader></div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-3 gap-3">
+                      {/* Total */}
+                      <button
+                        onClick={() => { setLiveDetailFilter('all'); setIsLiveDetailsOpen(true); }}
+                        className="group flex flex-col items-center justify-center p-4 rounded-xl bg-muted/50 hover:bg-primary/10 border border-border/50 hover:border-primary/40 transition-all cursor-pointer text-center"
+                      >
+                        <Users className="h-5 w-5 text-muted-foreground group-hover:text-primary mb-1.5 transition-colors" />
+                        <span className="text-2xl sm:text-3xl font-black text-foreground">{liveStats.total}</span>
+                        <span className="text-[11px] text-muted-foreground mt-1">Total</span>
+                      </button>
+                      {/* Present (attendance + safar) */}
+                      <button
+                        onClick={() => { setLiveDetailFilter('present'); setIsLiveDetailsOpen(true); }}
+                        className="group flex flex-col items-center justify-center p-4 rounded-xl bg-green-500/5 hover:bg-green-500/15 border border-green-500/20 hover:border-green-500/50 transition-all cursor-pointer text-center"
+                      >
+                        <UserCheck className="h-5 w-5 text-green-500 mb-1.5" />
+                        <span className="text-2xl sm:text-3xl font-black text-green-500">{liveStats.markedCount}</span>
+                        <span className="text-[11px] text-green-600/80 mt-1">Marked</span>
+                      </button>
+                      {/* Remaining */}
+                      <button
+                        onClick={() => { setLiveDetailFilter('absent'); setIsLiveDetailsOpen(true); }}
+                        className="group flex flex-col items-center justify-center p-4 rounded-xl bg-red-500/5 hover:bg-red-500/15 border border-red-500/20 hover:border-red-500/50 transition-all cursor-pointer text-center"
+                      >
+                        <UserMinus className="h-5 w-5 text-red-500 mb-1.5" />
+                        <span className="text-2xl sm:text-3xl font-black text-red-500">{liveStats.absentMembers.length}</span>
+                        <span className="text-[11px] text-red-600/80 mt-1">Remaining</span>
+                      </button>
+                    </div>
+
+                    {/* Progress bar */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{liveStats.markedCount} of {liveStats.total} marked</span>
+                        <span className="font-bold text-foreground">{liveStats.percentage}%</span>
+                      </div>
+                      <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-700"
+                          style={{ width: `${liveStats.percentage}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Team breakdown table */}
+                    {liveStats.teamBreakdown.length > 0 && (
+                      <div className="border border-border/40 rounded-xl overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/60">
+                            <tr>
+                              <th className="text-left px-4 py-2 text-xs font-semibold text-muted-foreground">Team</th>
+                              <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground">Total</th>
+                              <th className="text-center px-3 py-2 text-xs font-semibold text-green-600">Present</th>
+                              <th className="text-center px-3 py-2 text-xs font-semibold text-blue-600">Safar</th>
+                              <th className="text-center px-3 py-2 text-xs font-semibold text-red-500">Absent</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {liveStats.teamBreakdown.map((row, i) => (
+                              <tr key={row.name} className={cn("border-t border-border/20", i % 2 === 0 ? "bg-card/20" : "bg-card/5")}>
+                                <td className="px-4 py-2 font-medium text-foreground truncate max-w-[140px]">{row.name}</td>
+                                <td className="text-center px-3 py-2 text-muted-foreground">{row.total}</td>
+                                <td className="text-center px-3 py-2 text-green-600 font-semibold">{row.present}</td>
+                                <td className="text-center px-3 py-2 text-blue-600 font-semibold">{row.safar}</td>
+                                <td className="text-center px-3 py-2 text-red-500 font-semibold">{row.absent}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Live Details Dialog */}
+        <Dialog open={isLiveDetailsOpen} onOpenChange={setIsLiveDetailsOpen}>
+          <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Radio className="h-4 w-4 text-red-500" />
+                {liveDetailFilter === 'all' ? 'All Members' :
+                 liveDetailFilter === 'present' ? 'Marked Members' :
+                 liveDetailFilter === 'safar' ? 'Safar Members' : 'Remaining Members'}
+                {liveMiqaat && <span className="text-sm font-normal text-muted-foreground">— {liveMiqaat.name}</span>}
+              </DialogTitle>
+              <DialogDescription>
+                {liveDetailFilter === 'all' && `${liveStats?.total ?? 0} total members in your scope.`}
+                {liveDetailFilter === 'present' && `${liveStats?.markedCount ?? 0} members have been marked.`}
+                {liveDetailFilter === 'absent' && `${liveStats?.absentMembers.length ?? 0} members are yet to be marked.`}
+              </DialogDescription>
+            </DialogHeader>
+            {/* Filter tabs */}
+            {liveStats && (
+              <div className="flex gap-2 flex-wrap pb-2 border-b border-border/20">
+                {(['all', 'present', 'safar', 'absent'] as const).map(f => (
+                  <Button
+                    key={f}
+                    variant={liveDetailFilter === f ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 text-xs capitalize"
+                    onClick={() => setLiveDetailFilter(f)}
+                  >
+                    {f === 'all' && `All (${liveStats.total})`}
+                    {f === 'present' && `Present (${liveStats.presentMembers.length})`}
+                    {f === 'safar' && `Safar (${liveStats.safarMembers.length})`}
+                    {f === 'absent' && `Absent (${liveStats.absentMembers.length})`}
+                  </Button>
+                ))}
+              </div>
+            )}
+            <div className="overflow-y-auto flex-1 -mx-2 px-2">
+              {liveStats && (() => {
+                const list =
+                  liveDetailFilter === 'all' ? scopedLiveUsers :
+                  liveDetailFilter === 'present' ? liveStats.presentMembers :
+                  liveDetailFilter === 'safar' ? liveStats.safarMembers :
+                  liveStats.absentMembers;
+                if (list.length === 0) {
+                  return <p className="text-center text-muted-foreground py-8 text-sm">No members in this category.</p>;
+                }
+                return (
+                  <ul className="space-y-1.5 py-2">
+                    {list.map(m => (
+                      <li key={m.id} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border/20">
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm text-foreground truncate">{m.name}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            ITS: {m.itsId}
+                            {m.bgkId ? ` | BGK: ${m.bgkId}` : ''}
+                            {m.team ? ` | ${m.team}` : ''}
+                          </p>
+                        </div>
+                        <span className={cn(
+                          "ml-2 shrink-0 px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider",
+                          liveDetailFilter === 'present' || (liveDetailFilter === 'all' && liveMiqaat?.attendance?.find(a => a.userItsId === m.itsId))
+                            ? "bg-green-500/10 text-green-600 border border-green-500/20"
+                            : liveDetailFilter === 'safar' || (liveDetailFilter === 'all' && liveMiqaat?.safarList?.find(s => s.userItsId === m.itsId))
+                            ? "bg-blue-500/10 text-blue-600 border border-blue-500/20"
+                            : "bg-red-500/10 text-red-500 border border-red-500/20"
+                        )}>
+                          {liveDetailFilter === 'present' ? 'Present' :
+                           liveDetailFilter === 'safar' ? 'Safar' :
+                           liveDetailFilter === 'absent' ? 'Absent' :
+                           liveMiqaat?.attendance?.find(a => a.userItsId === m.itsId) ? 'Present' :
+                           liveMiqaat?.safarList?.find(s => s.userItsId === m.itsId) ? 'Safar' : 'Absent'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
+            </div>
+            <div className="pt-2 border-t border-border/20">
+              <DialogClose asChild>
+                <Button variant="outline" className="w-full" size="sm">Close</Button>
+              </DialogClose>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Hide normal dashboard when in live mode */}
+        <div className={cn(isLiveMode ? "hidden" : "")}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
           {/* Widget 1: Today's Miqaat Schedule */}
           <Card className="glass-surface border-white/20 shadow-md">
@@ -1671,6 +1989,7 @@ export default function DashboardOverviewPage() {
             </Card>
           )}
         </div>
+        </div>{/* end live-mode-hideable wrapper */}
 
         {scanDisplayMessage && (
           <Alert variant={scanDisplayMessage.type === 'error' ? 'destructive' : 'default'} className={`mt-4 ${scanDisplayMessage.type === 'success' ? 'border-green-500 bg-green-50 dark:bg-green-900/30' : scanDisplayMessage.type === 'info' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : ''}`}>
