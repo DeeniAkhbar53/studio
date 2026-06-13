@@ -242,3 +242,85 @@ export const batchMarkSafarInMiqaat = async (miqaatId: string, entries: MiqaatSa
     }
 };
 
+export const editUserAttendanceInMiqaat = async (
+    miqaatId: string,
+    userItsId: string,
+    newStatus: 'present' | 'late' | 'early' | 'absent' | 'safar',
+    sessionId?: string,
+    userName?: string,
+    year?: string
+): Promise<void> => {
+    const miqaatDocRef = doc(db, getYearPath('miqaats', year), miqaatId);
+    const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+    const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const miqaatDoc = await transaction.get(miqaatDocRef);
+            if (!miqaatDoc.exists()) {
+                throw new Error("Miqaat does not exist!");
+            }
+
+            const data = miqaatDoc.data();
+            let attendance: MiqaatAttendanceEntryItem[] = data.attendance || [];
+            let safarList: MiqaatSafarEntryItem[] = data.safarList || [];
+            let attendedUserItsIds: string[] = data.attendedUserItsIds || [];
+
+            // Find user details if not provided
+            const finalUserName = userName || attendance.find(a => a.userItsId === userItsId)?.userName || safarList.find(s => s.userItsId === userItsId)?.userName || 'Unknown User';
+
+            // Filter out existing entries for this user
+            attendance = attendance.filter(a => !(a.userItsId === userItsId && (sessionId ? a.sessionId === sessionId : true)));
+            safarList = safarList.filter(s => !(s.userItsId === userItsId && (sessionId ? s.sessionId === sessionId : true)));
+
+            if (newStatus === 'absent') {
+                // If they are no longer in either attendance or safarList for ANY session, remove from attendedUserItsIds
+                const stillAttendingAny = attendance.some(a => a.userItsId === userItsId) || safarList.some(s => s.userItsId === userItsId);
+                if (!stillAttendingAny) {
+                    attendedUserItsIds = attendedUserItsIds.filter(id => id !== userItsId);
+                }
+            } else if (newStatus === 'safar') {
+                safarList.push({
+                    userItsId,
+                    userName: finalUserName,
+                    markedAt: new Date().toISOString(),
+                    markedByItsId: actorItsId,
+                    status: 'safar',
+                    ...(sessionId && { sessionId })
+                });
+                if (!attendedUserItsIds.includes(userItsId)) {
+                    attendedUserItsIds.push(userItsId);
+                }
+            } else { // present, late, early
+                attendance.push({
+                    userItsId,
+                    userName: finalUserName,
+                    markedAt: new Date().toISOString(),
+                    markedByItsId: actorItsId,
+                    status: newStatus,
+                    ...(sessionId && { sessionId })
+                });
+                if (!attendedUserItsIds.includes(userItsId)) {
+                    attendedUserItsIds.push(userItsId);
+                }
+            }
+
+            transaction.update(miqaatDocRef, {
+                attendance,
+                safarList,
+                attendedUserItsIds
+            });
+        });
+
+        await addAuditLog(
+            'attendance_edited',
+            { itsId: actorItsId, name: actorName },
+            'warning',
+            { miqaatId, userItsId, userName: userName || 'Unknown', newStatus, sessionId, year }
+        );
+    } catch (error) {
+        console.error("Error editing attendance:", error);
+        throw error;
+    }
+};
+

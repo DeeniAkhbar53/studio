@@ -471,113 +471,7 @@ export default function MarkAttendancePage() {
     }
   };
 
-  const handleIndividualMarkSafar = async () => {
-    if (!selectedMiqaatId) {
-      toast({ title: "Miqaat Not Selected", description: "Please select a Miqaat first.", variant: "destructive" });
-      return;
-    }
-    const selectedMiqaatDetails = allMiqaats.find(m => m.id === selectedMiqaatId);
-    if (!selectedMiqaatDetails) return;
-    
-    if (!memberIdInput.trim()) {
-      toast({ title: "ITS/BGK ID Required", description: "Please enter the member's ITS or BGK ID.", variant: "destructive" });
-      return;
-    }
 
-    if (isOffline) {
-      toast({ title: "Offline Mode", description: "Marking Safar requires an active internet connection.", variant: "destructive" });
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      const member = await getUserByItsOrBgkId(memberIdInput.trim());
-      if (!member) {
-        toast({ title: "Member Not Found", description: `No member found with ID: ${memberIdInput}.`, variant: "destructive" });
-        setIsProcessing(false);
-        return;
-      }
-
-      // Check eligibility
-      const isMiqaatForEveryone = 
-          (!selectedMiqaatDetails.mohallahIds || selectedMiqaatDetails.mohallahIds.length === 0) &&
-          (!selectedMiqaatDetails.teams || selectedMiqaatDetails.teams.length === 0) &&
-          (!selectedMiqaatDetails.eligibleItsIds || selectedMiqaatDetails.eligibleItsIds.length === 0);
-
-      if (!isMiqaatForEveryone) {
-          let isEligible = false;
-          const eligibleById = !!selectedMiqaatDetails.eligibleItsIds?.includes(member.itsId);
-          const eligibleByTeam = !!member.team && !!selectedMiqaatDetails.teams?.includes(member.team);
-          const eligibleByMohallah = !!member.mohallahId && !!selectedMiqaatDetails.mohallahIds?.includes(member.mohallahId);
-
-          if (selectedMiqaatDetails.eligibleItsIds && selectedMiqaatDetails.eligibleItsIds.length > 0) {
-              isEligible = eligibleById;
-          } else {
-              isEligible = eligibleByMohallah || eligibleByTeam;
-          }
-          
-          if (!isEligible) {
-              toast({
-                  title: "Not Eligible",
-                  description: `${member.name} (${member.itsId}) is not eligible for this Miqaat.`,
-                  variant: "destructive",
-              });
-              setIsProcessing(false);
-              return;
-          }
-      }
-
-      // Check if already in safarList
-      const alreadySafar = selectedMiqaatDetails.safarList?.some(s => s.userItsId === member.itsId);
-      if (alreadySafar) {
-          toast({ title: "Already Marked", description: `${member.name} is already marked as Safar for this Miqaat.` });
-          setMemberIdInput("");
-          setIsProcessing(false);
-          return;
-      }
-
-      const markerId = markerItsId || 'System';
-      const currentSession = selectedMiqaatDetails.type === 'international' 
-          ? selectedMiqaatDetails.sessions?.find(s => s.id === selectedSessionId) 
-          : selectedMiqaatDetails.sessions?.[0]; // Local Miqaat
-
-      const safarEntry: any = {
-        userItsId: member.itsId,
-        userName: member.name,
-        markedAt: new Date().toISOString(),
-        markedByItsId: markerId,
-        status: 'safar',
-        ...(currentSession && { sessionId: currentSession.id })
-      };
-
-      await batchMarkSafarInMiqaat(selectedMiqaatDetails.id, [safarEntry]);
-
-      // Add to local display of session marked items
-      const newSessionEntry: MarkedAttendanceEntry = {
-          memberItsId: member.itsId,
-          memberName: member.name,
-          timestamp: new Date(),
-          miqaatId: selectedMiqaatDetails.id,
-          miqaatName: selectedMiqaatDetails.name,
-          sessionId: currentSession?.id || 'main',
-          sessionName: currentSession?.name || 'Main',
-          status: 'safar',
-      };
-      setMarkedAttendanceThisSession(prev => [newSessionEntry, ...prev]);
-
-      toast({
-        title: "Marked as Safar",
-        description: `Successfully marked ${member.name} as Safar.`,
-        className: 'border-blue-500 bg-blue-50 dark:bg-blue-900/30',
-      });
-      setMemberIdInput("");
-    } catch (error) {
-      console.error("Error marking Safar:", error);
-      toast({ title: "Error", description: "Failed to mark member as Safar. Please try again.", variant: "destructive" });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
   
   const finalizeAttendance = async (member: User, compliance?: UniformComplianceState, overrideTimestamp?: Date, overrideReason?: string) => {
     setIsSaving(true);
@@ -1066,7 +960,7 @@ export default function MarkAttendancePage() {
                 disabled={!selectedMiqaatId || !currentSessionDetails || isProcessing || isLoadingMiqaats}
               />
             </div>
-            <div className="md:col-span-2 grid grid-cols-2 gap-2.5 h-10">
+            <div className="md:col-span-2 h-10">
               <Button
                 type="submit"
                 disabled={!selectedMiqaatId || !currentSessionDetails || !memberIdInput || isProcessing || isLoadingMiqaats}
@@ -1079,23 +973,6 @@ export default function MarkAttendancePage() {
                   <>
                     <UserSearch className="mr-2 h-4 w-4" />
                     {miqaatHasAttendanceRequirements ? "Find & Check" : "Mark Present"}
-                  </>
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleIndividualMarkSafar}
-                disabled={!selectedMiqaatId || !currentSessionDetails || !memberIdInput || isProcessing || isLoadingMiqaats}
-                className="h-full w-full border-amber-500/30 hover:border-amber-500/50 bg-amber-500/5 hover:bg-amber-500/12 text-amber-600 dark:text-amber-400 font-semibold shadow-sm transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
-                size="default"
-              >
-                {isProcessing ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>
-                ) : (
-                  <>
-                    <UserX className="mr-2 h-4 w-4" />
-                    Mark Safar
                   </>
                 )}
               </Button>

@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck, Users, UserX, HandCoins, Printer, X, Mail, FileSpreadsheet, RefreshCw } from "lucide-react";
+import { Calendar as CalendarIcon, Search, Download, Loader2, AlertTriangle, BarChart, PieChart as PieChartIcon, CheckSquare, ShieldAlert, UserCheck, Users, UserX, HandCoins, Printer, X, Mail, FileSpreadsheet, RefreshCw, Edit } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import jsPDF from 'jspdf';
 import { toPng } from 'html-to-image';
@@ -25,7 +25,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import type { Miqaat, User, ReportResultItem, AttendanceRecord, UserRole, Mohallah, UserDesignation, MiqaatAttendanceEntryItem, MiqaatSafarEntryItem, MiqaatSession, Form as FormType, FormResponse, SystemLog, DuaAttendance } from "@/types";
-import { getMiqaats, batchMarkSafarInMiqaat } from "@/lib/firebase/miqaatService";
+import { getMiqaats, batchMarkSafarInMiqaat, editUserAttendanceInMiqaat } from "@/lib/firebase/miqaatService";
 import { getUsers, getDuaAttendanceForUser, getUserByItsOrBgkId } from "@/lib/firebase/userService";
 import { getLoginLogsForUser } from "@/lib/firebase/logService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
@@ -391,6 +391,68 @@ export default function ReportsPage() {
   const [isBulkSafarDialogOpen, setIsBulkSafarDialogOpen] = useState(false);
   const [bulkBgkInput, setBulkBgkInput] = useState("");
   const [isBulkSafarSubmitting, setIsBulkSafarSubmitting] = useState(false);
+
+  const [editingRecord, setEditingRecord] = useState<ReportResultItem | null>(null);
+  const [newAttendanceStatus, setNewAttendanceStatus] = useState<'present' | 'late' | 'early' | 'absent' | 'safar'>('present');
+  const [isEditingSubmit, setIsEditingSubmit] = useState(false);
+
+  const handleEditAttendanceSubmit = async () => {
+    if (!editingRecord) return;
+    setIsEditingSubmit(true);
+    try {
+      const miqaatObj = allMiqaats.find(m => m.name === editingRecord.miqaatName);
+      if (!miqaatObj) {
+        throw new Error("Could not find the associated Miqaat for editing.");
+      }
+
+      let sessionId: string | undefined = undefined;
+      if (miqaatObj.sessions && miqaatObj.sessions.length > 0) {
+        const matchingSession = miqaatObj.sessions.find(s => s.name === editingRecord.sessionName);
+        sessionId = matchingSession?.id || miqaatObj.sessions[0].id;
+      }
+
+      const year = selectedYear || '1448H';
+      
+      await editUserAttendanceInMiqaat(
+        miqaatObj.id,
+        editingRecord.userItsId,
+        newAttendanceStatus,
+        sessionId,
+        editingRecord.userName,
+        year
+      );
+
+      toast({
+        title: "Attendance Updated",
+        description: `Successfully updated ${editingRecord.userName}'s attendance status to ${newAttendanceStatus}.`
+      });
+
+      if (reportData) {
+        const updatedReportData = reportData.map(record => {
+          if (record.userItsId === editingRecord.userItsId && record.miqaatName === editingRecord.miqaatName && record.sessionName === editingRecord.sessionName) {
+            return {
+              ...record,
+              status: newAttendanceStatus,
+              markedByItsId: newAttendanceStatus !== 'absent' ? (currentUser?.itsId || 'Admin') : undefined
+            };
+          }
+          return record;
+        });
+        setReportData(updatedReportData);
+      }
+
+      setEditingRecord(null);
+    } catch (error) {
+      console.error("Failed to edit attendance:", error);
+      toast({
+        title: "Update Failed",
+        description: error instanceof Error ? error.message : "Could not save the changes.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsEditingSubmit(false);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -2097,13 +2159,30 @@ export default function ReportsPage() {
                                   <p className="font-bold text-card-foreground text-sm leading-tight truncate">{record.userName}</p>
                                   <p className="text-[10px] text-muted-foreground mt-0.5">ITS: {record.userItsId}</p>
                                 </div>
-                                <span className={cn("px-2 py-0.5 text-[10px] font-bold rounded-full whitespace-nowrap shrink-0",
-                                  record.status === 'absent' ? 'bg-destructive/10 text-destructive' :
-                                  record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400' :
-                                  'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'
-                                )}>
-                                  {getFormattedStatus(record.status)}
-                                </span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className={cn("px-2 py-0.5 text-[10px] font-bold rounded-full whitespace-nowrap shrink-0",
+                                    record.status === 'absent' ? 'bg-destructive/10 text-destructive' :
+                                    record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400' :
+                                    'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'
+                                  )}>
+                                    {getFormattedStatus(record.status)}
+                                  </span>
+                                  {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-muted-foreground hover:text-foreground shrink-0"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setEditingRecord(record);
+                                        setNewAttendanceStatus(record.status === 'not-eligible' ? 'absent' : record.status as any);
+                                      }}
+                                    >
+                                      <Edit className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                             </AccordionTrigger>
                           </div>
@@ -2204,14 +2283,29 @@ export default function ReportsPage() {
                                <TableCell>{record.sessionName || 'N/A'}</TableCell>
                               <TableCell>{record.date ? format(new Date(record.date), "PP p") : "N/A"}</TableCell>
                               <TableCell>
-                                  <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
-                                      record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                      record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                      record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                                      'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                  )}>
-                                     {getFormattedStatus(record.status)}
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className={cn("px-2 py-0.5 text-xs font-semibold rounded-full",
+                                        record.status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                        record.status === 'safar' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                                        record.status === 'late' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                    )}>
+                                       {getFormattedStatus(record.status)}
+                                    </span>
+                                    {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0 print-hide"
+                                        onClick={() => {
+                                          setEditingRecord(record);
+                                          setNewAttendanceStatus(record.status === 'not-eligible' ? 'absent' : record.status as any);
+                                        }}
+                                      >
+                                        <Edit className="h-3.5 w-3.5" />
+                                      </Button>
+                                    )}
+                                  </div>
                               </TableCell>
                               {reportMiqaatType === 'local' && <>
                                   <TableCell>{record.uniformCompliance?.fetaPaghri ?? 'N/A'}</TableCell>
@@ -2265,6 +2359,65 @@ export default function ReportsPage() {
             </CardContent>
          </Card>
       )}
+
+      {/* Attendance Editing Dialog */}
+      <Dialog open={!!editingRecord} onOpenChange={(open) => { if (!open) setEditingRecord(null); }}>
+        <DialogContent className="max-w-md w-[95vw] bg-background">
+          <DialogHeader>
+            <DialogTitle>Edit Attendance Record</DialogTitle>
+            <DialogDescription>
+              Modify attendance status for the selected Miqaat event.
+            </DialogDescription>
+          </DialogHeader>
+          {editingRecord && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Member Name</Label>
+                <p className="font-semibold text-sm">{editingRecord.userName} ({editingRecord.userItsId})</p>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider">Miqaat Event</Label>
+                <p className="font-semibold text-sm">{editingRecord.miqaatName}</p>
+                {editingRecord.sessionName && editingRecord.sessionName !== 'N/A' && (
+                  <p className="text-xs text-muted-foreground">Session: {editingRecord.sessionName}</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="attendance-status">Select New Status</Label>
+                <Select 
+                  value={newAttendanceStatus} 
+                  onValueChange={(val) => setNewAttendanceStatus(val as any)}
+                >
+                  <SelectTrigger id="attendance-status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="present">Present (Early/On-Time)</SelectItem>
+                    <SelectItem value="late">Late</SelectItem>
+                    <SelectItem value="early">Early (On-Time)</SelectItem>
+                    <SelectItem value="safar">Safar (Traveling)</SelectItem>
+                    <SelectItem value="absent">Absent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setEditingRecord(null)} disabled={isEditingSubmit}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleEditAttendanceSubmit} 
+              disabled={isEditingSubmit}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {isEditingSubmit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

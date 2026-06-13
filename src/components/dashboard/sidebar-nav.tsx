@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { UserDesignation, UserRole } from "@/types";
-import { Home, User, CalendarDays, Building, BarChart3, UserCheck, Bell, Settings, Users as UsersIcon, FileText, ScrollText, BookOpen, Shield, ChevronDown, UserX } from "lucide-react";
+import { Home, User, CalendarDays, Building, BarChart3, UserCheck, Bell, Settings, Users as UsersIcon, FileText, ScrollText, BookOpen, Shield, ChevronDown, UserX, CheckSquare } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -44,6 +44,7 @@ export const allNavItems: NavItem[] = [
         { href: "/dashboard/mark-attendance", label: "Mark Attendance", icon: UserCheck, allowedRoles: ['admin', 'superadmin', 'attendance-marker'] },
         { href: "/dashboard/mark-attendance/bulk-safar", label: "Bulk Safar", icon: UserX, allowedRoles: ['admin', 'superadmin', 'attendance-marker'], isChildOf: "/dashboard/mark-attendance" },
         { href: "/dashboard/mark-attendance/bulk-attendance", label: "Bulk Attendance", icon: UsersIcon, allowedRoles: ['admin', 'superadmin', 'attendance-marker'], isChildOf: "/dashboard/mark-attendance" },
+        { href: "/dashboard/mark-attendance/multi-miqaat-attendance", label: "Multi-Miqaat Attendance", icon: CheckSquare, allowedRoles: ['admin', 'superadmin', 'attendance-marker'], isChildOf: "/dashboard/mark-attendance" },
         { href: "/dashboard/miqaat-management", label: "Miqaats", icon: CalendarDays, allowedRoles: ['admin', 'superadmin', 'attendance-marker'] },
         { href: "/dashboard/dua", label: "Dua", icon: BookOpen, isDuaPage: true, featureFlag: 'isDuaPageEnabled' }
       ]
