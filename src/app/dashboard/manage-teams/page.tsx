@@ -11,7 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { User, UserRole, UserDesignation } from '@/types';
 import { getUsers, updateUser } from '@/lib/firebase/userService';
-import { createTeam, renameTeam, deleteTeam } from '@/lib/firebase/teamService';
+import { createTeam, renameTeam, deleteTeam, getTeams } from '@/lib/firebase/teamService';
 import { Plus, Trash2, Edit, Loader2, Users as UsersIcon, ShieldAlert, GripVertical, UserPlus, Move } from 'lucide-react';
 import { FunkyLoader } from '@/components/ui/funky-loader';
 import { allNavItems, findNavItem } from '@/components/dashboard/sidebar-nav';
@@ -87,6 +87,22 @@ export default function ManageTeamsPage() {
   const [teamToRename, setTeamToRename] = useState<string | null>(null);
   const [renamedTeamName, setRenamedTeamName] = useState("");
   
+  const [createdTeams, setCreatedTeams] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      if (currentUser?.mohallahId) {
+        try {
+          const t = await getTeams(currentUser.mohallahId);
+          setCreatedTeams(t);
+        } catch (e) {
+          console.error("Failed to load empty teams:", e);
+        }
+      }
+    };
+    fetchTeams();
+  }, [currentUser]);
+  
 
   useEffect(() => {
     const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') as UserRole : null;
@@ -156,8 +172,16 @@ export default function ManageTeamsPage() {
         unassigned.push(user);
       }
     });
+
+    // Merge empty teams created in Firestore
+    createdTeams.forEach(team => {
+      if (!teamMap[team]) {
+        teamMap[team] = [];
+      }
+    });
+
     return { teams: teamMap, unassignedMembers: unassigned };
-  }, [users, currentUser]);
+  }, [users, currentUser, createdTeams]);
   
   const teamNames = Object.keys(teams).sort();
 
@@ -172,6 +196,8 @@ export default function ManageTeamsPage() {
     }
     try {
         await createTeam(newTeamName.trim(), currentUser.mohallahId);
+        const t = await getTeams(currentUser.mohallahId);
+        setCreatedTeams(t);
         toast({ title: "Team Created", description: `Team "${newTeamName.trim()}" has been added.` });
         setIsCreateTeamOpen(false);
         setNewTeamName("");
@@ -192,6 +218,8 @@ export default function ManageTeamsPage() {
         // Refetch users to update UI
         const updatedUsers = await getUsers();
         setUsers(updatedUsers);
+        const t = await getTeams(currentUser.mohallahId);
+        setCreatedTeams(t);
         toast({ title: "Team Renamed", description: `Team "${teamToRename}" is now "${renamedTeamName.trim()}".` });
         setIsRenameTeamOpen(false);
         setTeamToRename(null);
@@ -209,8 +237,8 @@ export default function ManageTeamsPage() {
     }
     try {
         await deleteTeam(teamName, currentUser.mohallahId);
-        // This is a bit of a hack, but it forces a re-render. A better way would be a state management library.
-        // A dummy user update will trigger re-fetch in real scenario, but here we manually update.
+        const t = await getTeams(currentUser.mohallahId);
+        setCreatedTeams(t);
         setUsers(prev => [...prev]);
         toast({ title: "Team Deleted", description: `Team "${teamName}" has been deleted.` });
     } catch (error) {

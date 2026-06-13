@@ -156,14 +156,18 @@ export default function MiqaatManagementPage() {
   const [isSendingEmails, setIsSendingEmails] = useState<Record<string, boolean>>({});
   const [isSendingLeaderEmails, setIsSendingLeaderEmails] = useState<Record<string, boolean>>({});
 
-  const handleSendAbsenteeEmails = async (miqaatId: string, miqaatName: string) => {
-    if (confirm(`Are you sure you want to send bulk absence emails to all eligible members who did not attend "${miqaatName}"?`)) {
+  const handleSendAbsenteeEmails = async (miqaatId: string, miqaatName: string, isExpired: boolean) => {
+    const confirmMessage = isExpired
+      ? `Are you sure you want to send bulk absence emails to all eligible members who did not attend "${miqaatName}"?`
+      : `This event is still active. Are you sure you want to send bulk absence emails to all eligible members who have not checked in yet for "${miqaatName}"?`;
+
+    if (confirm(confirmMessage)) {
       setIsSendingEmails(prev => ({ ...prev, [miqaatId]: true }));
       try {
         const res = await fetch("/api/miqaat/send-absentee-emails", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ miqaatId, adminMohallahId: currentUserMohallahId }),
+          body: JSON.stringify({ miqaatId, adminMohallahId: currentUserMohallahId, force: !isExpired }),
         });
         const result = await res.json();
         if (res.ok) {
@@ -190,14 +194,18 @@ export default function MiqaatManagementPage() {
     }
   };
 
-  const handleSendLeaderEmails = async (miqaatId: string, miqaatName: string) => {
-    if (confirm(`Are you sure you want to send team absentee reports to all Group Leaders and Assistant Group Leaders for "${miqaatName}"?`)) {
+  const handleSendLeaderEmails = async (miqaatId: string, miqaatName: string, isExpired: boolean) => {
+    const confirmMessage = isExpired
+      ? `Are you sure you want to send team absentee reports to all Group Leaders and Assistant Group Leaders for "${miqaatName}"?`
+      : `This event is still active. Are you sure you want to send team absentee reports to all Group Leaders and Assistant Group Leaders for "${miqaatName}"?`;
+
+    if (confirm(confirmMessage)) {
       setIsSendingLeaderEmails(prev => ({ ...prev, [miqaatId]: true }));
       try {
         const res = await fetch("/api/miqaat/send-leader-absentee-emails", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ miqaatId, adminMohallahId: currentUserMohallahId }),
+          body: JSON.stringify({ miqaatId, adminMohallahId: currentUserMohallahId, force: !isExpired }),
         });
         const result = await res.json();
         if (res.ok) {
@@ -1095,45 +1103,45 @@ export default function MiqaatManagementPage() {
                               </div>
                            </div>
                            <Separator/>
-                            <div className="flex justify-end gap-2 px-4 pb-2">
+                             {(currentUserRole === 'admin' || currentUserRole === 'superadmin') && (
+                              <div className="flex flex-col sm:flex-row gap-2 px-4 pb-2 border-b border-border/10 mb-2">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleSendAbsenteeEmails(miqaat.id, miqaat.name, isExpired)}
+                                    disabled={isSendingEmails[miqaat.id]}
+                                    className="w-full sm:w-auto text-xs justify-center"
+                                >
+                                    {isSendingEmails[miqaat.id] ? (
+                                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin"/>
+                                    ) : (
+                                        <Mail className="mr-2 h-3.5 w-3.5"/>
+                                    )}
+                                    Email Absentees
+                                </Button>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleSendLeaderEmails(miqaat.id, miqaat.name, isExpired)}
+                                    disabled={isSendingLeaderEmails[miqaat.id]}
+                                    className="w-full sm:w-auto text-xs justify-center"
+                                >
+                                    {isSendingLeaderEmails[miqaat.id] ? (
+                                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin"/>
+                                    ) : (
+                                        <Mail className="mr-2 h-3.5 w-3.5"/>
+                                    )}
+                                    Email Team Leaders
+                                </Button>
+                              </div>
+                            )}
+                            <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-2">
                                 <Button variant="ghost" size="icon" onClick={() => { setBarcodeMiqaat(miqaat as Miqaat); setShowBarcodeDialog(true); }}>
                                     <Barcode className="h-4 w-4"/>
                                     <span className="sr-only">Barcode</span>
                                 </Button>
                                 {currentUserRole === 'admin' || currentUserRole === 'superadmin' ? (
                                     <>
-                                         {new Date(miqaat.endTime) < new Date() && (
-                                           <>
-                                             <Button 
-                                                 variant="outline" 
-                                                 size="sm" 
-                                                 onClick={() => handleSendAbsenteeEmails(miqaat.id, miqaat.name)}
-                                                 disabled={isSendingEmails[miqaat.id]}
-                                                 className="mr-1"
-                                             >
-                                                 {isSendingEmails[miqaat.id] ? (
-                                                     <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                                                 ) : (
-                                                     <Mail className="mr-2 h-4 w-4"/>
-                                                 )}
-                                                 Email Absentees
-                                             </Button>
-                                             <Button 
-                                                 variant="outline" 
-                                                 size="sm" 
-                                                 onClick={() => handleSendLeaderEmails(miqaat.id, miqaat.name)}
-                                                 disabled={isSendingLeaderEmails[miqaat.id]}
-                                                 className="mr-1"
-                                             >
-                                                 {isSendingLeaderEmails[miqaat.id] ? (
-                                                     <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
-                                                 ) : (
-                                                     <Mail className="mr-2 h-4 w-4"/>
-                                                 )}
-                                                 Email Team Leaders
-                                             </Button>
-                                           </>
-                                         )}
                                         <Button variant="ghost" size="icon" onClick={() => handleDuplicate(miqaat as Miqaat)}>
                                             <Copy className="h-4 w-4"/>
                                             <span className="sr-only">Duplicate</span>
@@ -1254,24 +1262,20 @@ export default function MiqaatManagementPage() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
-                                                     {new Date(miqaat.endTime) < new Date() && (
-                                                       <>
                                                          <DropdownMenuItem 
-                                                             onSelect={() => handleSendAbsenteeEmails(miqaat.id, miqaat.name)}
+                                                             onSelect={() => handleSendAbsenteeEmails(miqaat.id, miqaat.name, new Date(miqaat.endTime) < new Date())}
                                                              disabled={isSendingEmails[miqaat.id]}
                                                          >
                                                              <Mail className="mr-2 h-4 w-4" /> 
                                                              {isSendingEmails[miqaat.id] ? "Sending..." : "Email Absentees"}
                                                          </DropdownMenuItem>
                                                          <DropdownMenuItem 
-                                                             onSelect={() => handleSendLeaderEmails(miqaat.id, miqaat.name)}
+                                                             onSelect={() => handleSendLeaderEmails(miqaat.id, miqaat.name, new Date(miqaat.endTime) < new Date())}
                                                              disabled={isSendingLeaderEmails[miqaat.id]}
                                                          >
                                                              <Mail className="mr-2 h-4 w-4" /> 
                                                              {isSendingLeaderEmails[miqaat.id] ? "Sending..." : "Email Team Leaders"}
                                                          </DropdownMenuItem>
-                                                       </>
-                                                     )}
                                                     <DropdownMenuItem onSelect={() => handleDuplicate(miqaat as Miqaat)}>
                                                         <Copy className="mr-2 h-4 w-4" /> Duplicate
                                                     </DropdownMenuItem>

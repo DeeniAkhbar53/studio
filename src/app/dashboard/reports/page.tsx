@@ -411,13 +411,23 @@ export default function ReportsPage() {
       return;
     }
 
-    if (confirm(`Are you sure you want to send bulk absence emails to all eligible members who did not attend "${selectedMiqaatForForm.name}"?`)) {
+    const hasSelection = selectedIds.length > 0;
+    const confirmMessage = hasSelection
+      ? `Are you sure you want to send absence emails to the ${selectedIds.length} selected member(s) for "${selectedMiqaatForForm.name}"?`
+      : `Are you sure you want to send bulk absence emails to all eligible members who did not attend "${selectedMiqaatForForm.name}"?`;
+
+    if (confirm(confirmMessage)) {
       setIsSendingAbsenteeEmails(true);
       try {
+        const payload: any = { miqaatId, adminMohallahId: currentUser?.mohallahId };
+        if (hasSelection) {
+          payload.targetItsIds = selectedIds;
+        }
+
         const res = await fetch("/api/miqaat/send-absentee-emails", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ miqaatId, adminMohallahId: currentUser?.mohallahId }),
+          body: JSON.stringify(payload),
         });
         const result = await res.json();
         if (res.ok) {
@@ -425,6 +435,7 @@ export default function ReportsPage() {
             title: "Absentee Emails Sent",
             description: `Successfully sent ${result.emailsSent} emails. ${result.emailsSkipped} members skipped (no email address).`,
           });
+          setSelectedIds([]); // Clear selection after successful send
         } else {
           toast({
             title: "Failed to Send Emails",
@@ -1866,11 +1877,13 @@ export default function ReportsPage() {
                     className="shrink-0"
                   >
                     {isSendingAbsenteeEmails ? (
-                      <Loader2 className="h-4 w-4 animate-spin md:mr-2" />
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     ) : (
-                      <Mail className="h-4 w-4 md:mr-2" />
+                      <Mail className="h-4 w-4 mr-2" />
                     )}
-                    <span className="hidden md:inline">Email Absentees</span>
+                    <span>
+                      {selectedIds.length > 0 ? `Email Selected (${selectedIds.length})` : "Email Absentees"}
+                    </span>
                   </Button>
                 )}
                 {canShowGraphButton && (

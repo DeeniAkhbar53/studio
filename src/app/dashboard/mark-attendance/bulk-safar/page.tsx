@@ -181,6 +181,21 @@ export default function BulkSafarPage() {
       if (safarEntries.length > 0) {
         await batchMarkSafarInMiqaat(miqaatId, safarEntries);
 
+        // Trigger confirmation emails for each successfully marked Safar user
+        safarEntries.forEach(entry => {
+          fetch('/api/attendance/send-confirmation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userItsId: entry.userItsId,
+              miqaatId: miqaatId,
+              status: 'safar',
+              markedAt: entry.markedAt,
+              sessionId: entry.sessionId
+            })
+          }).catch(err => console.error('Failed to trigger Safar confirmation email:', err));
+        });
+
         if (notFoundBgkIds.length > 0) {
           toast({
             title: "Bulk Safar Partial Success",

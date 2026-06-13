@@ -6,14 +6,16 @@ import { format } from 'date-fns';
 
 export async function POST(req: NextRequest) {
   try {
-    const { miqaatId, adminMohallahId, targetItsIds } = await req.json();
+    const { miqaatId, adminMohallahId, targetItsIds, force } = await req.json();
 
     if (!miqaatId) {
       return NextResponse.json({ error: 'Missing miqaatId.' }, { status: 400 });
     }
 
+    const activeYear = req.cookies.get('active_year')?.value || '1448H';
+
     // 1. Fetch Miqaat details
-    const miqaatDocRef = doc(db, getYearPath('miqaats'), miqaatId);
+    const miqaatDocRef = doc(db, getYearPath('miqaats', activeYear), miqaatId);
     const miqaatDoc = await getDoc(miqaatDocRef);
     if (!miqaatDoc.exists()) {
       return NextResponse.json({ error: 'Miqaat not found.' }, { status: 404 });
@@ -22,8 +24,9 @@ export async function POST(req: NextRequest) {
 
     // Verify it is expired/closed (endTime in the past)
     const isExpired = new Date(miqaatData.endTime) < new Date();
-    if (!isExpired) {
-      return NextResponse.json({ error: 'This Miqaat is still active. Absentee emails can only be sent after the event is closed.' }, { status: 400 });
+    const isSelective = targetItsIds && Array.isArray(targetItsIds) && targetItsIds.length > 0;
+    if (!isExpired && !isSelective && !force) {
+      return NextResponse.json({ error: 'This Miqaat is still active. Bulk absentee emails can only be sent after the event is closed.' }, { status: 400 });
     }
 
     // 2. Fetch all members

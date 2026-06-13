@@ -27,8 +27,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, warning: 'Member does not have an email address.' });
     }
 
+    const activeYear = req.cookies.get('active_year')?.value || '1448H';
+
     // 2. Fetch Miqaat details
-    const miqaatDocRef = doc(db, getYearPath('miqaats'), miqaatId);
+    const miqaatDocRef = doc(db, getYearPath('miqaats', activeYear), miqaatId);
     const miqaatDoc = await getDoc(miqaatDocRef);
     if (!miqaatDoc.exists()) {
       return NextResponse.json({ error: 'Miqaat not found.' }, { status: 404 });
