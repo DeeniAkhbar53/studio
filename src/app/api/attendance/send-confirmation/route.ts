@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, getYearPath } from '@/lib/firebase/firebase';
 import { collectionGroup, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { sendEmail, attendanceConfirmationEmailTemplate } from '@/lib/email';
+import { sendEmail, attendanceConfirmationEmailTemplate, attendanceEditedEmailTemplate } from '@/lib/email';
 import { format } from 'date-fns';
 
 export async function POST(req: NextRequest) {
   try {
-    const { userItsId, miqaatId, status, markedAt, sessionId, reason } = await req.json();
+    const { userItsId, miqaatId, status, markedAt, sessionId, reason, isEdit } = await req.json();
 
     if (!userItsId || !miqaatId || !status || !markedAt) {
       return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
@@ -48,21 +48,32 @@ export async function POST(req: NextRequest) {
 
     const formattedDate = format(new Date(markedAt), "PP p");
 
-    // 4. Send Confirmation Email
-    const emailHtml = attendanceConfirmationEmailTemplate(
-      memberData.name,
-      userItsId,
-      miqaatData.name,
-      sessionName,
-      status,
-      formattedDate,
-      miqaatData.location || '',
-      reason
-    );
+    // 4. Send Confirmation / Edit Email
+    const emailHtml = isEdit
+      ? attendanceEditedEmailTemplate(
+          memberData.name,
+          userItsId,
+          miqaatData.name,
+          sessionName,
+          status,
+          formattedDate,
+          miqaatData.location || '',
+          reason
+        )
+      : attendanceConfirmationEmailTemplate(
+          memberData.name,
+          userItsId,
+          miqaatData.name,
+          sessionName,
+          status,
+          formattedDate,
+          miqaatData.location || '',
+          reason
+        );
 
     await sendEmail(
       userEmail,
-      `Attendance Marked: ${miqaatData.name}`,
+      isEdit ? `Attendance Updated: ${miqaatData.name}` : `Attendance Marked: ${miqaatData.name}`,
       emailHtml
     );
 

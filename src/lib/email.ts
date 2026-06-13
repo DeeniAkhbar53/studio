@@ -505,3 +505,93 @@ export function teamLeaderAbsenceReportEmailTemplate(
     </html>
   `;
 }
+
+export function attendanceEditedEmailTemplate(
+  name: string,
+  itsId: string,
+  miqaatName: string,
+  sessionName: string,
+  status: string,
+  dateString: string,
+  location: string,
+  reason?: string
+): string {
+  const statusLower = status.toLowerCase();
+  const isSafar = statusLower === 'safar';
+  const isAbsent = statusLower === 'absent';
+  const statusColor = isSafar ? '#d97706' : isAbsent ? '#ef4444' : '#059669';
+  
+  let displayStatus = `Present (${status.charAt(0).toUpperCase() + status.slice(1)})`;
+  if (isSafar) displayStatus = 'Marked as Safar';
+  if (isAbsent) displayStatus = 'Marked as Absent / Removed';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8" />
+      <title>Attendance Status Updated</title>
+    </head>
+    <body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 20px;">
+        <tr><td align="center">
+          <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <tr>
+              <td style="background:linear-gradient(135deg,#eab308,#f97316);height:6px;"></td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:40px 40px 20px;">
+                <img src="https://app.burhaniguards.org/images/logo.png" alt="BGK Logo" width="80" height="80" style="display:block;margin-bottom:16px;" />
+                <h1 style="margin:0;font-size:22px;font-weight:700;color:#1e293b;">Burhani Guards Khaitan</h1>
+                <p style="margin:4px 0 0;font-size:14px;color:#f97316;font-weight:600;">Attendance Status Updated</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 40px 32px;">
+                <p style="font-size:15px;color:#334155;margin:0 0 20px;">Assalaamu Alaikum, <strong style="color:#1e293b;">${name}</strong> (${itsId})</p>
+                <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Your attendance status for the following event has been updated by an administrator:</p>
+                
+                <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:24px;color:#1e293b;font-size:14px;">
+                  <tr>
+                    <td style="color:#64748b;width:30%;">Event:</td>
+                    <td><strong>${miqaatName}</strong></td>
+                  </tr>
+                  ${sessionName ? `<tr>
+                    <td style="color:#64748b;">Session:</td>
+                    <td>${sessionName}</td>
+                  </tr>` : ''}
+                  <tr>
+                    <td style="color:#64748b;">New Status:</td>
+                    <td><span style="color:${statusColor};font-weight:bold;">${displayStatus}</span></td>
+                  </tr>
+                  <tr>
+                    <td style="color:#64748b;">Updated At:</td>
+                    <td>${dateString}</td>
+                  </tr>
+                  ${location ? `<tr>
+                    <td style="color:#64748b;">Location:</td>
+                    <td>${location}</td>
+                  </tr>` : ''}
+                  ${reason ? `<tr>
+                    <td style="color:#64748b;">Reason/Note:</td>
+                    <td>${reason}</td>
+                  </tr>` : ''}
+                </table>
+
+                <p style="font-size:13px;color:#64748b;margin:0;text-align:center;">This is an automated notification of the status change. Shurukan.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 40px 32px;">
+                <div style="border-top:1px solid #e2e8f0;padding-top:24px;text-align:center;">
+                  <p style="font-size:11px;color:#94a3b8;margin:0;">Designed and Managed by Shabbir Shakir &bull; BGK Khaitan</p>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+  `;
+}

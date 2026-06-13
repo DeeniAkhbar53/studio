@@ -394,6 +394,7 @@ export default function ReportsPage() {
 
   const [editingRecord, setEditingRecord] = useState<ReportResultItem | null>(null);
   const [newAttendanceStatus, setNewAttendanceStatus] = useState<'present' | 'late' | 'early' | 'absent' | 'safar'>('present');
+  const [editReason, setEditReason] = useState("");
   const [isEditingSubmit, setIsEditingSubmit] = useState(false);
 
   const handleEditAttendanceSubmit = async () => {
@@ -422,6 +423,21 @@ export default function ReportsPage() {
         year
       );
 
+      // Trigger confirmation/edit email
+      fetch('/api/attendance/send-confirmation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              userItsId: editingRecord.userItsId,
+              miqaatId: miqaatObj.id,
+              status: newAttendanceStatus,
+              markedAt: new Date().toISOString(),
+              sessionId: sessionId || undefined,
+              reason: editReason || "Attendance status updated by administrator",
+              isEdit: true
+          })
+      }).catch(err => console.error('Failed to trigger attendance edit email:', err));
+
       toast({
         title: "Attendance Updated",
         description: `Successfully updated ${editingRecord.userName}'s attendance status to ${newAttendanceStatus}.`
@@ -442,6 +458,7 @@ export default function ReportsPage() {
       }
 
       setEditingRecord(null);
+      setEditReason("");
     } catch (error) {
       console.error("Failed to edit attendance:", error);
       toast({
@@ -2400,6 +2417,16 @@ export default function ReportsPage() {
                     <SelectItem value="absent">Absent</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-reason">Reason / Note for status change</Label>
+                <Input
+                  id="edit-reason"
+                  placeholder="e.g. Back-dated correction or correction of mistake"
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                />
               </div>
             </div>
           )}
