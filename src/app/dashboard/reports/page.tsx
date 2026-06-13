@@ -2139,7 +2139,7 @@ export default function ReportsPage() {
                           key={`${record.id}-${record.date || index}`}
                           className="border border-border/60 rounded-lg p-1 bg-card/60 backdrop-blur-sm shadow-sm mb-3"
                         >
-                          <div className="flex items-center w-full">
+                          <div className="flex items-center w-full pr-2">
                             {isNonAttendanceReport && (
                               <div className="pl-3 py-4 shrink-0">
                                 <Checkbox
@@ -2167,24 +2167,24 @@ export default function ReportsPage() {
                                   )}>
                                     {getFormattedStatus(record.status)}
                                   </span>
-                                  {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-muted-foreground hover:text-foreground shrink-0"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        setEditingRecord(record);
-                                        setNewAttendanceStatus(record.status === 'not-eligible' ? 'absent' : record.status as any);
-                                      }}
-                                    >
-                                      <Edit className="h-3 w-3" />
-                                    </Button>
-                                  )}
                                 </div>
                               </div>
                             </AccordionTrigger>
+                            {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0 ml-1"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setEditingRecord(record);
+                                  setNewAttendanceStatus(record.status === 'not-eligible' ? 'absent' : record.status as any);
+                                }}
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                           </div>
                           <AccordionContent className="space-y-3 pt-2 px-3 border-t border-border/40 mt-1">
                             <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
