@@ -9,17 +9,21 @@ import { getSettings } from "@/lib/firebase/settingsService";
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   React.useEffect(() => {
     const applyInitialTheme = async () => {
+        const isCustom = localStorage.getItem("colorThemeCustom") === "true";
         let savedTheme = localStorage.getItem("colorTheme");
 
-        if (!savedTheme) {
+        if (!isCustom) {
             try {
                 const settings = await getSettings();
-                savedTheme = settings.defaultTheme || 'blue';
-                localStorage.setItem("colorTheme", savedTheme as string);
+                const defaultTheme = (settings.defaultTheme as string) || 'blue';
+                savedTheme = defaultTheme;
+                localStorage.setItem("colorTheme", defaultTheme);
             } catch (error) {
                 console.error("Failed to fetch default theme, using fallback.", error);
-                savedTheme = 'blue';
+                if (!savedTheme) savedTheme = 'blue';
             }
+        } else if (!savedTheme) {
+            savedTheme = 'blue';
         }
         
         const allThemeClasses = ['theme-blue', 'theme-purple', 'theme-indigo', 'theme-teal', 'theme-emerald', 'theme-rose', 'theme-amber', 'theme-gray'];

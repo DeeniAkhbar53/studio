@@ -173,12 +173,48 @@ export function Header() {
 
   useEffect(() => {
     const ALL_CLASSES = ['theme-blue','theme-purple','theme-indigo','theme-teal','theme-emerald','theme-rose','theme-amber','theme-gray'];
-    const savedTheme = localStorage.getItem("colorTheme") || "blue";
-    setColorTheme(savedTheme);
-    document.body.classList.remove(...ALL_CLASSES);
-    if (savedTheme !== "blue") {
-        document.body.classList.add(`theme-${savedTheme}`);
-    }
+    
+    const initializeTheme = async () => {
+      const isCustom = localStorage.getItem("colorThemeCustom") === "true";
+      let activeTheme = localStorage.getItem("colorTheme") || "blue";
+      
+      if (!isCustom) {
+        try {
+          const settings = await getSettings();
+          const defaultTheme = settings.defaultTheme || 'blue';
+          activeTheme = defaultTheme;
+          localStorage.setItem("colorTheme", defaultTheme);
+        } catch (err) {
+          console.error("Failed to load default theme in header:", err);
+        }
+      }
+      
+      setColorTheme(activeTheme);
+      document.body.classList.remove(...ALL_CLASSES);
+      if (activeTheme !== "blue") {
+          document.body.classList.add(`theme-${activeTheme}`);
+      }
+    };
+    
+    initializeTheme();
+  }, []);
+
+  useEffect(() => {
+    const handleThemeEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        const ALL_CLASSES = ['theme-blue','theme-purple','theme-indigo','theme-teal','theme-emerald','theme-rose','theme-amber','theme-gray'];
+        setColorTheme(customEvent.detail);
+        document.body.classList.remove(...ALL_CLASSES);
+        if (customEvent.detail !== "blue") {
+            document.body.classList.add(`theme-${customEvent.detail}`);
+        }
+      }
+    };
+    window.addEventListener('colorThemeUpdated', handleThemeEvent);
+    return () => {
+      window.removeEventListener('colorThemeUpdated', handleThemeEvent);
+    };
   }, []);
 
   const ALL_THEME_CLASSES = ['theme-blue','theme-purple','theme-indigo','theme-teal','theme-emerald','theme-rose','theme-amber','theme-gray'];
@@ -186,6 +222,7 @@ export function Header() {
   const handleSetColorTheme = (newTheme: string) => {
     setColorTheme(newTheme);
     localStorage.setItem("colorTheme", newTheme);
+    localStorage.setItem("colorThemeCustom", "true");
     document.body.classList.remove(...ALL_THEME_CLASSES);
     if (newTheme !== "blue") {
         document.body.classList.add(`theme-${newTheme}`);

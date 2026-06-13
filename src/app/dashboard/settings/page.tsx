@@ -166,6 +166,19 @@ export default function SettingsPage() {
     try {
         await updateSetting(settingName, value);
         toast({ title: "Setting Updated", description: `The ${settingName.replace(/([A-Z])/g, ' $1').toLowerCase()} setting has been saved.` });
+        
+        if (settingName === 'defaultTheme') {
+            if (typeof window !== 'undefined') {
+                localStorage.setItem("colorTheme", value);
+                localStorage.removeItem("colorThemeCustom");
+                const allThemeClasses = ['theme-blue', 'theme-purple', 'theme-indigo', 'theme-teal', 'theme-emerald', 'theme-rose', 'theme-amber', 'theme-gray'];
+                document.body.classList.remove(...allThemeClasses);
+                if (value !== "blue") {
+                    document.body.classList.add(`theme-${value}`);
+                }
+                window.dispatchEvent(new CustomEvent('colorThemeUpdated', { detail: value }));
+            }
+        }
     } catch (error) {
         toast({ title: "Update Failed", description: "Could not save the setting.", variant: "destructive" });
     }
