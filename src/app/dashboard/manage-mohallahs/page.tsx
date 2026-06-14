@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel as ShadFormLabel } from "@/components/ui/form";
 import { getMohallahs, addMohallah, updateMohallahName, deleteMohallah as fbDeleteMohallah } from "@/lib/firebase/mohallahService";
 import { getUsers } from "@/lib/firebase/userService"; 
+import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
 import { allNavItems, findNavItem } from "@/components/dashboard/sidebar-nav";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -41,6 +42,10 @@ export default function ManageMohallahsPage() {
   const [editingMohallah, setEditingMohallah] = useState<Mohallah | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const { toast } = useToast();
+
+  const [selectedMohallahIds, setSelectedMohallahIds] = useState<string[]>([]);
+  const [isBulkAlertOpen, setIsBulkAlertOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const mohallahForm = useForm<MohallahFormValues>({
     resolver: zodResolver(mohallahFormSchema),
@@ -128,29 +133,42 @@ export default function ManageMohallahsPage() {
     setIsMohallahDialogOpen(true);
   };
 
-  const handleDeleteMohallah = async (mohallah: Mohallah) => {
-    if (isLoadingMembers) {
-        toast({ title: "Please wait", description: "Checking member assignments...", variant: "default" });
-        return;
-    }
+  const handleDeleteMohallah = async (mohallahId: string, name: string) => {
     try {
-      const currentMembers = await getUsers(); 
-      setMembers(currentMembers);
-      const membersInMohallah = currentMembers.filter(member => member.mohallahId === mohallah.id);
-      if (membersInMohallah.length > 0) {
-        toast({
-          title: "Cannot Delete Mohallah",
-          description: `Mohallah "${mohallah.name}" has ${membersInMohallah.length} member(s) assigned. Please reassign or delete them before deleting this Mohallah.`,
-          variant: "destructive",
-          duration: 7000,
-        });
-        return;
-      }
-      await fbDeleteMohallah(mohallah.id);
-      toast({ title: "Mohallah Deleted", description: `Mohallah "${mohallah.name}" has been deleted.`});
+      await fbDeleteMohallah(mohallahId);
+      toast({ title: "Mohallah Deleted", description: `Mohallah "${name}" and all associated data have been permanently deleted.`});
+      setSelectedMohallahIds(prev => prev.filter(id => id !== mohallahId));
     } catch (error) {
-      
       toast({ title: "Database Error", description: "Could not delete Mohallah.", variant: "destructive" });
+    }
+  };
+
+  const handleSelectMohallah = (id: string, checked: boolean) => {
+    setSelectedMohallahIds(prev => checked ? [...prev, id] : prev.filter(x => x !== id));
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedMohallahIds(checked ? mohallahs.map(m => m.id) : []);
+  };
+
+  const handleBulkDelete = async () => {
+    setIsBulkDeleting(true);
+    try {
+      await Promise.all(selectedMohallahIds.map(id => fbDeleteMohallah(id)));
+      toast({
+        title: "Mohallahs Deleted",
+        description: `Successfully deleted ${selectedMohallahIds.length} Mohallah(s) and all their associated data.`
+      });
+      setSelectedMohallahIds([]);
+      setIsBulkAlertOpen(false);
+    } catch (error) {
+      toast({
+        title: "Error Deleting Mohallahs",
+        description: "An error occurred while performing bulk deletion.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -186,21 +204,51 @@ export default function ManageMohallahsPage() {
               <CardTitle className="flex items-center"><Home className="mr-2 h-5 w-5 text-primary" />Manage Mohallahs</CardTitle>
               <CardDescription className="mt-1">Add, edit, or delete Mohallahs. List updates in realtime.</CardDescription>
             </div>
-            {canManage && (
-              <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>
-                <DialogTrigger asChild>
-                  <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} size="sm" className="shrink-0">
-                    <PlusCircle className="h-4 w-4 md:mr-2" />
-                    <span className="hidden md:inline">Add New Mohallah</span>
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>{editingMohallah ? "Edit Mohallah Name" : "Add New Mohallah"}</DialogTitle>
-                    <DialogDescription>
-                      {editingMohallah ? "Update the name of this Mohallah." : "Enter the name for the new Mohallah."}
-                    </DialogDescription>
-                  </DialogHeader>
+             {canManage && (
+               <div className="flex items-center gap-2 shrink-0">
+                 {selectedMohallahIds.length > 0 && (
+                   <AlertDialog open={isBulkAlertOpen} onOpenChange={setIsBulkAlertOpen}>
+                     <AlertTrigger asChild>
+                       <Button variant="destructive" size="sm" className="shrink-0">
+                         <Trash2 className="h-4 w-4 md:mr-2" />
+                         <span className="hidden md:inline">Delete Selected ({selectedMohallahIds.length})</span>
+                       </Button>
+                     </AlertTrigger>
+                     <AlertContent>
+                       <AlertHeader>
+                         <AlertTitle>Are you absolutely sure?</AlertTitle>
+                         <AlertDesc>
+                           This action cannot be undone. This will permanently delete the <strong>{selectedMohallahIds.length}</strong> selected Mohallah(s), along with all their associated teams and members.
+                         </AlertDesc>
+                       </AlertHeader>
+                       <AlertFooter>
+                         <AlertDialogCancel>Cancel</AlertDialogCancel>
+                         <AlertDialogAction
+                           onClick={handleBulkDelete}
+                           className="bg-destructive hover:bg-destructive/90"
+                           disabled={isBulkDeleting}
+                         >
+                           {isBulkDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                           Delete All Selected
+                         </AlertDialogAction>
+                       </AlertFooter>
+                     </AlertContent>
+                   </AlertDialog>
+                 )}
+                 <Dialog open={isMohallahDialogOpen} onOpenChange={(open) => { setIsMohallahDialogOpen(open); if (!open) setEditingMohallah(null); }}>
+                   <DialogTrigger asChild>
+                     <Button onClick={() => { setEditingMohallah(null); setIsMohallahDialogOpen(true); }} size="sm" className="shrink-0">
+                       <PlusCircle className="h-4 w-4 md:mr-2" />
+                       <span className="hidden md:inline">Add New Mohallah</span>
+                     </Button>
+                   </DialogTrigger>
+                   <DialogContent className="sm:max-w-[425px]">
+                     <DialogHeader>
+                       <DialogTitle>{editingMohallah ? "Edit Mohallah Name" : "Add New Mohallah"}</DialogTitle>
+                       <DialogDescription>
+                         {editingMohallah ? "Update the name of this Mohallah." : "Enter the name for the new Mohallah."}
+                       </DialogDescription>
+                     </DialogHeader>
                   <Form {...mohallahForm}>
                     <form onSubmit={mohallahForm.handleSubmit(handleMohallahFormSubmit)} className="grid gap-4 py-4">
                       <FormField control={mohallahForm.control} name="name" render={({ field }) => (
@@ -221,8 +269,9 @@ export default function ManageMohallahsPage() {
                   </Form>
                 </DialogContent>
               </Dialog>
-            )}
-          </div>
+               </div>
+             )}
+           </div>
         </CardHeader>
         <CardContent>
           {isLoadingMohallahs ? (
@@ -238,9 +287,20 @@ export default function ManageMohallahsPage() {
                 <Accordion type="single" collapsible className="w-full">
                   {mohallahs.map((mohallah) => (
                     <AccordionItem value={mohallah.id} key={mohallah.id}>
-                      <AccordionTrigger>
-                        <div className="font-semibold text-card-foreground">{mohallah.name}</div>
-                      </AccordionTrigger>
+                      <div className="flex items-center px-2">
+                        {canManage && (
+                          <Checkbox
+                            checked={selectedMohallahIds.includes(mohallah.id)}
+                            onCheckedChange={(checked) => handleSelectMohallah(mohallah.id, !!checked)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="mr-3 shrink-0"
+                            aria-label={`Select mohallah ${mohallah.name}`}
+                          />
+                        )}
+                        <AccordionTrigger className="flex-1 py-4 hover:no-underline">
+                          <div className="font-semibold text-card-foreground text-left">{mohallah.name}</div>
+                        </AccordionTrigger>
+                      </div>
                       <AccordionContent className="pt-2">
                         {canManage && (
                           <div className="flex justify-end gap-2 px-2">
@@ -257,12 +317,12 @@ export default function ManageMohallahsPage() {
                                 <AlertHeader>
                                   <AlertTitle>Are you sure?</AlertTitle>
                                   <AlertDesc>
-                                    This will permanently delete "{mohallah.name}". Ensure no members are assigned before deleting.
+                                    This action cannot be undone. This will permanently delete the Mohallah "{mohallah.name}" along with all its associated teams and members.
                                   </AlertDesc>
                                 </AlertHeader>
                                 <AlertFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteMohallah(mohallah)} className="bg-destructive hover:bg-destructive/90" disabled={isLoadingMembers}>
+                                  <AlertDialogAction onClick={() => handleDeleteMohallah(mohallah.id, mohallah.name)} className="bg-destructive hover:bg-destructive/90">
                                     Delete
                                   </AlertDialogAction>
                                 </AlertFooter>
@@ -281,13 +341,31 @@ export default function ManageMohallahsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      {canManage && (
+                        <TableHead className="w-[50px]">
+                          <Checkbox
+                            checked={mohallahs.length > 0 && selectedMohallahIds.length === mohallahs.length}
+                            onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                            aria-label="Select all mohallahs"
+                          />
+                        </TableHead>
+                      )}
                       <TableHead>Mohallah Name</TableHead>
                       {canManage && <TableHead className="text-right">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {mohallahs.map((mohallah) => (
-                      <TableRow key={mohallah.id}>
+                      <TableRow key={mohallah.id} data-state={selectedMohallahIds.includes(mohallah.id) ? "selected" : undefined}>
+                        {canManage && (
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedMohallahIds.includes(mohallah.id)}
+                              onCheckedChange={(checked) => handleSelectMohallah(mohallah.id, !!checked)}
+                              aria-label={`Select mohallah ${mohallah.name}`}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell className="font-medium">{mohallah.name}</TableCell>
                         {canManage && (
                           <TableCell className="text-right">
@@ -304,18 +382,15 @@ export default function ManageMohallahsPage() {
                                 <AlertHeader>
                                   <AlertTitle>Are you sure?</AlertTitle>
                                   <AlertDesc>
-                                    This action cannot be undone. This will permanently delete the Mohallah "{mohallah.name}".
-                                    Ensure no members are assigned to this Mohallah before deleting.
+                                    This action cannot be undone. This will permanently delete the Mohallah "{mohallah.name}" along with all its associated teams and members.
                                   </AlertDesc>
                                 </AlertHeader>
                                 <AlertFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => handleDeleteMohallah(mohallah)}
+                                    onClick={() => handleDeleteMohallah(mohallah.id, mohallah.name)}
                                     className="bg-destructive hover:bg-destructive/90"
-                                    disabled={isLoadingMembers}
                                   >
-                                    {isLoadingMembers && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Delete
                                   </AlertDialogAction>
                                 </AlertFooter>

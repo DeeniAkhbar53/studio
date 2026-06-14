@@ -67,6 +67,9 @@ export const deleteMohallah = async (mohallahId: string): Promise<void> => {
     const membersPath = `mohallahs/${mohallahId}/members`;
     await deleteSubcollection(db, membersPath, 100); 
 
+    const teamsPath = `mohallahs/${mohallahId}/teams`;
+    await deleteSubcollection(db, teamsPath, 100);
+
     await deleteDoc(mohallahDoc);
     
     const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
