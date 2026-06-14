@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { UserDesignation, UserRole } from "@/types";
-import { Home, User, CalendarDays, Building, BarChart3, UserCheck, Bell, Settings, Users as UsersIcon, FileText, ScrollText, BookOpen, Shield, ChevronDown, UserX, CheckSquare } from "lucide-react";
+import { Home, User, CalendarDays, Building, BarChart3, UserCheck, Bell, Settings, Users as UsersIcon, FileText, ScrollText, BookOpen, Shield, ChevronDown, UserX, CheckSquare, Key } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -56,7 +56,8 @@ export const allNavItems: NavItem[] = [
         { href: "/dashboard/manage-members", label: "Manage Members", icon: UsersIcon, allowedRoles: ['admin', 'superadmin'], requiresTeamLead: true },
         { href: "/dashboard/manage-teams", label: "Manage Teams", icon: Shield, allowedRoles: ['admin', 'superadmin'], requiresCaptain: true },
         { href: "/dashboard/manage-notifications", label: "Manage Notifications", icon: Bell, allowedRoles: ['admin', 'superadmin'] },
-        { href: "/dashboard/settings", label: "Settings", icon: Settings, allowedRoles: ['superadmin'] }
+        { href: "/dashboard/settings", label: "Settings", icon: Settings, allowedRoles: ['superadmin'] },
+        { href: "/dashboard/api", label: "API Keys", icon: Key, allowedRoles: ['superadmin'] }
       ]
     },
     {

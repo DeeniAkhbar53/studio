@@ -29,14 +29,14 @@ export async function GET(req: NextRequest) {
     const keyDoc = keySnap.docs[0];
     const keyData = keyDoc.data();
 
-    // 3. Restrict access if the key status is not active (due to unpaid subscription or suspension)
+    // 3. Restrict access if the key status is not active
     if (keyData.status !== 'active') {
       return NextResponse.json(
         { 
-          error: 'Payment Required or Key Suspended.', 
-          message: 'API access has been restricted. Please complete your payment or contact the administrator to reactivate your key.' 
+          error: 'Forbidden.', 
+          message: 'API access has been restricted. Please contact the administrator to reactivate your key.' 
         },
-        { status: 402 } // HTTP 402 Payment Required is the standard code for unpaid APIs
+        { status: 403 }
       );
     }
 
