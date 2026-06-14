@@ -2304,8 +2304,11 @@ export default function DashboardOverviewPage() {
                   </span>
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">Live Attendance List</span>
                   {liveTeamFilter && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted border border-border text-muted-foreground">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted border border-border text-muted-foreground flex items-center gap-1">
                       {liveTeamFilter}
+                      <button onClick={() => setLiveTeamFilter(null)} className="hover:text-destructive transition-colors">
+                        <X className="h-3 w-3 shrink-0" />
+                      </button>
                     </span>
                   )}
                 </div>
@@ -2345,31 +2348,49 @@ export default function DashboardOverviewPage() {
           {liveStats && (
             <div className="px-4 py-2.5 sm:px-6 sm:py-3 border-b border-border shrink-0 bg-muted/10">
               <div className="bg-muted/65 p-1 rounded-2xl flex gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                {([
-                  { key: 'all' as const, label: 'All', count: liveStats.total },
-                  { key: 'present' as const, label: 'Present', count: liveStats.presentMembers.length },
-                  { key: 'safar' as const, label: 'Safar', count: liveStats.safarMembers.length },
-                  { key: 'absent' as const, label: 'Absent', count: liveStats.absentMembers.length },
-                ]).map(({ key, label, count }) => (
-                  <button
-                    key={key}
-                    onClick={() => setLiveDetailFilter(key)}
-                    className={cn(
-                      "flex-1 flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-[10px] sm:text-xs transition-all duration-300 min-w-0",
-                      liveDetailFilter === key
-                        ? "bg-background text-foreground shadow-sm font-black scale-[1.01]"
-                        : "text-muted-foreground hover:text-foreground font-semibold"
-                    )}
-                  >
-                    <span className="truncate">{label}</span>
-                    <span className={cn(
-                      "px-1 py-0.5 rounded-full text-[9px] font-black leading-none shrink-0",
-                      liveDetailFilter === key ? "bg-muted text-foreground" : "bg-foreground/5 text-muted-foreground/80"
-                    )}>
-                      {count}
-                    </span>
-                  </button>
-                ))}
+                {(() => {
+                  const filteredTotal = liveTeamFilter 
+                    ? scopedLiveUsers.filter(u => (u.team || 'No Team') === liveTeamFilter).length
+                    : liveStats.total;
+
+                  const filteredPresent = liveTeamFilter
+                    ? liveStats.presentMembers.filter(u => (u.team || 'No Team') === liveTeamFilter).length
+                    : liveStats.presentMembers.length;
+
+                  const filteredSafar = liveTeamFilter
+                    ? liveStats.safarMembers.filter(u => (u.team || 'No Team') === liveTeamFilter).length
+                    : liveStats.safarMembers.length;
+
+                  const filteredAbsent = liveTeamFilter
+                    ? liveStats.absentMembers.filter(u => (u.team || 'No Team') === liveTeamFilter).length
+                    : liveStats.absentMembers.length;
+
+                  return [
+                    { key: 'all' as const, label: 'All', count: filteredTotal },
+                    { key: 'present' as const, label: 'Present', count: filteredPresent },
+                    { key: 'safar' as const, label: 'Safar', count: filteredSafar },
+                    { key: 'absent' as const, label: 'Absent', count: filteredAbsent },
+                  ].map(({ key, label, count }) => (
+                    <button
+                      key={key}
+                      onClick={() => setLiveDetailFilter(key)}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-[10px] sm:text-xs transition-all duration-300 min-w-0",
+                        liveDetailFilter === key
+                          ? "bg-background text-foreground shadow-sm font-black scale-[1.01]"
+                          : "text-muted-foreground hover:text-foreground font-semibold"
+                      )}
+                    >
+                      <span className="truncate">{label}</span>
+                      <span className={cn(
+                        "px-1 py-0.5 rounded-full text-[9px] font-black leading-none shrink-0",
+                        liveDetailFilter === key ? "bg-muted text-foreground" : "bg-foreground/5 text-muted-foreground/80"
+                      )}>
+                        {count}
+                      </span>
+                    </button>
+                  ));
+                })()}
               </div>
             </div>
           )}

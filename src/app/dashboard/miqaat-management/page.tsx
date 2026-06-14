@@ -1347,8 +1347,12 @@ export default function MiqaatManagementPage() {
                                                              {isSendingEmails[miqaat.id] ? "Sending..." : "Email Absentees"}
                                                          </DropdownMenuItem>
                                                          <DropdownMenuItem 
-                                                              onSelect={() => openLeaderEmailDialog(miqaat.id, miqaat.name, new Date(miqaat.endTime) < new Date())}
-                                                              disabled={isLoadingLeaders && selectedLeaderMiqaat?.id === miqaat.id}
+                                                               onSelect={() => {
+                                                                 setTimeout(() => {
+                                                                   openLeaderEmailDialog(miqaat.id, miqaat.name, new Date(miqaat.endTime) < new Date());
+                                                                 }, 150);
+                                                               }}
+                                                               disabled={isLoadingLeaders && selectedLeaderMiqaat?.id === miqaat.id}
                                                           >
                                                               <Mail className="mr-2 h-4 w-4" /> 
                                                               {isLoadingLeaders && selectedLeaderMiqaat?.id === miqaat.id ? "Loading..." : "Email Team Leaders"}
