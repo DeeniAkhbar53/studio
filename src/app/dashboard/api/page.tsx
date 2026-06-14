@@ -75,6 +75,16 @@ export default function ApiManagementPage() {
   const [activeCodeLanguage, setActiveCodeLanguage] = useState<'curl' | 'js' | 'python' | 'dart'>('curl');
   const [origin, setOrigin] = useState("http://localhost:9002");
 
+  // Query builder state
+  const [testResource, setTestResource] = useState<string>("all");
+  const [testYear, setTestYear] = useState<string>("1448H");
+  const [testItsId, setTestItsId] = useState<string>("");
+  const [testMiqaatId, setTestMiqaatId] = useState<string>("");
+  const [testFormId, setTestFormId] = useState<string>("");
+  const [testStatusFilter, setTestStatusFilter] = useState<string>("all");
+  const [testTypeFilter, setTestTypeFilter] = useState<string>("all");
+  const [testTeamFilter, setTestTeamFilter] = useState<string>("all");
+
   // Load window origin
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -92,6 +102,33 @@ export default function ApiManagementPage() {
     }
   }, [apiKeys, testApiKey]);
 
+  // Helper to build query string based on parameters
+  const buildQueryString = () => {
+    const params = new URLSearchParams();
+    if (testResource !== "all") {
+      params.append("resource", testResource);
+    }
+    if (testYear && testYear !== "1448H") {
+      params.append("year", testYear);
+    }
+    
+    if (testResource === "members" || testResource === "all") {
+      if (testItsId.trim()) params.append("itsId", testItsId.trim());
+      if (testTeamFilter.trim() && testTeamFilter !== "all") params.append("team", testTeamFilter.trim());
+    }
+    if (testResource === "miqaats" || testResource === "all") {
+      if (testMiqaatId.trim()) params.append("miqaatId", testMiqaatId.trim());
+      if (testTypeFilter !== "all") params.append("type", testTypeFilter);
+    }
+    if (testResource === "forms" || testResource === "all") {
+      if (testFormId.trim()) params.append("formId", testFormId.trim());
+      if (testStatusFilter !== "all") params.append("status", testStatusFilter);
+    }
+    
+    const qStr = params.toString();
+    return qStr ? `?${qStr}` : "";
+  };
+
   // Execute test request
   const handleTestRequest = async () => {
     if (!testApiKey.trim()) {
@@ -108,7 +145,8 @@ export default function ApiManagementPage() {
     setTestStatus(null);
 
     try {
-      const res = await fetch("/api/external/v1/data", {
+      const queryString = buildQueryString();
+      const res = await fetch(`/api/external/v1/data${queryString}`, {
         method: "GET",
         headers: {
           "x-api-key": testApiKey.trim()
@@ -129,7 +167,7 @@ export default function ApiManagementPage() {
       if (res.ok) {
         toast({
           title: "API Request Successful",
-          description: `HTTP ${status}: Retrieved ${data.data?.miqaats?.length || 0} miqaats.`
+          description: `HTTP ${status}: Query successfully executed.`
         });
       } else {
         toast({
@@ -307,6 +345,9 @@ export default function ApiManagementPage() {
     );
   }
 
+  const queryString = buildQueryString();
+  const testUrlWithParams = `${origin}/api/external/v1/data${queryString}`;
+
   return (
     <div className="container mx-auto p-4 space-y-6 max-w-7xl">
       
@@ -334,10 +375,10 @@ export default function ApiManagementPage() {
               <Badge variant="outline" className="text-[10px] font-mono font-bold tracking-wider">GET</Badge>
             </h3>
             <p className="text-xs text-muted-foreground font-mono bg-muted/80 p-2.5 rounded-xl border select-all w-fit">
-              /api/external/v1/data
+              /api/external/v1/data?resource=miqaats&year=1448H
             </p>
             <p className="text-xs text-muted-foreground font-medium pt-1">
-              Include the API key in the header as: <code className="text-foreground font-bold">x-api-key: your_api_key</code>
+              Supports resources: <code className="text-foreground font-bold">resource=members|miqaats|forms|mohallahs|teams</code> and year filters: <code className="text-foreground font-bold">year=1447H</code>. Include API key in header as: <code className="text-foreground font-bold">x-api-key: your_api_key</code>
             </p>
           </div>
           <a 
@@ -683,6 +724,123 @@ export default function ApiManagementPage() {
               </div>
             </div>
 
+            {/* Query Builder Section */}
+            <div className="border border-border/60 bg-muted/20 p-4 rounded-2xl space-y-3">
+              <span className="text-xs font-black text-foreground block">Query Parameter Builder</span>
+              <div className="grid grid-cols-2 gap-3 text-[11px]">
+                <div className="space-y-1">
+                  <label className="font-bold text-muted-foreground">Resource</label>
+                  <select
+                    value={testResource}
+                    onChange={(e) => {
+                      setTestResource(e.target.value);
+                      // Clear other fields to keep clean builder state
+                      setTestItsId("");
+                      setTestMiqaatId("");
+                      setTestFormId("");
+                      setTestStatusFilter("all");
+                      setTestTypeFilter("all");
+                      setTestTeamFilter("all");
+                    }}
+                    className="flex h-9 w-full rounded-xl border border-input bg-background px-3 py-1 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="all">All Resources (Default)</option>
+                    <option value="members">Members</option>
+                    <option value="miqaats">Miqaats</option>
+                    <option value="forms">Forms</option>
+                    <option value="mohallahs">Mohallahs</option>
+                    <option value="teams">Teams</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-muted-foreground">Hijri Year</label>
+                  <Input
+                    placeholder="e.g. 1448H"
+                    value={testYear}
+                    onChange={(e) => setTestYear(e.target.value)}
+                    className="h-9 rounded-xl text-xs"
+                  />
+                </div>
+
+                {/* Conditional Fields based on Resource */}
+                {(testResource === "members" || testResource === "all") && (
+                  <>
+                    <div className="space-y-1">
+                      <label className="font-bold text-muted-foreground">ITS ID</label>
+                      <Input
+                        placeholder="e.g. 5044..."
+                        value={testItsId}
+                        onChange={(e) => setTestItsId(e.target.value)}
+                        className="h-9 rounded-xl text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-muted-foreground">Team</label>
+                      <Input
+                        placeholder="e.g. Team A"
+                        value={testTeamFilter}
+                        onChange={(e) => setTestTeamFilter(e.target.value)}
+                        className="h-9 rounded-xl text-xs"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {(testResource === "miqaats" || testResource === "all") && (
+                  <>
+                    <div className="space-y-1">
+                      <label className="font-bold text-muted-foreground">Miqaat ID</label>
+                      <Input
+                        placeholder="e.g. miqaat_doc_id"
+                        value={testMiqaatId}
+                        onChange={(e) => setTestMiqaatId(e.target.value)}
+                        className="h-9 rounded-xl text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-muted-foreground">Miqaat Type</label>
+                      <select
+                        value={testTypeFilter}
+                        onChange={(e) => setTestTypeFilter(e.target.value)}
+                        className="flex h-9 w-full rounded-xl border border-input bg-background px-3 py-1 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      >
+                        <option value="all">All Types</option>
+                        <option value="local">Local</option>
+                        <option value="international">International</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {(testResource === "forms" || testResource === "all") && (
+                  <>
+                    <div className="space-y-1">
+                      <label className="font-bold text-muted-foreground">Form ID</label>
+                      <Input
+                        placeholder="e.g. form_doc_id"
+                        value={testFormId}
+                        onChange={(e) => setTestFormId(e.target.value)}
+                        className="h-9 rounded-xl text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="font-bold text-muted-foreground">Form Status</label>
+                      <select
+                        value={testStatusFilter}
+                        onChange={(e) => setTestStatusFilter(e.target.value)}
+                        className="flex h-9 w-full rounded-xl border border-input bg-background px-3 py-1 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="open">Open</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-1.5 flex-grow flex flex-col mt-2">
               <div className="flex justify-between items-center text-xs font-bold text-muted-foreground">
                 <span>Response Console</span>
@@ -747,12 +905,12 @@ export default function ApiManagementPage() {
                   <pre className="whitespace-pre">
 {`curl -X GET \\
   -H "x-api-key: ${testApiKey || 'YOUR_API_KEY'}" \\
-  "${origin}/api/external/v1/data"`}
+  "${testUrlWithParams}"`}
                   </pre>
                 )}
                 {activeCodeLanguage === 'js' && (
                   <pre className="whitespace-pre">
-{`fetch("${origin}/api/external/v1/data", {
+{`fetch("${testUrlWithParams}", {
   method: "GET",
   headers: {
     "x-api-key": "${testApiKey || 'YOUR_API_KEY'}"
@@ -767,7 +925,7 @@ export default function ApiManagementPage() {
                   <pre className="whitespace-pre">
 {`import requests
 
-url = "${origin}/api/external/v1/data"
+url = "${testUrlWithParams}"
 headers = {
     "x-api-key": "${testApiKey || 'YOUR_API_KEY'}"
 }
@@ -786,8 +944,8 @@ except requests.exceptions.RequestException as e:
 {`import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-Future<void> fetchMiqaats() async {
-  final url = Uri.parse('${origin}/api/external/v1/data');
+Future<void> fetchData() async {
+  final url = Uri.parse('${testUrlWithParams}');
   try {
     final response = await http.get(
       url,
@@ -798,7 +956,7 @@ Future<void> fetchMiqaats() async {
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      print('Retrieved miqaats successfully: \${data["data"]["miqaats"].length}');
+      print('Retrieved data successfully');
     } else {
       print('Request failed: \${response.statusCode} - \${response.body}');
     }
@@ -819,13 +977,13 @@ Future<void> fetchMiqaats() async {
                   onClick={() => {
                     let codeText = "";
                     if (activeCodeLanguage === 'curl') {
-                      codeText = `curl -X GET \\\n  -H "x-api-key: ${testApiKey || 'YOUR_API_KEY'}" \\\n  "${origin}/api/external/v1/data"`;
+                      codeText = `curl -X GET \\\n  -H "x-api-key: ${testApiKey || 'YOUR_API_KEY'}" \\\n  "${testUrlWithParams}"`;
                     } else if (activeCodeLanguage === 'js') {
-                      codeText = `fetch("${origin}/api/external/v1/data", {\n  method: "GET",\n  headers: {\n    "x-api-key": "${testApiKey || 'YOUR_API_KEY'}"\n  }\n})\n.then(res => res.json())\n.then(data => console.log(data))\n.catch(err => console.error("Error:", err));`;
+                      codeText = `fetch("${testUrlWithParams}", {\n  method: "GET",\n  headers: {\n    "x-api-key": "${testApiKey || 'YOUR_API_KEY'}"\n  }\n})\n.then(res => res.json())\n.then(data => console.log(data))\n.catch(err => console.error("Error:", err));`;
                     } else if (activeCodeLanguage === 'python') {
-                      codeText = `import requests\n\nurl = "${origin}/api/external/v1/data"\nheaders = {\n    "x-api-key": "${testApiKey || 'YOUR_API_KEY'}"\n}\n\ntry:\n    response = requests.get(url, headers=headers)\n    response.raise_for_status()\n    data = response.json()\n    print(data)\nexcept requests.exceptions.RequestException as e:\n    print(f"API Request failed: {e}")`;
+                      codeText = `import requests\n\nurl = "${testUrlWithParams}"\nheaders = {\n    "x-api-key": "${testApiKey || 'YOUR_API_KEY'}"\n}\n\ntry:\n    response = requests.get(url, headers=headers)\n    response.raise_for_status()\n    data = response.json()\n    print(data)\nexcept requests.exceptions.RequestException as e:\n    print(f"API Request failed: {e}")`;
                     } else if (activeCodeLanguage === 'dart') {
-                      codeText = `import 'package:http/http.dart' as http;\nimport 'dart:convert';\n\nFuture<void> fetchMiqaats() async {\n  final url = Uri.parse('${origin}/api/external/v1/data');\n  try {\n    final response = await http.get(\n      url,\n      headers: {\n        'x-api-key': '${testApiKey || 'YOUR_API_KEY'}',\n      },\n    );\n\n    if (response.statusCode == 200) {\n      final data = json.decode(response.body);\n      print('Retrieved miqaats successfully: \\\${data["data"]["miqaats"].length}');\n    } else {\n      print('Request failed: \\\${response.statusCode} - \\\${response.body}');\n    }\n  } catch (e) {\n    print('Failed to request API: \\$e');\n  }\n}`;
+                      codeText = `import 'package:http/http.dart' as http;\nimport 'dart:convert';\n\nFuture<void> fetchData() async {\n  final url = Uri.parse('${testUrlWithParams}');\n  try {\n    final response = await http.get(\n      url,\n      headers: {\n        'x-api-key': '${testApiKey || 'YOUR_API_KEY'}',\n      },\n    );\n\n    if (response.statusCode == 200) {\n      final data = json.decode(response.body);\n      print('Retrieved data successfully');\n    } else {\n      print('Request failed: \\\${response.statusCode} - \\\${response.body}');\n    }\n  } catch (e) {\n    print('Failed to request API: \\$e');\n  }\n}`;
                     }
                     handleCopyToClipboard(codeText, "code_snippet");
                   }}
