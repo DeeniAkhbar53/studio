@@ -2287,13 +2287,13 @@ export default function DashboardOverviewPage() {
           setLiveTeamFilter(null);
         }
       }}>
-        <DialogContent className="p-0 gap-0 sm:max-w-xl max-h-[85vh] flex flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-2xl backdrop-blur-xl relative [&>button]:hidden">
+        <DialogContent className="p-0 gap-0 w-[calc(100%-1.5rem)] sm:max-w-xl max-h-[85vh] flex flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-2xl backdrop-blur-xl relative [&>button]:hidden">
           
           {/* Pulsing top red strip to indicate "Live" status */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-rose-400 to-red-600 animate-pulse z-10" />
 
           {/* Header */}
-          <div className="relative px-6 pt-7 pb-5 border-b border-border shrink-0 bg-muted/10">
+          <div className="relative px-4 py-5 sm:px-6 sm:pt-7 sm:pb-5 border-b border-border shrink-0 bg-muted/10">
             <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -2309,7 +2309,7 @@ export default function DashboardOverviewPage() {
                     </span>
                   )}
                 </div>
-                <h2 className="text-xl font-black text-foreground tracking-tight">
+                <h2 className="text-lg sm:text-xl font-black text-foreground tracking-tight">
                   {liveDetailFilter === 'all' ? 'All Eligible Members' :
                    liveDetailFilter === 'present' ? 'Present Members' :
                    liveDetailFilter === 'safar' ? 'Safar Members' : 'Remaining (Absent)'}
@@ -2325,12 +2325,12 @@ export default function DashboardOverviewPage() {
 
             {/* Search Box */}
             <div className="relative mt-4">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
               <Input
                 placeholder="Search name, ITS, or BGK ID..."
                 value={liveSearchQuery}
                 onChange={(e) => setLiveSearchQuery(e.target.value)}
-                className="w-full bg-background border-border hover:border-border/80 focus:border-primary/30 pl-10 pr-9 text-sm text-foreground placeholder:text-muted-foreground rounded-2xl h-10 transition-all focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary/50"
+                className="w-full bg-background border-border hover:border-border/80 focus:border-primary/30 pl-9 pr-8 sm:pl-10 sm:pr-9 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground rounded-2xl h-9 sm:h-10 transition-all focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary/50"
               />
               {liveSearchQuery && (
                 <button onClick={() => setLiveSearchQuery("")}
@@ -2343,7 +2343,7 @@ export default function DashboardOverviewPage() {
 
           {/* Filter Tabs (Segmented Control style) */}
           {liveStats && (
-            <div className="px-6 py-3 border-b border-border shrink-0 bg-muted/10">
+            <div className="px-4 py-2.5 sm:px-6 sm:py-3 border-b border-border shrink-0 bg-muted/10">
               <div className="bg-muted/65 p-1 rounded-2xl flex gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
                 {([
                   { key: 'all' as const, label: 'All', count: liveStats.total },
@@ -2355,15 +2355,15 @@ export default function DashboardOverviewPage() {
                     key={key}
                     onClick={() => setLiveDetailFilter(key)}
                     className={cn(
-                      "flex-1 shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-all duration-300",
+                      "flex-1 flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-[10px] sm:text-xs transition-all duration-300 min-w-0",
                       liveDetailFilter === key
                         ? "bg-background text-foreground shadow-sm font-black scale-[1.01]"
                         : "text-muted-foreground hover:text-foreground font-semibold"
                     )}
                   >
-                    <span>{label}</span>
+                    <span className="truncate">{label}</span>
                     <span className={cn(
-                      "px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none",
+                      "px-1 py-0.5 rounded-full text-[9px] font-black leading-none shrink-0",
                       liveDetailFilter === key ? "bg-muted text-foreground" : "bg-foreground/5 text-muted-foreground/80"
                     )}>
                       {count}
@@ -2375,7 +2375,7 @@ export default function DashboardOverviewPage() {
           )}
 
           {/* List */}
-          <div className="overflow-y-auto flex-1 px-5 py-4 min-h-[300px] bg-muted/5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
+          <div className="overflow-y-auto flex-1 px-4 py-3 sm:px-5 sm:py-4 min-h-[300px] bg-muted/5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
             {liveStats && (() => {
               // Filter by type
               let list = liveDetailFilter === 'all'
@@ -2424,9 +2424,9 @@ export default function DashboardOverviewPage() {
                     const status = getStatus(m);
                     const initials = m.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
                     return (
-                      <li key={m.id} className="flex items-center gap-4 p-3.5 rounded-3xl border border-border bg-card hover:bg-muted/40 transition-all duration-200 shadow-sm hover:shadow-md">
+                      <li key={m.id} className="flex items-center gap-2.5 sm:gap-4 p-2.5 sm:p-3.5 rounded-3xl border border-border bg-card hover:bg-muted/40 transition-all duration-200 shadow-sm hover:shadow-md">
                         <div className={cn(
-                          "shrink-0 h-11 w-11 rounded-2xl flex items-center justify-center text-xs font-black relative overflow-hidden",
+                          "shrink-0 h-9 w-9 sm:h-11 sm:w-11 text-[10px] sm:text-xs rounded-2xl flex items-center justify-center font-black relative overflow-hidden",
                           status === 'present'
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-950"
                             : status === 'safar'
@@ -2436,14 +2436,14 @@ export default function DashboardOverviewPage() {
                           {initials || '?'}
                           {/* status small dot at bottom right */}
                           <span className={cn(
-                            "absolute bottom-0 right-0 h-2.5 w-2.5 border-2 border-background rounded-full",
+                            "absolute bottom-0 right-0 h-2 w-2 sm:h-2.5 sm:w-2.5 border border-background sm:border-2 rounded-full",
                             status === 'present' ? "bg-emerald-500" : status === 'safar' ? "bg-sky-500" : "bg-rose-500"
                           )} />
                         </div>
                         
                         <div className="flex-grow min-w-0">
-                          <p className="font-extrabold text-sm text-foreground truncate">{m.name}</p>
-                          <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground mt-1 font-medium">
+                          <p className="font-extrabold text-xs sm:text-sm text-foreground truncate">{m.name}</p>
+                          <div className="flex flex-wrap items-center gap-x-1.5 sm:gap-x-2 text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 sm:mt-1 font-medium">
                             <span>ITS: <strong className="font-mono text-foreground/75 font-semibold">{m.itsId}</strong></span>
                             {m.bgkId && (
                               <>
@@ -2454,14 +2454,14 @@ export default function DashboardOverviewPage() {
                             {m.team && (
                               <>
                                 <span className="text-muted-foreground/35">•</span>
-                                <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[9px] uppercase tracking-wide truncate max-w-[150px]">{m.team}</span>
+                                <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[8px] sm:text-[9px] uppercase tracking-wide truncate max-w-[90px] sm:max-w-[150px]">{m.team}</span>
                               </>
                             )}
                           </div>
                         </div>
                         
                         <span className={cn(
-                          "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-[9px] font-black uppercase tracking-widest border shadow-sm",
+                          "shrink-0 flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-2xl text-[8px] sm:text-[9px] font-black uppercase tracking-wider sm:tracking-widest border shadow-sm",
                           status === 'present'
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-950"
                             : status === 'safar'
