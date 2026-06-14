@@ -4,7 +4,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -194,41 +194,96 @@ export default function MiqaatManagementPage() {
     }
   };
 
-  const handleSendLeaderEmails = async (miqaatId: string, miqaatName: string, isExpired: boolean) => {
-    const confirmMessage = isExpired
-      ? `Are you sure you want to send team absentee reports to all Group Leaders and Assistant Group Leaders for "${miqaatName}"?`
-      : `This event is still active. Are you sure you want to send team absentee reports to all Group Leaders and Assistant Group Leaders for "${miqaatName}"?`;
+  // States for selecting email recipients
+  const [isLeaderEmailDialogOpen, setIsLeaderEmailDialogOpen] = useState(false);
+  const [selectedLeaderMiqaat, setSelectedLeaderMiqaat] = useState<{ id: string; name: string; isExpired: boolean } | null>(null);
+  const [leadersList, setLeadersList] = useState<any[]>([]);
+  const [isLoadingLeaders, setIsLoadingLeaders] = useState(false);
+  const [selectedLeaderItsIds, setSelectedLeaderItsIds] = useState<string[]>([]);
+  const [isSendingSelectedEmails, setIsSendingSelectedEmails] = useState(false);
 
-    if (confirm(confirmMessage)) {
-      setIsSendingLeaderEmails(prev => ({ ...prev, [miqaatId]: true }));
-      try {
-        const res = await fetch("/api/miqaat/send-leader-absentee-emails", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ miqaatId, adminMohallahId: currentUserMohallahId, force: !isExpired }),
-        });
-        const result = await res.json();
-        if (res.ok) {
-          toast({
-            title: "Leader Reports Sent",
-            description: `Successfully sent ${result.reportsSent} team absentee reports.`,
-          });
-        } else {
-          toast({
-            title: "Failed to Send Reports",
-            description: result.error || "An error occurred.",
-            variant: "destructive",
-          });
-        }
-      } catch (err) {
+  const openLeaderEmailDialog = async (miqaatId: string, miqaatName: string, isExpired: boolean) => {
+    setSelectedLeaderMiqaat({ id: miqaatId, name: miqaatName, isExpired });
+    setIsLeaderEmailDialogOpen(true);
+    setIsLoadingLeaders(true);
+    setLeadersList([]);
+    setSelectedLeaderItsIds([]);
+
+    try {
+      const res = await fetch("/api/miqaat/send-leader-absentee-emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ miqaatId, adminMohallahId: currentUserMohallahId, getRecipientsOnly: true }),
+      });
+      const result = await res.json();
+      if (res.ok && Array.isArray(result.recipients)) {
+        setLeadersList(result.recipients);
+        setSelectedLeaderItsIds(result.recipients.map((r: any) => r.itsId));
+      } else {
         toast({
-          title: "Error",
-          description: "An unexpected error occurred while sending reports.",
+          title: "Failed to load leaders",
+          description: result.error || "An error occurred while loading eligible recipients.",
           variant: "destructive",
         });
-      } finally {
-        setIsSendingLeaderEmails(prev => ({ ...prev, [miqaatId]: false }));
+        setIsLeaderEmailDialogOpen(false);
       }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Could not fetch eligible recipients.",
+        variant: "destructive",
+      });
+      setIsLeaderEmailDialogOpen(false);
+    } finally {
+      setIsLoadingLeaders(false);
+    }
+  };
+
+  const handleSendSelectedLeaderEmails = async () => {
+    if (!selectedLeaderMiqaat) return;
+    if (selectedLeaderItsIds.length === 0) {
+      toast({
+        title: "No Recipients Selected",
+        description: "Please select at least one recipient to send the report.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSendingSelectedEmails(true);
+    try {
+      const res = await fetch("/api/miqaat/send-leader-absentee-emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          miqaatId: selectedLeaderMiqaat.id,
+          adminMohallahId: currentUserMohallahId,
+          force: !selectedLeaderMiqaat.isExpired,
+          targetItsIds: selectedLeaderItsIds,
+        }),
+      });
+      const result = await res.json();
+      if (res.ok) {
+        toast({
+          title: "Leader Reports Sent",
+          description: `Successfully sent ${result.reportsSent} team absentee report(s).`,
+        });
+        setIsLeaderEmailDialogOpen(false);
+      } else {
+        toast({
+          title: "Failed to Send Reports",
+          description: result.error || "An error occurred.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while sending reports.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingSelectedEmails(false);
     }
   };
 
@@ -1130,19 +1185,19 @@ export default function MiqaatManagementPage() {
                                     Email Absentees
                                 </Button>
                                 <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    onClick={() => handleSendLeaderEmails(miqaat.id, miqaat.name, isExpired)}
-                                    disabled={isSendingLeaderEmails[miqaat.id]}
-                                    className="w-full sm:w-auto text-xs justify-center"
-                                >
-                                    {isSendingLeaderEmails[miqaat.id] ? (
-                                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin"/>
-                                    ) : (
-                                        <Mail className="mr-2 h-3.5 w-3.5"/>
-                                    )}
-                                    Email Team Leaders
-                                </Button>
+                                     variant="outline" 
+                                     size="sm" 
+                                     onClick={() => openLeaderEmailDialog(miqaat.id, miqaat.name, isExpired)}
+                                     disabled={isLoadingLeaders && selectedLeaderMiqaat?.id === miqaat.id}
+                                     className="w-full sm:w-auto text-xs justify-center"
+                                 >
+                                     {isLoadingLeaders && selectedLeaderMiqaat?.id === miqaat.id ? (
+                                         <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin"/>
+                                     ) : (
+                                         <Mail className="mr-2 h-3.5 w-3.5"/>
+                                     )}
+                                     Email Team Leaders
+                                 </Button>
                               </div>
                             )}
                             <div className="flex flex-wrap items-center justify-end gap-2 px-4 pb-2">
@@ -1292,12 +1347,12 @@ export default function MiqaatManagementPage() {
                                                              {isSendingEmails[miqaat.id] ? "Sending..." : "Email Absentees"}
                                                          </DropdownMenuItem>
                                                          <DropdownMenuItem 
-                                                             onSelect={() => handleSendLeaderEmails(miqaat.id, miqaat.name, new Date(miqaat.endTime) < new Date())}
-                                                             disabled={isSendingLeaderEmails[miqaat.id]}
-                                                         >
-                                                             <Mail className="mr-2 h-4 w-4" /> 
-                                                             {isSendingLeaderEmails[miqaat.id] ? "Sending..." : "Email Team Leaders"}
-                                                         </DropdownMenuItem>
+                                                              onSelect={() => openLeaderEmailDialog(miqaat.id, miqaat.name, new Date(miqaat.endTime) < new Date())}
+                                                              disabled={isLoadingLeaders && selectedLeaderMiqaat?.id === miqaat.id}
+                                                          >
+                                                              <Mail className="mr-2 h-4 w-4" /> 
+                                                              {isLoadingLeaders && selectedLeaderMiqaat?.id === miqaat.id ? "Loading..." : "Email Team Leaders"}
+                                                          </DropdownMenuItem>
                                                     <DropdownMenuItem onSelect={() => handleDuplicate(miqaat as Miqaat)}>
                                                         <Copy className="mr-2 h-4 w-4" /> Duplicate
                                                     </DropdownMenuItem>
@@ -1390,6 +1445,126 @@ export default function MiqaatManagementPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ========== EMAIL LEADERS CONFIRMATION DIALOG (PREMIUM) ========== */}
+      <Dialog open={isLeaderEmailDialogOpen} onOpenChange={setIsLeaderEmailDialogOpen}>
+        <DialogContent className="p-0 gap-0 w-[calc(100%-1.5rem)] sm:max-w-lg max-h-[85vh] flex flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-2xl backdrop-blur-xl [&>button]:hidden">
+          {/* Pulsing top red strip */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-rose-400 to-red-600 animate-pulse z-10" />
+
+          {/* Header */}
+          <div className="relative px-4 py-5 sm:px-6 sm:pt-7 sm:pb-5 border-b border-border shrink-0 bg-muted/10">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <DialogTitle className="text-lg sm:text-xl font-black text-foreground tracking-tight">
+                  Email Leaders - Recipient Selection
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-1 flex flex-col gap-1 font-medium">
+                  <span>Select which leaders you want to receive reports for:</span>
+                  <strong className="text-foreground">{selectedLeaderMiqaat?.name}</strong>
+                </DialogDescription>
+              </div>
+              <DialogClose className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all duration-200">
+                <X className="h-4 w-4" />
+              </DialogClose>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="overflow-y-auto flex-1 px-4 py-3 sm:px-6 sm:py-4 bg-muted/5 min-h-[200px] max-h-[50vh] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
+            {isLoadingLeaders ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                <p className="text-xs text-muted-foreground font-semibold">Loading eligible recipients...</p>
+              </div>
+            ) : leadersList.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-sm text-muted-foreground font-semibold">No eligible leaders found for this Mohallah/Miqaat.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Select All bar */}
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="text-xs font-bold text-muted-foreground">Recipients ({selectedLeaderItsIds.length} of {leadersList.length})</span>
+                  <button
+                    onClick={() => {
+                      if (selectedLeaderItsIds.length === leadersList.length) {
+                        setSelectedLeaderItsIds([]);
+                      } else {
+                        setSelectedLeaderItsIds(leadersList.map(l => l.itsId));
+                      }
+                    }}
+                    className="text-xs font-black text-primary hover:underline"
+                  >
+                    {selectedLeaderItsIds.length === leadersList.length ? "Deselect All" : "Select All"}
+                  </button>
+                </div>
+
+                <ul className="space-y-2.5">
+                  {leadersList.map((leader) => {
+                    const isSelected = selectedLeaderItsIds.includes(leader.itsId);
+                    const subtitle = leader.designation 
+                      ? `${leader.designation} ${leader.team ? `- ${leader.team}` : ''}`
+                      : leader.role;
+                    return (
+                      <li
+                        key={leader.itsId}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedLeaderItsIds(prev => prev.filter(id => id !== leader.itsId));
+                          } else {
+                            setSelectedLeaderItsIds(prev => [...prev, leader.itsId]);
+                          }
+                        }}
+                        className={cn(
+                          "flex items-center gap-3 p-3 rounded-2xl border border-border bg-card hover:bg-muted/40 transition-all duration-200 cursor-pointer shadow-sm",
+                          isSelected && "border-primary/30 bg-primary/5"
+                        )}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedLeaderItsIds(prev => [...prev, leader.itsId]);
+                            } else {
+                              setSelectedLeaderItsIds(prev => prev.filter(id => id !== leader.itsId));
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="flex-grow min-w-0">
+                          <p className="font-bold text-xs sm:text-sm text-foreground truncate">{leader.name}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 font-medium truncate">
+                            {subtitle} <span className="text-muted-foreground/35">•</span> <span className="font-mono">{leader.email}</span>
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="px-4 py-4 sm:px-6 border-t border-border shrink-0 bg-muted/10 flex items-center justify-end gap-3">
+            <DialogClose asChild>
+              <Button type="button" variant="outline" size="sm" className="rounded-xl">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              onClick={handleSendSelectedLeaderEmails}
+              disabled={isLoadingLeaders || selectedLeaderItsIds.length === 0 || isSendingSelectedEmails}
+              size="sm"
+              className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
+            >
+              {isSendingSelectedEmails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Send Emails ({selectedLeaderItsIds.length})
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

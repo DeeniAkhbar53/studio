@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 
 export async function POST(req: NextRequest) {
   try {
-    const { miqaatId, adminMohallahId, force } = await req.json();
+    const { miqaatId, adminMohallahId, force, getRecipientsOnly, targetItsIds } = await req.json();
 
     if (!miqaatId) {
       return NextResponse.json({ error: 'Missing miqaatId.' }, { status: 400 });
@@ -105,13 +105,36 @@ export async function POST(req: NextRequest) {
       return isGL || isVC || isCaptOrAdmin;
     });
 
+    if (getRecipientsOnly) {
+      return NextResponse.json({
+        success: true,
+        recipients: leaders.map(l => ({
+          itsId: l.itsId,
+          name: l.name,
+          email: l.email,
+          designation: l.designation,
+          role: l.role,
+          team: l.team,
+          managedTeams: l.managedTeams,
+          mohallahId: l.mohallahId,
+          mohallahName: mohallahNamesMap.get(l.mohallahId || '') || 'Unknown Mohallah'
+        }))
+      });
+    }
+
+    let targetLeaders = leaders;
+    if (Array.isArray(targetItsIds) && targetItsIds.length > 0) {
+      const targetSet = new Set(targetItsIds);
+      targetLeaders = leaders.filter(l => targetSet.has(l.itsId));
+    }
+
     // 8. Route emails based on leader scope
     let reportsSent = 0;
     const errors: string[] = [];
     const formattedDate = format(new Date(miqaatData.startTime), "PP");
 
     await Promise.all(
-      leaders.map(async (leader) => {
+      targetLeaders.map(async (leader) => {
         try {
           const leaderMohallahName = mohallahNamesMap.get(leader.mohallahId || '') || 'Unknown Mohallah';
           const isGL = leader.designation === 'Group Leader' || leader.designation === 'Asst.Grp Leader';
@@ -211,7 +234,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      totalLeadersChecked: leaders.length,
+      totalLeadersChecked: targetLeaders.length,
       reportsSent,
       errorsCount: errors.length,
       errors: errors.length > 0 ? errors.slice(0, 10) : undefined
