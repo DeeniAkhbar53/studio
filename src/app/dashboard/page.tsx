@@ -2309,14 +2309,14 @@ export default function DashboardOverviewPage() {
                     </span>
                   )}
                 </div>
-                <h2 className="text-lg sm:text-xl font-black text-foreground tracking-tight">
+                <DialogTitle className="text-lg sm:text-xl font-black text-foreground tracking-tight">
                   {liveDetailFilter === 'all' ? 'All Eligible Members' :
                    liveDetailFilter === 'present' ? 'Present Members' :
                    liveDetailFilter === 'safar' ? 'Safar Members' : 'Remaining (Absent)'}
-                </h2>
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 font-medium">
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 font-medium">
                   <span>{liveMiqaat?.name}</span>
-                </p>
+                </DialogDescription>
               </div>
               <DialogClose className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all duration-200">
                 <X className="h-4 w-4" />
