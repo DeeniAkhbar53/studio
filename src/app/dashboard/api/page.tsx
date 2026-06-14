@@ -21,7 +21,10 @@ import {
   Power, 
   ExternalLink,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Terminal,
+  Play,
+  Code2
 } from "lucide-react";
 import { 
   getApiKeys, 
@@ -59,6 +62,90 @@ export default function ApiManagementPage() {
   // Display generated key dialog
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
+
+  // API testing state
+  const [testApiKey, setTestApiKey] = useState("");
+  const [testResponse, setTestResponse] = useState<any | null>(null);
+  const [testStatus, setTestStatus] = useState<number | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+  const [activeCodeLanguage, setActiveCodeLanguage] = useState<'curl' | 'js' | 'python' | 'dart'>('curl');
+  const [origin, setOrigin] = useState("http://localhost:9002");
+
+  // Load window origin
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOrigin(window.location.origin);
+    }
+  }, []);
+
+  // Pre-fill test key when keys are loaded
+  useEffect(() => {
+    if (apiKeys.length > 0 && !testApiKey) {
+      const activeKey = apiKeys.find(k => k.status === 'active');
+      if (activeKey) {
+        setTestApiKey(activeKey.key);
+      }
+    }
+  }, [apiKeys, testApiKey]);
+
+  // Execute test request
+  const handleTestRequest = async () => {
+    if (!testApiKey.trim()) {
+      toast({
+        title: "Test Error",
+        description: "Please enter or select an API key to test.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsTesting(true);
+    setTestResponse(null);
+    setTestStatus(null);
+
+    try {
+      const res = await fetch("/api/external/v1/data", {
+        method: "GET",
+        headers: {
+          "x-api-key": testApiKey.trim()
+        }
+      });
+      
+      const status = res.status;
+      setTestStatus(status);
+      
+      let data;
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = { error: "Failed to parse JSON response from server." };
+      }
+      
+      setTestResponse(data);
+      if (res.ok) {
+        toast({
+          title: "API Request Successful",
+          description: `HTTP ${status}: Retrieved ${data.data?.miqaats?.length || 0} miqaats.`
+        });
+      } else {
+        toast({
+          title: "API Request Failed",
+          description: `HTTP ${status}: ${data.error || "Request failed."}`,
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      setTestStatus(500);
+      setTestResponse({ error: "Network request failed.", message: err.message || err });
+      toast({
+        title: "Network Error",
+        description: "Failed to connect to the API server.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
   // 1. Check role authorization (Only superadmin)
   useEffect(() => {
@@ -499,6 +586,217 @@ export default function ApiManagementPage() {
           </CardFooter>
         )}
       </Card>
+
+      {/* ========== API TESTING AND CODE INTEGRATION CONSOLE ========== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* API Testing Console Card */}
+        <Card className="rounded-3xl border border-border/70 bg-card shadow-sm overflow-hidden flex flex-col">
+          <CardHeader className="border-b border-border/40 pb-5">
+            <CardTitle className="text-lg font-black text-foreground flex items-center gap-2">
+              <Terminal className="h-5 w-5 text-primary" /> API Interactive Tester
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Test queries directly in the browser. Select or type an active API Key and trigger a test GET request.
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent className="p-6 space-y-4 flex-grow flex flex-col justify-between">
+            <div className="space-y-2">
+              <label htmlFor="test-key-input" className="text-xs font-bold text-muted-foreground flex justify-between">
+                <span>Select / Paste API Key to Test</span>
+                {apiKeys.length > 0 && (
+                  <span className="text-primary hover:underline cursor-pointer text-[10px]" onClick={() => {
+                    const firstActive = apiKeys.find(k => k.status === 'active');
+                    if (firstActive) setTestApiKey(firstActive.key);
+                  }}>
+                    Use First Active Key
+                  </span>
+                )}
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  id="test-key-input"
+                  placeholder="bgk_live_..."
+                  value={testApiKey}
+                  onChange={(e) => setTestApiKey(e.target.value)}
+                  className="font-mono text-xs rounded-xl h-10"
+                />
+                <Button 
+                  onClick={handleTestRequest}
+                  disabled={isTesting || !testApiKey}
+                  className="rounded-xl font-bold gap-1.5 h-10 shrink-0 px-4"
+                >
+                  {isTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                  Send Request
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 flex-grow flex flex-col mt-2">
+              <div className="flex justify-between items-center text-xs font-bold text-muted-foreground">
+                <span>Response Console</span>
+                {testStatus && (
+                  <Badge 
+                    variant={testStatus >= 200 && testStatus < 300 ? "default" : "destructive"} 
+                    className="font-mono"
+                  >
+                    Status: {testStatus}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex-grow min-h-[200px] max-h-[350px] overflow-y-auto bg-zinc-950 rounded-2xl border p-4 text-[11px] font-mono text-zinc-350 select-all font-semibold mt-1">
+                {testResponse ? (
+                  <pre className="whitespace-pre-wrap text-emerald-400">
+                    {JSON.stringify(testResponse, null, 2)}
+                  </pre>
+                ) : (
+                  <span className="text-zinc-500 italic block text-center py-16">
+                    Click "Send Request" above to view response payload.
+                  </span>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Developer Integration Code Snippets Card */}
+        <Card className="rounded-3xl border border-border/70 bg-card shadow-sm overflow-hidden flex flex-col">
+          <CardHeader className="border-b border-border/40 pb-5">
+            <CardTitle className="text-lg font-black text-foreground flex items-center gap-2">
+              <Code2 className="h-5 w-5 text-primary" /> Integration Code Snippets
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Copy these copy-pasteable snippets and share them with developers to configure data synchronization.
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="p-0 flex flex-col flex-grow">
+            {/* Lang Tabs */}
+            <div className="flex bg-muted/30 border-b border-border/40 p-1 shrink-0">
+              {(['curl', 'js', 'python', 'dart'] as const).map((lang) => (
+                <button
+                  type="button"
+                  key={lang}
+                  onClick={() => setActiveCodeLanguage(lang)}
+                  className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all capitalize ${
+                    activeCodeLanguage === lang 
+                      ? 'bg-background text-foreground shadow-sm font-black' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {lang === 'js' ? 'JavaScript' : lang === 'dart' ? 'Dart (Flutter)' : lang}
+                </button>
+              ))}
+            </div>
+
+            {/* Code Block Container */}
+            <div className="p-6 flex-grow flex flex-col min-h-[250px] relative justify-between">
+              <div className="overflow-x-auto bg-zinc-950 rounded-2xl border p-4 text-[11px] font-mono text-emerald-400 select-all font-semibold max-h-[300px] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25">
+                {activeCodeLanguage === 'curl' && (
+                  <pre className="whitespace-pre">
+{`curl -X GET \\
+  -H "x-api-key: ${testApiKey || 'YOUR_API_KEY'}" \\
+  "${origin}/api/external/v1/data"`}
+                  </pre>
+                )}
+                {activeCodeLanguage === 'js' && (
+                  <pre className="whitespace-pre">
+{`fetch("${origin}/api/external/v1/data", {
+  method: "GET",
+  headers: {
+    "x-api-key": "${testApiKey || 'YOUR_API_KEY'}"
+  }
+})
+.then(res => res.json())
+.then(data => console.log(data))
+.catch(err => console.error("Error:", err));`}
+                  </pre>
+                )}
+                {activeCodeLanguage === 'python' && (
+                  <pre className="whitespace-pre">
+{`import requests
+
+url = "${origin}/api/external/v1/data"
+headers = {
+    "x-api-key": "${testApiKey || 'YOUR_API_KEY'}"
+}
+
+try:
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    data = response.json()
+    print(data)
+except requests.exceptions.RequestException as e:
+    print(f"API Request failed: {e}")`}
+                  </pre>
+                )}
+                {activeCodeLanguage === 'dart' && (
+                  <pre className="whitespace-pre">
+{`import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+Future<void> fetchMiqaats() async {
+  final url = Uri.parse('${origin}/api/external/v1/data');
+  try {
+    final response = await http.get(
+      url,
+      headers: {
+        'x-api-key': '${testApiKey || 'YOUR_API_KEY'}',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      print('Retrieved miqaats successfully: \${data["data"]["miqaats"].length}');
+    } else {
+      print('Request failed: \${response.statusCode} - \${response.body}');
+    }
+  } catch (e) {
+    print('Failed to request API: \$e');
+  }
+}`}
+                  </pre>
+                )}
+              </div>
+
+              {/* Copy Code Button */}
+              <div className="mt-4 flex justify-end shrink-0">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    let codeText = "";
+                    if (activeCodeLanguage === 'curl') {
+                      codeText = `curl -X GET \\\n  -H "x-api-key: ${testApiKey || 'YOUR_API_KEY'}" \\\n  "${origin}/api/external/v1/data"`;
+                    } else if (activeCodeLanguage === 'js') {
+                      codeText = `fetch("${origin}/api/external/v1/data", {\n  method: "GET",\n  headers: {\n    "x-api-key": "${testApiKey || 'YOUR_API_KEY'}"\n  }\n})\n.then(res => res.json())\n.then(data => console.log(data))\n.catch(err => console.error("Error:", err));`;
+                    } else if (activeCodeLanguage === 'python') {
+                      codeText = `import requests\n\nurl = "${origin}/api/external/v1/data"\nheaders = {\n    "x-api-key": "${testApiKey || 'YOUR_API_KEY'}"\n}\n\ntry:\n    response = requests.get(url, headers=headers)\n    response.raise_for_status()\n    data = response.json()\n    print(data)\nexcept requests.exceptions.RequestException as e:\n    print(f"API Request failed: {e}")`;
+                    } else if (activeCodeLanguage === 'dart') {
+                      codeText = `import 'package:http/http.dart' as http;\nimport 'dart:convert';\n\nFuture<void> fetchMiqaats() async {\n  final url = Uri.parse('${origin}/api/external/v1/data');\n  try {\n    final response = await http.get(\n      url,\n      headers: {\n        'x-api-key': '${testApiKey || 'YOUR_API_KEY'}',\n      },\n    );\n\n    if (response.statusCode == 200) {\n      final data = json.decode(response.body);\n      print('Retrieved miqaats successfully: \\\${data["data"]["miqaats"].length}');\n    } else {\n      print('Request failed: \\\${response.statusCode} - \\\${response.body}');\n    }\n  } catch (e) {\n    print('Failed to request API: \\$e');\n  }\n}`;
+                    }
+                    handleCopyToClipboard(codeText, "code_snippet");
+                  }}
+                  className="rounded-xl text-xs gap-1.5 font-bold h-9"
+                >
+                  {copiedKeyId === "code_snippet" ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-green-500" /> Copied Code!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" /> Copy Code Snippet
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+      </div>
 
       {/* ========== DIALOG: GENERATE KEY FORM ========== */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
