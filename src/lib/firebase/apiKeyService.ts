@@ -18,6 +18,8 @@ export interface ApiKey {
   clientName: string;
   email: string;
   status: 'active' | 'suspended';
+  mohallahId: string; // 'all' or specific Mohallah ID
+  accessLevel: 'read_stats' | 'read_members';
   requestCount: number;
   createdAt: any;
   updatedAt: any;
@@ -47,6 +49,8 @@ export function getApiKeys(onUpdate: (keys: ApiKey[]) => void) {
         clientName: data.clientName,
         email: data.email,
         status: data.status || 'active',
+        mohallahId: data.mohallahId || 'all',
+        accessLevel: data.accessLevel || 'read_stats',
         requestCount: data.requestCount || 0,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt
@@ -58,8 +62,13 @@ export function getApiKeys(onUpdate: (keys: ApiKey[]) => void) {
   });
 }
 
-// Create a new API Key
-export async function createApiKey(clientName: string, email: string): Promise<string> {
+// Create a new API Key with scopes/rights
+export async function createApiKey(
+  clientName: string, 
+  email: string,
+  mohallahId: string = 'all',
+  accessLevel: 'read_stats' | 'read_members' = 'read_stats'
+): Promise<string> {
   const newKey = generateRandomKey();
   
   await addDoc(collection(db, 'api_keys'), {
@@ -67,6 +76,8 @@ export async function createApiKey(clientName: string, email: string): Promise<s
     clientName,
     email,
     status: 'active',
+    mohallahId,
+    accessLevel,
     requestCount: 0,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()

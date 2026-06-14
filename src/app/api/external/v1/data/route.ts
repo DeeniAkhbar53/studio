@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, getYearPath } from '@/lib/firebase/firebase';
-import { collection, query, where, getDocs, limit, doc, updateDoc, increment } from 'firebase/firestore';
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  limit, 
+  doc, 
+  updateDoc, 
+  increment,
+  collectionGroup 
+} from 'firebase/firestore';
 
 export async function GET(req: NextRequest) {
   try {
@@ -50,41 +60,111 @@ export async function GET(req: NextRequest) {
       console.error('Failed to increment API key usage count:', countErr);
     }
 
+    // Extract API key permissions
+    const targetMohallahId = keyData.mohallahId || 'all';
+    const targetAccessLevel = keyData.accessLevel || 'read_stats';
+
     // 4. Retrieve active Hijri year (defaulting to 1448H if not specified)
     const activeYear = req.cookies.get('active_year')?.value || '1448H';
 
-    // 5. Fetch Miqaat events from Firestore
+    // 5. Fetch and filter members list based on key rights
+    let mohallahItsIds: Set<string> | null = null;
+    let membersData: any[] = [];
+
+    if (targetMohallahId !== 'all') {
+      // Fetch members of specific Mohallah for scoping stats and member directory
+      const membersColRef = collection(db, 'mohallahs', targetMohallahId, 'members');
+      const membersSnap = await getDocs(membersColRef);
+      mohallahItsIds = new Set(membersSnap.docs.map(doc => doc.data().itsId));
+
+      if (targetAccessLevel === 'read_members') {
+        membersData = membersSnap.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            itsId: data.itsId,
+            name: data.name || '',
+            email: data.email || null,
+            team: data.team || null,
+            designation: data.designation || 'Member',
+            role: data.role || 'user',
+            mohallahId: targetMohallahId
+          };
+        });
+      }
+    } else {
+      // Open scope - if client asks for member lists, fetch all members across all mohallahs
+      if (targetAccessLevel === 'read_members') {
+        const membersQuery = query(collectionGroup(db, 'members'));
+        const membersSnap = await getDocs(membersQuery);
+        membersData = membersSnap.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            itsId: data.itsId,
+            name: data.name || '',
+            email: data.email || null,
+            team: data.team || null,
+            designation: data.designation || 'Member',
+            role: data.role || 'user',
+            mohallahId: docSnap.ref.parent.parent?.id || null
+          };
+        });
+      }
+    }
+
+    // 6. Fetch Miqaat events from Firestore
     const miqaatsColRef = collection(db, getYearPath('miqaats', activeYear));
     const miqaatsSnap = await getDocs(miqaatsColRef);
 
-    // Filter and sanitize the data to protect user privacy (expose counts, not personal details)
-    const miqaatsData = miqaatsSnap.docs.map(docSnap => {
-      const data = docSnap.data();
-      const attendanceCount = data.attendance?.length || 0;
-      const safarCount = data.safarList?.length || 0;
+    // Filter and sanitize Miqaat data to respect scope and protect privacy
+    const miqaatsData = miqaatsSnap.docs
+      .map(docSnap => {
+        const data = docSnap.data();
 
-      return {
-        id: docSnap.id,
-        name: data.name || '',
-        location: data.location || '',
-        type: data.type || 'local',
-        startTime: data.startTime || '',
-        endTime: data.endTime || '',
-        stats: {
-          presentCount: attendanceCount,
-          safarCount: safarCount,
-          totalMarked: attendanceCount + safarCount
+        // If API key is scoped to a specific Mohallah, check if Miqaat is eligible for it
+        if (targetMohallahId !== 'all') {
+          if (data.mohallahIds && data.mohallahIds.length > 0 && !data.mohallahIds.includes(targetMohallahId)) {
+            return null; // Skip this event (belongs to another Mohallah)
+          }
         }
-      };
-    });
 
-    // 6. Return response
+        // Calculate counts based on key scope
+        let attendanceCount = 0;
+        let safarCount = 0;
+
+        if (mohallahItsIds !== null) {
+          // Scoped Stats: Only count attendance entries of members in the scoped Mohallah
+          attendanceCount = (data.attendance || []).filter((a: any) => mohallahItsIds!.has(a.userItsId)).length;
+          safarCount = (data.safarList || []).filter((s: any) => mohallahItsIds!.has(s.userItsId)).length;
+        } else {
+          // Global Stats: Count all attendance entries
+          attendanceCount = data.attendance?.length || 0;
+          safarCount = data.safarList?.length || 0;
+        }
+
+        return {
+          id: docSnap.id,
+          name: data.name || '',
+          location: data.location || '',
+          type: data.type || 'local',
+          startTime: data.startTime || '',
+          endTime: data.endTime || '',
+          stats: {
+            presentCount: attendanceCount,
+            safarCount: safarCount,
+            totalMarked: attendanceCount + safarCount
+          }
+        };
+      })
+      .filter(Boolean); // Clear out skipped null items
+
+    // 7. Return response
     return NextResponse.json({
       success: true,
       clientName: keyData.clientName || 'Developer Partner',
       activeYear,
       data: {
-        miqaats: miqaatsData
+        miqaats: miqaatsData,
+        ...(targetAccessLevel === 'read_members' ? { members: membersData } : {})
       }
     });
 

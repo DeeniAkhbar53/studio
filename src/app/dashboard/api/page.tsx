@@ -33,7 +33,8 @@ import {
   deleteApiKey, 
   ApiKey 
 } from "@/lib/firebase/apiKeyService";
-import { UserRole } from "@/types";
+import { UserRole, Mohallah } from "@/types";
+import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { format } from "date-fns";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -49,6 +50,7 @@ export default function ApiManagementPage() {
   
   // API key list state
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [mohallahs, setMohallahs] = useState<Mohallah[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -57,10 +59,12 @@ export default function ApiManagementPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+  const [clientScopeMohallahId, setClientScopeMohallahId] = useState("all");
+  const [clientAccessLevel, setClientAccessLevel] = useState<'read_stats' | 'read_members'>('read_stats');
   const [isGenerating, setIsGenerating] = useState(false);
   
   // Display generated key dialog
-  const [generatedKey, setGeneratedKey] = useState<string | null>(null);
+  const [generatedKeyInfo, setGeneratedKeyInfo] = useState<{ key: string; mohallahId: string; accessLevel: 'read_stats' | 'read_members' } | null>(null);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
 
   // API testing state
@@ -158,17 +162,24 @@ export default function ApiManagementPage() {
     }
   }, [router]);
 
-  // 2. Fetch API Keys in real-time if authorized
+  // 2. Fetch API Keys and Mohallahs in real-time if authorized
   useEffect(() => {
     if (isAuthorized !== true) return;
 
     setIsLoading(true);
-    const unsubscribe = getApiKeys((keys) => {
+    const unsubscribeKeys = getApiKeys((keys) => {
       setApiKeys(keys);
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    const unsubscribeMohallahs = getMohallahs((fetchedMohallahs) => {
+      setMohallahs(fetchedMohallahs);
+    });
+
+    return () => {
+      unsubscribeKeys();
+      unsubscribeMohallahs();
+    };
   }, [isAuthorized]);
 
   // Handle Generate Key
@@ -185,11 +196,22 @@ export default function ApiManagementPage() {
 
     setIsGenerating(true);
     try {
-      const newKey = await createApiKey(clientName.trim(), clientEmail.trim());
-      setGeneratedKey(newKey);
+      const newKey = await createApiKey(
+        clientName.trim(), 
+        clientEmail.trim(), 
+        clientScopeMohallahId, 
+        clientAccessLevel
+      );
+      setGeneratedKeyInfo({
+        key: newKey,
+        mohallahId: clientScopeMohallahId,
+        accessLevel: clientAccessLevel
+      });
       setIsCreateOpen(false);
       setClientName("");
       setClientEmail("");
+      setClientScopeMohallahId("all");
+      setClientAccessLevel("read_stats");
       toast({
         title: "API Key Created",
         description: "The developer API key has been generated successfully."
@@ -374,9 +396,10 @@ export default function ApiManagementPage() {
                       <TableHead>Client Name</TableHead>
                       <TableHead>Contact Email</TableHead>
                       <TableHead>API Key Token</TableHead>
-                      <TableHead className="text-center">Usage Requests</TableHead>
+                      <TableHead>Data Scope</TableHead>
+                      <TableHead>Access Rights</TableHead>
+                      <TableHead className="text-center">Requests</TableHead>
                       <TableHead className="text-center">Status</TableHead>
-                      <TableHead>Created</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -399,6 +422,16 @@ export default function ApiManagementPage() {
                               {copiedKeyId === keyItem.id ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
                             </Button>
                           </div>
+                        </TableCell>
+                        <TableCell className="text-xs font-semibold text-foreground">
+                          {keyItem.mohallahId === 'all' 
+                            ? "All Mohallahs" 
+                            : mohallahs.find(m => m.id === keyItem.mohallahId)?.name || 'Unknown Mohallah'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[10px] font-bold py-0.5">
+                            {keyItem.accessLevel === 'read_stats' ? 'Read Stats Only' : 'Read Member Directory'}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-center font-mono text-xs font-bold text-foreground">
                           {keyItem.requestCount.toLocaleString()}
@@ -491,6 +524,23 @@ export default function ApiManagementPage() {
                       >
                         {copiedKeyId === keyItem.id ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                       </Button>
+                    </div>
+
+                    <div className="text-xs space-y-1 py-2 border-t border-dashed">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground font-semibold">Data Scope:</span>
+                        <span className="font-bold text-foreground">
+                          {keyItem.mohallahId === 'all' 
+                            ? "All Mohallahs" 
+                            : mohallahs.find(m => m.id === keyItem.mohallahId)?.name || 'Unknown Mohallah'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground font-semibold">Access Rights:</span>
+                        <span className="font-bold text-primary">
+                          {keyItem.accessLevel === 'read_stats' ? 'Read Stats Only' : 'Read Member Directory'}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="flex justify-between items-center text-xs border-t border-dashed pt-2.5">
@@ -834,6 +884,32 @@ Future<void> fetchMiqaats() async {
                     className="rounded-xl text-xs h-10"
                   />
                 </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="client-scope" className="text-xs font-bold text-muted-foreground">Data Scope (Restriction)</label>
+                  <select
+                    id="client-scope"
+                    value={clientScopeMohallahId}
+                    onChange={(e) => setClientScopeMohallahId(e.target.value)}
+                    className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="all">All Mohallahs</option>
+                    {mohallahs.map((m) => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="client-rights" className="text-xs font-bold text-muted-foreground">Access Rights Level</label>
+                  <select
+                    id="client-rights"
+                    value={clientAccessLevel}
+                    onChange={(e) => setClientAccessLevel(e.target.value as 'read_stats' | 'read_members')}
+                    className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-xs ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="read_stats">Read Stats Only (Miqaat counts, no member details)</option>
+                    <option value="read_members">Read Member Directory (Includes names, ITS IDs, emails)</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -857,7 +933,7 @@ Future<void> fetchMiqaats() async {
       </Dialog>
 
       {/* ========== DIALOG: DISPLAY NEWLY GENERATED KEY ========== */}
-      <Dialog open={generatedKey !== null} onOpenChange={(open) => { if(!open) setGeneratedKey(null); }}>
+      <Dialog open={generatedKeyInfo !== null} onOpenChange={(open) => { if(!open) setGeneratedKeyInfo(null); }}>
         <DialogContent className="rounded-3xl p-6 w-[calc(100%-1.5rem)] sm:max-w-md border border-border">
           <DialogHeader>
             <DialogTitle className="text-xl font-black text-foreground">API Token Generated</DialogTitle>
@@ -866,19 +942,37 @@ Future<void> fetchMiqaats() async {
             </DialogDescription>
           </DialogHeader>
 
-          {generatedKey && (
+          {generatedKeyInfo && (
             <div className="space-y-4 my-2">
               <div className="flex items-center justify-between gap-2 bg-muted p-3.5 rounded-2xl border border-border shadow-inner font-mono text-xs select-all text-foreground font-bold break-all">
-                <span>{generatedKey}</span>
+                <span>{generatedKeyInfo.key}</span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => handleCopyToClipboard(generatedKey, "new_key")}
+                  onClick={() => handleCopyToClipboard(generatedKeyInfo.key, "new_key")}
                   className="h-9 w-9 text-muted-foreground hover:text-primary rounded-xl shrink-0"
                 >
                   {copiedKeyId === "new_key" ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                 </Button>
+              </div>
+
+              {/* Scopes summary info */}
+              <div className="p-3 bg-muted/30 border rounded-2xl text-xs space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground font-semibold">Configured Scope:</span>
+                  <span className="font-bold text-foreground">
+                    {generatedKeyInfo.mohallahId === 'all' 
+                      ? "All Mohallahs" 
+                      : mohallahs.find(m => m.id === generatedKeyInfo.mohallahId)?.name || 'Unknown Mohallah'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground font-semibold">Access Rights:</span>
+                  <span className="font-bold text-primary">
+                    {generatedKeyInfo.accessLevel === 'read_stats' ? 'Read Stats Only' : 'Read Member Directory'}
+                  </span>
+                </div>
               </div>
 
               <div className="p-3 bg-rose-500/10 border border-rose-500/25 rounded-2xl flex items-start gap-2.5">
@@ -892,7 +986,7 @@ Future<void> fetchMiqaats() async {
           )}
 
           <DialogFooter className="pt-2">
-            <Button onClick={() => setGeneratedKey(null)} className="rounded-xl text-xs font-bold w-full sm:w-auto">
+            <Button onClick={() => setGeneratedKeyInfo(null)} className="rounded-xl text-xs font-bold w-full sm:w-auto">
               I Have Saved This Token
             </Button>
           </DialogFooter>
