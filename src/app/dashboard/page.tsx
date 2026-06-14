@@ -2287,7 +2287,7 @@ export default function DashboardOverviewPage() {
           setLiveTeamFilter(null);
         }
       }}>
-        <DialogContent className="p-0 gap-0 w-[calc(100%-1.5rem)] sm:max-w-xl max-h-[85vh] flex flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-2xl backdrop-blur-xl relative [&>button]:hidden">
+        <DialogContent className="p-0 gap-0 w-[calc(100%-1.5rem)] sm:max-w-xl max-h-[85vh] flex flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-2xl backdrop-blur-xl [&>button]:hidden">
           
           {/* Pulsing top red strip to indicate "Live" status */}
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-rose-400 to-red-600 animate-pulse z-10" />
