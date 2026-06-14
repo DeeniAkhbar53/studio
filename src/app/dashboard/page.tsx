@@ -267,7 +267,7 @@ export default function DashboardOverviewPage() {
     const safarSet = new Set(liveMiqaat.safarList?.map(s => s.userItsId) || []);
 
     const presentMembers = scopedLiveUsers.filter(u => attendedSet.has(u.itsId));
-    const safarMembers = scopedLiveUsers.filter(u => safarSet.has(u.itsId));
+    const safarMembers = scopedLiveUsers.filter(u => safarSet.has(u.itsId) && !attendedSet.has(u.itsId));
     const absentMembers = scopedLiveUsers.filter(u => !attendedSet.has(u.itsId) && !safarSet.has(u.itsId));
     const markedCount = presentMembers.length + safarMembers.length;
 
@@ -1970,11 +1970,19 @@ export default function DashboardOverviewPage() {
                       {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead) ? (
                         <div className="flex justify-between items-center text-xs border-t border-border/20 pt-2 mt-1">
                           <div>
-                            <span>Present: <strong className="text-foreground">{miqaat.attendance?.length || 0}</strong></span>
-                            <span className="mx-2 text-muted-foreground/30">|</span>
-                            <span>Safar: <strong className="text-foreground">{miqaat.safarList?.length || 0}</strong></span>
-                            <span className="mx-2 text-muted-foreground/30">|</span>
-                            <span>Total (Inc. Safar): <strong className="text-primary font-bold">{(miqaat.attendance?.length || 0) + (miqaat.safarList?.length || 0)}</strong></span>
+                            {(() => {
+                              const presentItsIds = new Set(miqaat.attendance?.map(a => a.userItsId) || []);
+                              const uniqueSafarCount = miqaat.safarList?.filter(s => !presentItsIds.has(s.userItsId)).length || 0;
+                              return (
+                                <>
+                                  <span>Present: <strong className="text-foreground">{miqaat.attendance?.length || 0}</strong></span>
+                                  <span className="mx-2 text-muted-foreground/30">|</span>
+                                  <span>Safar: <strong className="text-foreground">{uniqueSafarCount}</strong></span>
+                                  <span className="mx-2 text-muted-foreground/30">|</span>
+                                  <span>Total (Inc. Safar): <strong className="text-primary font-bold">{(miqaat.attendance?.length || 0) + uniqueSafarCount}</strong></span>
+                                </>
+                              );
+                            })()}
                           </div>
                           <Button variant="ghost" size="sm" className="h-7 text-xs font-semibold text-primary px-2" asChild>
                             <Link href="/dashboard/mark-attendance">Mark Page →</Link>

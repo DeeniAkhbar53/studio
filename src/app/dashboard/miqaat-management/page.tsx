@@ -1089,13 +1089,19 @@ export default function MiqaatManagementPage() {
                                   <p>{eligibility}</p>
                               </div>
                                <div className="space-y-1">
-                                  <p className="font-medium text-muted-foreground">Attendance</p>
-                                  <p>
-                                    Present: {miqaat.attendance?.length || 0}
-                                    {miqaat.safarList && miqaat.safarList.length > 0 && ` | Safar: ${miqaat.safarList.length}`}
-                                    {miqaat.safarList && miqaat.safarList.length > 0 && ` | Total: ${(miqaat.attendance?.length || 0) + miqaat.safarList.length}`}
-                                  </p>
-                              </div>
+                                   <p className="font-medium text-muted-foreground">Attendance</p>
+                                   {(() => {
+                                     const presentItsIds = new Set(miqaat.attendance?.map(a => a.userItsId) || []);
+                                     const uniqueSafarCount = miqaat.safarList?.filter(s => !presentItsIds.has(s.userItsId)).length || 0;
+                                     return (
+                                       <p>
+                                         Present: {miqaat.attendance?.length || 0}
+                                         {uniqueSafarCount > 0 && ` | Safar: ${uniqueSafarCount}`}
+                                         {uniqueSafarCount > 0 && ` | Total: ${(miqaat.attendance?.length || 0) + uniqueSafarCount}`}
+                                       </p>
+                                     );
+                                   })()}
+                               </div>
                               <div className="space-y-1">
                                   <p className="font-medium text-muted-foreground">Requirements</p>
                                   <div className="flex flex-col gap-1">
@@ -1243,11 +1249,16 @@ export default function MiqaatManagementPage() {
                                     </TableCell>
                                     <TableCell className="text-center">
                                       <div className="text-sm font-medium">{miqaat.attendance?.length || 0}</div>
-                                      {(miqaat.safarList?.length || 0) > 0 && (
-                                        <div className="text-xs text-muted-foreground">
-                                          Safar: {miqaat.safarList?.length} (Total: {(miqaat.attendance?.length || 0) + (miqaat.safarList?.length || 0)})
-                                        </div>
-                                      )}
+                                      {(() => {
+                                        const presentItsIds = new Set(miqaat.attendance?.map(a => a.userItsId) || []);
+                                        const uniqueSafarCount = miqaat.safarList?.filter(s => !presentItsIds.has(s.userItsId)).length || 0;
+                                        if (uniqueSafarCount === 0) return null;
+                                        return (
+                                          <div className="text-xs text-muted-foreground">
+                                            Safar: {uniqueSafarCount} (Total: {(miqaat.attendance?.length || 0) + uniqueSafarCount})
+                                          </div>
+                                        );
+                                      })()}
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex flex-col gap-1">

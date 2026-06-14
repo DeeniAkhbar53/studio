@@ -177,12 +177,12 @@ export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAtte
           }
 
           const currentAttendance = miqaatDoc.data().attendance || [];
+          const safarList = miqaatDoc.data().safarList || [];
           const alreadyExists = currentAttendance.some((e: MiqaatAttendanceEntryItem) => 
             e.userItsId === entry.userItsId && e.sessionId === entry.sessionId
           );
 
           if (alreadyExists) {
-              
               return; 
           }
           
@@ -191,8 +191,14 @@ export const markAttendanceInMiqaat = async (miqaatId: string, entry: MiqaatAtte
               delete cleanEntry.uniformCompliance;
           }
 
+          // Remove the user from safarList since they are now present
+          const updatedSafarList = safarList.filter((s: any) => 
+            !(s.userItsId === entry.userItsId && (entry.sessionId ? s.sessionId === entry.sessionId : true))
+          );
+
           transaction.update(miqaatDocRef, {
               attendance: arrayUnion(cleanEntry),
+              safarList: updatedSafarList,
               attendedUserItsIds: arrayUnion(cleanEntry.userItsId)
           });
       });
@@ -218,19 +224,24 @@ export const batchMarkSafarInMiqaat = async (miqaatId: string, entries: MiqaatSa
             }
             
             const existingSafarList: MiqaatSafarEntryItem[] = miqaatDoc.data().safarList || [];
+            const currentAttendance: MiqaatAttendanceEntryItem[] = miqaatDoc.data().attendance || [];
             const existingItsIdsInSafar = new Set(existingSafarList.map(e => e.userItsId));
             
             const newEntries = entries.filter(entry => !existingItsIdsInSafar.has(entry.userItsId));
             
             if (newEntries.length === 0) {
-                
                 return;
             }
 
             const safarUserItsIdsToAdd = newEntries.map(e => e.userItsId);
+            const safarUserItsIdsSet = new Set(safarUserItsIdsToAdd);
+
+            // Clean up attendance array by removing users who are now marked as Safar
+            const updatedAttendance = currentAttendance.filter(a => !safarUserItsIdsSet.has(a.userItsId));
 
             transaction.update(miqaatDocRef, {
                 safarList: arrayUnion(...newEntries),
+                attendance: updatedAttendance,
                 attendedUserItsIds: arrayUnion(...safarUserItsIdsToAdd)
             });
 
