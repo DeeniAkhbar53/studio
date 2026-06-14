@@ -125,7 +125,7 @@ const toLocalISOString = (date: Date) => {
 export default function MiqaatManagementPage() {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "type" | "attendanceType" | "sessions" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements">[]>([]);
+  const [miqaats, setMiqaats] = useState<Pick<Miqaat, "id" | "name" | "type" | "attendanceType" | "sessions" | "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendanceRequirements">[]>([]);
   const [isLoadingMiqaats, setIsLoadingMiqaats] = useState(true);
   const [allAvailableMohallahs, setAllAvailableMohallahs] = useState<Mohallah[]>([]);
   const [isLoadingMohallahs, setIsLoadingMohallahs] = useState(true);
@@ -136,7 +136,7 @@ export default function MiqaatManagementPage() {
   const [miqaatTypeFilter, setMiqaatTypeFilter] = useState<'all' | 'local' | 'international'>("all");
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "type" | "attendanceType" | "sessions"| "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "createdAt" | "attendanceRequirements"> | null>(null);
+  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "type" | "attendanceType" | "sessions"| "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendanceRequirements"> | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -1090,7 +1090,11 @@ export default function MiqaatManagementPage() {
                               </div>
                                <div className="space-y-1">
                                   <p className="font-medium text-muted-foreground">Attendance</p>
-                                  <p>{miqaat.attendance?.length || 0}</p>
+                                  <p>
+                                    Present: {miqaat.attendance?.length || 0}
+                                    {miqaat.safarList && miqaat.safarList.length > 0 && ` | Safar: ${miqaat.safarList.length}`}
+                                    {miqaat.safarList && miqaat.safarList.length > 0 && ` | Total: ${(miqaat.attendance?.length || 0) + miqaat.safarList.length}`}
+                                  </p>
                               </div>
                               <div className="space-y-1">
                                   <p className="font-medium text-muted-foreground">Requirements</p>
@@ -1237,7 +1241,14 @@ export default function MiqaatManagementPage() {
                                     <TableCell>
                                         <Badge variant={isSpecific ? "secondary" : "outline"}>{eligibility}</Badge>
                                     </TableCell>
-                                    <TableCell className="text-center">{miqaat.attendance?.length || 0}</TableCell>
+                                    <TableCell className="text-center">
+                                      <div className="text-sm font-medium">{miqaat.attendance?.length || 0}</div>
+                                      {(miqaat.safarList?.length || 0) > 0 && (
+                                        <div className="text-xs text-muted-foreground">
+                                          Safar: {miqaat.safarList?.length} (Total: {(miqaat.attendance?.length || 0) + (miqaat.safarList?.length || 0)})
+                                        </div>
+                                      )}
+                                    </TableCell>
                                     <TableCell>
                                         <div className="flex flex-col gap-1">
                                             {miqaat.type === 'local' && requirements.fetaPaghri && <Badge variant="default" className="text-xs">Feta/Paghri</Badge>}

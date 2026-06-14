@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, getYearPath } from '@/lib/firebase/firebase';
-import { collectionGroup, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { sendEmail, teamLeaderAbsenceReportEmailTemplate } from '@/lib/email';
+import { collectionGroup, query, where, getDocs, doc, getDoc, collection } from 'firebase/firestore';
+import { sendEmail, teamLeaderAbsenceReportEmailTemplate, leaderStatsReportEmailTemplate } from '@/lib/email';
 import { format } from 'date-fns';
 
 export async function POST(req: NextRequest) {
@@ -28,7 +28,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'This Miqaat is still active. Leader reports can only be sent after the event is closed.' }, { status: 400 });
     }
 
-    // 2. Fetch all members
+    // 2. Fetch all Mohallahs to get names
+    const mohallahsSnap = await getDocs(collection(db, 'mohallahs'));
+    const mohallahNamesMap = new Map<string, string>();
+    mohallahsSnap.forEach(docSnap => {
+      mohallahNamesMap.set(docSnap.id, docSnap.data().name || docSnap.id);
+    });
+
+    // 3. Fetch all members
     const membersQuery = query(collectionGroup(db, 'members'));
     const membersSnap = await getDocs(membersQuery);
     const allMembers = membersSnap.docs.map(docSnap => {
@@ -41,11 +48,12 @@ export async function POST(req: NextRequest) {
         team: data.team,
         managedTeams: data.managedTeams || [],
         designation: data.designation,
+        role: data.role,
         mohallahId: docSnap.ref.parent.parent?.id, // Mohallah ID is parent of members subcollection
       };
     });
 
-    // 3. Determine eligibility
+    // 4. Determine eligibility
     const isSpecificMemberMiqaat = miqaatData.eligibleItsIds && miqaatData.eligibleItsIds.length > 0;
     
     let eligibleUsers: any[];
@@ -63,22 +71,41 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Calculate Absentees
-    const attendedItsIds = new Set<string>([
-      ...(miqaatData.attendance || []).map((a: any) => a.userItsId),
-      ...(miqaatData.safarList || []).map((s: any) => s.userItsId)
-    ]);
+    // 5. Determine active Mohallah IDs for this Miqaat
+    const activeMohallahIds = new Set<string>();
+    if (miqaatData.mohallahIds && miqaatData.mohallahIds.length > 0) {
+      miqaatData.mohallahIds.forEach((id: string) => activeMohallahIds.add(id));
+    } else if (adminMohallahId) {
+      activeMohallahIds.add(adminMohallahId);
+    }
 
-    const absentUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
+    const isMohallahActive = (mohallahId: string | undefined) => {
+      if (!mohallahId) return false;
+      if (activeMohallahIds.size > 0) {
+        return activeMohallahIds.has(mohallahId);
+      }
+      return true; // Active for all if no specific mohallahs defined
+    };
 
-    // 5. Find Group Leaders and Assistant Group Leaders
-    const leaders = allMembers.filter(user => 
-      user.email && 
-      (user.designation === 'Group Leader' || user.designation === 'Asst.Grp Leader') &&
-      (!adminMohallahId || user.mohallahId === adminMohallahId)
-    );
+    // 6. Calculate Absentees & Attendance Sets
+    const attendedSet = new Set<string>((miqaatData.attendance || []).map((a: any) => a.userItsId));
+    const safarSet = new Set<string>((miqaatData.safarList || []).map((s: any) => s.userItsId));
 
-    // 6. Send absentee report to each leader
+    const absentUsers = eligibleUsers.filter(user => !attendedSet.has(user.itsId) && !safarSet.has(user.itsId));
+
+    // 7. Find designated leaders and administrators from active Mohallahs
+    const leaders = allMembers.filter(user => {
+      if (!user.email) return false;
+      if (!isMohallahActive(user.mohallahId)) return false;
+
+      const isGL = user.designation === 'Group Leader' || user.designation === 'Asst.Grp Leader';
+      const isVC = user.designation === 'Vice Captain';
+      const isCaptOrAdmin = user.role === 'admin' || user.role === 'superadmin' || user.designation === 'Captain' || user.designation === 'Idara Admin';
+
+      return isGL || isVC || isCaptOrAdmin;
+    });
+
+    // 8. Route emails based on leader scope
     let reportsSent = 0;
     const errors: string[] = [];
     const formattedDate = format(new Date(miqaatData.startTime), "PP");
@@ -86,32 +113,95 @@ export async function POST(req: NextRequest) {
     await Promise.all(
       leaders.map(async (leader) => {
         try {
-          const leaderTeam = leader.team;
-          if (!leaderTeam) return;
+          const leaderMohallahName = mohallahNamesMap.get(leader.mohallahId || '') || 'Unknown Mohallah';
+          const isGL = leader.designation === 'Group Leader' || leader.designation === 'Asst.Grp Leader';
+          const isVC = leader.designation === 'Vice Captain';
+          const isCaptOrAdmin = leader.role === 'admin' || leader.role === 'superadmin' || leader.designation === 'Captain' || leader.designation === 'Idara Admin';
 
-          // Find eligible team members
-          const teamEligible = eligibleUsers.filter(u => u.team === leaderTeam);
-          if (teamEligible.length === 0) return; // Skip if no members in this team are eligible for the miqaat
+          if (isCaptOrAdmin) {
+            // Scope: Entire Mohallah
+            const mohallahEligible = eligibleUsers.filter(u => u.mohallahId === leader.mohallahId);
+            const presentCount = mohallahEligible.filter(u => attendedSet.has(u.itsId)).length;
+            const safarCount = mohallahEligible.filter(u => safarSet.has(u.itsId)).length;
+            const absentCount = mohallahEligible.filter(u => !attendedSet.has(u.itsId) && !safarSet.has(u.itsId)).length;
 
-          // Find absentees of this leader's team
-          const teamAbsentees = absentUsers.filter(u => u.team === leaderTeam);
+            const emailHtml = leaderStatsReportEmailTemplate(
+              leader.name,
+              leader.designation || 'Leader',
+              leaderMohallahName,
+              miqaatData.name,
+              formattedDate,
+              { present: presentCount, absent: absentCount, safar: safarCount, total: mohallahEligible.length }
+            );
 
-          // We'll send the report to the leader
-          const emailHtml = teamLeaderAbsenceReportEmailTemplate(
-            leader.name,
-            leader.designation || 'Team Leader',
-            leaderTeam,
-            miqaatData.name,
-            formattedDate,
-            teamAbsentees
-          );
+            await sendEmail(
+              leader.email!,
+              `Attendance Summary Report - ${leaderMohallahName}: ${miqaatData.name}`,
+              emailHtml
+            );
+            reportsSent++;
 
-          await sendEmail(
-            leader.email!,
-            `Team Absentee Report: ${miqaatData.name}`,
-            emailHtml
-          );
-          reportsSent++;
+          } else if (isVC) {
+            // Scope: Managed Teams (fallback to single team if managedTeams is empty)
+            const managedTeams = leader.managedTeams && leader.managedTeams.length > 0
+              ? leader.managedTeams
+              : (leader.team ? [leader.team] : []);
+
+            if (managedTeams.length === 0) return;
+
+            const managedTeamsSet = new Set(managedTeams);
+            const viceCaptainEligible = eligibleUsers.filter(u => 
+              u.mohallahId === leader.mohallahId && 
+              u.team && 
+              managedTeamsSet.has(u.team)
+            );
+
+            const presentCount = viceCaptainEligible.filter(u => attendedSet.has(u.itsId)).length;
+            const safarCount = viceCaptainEligible.filter(u => safarSet.has(u.itsId)).length;
+            const absentCount = viceCaptainEligible.filter(u => !attendedSet.has(u.itsId) && !safarSet.has(u.itsId)).length;
+
+            const emailHtml = leaderStatsReportEmailTemplate(
+              leader.name,
+              leader.designation || 'Vice Captain',
+              managedTeams.join(', '),
+              miqaatData.name,
+              formattedDate,
+              { present: presentCount, absent: absentCount, safar: safarCount, total: viceCaptainEligible.length }
+            );
+
+            await sendEmail(
+              leader.email!,
+              `Team Attendance Summary: ${miqaatData.name}`,
+              emailHtml
+            );
+            reportsSent++;
+
+          } else if (isGL) {
+            // Scope: Single Team detailed absentee list
+            const leaderTeam = leader.team;
+            if (!leaderTeam) return;
+
+            const teamEligible = eligibleUsers.filter(u => u.team === leaderTeam && u.mohallahId === leader.mohallahId);
+            if (teamEligible.length === 0) return;
+
+            const teamAbsentees = absentUsers.filter(u => u.team === leaderTeam && u.mohallahId === leader.mohallahId);
+
+            const emailHtml = teamLeaderAbsenceReportEmailTemplate(
+              leader.name,
+              leader.designation || 'Team Leader',
+              leaderTeam,
+              miqaatData.name,
+              formattedDate,
+              teamAbsentees
+            );
+
+            await sendEmail(
+              leader.email!,
+              `Team Absentee Report: ${miqaatData.name}`,
+              emailHtml
+            );
+            reportsSent++;
+          }
         } catch (err: any) {
           console.error(`Error sending leader report to ${leader.email}:`, err);
           errors.push(`${leader.name} (${leader.email}): ${err.message || err}`);

@@ -1893,222 +1893,6 @@ export default function DashboardOverviewPage() {
           </div>
         )}
 
-        {/* ========== LIVE DETAILS DIALOG (PREMIUM) ========== */}
-        <Dialog open={isLiveDetailsOpen} onOpenChange={(open) => {
-          setIsLiveDetailsOpen(open);
-          if (!open) {
-            setLiveSearchQuery("");
-            setLiveTeamFilter(null);
-          }
-        }}>
-          <DialogContent className="p-0 gap-0 sm:max-w-xl max-h-[85vh] flex flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-2xl backdrop-blur-xl relative [&>button]:hidden">
-            
-            {/* Pulsing top red strip to indicate "Live" status */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-rose-400 to-red-600 animate-pulse z-10" />
-
-            {/* Header */}
-            <div className="relative px-6 pt-7 pb-5 border-b border-border shrink-0 bg-muted/10">
-              <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
-                    </span>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">Live Attendance List</span>
-                    {liveTeamFilter && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted border border-border text-muted-foreground">
-                        {liveTeamFilter}
-                      </span>
-                    )}
-                  </div>
-                  <h2 className="text-xl font-black text-foreground tracking-tight">
-                    {liveDetailFilter === 'all' ? 'All Eligible Members' :
-                     liveDetailFilter === 'present' ? 'Present Members' :
-                     liveDetailFilter === 'safar' ? 'Safar Members' : 'Remaining (Absent)'}
-                  </h2>
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 font-medium">
-                    <span>{liveMiqaat?.name}</span>
-                  </p>
-                </div>
-                <DialogClose className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all duration-200">
-                  <X className="h-4 w-4" />
-                </DialogClose>
-              </div>
-
-              {/* Search Box */}
-              <div className="relative mt-4">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search name, ITS, or BGK ID..."
-                  value={liveSearchQuery}
-                  onChange={(e) => setLiveSearchQuery(e.target.value)}
-                  className="w-full bg-background border-border hover:border-border/80 focus:border-primary/30 pl-10 pr-9 text-sm text-foreground placeholder:text-muted-foreground rounded-2xl h-10 transition-all focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary/50"
-                />
-                {liveSearchQuery && (
-                  <button onClick={() => setLiveSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1">
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Filter Tabs (Segmented Control style) */}
-            {liveStats && (
-              <div className="px-6 py-3 border-b border-border shrink-0 bg-muted/10">
-                <div className="bg-muted/65 p-1 rounded-2xl flex gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                  {([
-                    { key: 'all' as const, label: 'All', count: liveStats.total },
-                    { key: 'present' as const, label: 'Present', count: liveStats.presentMembers.length },
-                    { key: 'safar' as const, label: 'Safar', count: liveStats.safarMembers.length },
-                    { key: 'absent' as const, label: 'Absent', count: liveStats.absentMembers.length },
-                  ]).map(({ key, label, count }) => (
-                    <button
-                      key={key}
-                      onClick={() => setLiveDetailFilter(key)}
-                      className={cn(
-                        "flex-1 shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-all duration-300",
-                        liveDetailFilter === key
-                          ? "bg-background text-foreground shadow-sm font-black scale-[1.01]"
-                          : "text-muted-foreground hover:text-foreground font-semibold"
-                      )}
-                    >
-                      <span>{label}</span>
-                      <span className={cn(
-                        "px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none",
-                        liveDetailFilter === key ? "bg-muted text-foreground" : "bg-foreground/5 text-muted-foreground/80"
-                      )}>
-                        {count}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* List */}
-            <div className="overflow-y-auto flex-1 px-5 py-4 min-h-[300px] bg-muted/5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
-              {liveStats && (() => {
-                // Filter by type
-                let list = liveDetailFilter === 'all'
-                  ? scopedLiveUsers
-                  : liveDetailFilter === 'present'
-                  ? liveStats.presentMembers
-                  : liveDetailFilter === 'safar'
-                  ? liveStats.safarMembers
-                  : liveStats.absentMembers;
-
-                // Filter by team if clicked
-                if (liveTeamFilter) {
-                  list = list.filter(u => (u.team || 'No Team') === liveTeamFilter);
-                }
-
-                // Filter by search query
-                if (liveSearchQuery.trim()) {
-                  const q = liveSearchQuery.toLowerCase();
-                  list = list.filter(u =>
-                    u.name.toLowerCase().includes(q) ||
-                    u.itsId.includes(q) ||
-                    (u.bgkId && u.bgkId.toLowerCase().includes(q))
-                  );
-                }
-
-                if (list.length === 0) {
-                  return (
-                    <div className="flex flex-col items-center justify-center py-20 gap-3">
-                      <div className="h-12 w-12 rounded-2xl bg-muted border border-border flex items-center justify-center">
-                        <Users className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <p className="text-sm text-muted-foreground font-medium">No matching members found</p>
-                    </div>
-                  );
-                }
-
-                const getStatus = (m: User) => {
-                  if (liveMiqaat?.attendance?.find(a => a.userItsId === m.itsId)) return 'present';
-                  if (liveMiqaat?.safarList?.find(s => s.userItsId === m.itsId)) return 'safar';
-                  return 'absent';
-                };
-
-                return (
-                  <ul className="space-y-3 pb-4">
-                    {list.map(m => {
-                      const status = getStatus(m);
-                      const initials = m.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
-                      return (
-                        <li key={m.id} className="flex items-center gap-4 p-3.5 rounded-3xl border border-border bg-card hover:bg-muted/40 transition-all duration-200 shadow-sm hover:shadow-md">
-                          <div className={cn(
-                            "shrink-0 h-11 w-11 rounded-2xl flex items-center justify-center text-xs font-black relative overflow-hidden",
-                            status === 'present'
-                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-950"
-                              : status === 'safar'
-                              ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-950"
-                              : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-950"
-                          )}>
-                            {initials || '?'}
-                            {/* status small dot at bottom right */}
-                            <span className={cn(
-                              "absolute bottom-0 right-0 h-2.5 w-2.5 border-2 border-background rounded-full",
-                              status === 'present' ? "bg-emerald-500" : status === 'safar' ? "bg-sky-500" : "bg-rose-500"
-                            )} />
-                          </div>
-                          
-                          <div className="flex-grow min-w-0">
-                            <p className="font-extrabold text-sm text-foreground truncate">{m.name}</p>
-                            <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground mt-1 font-medium">
-                              <span>ITS: <strong className="font-mono text-foreground/75 font-semibold">{m.itsId}</strong></span>
-                              {m.bgkId && (
-                                <>
-                                  <span className="text-muted-foreground/35">•</span>
-                                  <span>BGK: <strong className="font-mono text-foreground/75 font-semibold">{m.bgkId}</strong></span>
-                                </>
-                              )}
-                              {m.team && (
-                                <>
-                                  <span className="text-muted-foreground/35">•</span>
-                                  <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[9px] uppercase tracking-wide truncate max-w-[150px]">{m.team}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <span className={cn(
-                            "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-[9px] font-black uppercase tracking-widest border shadow-sm",
-                            status === 'present'
-                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-950"
-                              : status === 'safar'
-                              ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-950"
-                              : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-950"
-                          )}>
-                            {status === 'present' ? (
-                              <>
-                                <CheckCircle2 className="h-3 w-3 shrink-0" />
-                                <span>Present</span>
-                              </>
-                            ) : status === 'safar' ? (
-                              <>
-                                <Plane className="h-3 w-3 shrink-0" />
-                                <span>Safar</span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
-                                <span>Absent</span>
-                              </>
-                            )}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                );
-              })()}
-            </div>
-          </DialogContent>
-        </Dialog>
-
         {/* Hide normal dashboard when in live mode */}
         <div className={cn(isLiveMode ? "hidden" : "")}>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
@@ -2183,12 +1967,14 @@ export default function DashboardOverviewPage() {
                       </div>
 
                       {/* Admin/Marker stats */}
-                      {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker') ? (
+                      {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead) ? (
                         <div className="flex justify-between items-center text-xs border-t border-border/20 pt-2 mt-1">
                           <div>
                             <span>Present: <strong className="text-foreground">{miqaat.attendance?.length || 0}</strong></span>
                             <span className="mx-2 text-muted-foreground/30">|</span>
                             <span>Safar: <strong className="text-foreground">{miqaat.safarList?.length || 0}</strong></span>
+                            <span className="mx-2 text-muted-foreground/30">|</span>
+                            <span>Total (Inc. Safar): <strong className="text-primary font-bold">{(miqaat.attendance?.length || 0) + (miqaat.safarList?.length || 0)}</strong></span>
                           </div>
                           <Button variant="ghost" size="sm" className="h-7 text-xs font-semibold text-primary px-2" asChild>
                             <Link href="/dashboard/mark-attendance">Mark Page →</Link>
@@ -2482,6 +2268,222 @@ export default function DashboardOverviewPage() {
               </Button>
             </DialogClose>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========== LIVE DETAILS DIALOG (PREMIUM) ========== */}
+      <Dialog open={isLiveDetailsOpen} onOpenChange={(open) => {
+        setIsLiveDetailsOpen(open);
+        if (!open) {
+          setLiveSearchQuery("");
+          setLiveTeamFilter(null);
+        }
+      }}>
+        <DialogContent className="p-0 gap-0 sm:max-w-xl max-h-[85vh] flex flex-col overflow-hidden rounded-3xl border border-border bg-background shadow-2xl backdrop-blur-xl relative [&>button]:hidden">
+          
+          {/* Pulsing top red strip to indicate "Live" status */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-rose-400 to-red-600 animate-pulse z-10" />
+
+          {/* Header */}
+          <div className="relative px-6 pt-7 pb-5 border-b border-border shrink-0 bg-muted/10">
+            <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">Live Attendance List</span>
+                  {liveTeamFilter && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted border border-border text-muted-foreground">
+                      {liveTeamFilter}
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-xl font-black text-foreground tracking-tight">
+                  {liveDetailFilter === 'all' ? 'All Eligible Members' :
+                   liveDetailFilter === 'present' ? 'Present Members' :
+                   liveDetailFilter === 'safar' ? 'Safar Members' : 'Remaining (Absent)'}
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 font-medium">
+                  <span>{liveMiqaat?.name}</span>
+                </p>
+              </div>
+              <DialogClose className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all duration-200">
+                <X className="h-4 w-4" />
+              </DialogClose>
+            </div>
+
+            {/* Search Box */}
+            <div className="relative mt-4">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search name, ITS, or BGK ID..."
+                value={liveSearchQuery}
+                onChange={(e) => setLiveSearchQuery(e.target.value)}
+                className="w-full bg-background border-border hover:border-border/80 focus:border-primary/30 pl-10 pr-9 text-sm text-foreground placeholder:text-muted-foreground rounded-2xl h-10 transition-all focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-primary/50"
+              />
+              {liveSearchQuery && (
+                <button onClick={() => setLiveSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1">
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Filter Tabs (Segmented Control style) */}
+          {liveStats && (
+            <div className="px-6 py-3 border-b border-border shrink-0 bg-muted/10">
+              <div className="bg-muted/65 p-1 rounded-2xl flex gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+                {([
+                  { key: 'all' as const, label: 'All', count: liveStats.total },
+                  { key: 'present' as const, label: 'Present', count: liveStats.presentMembers.length },
+                  { key: 'safar' as const, label: 'Safar', count: liveStats.safarMembers.length },
+                  { key: 'absent' as const, label: 'Absent', count: liveStats.absentMembers.length },
+                ]).map(({ key, label, count }) => (
+                  <button
+                    key={key}
+                    onClick={() => setLiveDetailFilter(key)}
+                    className={cn(
+                      "flex-1 shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-all duration-300",
+                      liveDetailFilter === key
+                        ? "bg-background text-foreground shadow-sm font-black scale-[1.01]"
+                        : "text-muted-foreground hover:text-foreground font-semibold"
+                    )}
+                  >
+                    <span>{label}</span>
+                    <span className={cn(
+                      "px-1.5 py-0.5 rounded-full text-[9px] font-black leading-none",
+                      liveDetailFilter === key ? "bg-muted text-foreground" : "bg-foreground/5 text-muted-foreground/80"
+                    )}>
+                      {count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* List */}
+          <div className="overflow-y-auto flex-1 px-5 py-4 min-h-[300px] bg-muted/5 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
+            {liveStats && (() => {
+              // Filter by type
+              let list = liveDetailFilter === 'all'
+                ? scopedLiveUsers
+                : liveDetailFilter === 'present'
+                ? liveStats.presentMembers
+                : liveDetailFilter === 'safar'
+                ? liveStats.safarMembers
+                : liveStats.absentMembers;
+
+              // Filter by team if clicked
+              if (liveTeamFilter) {
+                list = list.filter(u => (u.team || 'No Team') === liveTeamFilter);
+              }
+
+              // Filter by search query
+              if (liveSearchQuery.trim()) {
+                const q = liveSearchQuery.toLowerCase();
+                list = list.filter(u =>
+                  u.name.toLowerCase().includes(q) ||
+                  u.itsId.includes(q) ||
+                  (u.bgkId && u.bgkId.toLowerCase().includes(q))
+                );
+              }
+
+              if (list.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-20 gap-3">
+                    <div className="h-12 w-12 rounded-2xl bg-muted border border-border flex items-center justify-center">
+                      <Users className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground font-medium">No matching members found</p>
+                  </div>
+                );
+              }
+
+              const getStatus = (m: User) => {
+                if (liveMiqaat?.attendance?.find(a => a.userItsId === m.itsId)) return 'present';
+                if (liveMiqaat?.safarList?.find(s => s.userItsId === m.itsId)) return 'safar';
+                return 'absent';
+              };
+
+              return (
+                <ul className="space-y-3 pb-4">
+                  {list.map(m => {
+                    const status = getStatus(m);
+                    const initials = m.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+                    return (
+                      <li key={m.id} className="flex items-center gap-4 p-3.5 rounded-3xl border border-border bg-card hover:bg-muted/40 transition-all duration-200 shadow-sm hover:shadow-md">
+                        <div className={cn(
+                          "shrink-0 h-11 w-11 rounded-2xl flex items-center justify-center text-xs font-black relative overflow-hidden",
+                          status === 'present'
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-950"
+                            : status === 'safar'
+                            ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-950"
+                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-950"
+                        )}>
+                          {initials || '?'}
+                          {/* status small dot at bottom right */}
+                          <span className={cn(
+                            "absolute bottom-0 right-0 h-2.5 w-2.5 border-2 border-background rounded-full",
+                            status === 'present' ? "bg-emerald-500" : status === 'safar' ? "bg-sky-500" : "bg-rose-500"
+                          )} />
+                        </div>
+                        
+                        <div className="flex-grow min-w-0">
+                          <p className="font-extrabold text-sm text-foreground truncate">{m.name}</p>
+                          <div className="flex flex-wrap items-center gap-x-2 text-[10px] text-muted-foreground mt-1 font-medium">
+                            <span>ITS: <strong className="font-mono text-foreground/75 font-semibold">{m.itsId}</strong></span>
+                            {m.bgkId && (
+                              <>
+                                <span className="text-muted-foreground/35">•</span>
+                                <span>BGK: <strong className="font-mono text-foreground/75 font-semibold">{m.bgkId}</strong></span>
+                              </>
+                            )}
+                            {m.team && (
+                              <>
+                                <span className="text-muted-foreground/35">•</span>
+                                <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[9px] uppercase tracking-wide truncate max-w-[150px]">{m.team}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <span className={cn(
+                          "shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-[9px] font-black uppercase tracking-widest border shadow-sm",
+                          status === 'present'
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-950"
+                            : status === 'safar'
+                            ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-950"
+                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-950"
+                        )}>
+                          {status === 'present' ? (
+                            <>
+                              <CheckCircle2 className="h-3 w-3 shrink-0" />
+                              <span>Present</span>
+                            </>
+                          ) : status === 'safar' ? (
+                            <>
+                              <Plane className="h-3 w-3 shrink-0" />
+                              <span>Safar</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                              <span>Absent</span>
+                            </>
+                          )}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              );
+            })()}
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -595,3 +595,76 @@ export function attendanceEditedEmailTemplate(
     </html>
   `;
 }
+
+export function leaderStatsReportEmailTemplate(
+  leaderName: string,
+  leaderDesignation: string,
+  teamOrMohallahName: string,
+  miqaatName: string,
+  dateString: string,
+  stats: { present: number; absent: number; safar: number; total: number }
+): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8" />
+      <title>Attendance Statistics Report - BGK Attendance</title>
+    </head>
+    <body style="margin:0;padding:0;background:#f1f5f9;font-family:'Segoe UI',Arial,sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:40px 20px;">
+        <tr><td align="center">
+          <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <tr>
+              <td style="background:linear-gradient(135deg,#3b82f6,#10b981);height:6px;"></td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:40px 40px 20px;">
+                <img src="https://app.burhaniguards.org/images/logo.png" alt="BGK Logo" width="80" height="80" style="display:block;margin-bottom:16px;" />
+                <h1 style="margin:0;font-size:22px;font-weight:700;color:#1e293b;">Burhani Guards Khaitan</h1>
+                <p style="margin:4px 0 0;font-size:14px;color:#475569;font-weight:600;letter-spacing:1px;text-transform:uppercase;">Attendance Stats Report</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 40px 32px;">
+                <p style="font-size:15px;color:#1e293b;margin:0 0 20px;">Salams ${leaderName} (${leaderDesignation}${teamOrMohallahName ? ` - ${teamOrMohallahName}` : ''})</p>
+                <p style="font-size:14px;color:#475569;margin:0 0 24px;">Find Out the Stats of the Members for Miqaat <strong>${miqaatName}</strong>:</p>
+                
+                <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:24px;color:#1e293b;font-size:14px;">
+                  <tr>
+                    <td style="color:#059669;font-weight:bold;width:50%;">Present:</td>
+                    <td><strong>${stats.present}</strong></td>
+                  </tr>
+                  <tr>
+                    <td style="color:#ef4444;font-weight:bold;">Absent:</td>
+                    <td><strong>${stats.absent}</strong></td>
+                  </tr>
+                  <tr>
+                    <td style="color:#d97706;font-weight:bold;">Safar:</td>
+                    <td><strong>${stats.safar}</strong></td>
+                  </tr>
+                  <tr style="border-top:1px solid #e2e8f0;">
+                    <td style="color:#1e293b;font-weight:bold;">Total Members:</td>
+                    <td><strong>${stats.total}</strong></td>
+                  </tr>
+                </table>
+
+                <div style="text-align:center;margin-top:28px;">
+                  <a href="https://bgk-attendance.netlify.app" style="display:inline-block;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:8px;box-shadow:0 2px 4px rgba(37,99,235,0.2);">For more Report visit website.</a>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 40px 32px;">
+                <div style="border-top:1px solid #e2e8f0;padding-top:24px;text-align:center;">
+                  <p style="font-size:11px;color:#94a3b8;margin:0;">Designed and Managed by Shabbir Shakir &bull; BGK Khaitan</p>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+      </table>
+    </body>
+    </html>
+  `;
+}
