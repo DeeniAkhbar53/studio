@@ -47,9 +47,16 @@ const memberSchema = z.object({
   mohallahId: z.string().min(1, "Mohallah must be selected"),
   designation: z.enum(["Captain", "Vice Captain", "Member", "Asst.Grp Leader", "Group Leader", "J.Member", "Major", "Idara Admin", "Senior Assistant Commander", "Assistant Commander", "Commander"]).optional().or(z.literal("")),
   pageRights: z.array(z.string()).optional().default([]),
-}).refine(data => {
-    if ((data.role === 'admin' || data.role === 'superadmin') && (!data.password || data.password.length < 6)) {
-        return false;
+});
+
+const getMemberSchema = (isEdit: boolean) => memberSchema.refine(data => {
+    const isPasswordEmpty = !data.password || data.password.trim() === "";
+    if (data.role === 'admin' || data.role === 'superadmin') {
+        if (isEdit) {
+            return isPasswordEmpty || data.password!.length >= 6;
+        } else {
+            return !isPasswordEmpty && data.password!.length >= 6;
+        }
     }
     return true;
 }, {
@@ -130,8 +137,10 @@ export default function ManageMembersPage() {
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
 
+  const schema = useMemo(() => getMemberSchema(!!editingMember), [editingMember]);
+
   const memberForm = useForm<MemberFormValues>({
-    resolver: zodResolver(memberSchema),
+    resolver: (values, context, options) => zodResolver(schema)(values, context, options),
     defaultValues: { name: "", itsId: "", email: "", bgkId: "", password: "", team: "", phoneNumber: "", role: "user", mohallahId: "", designation: "Member", pageRights: [], managedTeams: [] },
   });
 
@@ -260,6 +269,20 @@ export default function ManageMembersPage() {
       setAvailableTeamsInForm([]);
     }
   }, [watchedMohallahInForm]);
+
+  useEffect(() => {
+    if (watchedRole === 'admin' || watchedRole === 'superadmin') {
+      memberForm.setValue('team', '');
+      memberForm.setValue('designation', '');
+      
+      if (watchedRole === 'superadmin') {
+        const currentMohallah = memberForm.getValues('mohallahId');
+        if (!currentMohallah && mohallahs.length > 0) {
+          memberForm.setValue('mohallahId', mohallahs[0].id);
+        }
+      }
+    }
+  }, [watchedRole, mohallahs, memberForm]);
 
 
   useEffect(() => {
@@ -944,16 +967,16 @@ export default function ManageMembersPage() {
                             </FormItem>
                           )} />
                            <FormField control={memberForm.control} name="mohallahId" render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Mohallah</FormLabel>
-                              <Select
-                                onValueChange={(value) => {
-                                    field.onChange(value);
-                                    memberForm.setValue('team', ''); // Reset team when mohallah changes
-                                }}
-                                value={field.value}
-                                disabled={isLoadingMohallahs || mohallahs.length === 0 || currentUserRole !== 'superadmin'}
-                              >
+                             <FormItem>
+                               <FormLabel>Mohallah</FormLabel>
+                               <Select
+                                 onValueChange={(value) => {
+                                     field.onChange(value);
+                                     memberForm.setValue('team', ''); // Reset team when mohallah changes
+                                 }}
+                                 value={field.value}
+                                 disabled={isLoadingMohallahs || mohallahs.length === 0 || currentUserRole !== 'superadmin' || watchedRole === 'superadmin'}
+                               >
                                 <FormControl><SelectTrigger><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
                                 <SelectContent>
                                   {isLoadingMohallahs ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
@@ -965,11 +988,11 @@ export default function ManageMembersPage() {
                               <FormMessage />
                             </FormItem>
                           )} />
-                          <FormField control={memberForm.control} name="team" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Team</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} disabled={!watchedMohallahInForm || availableTeamsInForm.length === 0}>
-                                <FormControl><SelectTrigger><SelectValue placeholder={!watchedMohallahInForm ? "Select a Mohallah first" : (availableTeamsInForm.length === 0 ? "No teams in this Mohallah" : "Select a team")} /></SelectTrigger></FormControl>
+                           <FormField control={memberForm.control} name="team" render={({ field }) => (
+                             <FormItem>
+                                 <FormLabel>Team</FormLabel>
+                                 <Select onValueChange={field.onChange} value={field.value} disabled={!watchedMohallahInForm || availableTeamsInForm.length === 0 || watchedRole === 'admin' || watchedRole === 'superadmin'}>
+                                 <FormControl><SelectTrigger><SelectValue placeholder={watchedRole === 'admin' || watchedRole === 'superadmin' ? "Not applicable for Admin/Super Admin roles" : (!watchedMohallahInForm ? "Select a Mohallah first" : (availableTeamsInForm.length === 0 ? "No teams in this Mohallah" : "Select a team"))} /></SelectTrigger></FormControl>
                                 <SelectContent>
                                     {availableTeamsInForm.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                                 </SelectContent>
@@ -978,11 +1001,11 @@ export default function ManageMembersPage() {
                             </FormItem>
                             )} />
 
-                          <FormField control={memberForm.control} name="designation" render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Designation</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value || "Member"}>
-                                  <FormControl><SelectTrigger><SelectValue placeholder="Select designation" /></SelectTrigger></FormControl>
+                           <FormField control={memberForm.control} name="designation" render={({ field }) => (
+                               <FormItem>
+                                 <FormLabel>Designation</FormLabel>
+                                 <Select onValueChange={field.onChange} value={field.value || "Member"} disabled={watchedRole === 'admin' || watchedRole === 'superadmin'}>
+                                   <FormControl><SelectTrigger><SelectValue placeholder={watchedRole === 'admin' || watchedRole === 'superadmin' ? "Not applicable for Admin/Super Admin roles" : "Select designation"} /></SelectTrigger></FormControl>
                                   <SelectContent>
                                     {ALL_DESIGNATIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                                   </SelectContent>
@@ -1043,13 +1066,23 @@ export default function ManageMembersPage() {
                           <FormField control={memberForm.control} name="role" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Role</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
+                              <Select onValueChange={(val) => {
+                                  field.onChange(val);
+                                  if (val === 'admin' || val === 'superadmin') {
+                                    memberForm.setValue('team', '');
+                                    memberForm.setValue('designation', 'Member');
+                                  }
+                              }} value={field.value}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
                                 <SelectContent>
                                   <SelectItem value="user">User</SelectItem>
                                   <SelectItem value="attendance-marker">Attendance Marker</SelectItem>
-                                  <SelectItem value="admin">Admin</SelectItem>
-                                  <SelectItem value="superadmin">Super Admin</SelectItem>
+                                  {(currentUserRole === 'superadmin' || (currentUserRole === 'admin' && editingMember && editingMember.role === 'admin')) && (
+                                      <SelectItem value="admin">Admin</SelectItem>
+                                  )}
+                                  {currentUserRole === 'superadmin' && (
+                                      <SelectItem value="superadmin">Super Admin</SelectItem>
+                                  )}
                                 </SelectContent>
                               </Select>
                                {watchedRole && (
