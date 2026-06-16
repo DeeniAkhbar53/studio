@@ -137,6 +137,18 @@ export default function ManageMembersPage() {
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
 
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [bulkMohallahChecked, setBulkMohallahChecked] = useState(false);
+  const [bulkMohallahId, setBulkMohallahId] = useState("");
+  const [bulkTeamChecked, setBulkTeamChecked] = useState(false);
+  const [bulkTeam, setBulkTeam] = useState("");
+  const [bulkDesignationChecked, setBulkDesignationChecked] = useState(false);
+  const [bulkDesignation, setBulkDesignation] = useState("");
+  const [bulkRoleChecked, setBulkRoleChecked] = useState(false);
+  const [bulkRole, setBulkRole] = useState("");
+  const [bulkAvailableTeams, setBulkAvailableTeams] = useState<string[]>([]);
+
   const schema = useMemo(() => getMemberSchema(!!editingMember), [editingMember]);
 
   const memberForm = useForm<MemberFormValues>({
@@ -320,6 +332,126 @@ export default function ManageMembersPage() {
       });
     }
   }, [editingMember, memberForm, isMemberSheetOpen, mohallahs, selectedFilterMohallahId, currentUserRole, currentUserMohallahId, isAuthorized]);
+
+  useEffect(() => {
+    if (isBulkEditOpen) {
+      const firstMember = members.find(m => selectedMemberIds.includes(m.id));
+      setBulkMohallahId(firstMember?.mohallahId || currentUserMohallahId || (mohallahs.length > 0 ? mohallahs[0].id : ""));
+      setBulkTeam("");
+      setBulkDesignation("Member");
+      setBulkRole("user");
+      
+      setBulkMohallahChecked(false);
+      setBulkTeamChecked(false);
+      setBulkDesignationChecked(false);
+      setBulkRoleChecked(false);
+    }
+  }, [isBulkEditOpen, selectedMemberIds, members, currentUserMohallahId, mohallahs]);
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+    const targetMohallah = bulkMohallahChecked ? bulkMohallahId : (currentUserRole === 'superadmin' ? 'all' : currentUserMohallahId);
+    if (targetMohallah && targetMohallah !== 'all') {
+      getTeams(targetMohallah)
+        .then(teams => setBulkAvailableTeams(teams.sort()))
+        .catch(err => {
+          console.error("Error loading teams for bulk edit:", err);
+          setBulkAvailableTeams([]);
+        });
+    } else {
+      const teamsFromMembers = [...new Set(members.map(m => m.team).filter(Boolean) as string[])].sort();
+      setBulkAvailableTeams(teamsFromMembers);
+    }
+  }, [bulkMohallahChecked, bulkMohallahId, currentUserMohallahId, currentUserRole, members, isAuthorized]);
+
+  const handleBulkEditSubmit = async () => {
+    if (selectedMemberIds.length === 0) {
+      toast({ title: "No members selected", description: "Please select members to edit.", variant: "default" });
+      return;
+    }
+    setIsBulkUpdating(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const memberId of selectedMemberIds) {
+      const member = members.find(m => m.id === memberId);
+      if (!member || !member.mohallahId) {
+        failCount++;
+        continue;
+      }
+
+      // Determine updated fields
+      const newMohallahId = bulkMohallahChecked ? bulkMohallahId : member.mohallahId;
+      const newRole = bulkRoleChecked ? (bulkRole as UserRole) : member.role;
+      const newDesignation = bulkDesignationChecked ? (bulkDesignation as UserDesignation) : member.designation;
+      
+      let newTeam = bulkTeamChecked ? bulkTeam : member.team;
+      if (newRole === 'admin' || newRole === 'superadmin') {
+        newTeam = "";
+      }
+
+      // Local Admins cannot bulk edit superadmins or change someone's role to superadmin
+      if (currentUserRole !== 'superadmin') {
+        if (member.role === 'superadmin' || newRole === 'superadmin') {
+          failCount++;
+          continue;
+        }
+      }
+
+      const updatePayload: any = {
+        name: member.name,
+        itsId: member.itsId,
+        email: member.email || "",
+        bgkId: member.bgkId || "",
+        phoneNumber: member.phoneNumber || "",
+        role: newRole,
+        mohallahId: newMohallahId,
+        designation: newDesignation,
+        pageRights: member.pageRights || [],
+        managedTeams: member.managedTeams || [],
+      };
+
+      if (member.password) {
+        updatePayload.password = member.password;
+      }
+
+      try {
+        if (member.mohallahId !== newMohallahId) {
+          // Transfer: delete from old, add to new
+          await deleteUser(member.id, member.mohallahId, true);
+          await addUser(updatePayload, newMohallahId, member.mohallahId);
+        } else {
+          // Standard update
+          const fieldsToUpdate: any = {};
+          if (bulkRoleChecked) fieldsToUpdate.role = newRole;
+          if (bulkDesignationChecked) fieldsToUpdate.designation = newDesignation;
+          if (bulkTeamChecked) fieldsToUpdate.team = newTeam;
+          
+          if (newRole === 'admin' || newRole === 'superadmin') {
+            fieldsToUpdate.team = "";
+            fieldsToUpdate.designation = "Member";
+          }
+          
+          await updateUser(member.id, member.mohallahId, fieldsToUpdate);
+        }
+        successCount++;
+      } catch (err) {
+        console.error("Error bulk updating member:", member.id, err);
+        failCount++;
+      }
+    }
+
+    toast({
+      title: "Bulk Edit Complete",
+      description: `Successfully updated ${successCount} member(s). Failed: ${failCount}.`,
+      variant: failCount > 0 ? "destructive" : "default"
+    });
+
+    setIsBulkEditOpen(false);
+    setSelectedMemberIds([]);
+    fetchAndSetMembers();
+    setIsBulkUpdating(false);
+  };
 
   const handleMemberFormSubmit = async (values: MemberFormValues) => {
     const targetMohallahId = values.mohallahId;
@@ -767,9 +899,10 @@ export default function ManageMembersPage() {
   };
   
   const canSeeTeamFilter = useMemo(() => {
+    if (currentUserRole === 'superadmin' || currentUserRole === 'admin') return true;
     if (!currentUserDesignation) return false;
     return currentUserDesignation === 'Captain' || currentUserDesignation === 'Vice Captain';
-  }, [currentUserDesignation]);
+  }, [currentUserRole, currentUserDesignation]);
 
   const teamFilterOptions = useMemo(() => {
     if (!currentUser) return [];
@@ -841,28 +974,34 @@ export default function ManageMembersPage() {
              {canManageMembers && (
                 <div className="flex items-center gap-2 self-start md:self-center shrink-0">
                    {selectedMemberIds.length > 0 && (
-                     <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}>
-                        <AlertTrigger asChild>
-                          <Button variant="destructive" size="sm" aria-label={`Delete ${selectedMemberIds.length} selected members`}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete ({selectedMemberIds.length})
-                          </Button>
-                        </AlertTrigger>
-                        <AlertContent>
-                          <AlertHeader>
-                            <AlertTitle>Confirm Bulk Deletion</AlertTitle>
-                            <AlertDesc>
-                              Are you sure you want to delete {selectedMemberIds.length} selected member(s)? This action cannot be undone.
-                            </AlertDesc>
-                          </AlertHeader>
-                          <AlertFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">
-                              Delete Selected
-                            </AlertDialogAction>
-                          </AlertFooter>
-                        </AlertContent>
-                      </AlertDialog>
+                     <div className="flex items-center gap-2">
+                       <Button variant="outline" size="sm" onClick={() => setIsBulkEditOpen(true)} aria-label={`Bulk edit ${selectedMemberIds.length} selected members`}>
+                         <Edit className="mr-2 h-4 w-4" />
+                         Bulk Edit ({selectedMemberIds.length})
+                       </Button>
+                       <AlertDialog open={isBulkDeleteAlertOpen} onOpenChange={setIsBulkDeleteAlertOpen}>
+                          <AlertTrigger asChild>
+                            <Button variant="destructive" size="sm" aria-label={`Delete ${selectedMemberIds.length} selected members`}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete ({selectedMemberIds.length})
+                            </Button>
+                          </AlertTrigger>
+                          <AlertContent>
+                            <AlertHeader>
+                              <AlertTitle>Confirm Bulk Deletion</AlertTitle>
+                              <AlertDesc>
+                                Are you sure you want to delete {selectedMemberIds.length} selected member(s)? This action cannot be undone.
+                              </AlertDesc>
+                            </AlertHeader>
+                            <AlertFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive hover:bg-destructive/90">
+                                Delete Selected
+                              </AlertDialogAction>
+                            </AlertFooter>
+                          </AlertContent>
+                        </AlertDialog>
+                     </div>
                   )}
                   <Button variant="outline" onClick={handleExport} size="sm" disabled={filteredMembers.length === 0}>
                       <Download className="mr-2 h-4 w-4" /> Export
@@ -975,7 +1114,7 @@ export default function ManageMembersPage() {
                                      memberForm.setValue('team', ''); // Reset team when mohallah changes
                                  }}
                                  value={field.value}
-                                 disabled={isLoadingMohallahs || mohallahs.length === 0 || currentUserRole !== 'superadmin' || watchedRole === 'superadmin'}
+                                 disabled={isLoadingMohallahs || mohallahs.length === 0 || currentUserRole !== 'superadmin'}
                                >
                                 <FormControl><SelectTrigger><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
                                 <SelectContent>
@@ -991,8 +1130,8 @@ export default function ManageMembersPage() {
                            <FormField control={memberForm.control} name="team" render={({ field }) => (
                              <FormItem>
                                  <FormLabel>Team</FormLabel>
-                                 <Select onValueChange={field.onChange} value={field.value} disabled={!watchedMohallahInForm || availableTeamsInForm.length === 0 || watchedRole === 'admin' || watchedRole === 'superadmin'}>
-                                 <FormControl><SelectTrigger><SelectValue placeholder={watchedRole === 'admin' || watchedRole === 'superadmin' ? "Not applicable for Admin/Super Admin roles" : (!watchedMohallahInForm ? "Select a Mohallah first" : (availableTeamsInForm.length === 0 ? "No teams in this Mohallah" : "Select a team"))} /></SelectTrigger></FormControl>
+                                 <Select onValueChange={field.onChange} value={field.value} disabled={!watchedMohallahInForm || availableTeamsInForm.length === 0}>
+                                 <FormControl><SelectTrigger><SelectValue placeholder={!watchedMohallahInForm ? "Select a Mohallah first" : (availableTeamsInForm.length === 0 ? "No teams in this Mohallah" : "Select a team")} /></SelectTrigger></FormControl>
                                 <SelectContent>
                                     {availableTeamsInForm.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                                 </SelectContent>
@@ -1004,8 +1143,8 @@ export default function ManageMembersPage() {
                            <FormField control={memberForm.control} name="designation" render={({ field }) => (
                                <FormItem>
                                  <FormLabel>Designation</FormLabel>
-                                 <Select onValueChange={field.onChange} value={field.value || "Member"} disabled={watchedRole === 'admin' || watchedRole === 'superadmin'}>
-                                   <FormControl><SelectTrigger><SelectValue placeholder={watchedRole === 'admin' || watchedRole === 'superadmin' ? "Not applicable for Admin/Super Admin roles" : "Select designation"} /></SelectTrigger></FormControl>
+                                 <Select onValueChange={field.onChange} value={field.value || "Member"}>
+                                   <FormControl><SelectTrigger><SelectValue placeholder="Select designation" /></SelectTrigger></FormControl>
                                   <SelectContent>
                                     {ALL_DESIGNATIONS.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                                   </SelectContent>
@@ -1553,6 +1692,155 @@ export default function ManageMembersPage() {
                 </>
               ) : (
                 "Upload and Process"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Edit Dialog */}
+      <Dialog open={isBulkEditOpen} onOpenChange={setIsBulkEditOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Bulk Edit ({selectedMemberIds.length} members)</DialogTitle>
+            <DialogDescription>
+              Select the fields you want to update for the selected members.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-6 py-4">
+            {/* Mohallah (Superadmin only) */}
+            {currentUserRole === 'superadmin' && (
+              <div className="flex items-center space-x-4">
+                <Checkbox
+                  id="bulkMohallahChecked"
+                  checked={bulkMohallahChecked}
+                  onCheckedChange={(checked) => setBulkMohallahChecked(!!checked)}
+                />
+                <div className="flex-1 space-y-1">
+                  <Label htmlFor="bulkMohallah" className="text-sm font-medium">Change Mohallah</Label>
+                  <Select
+                    value={bulkMohallahId}
+                    onValueChange={setBulkMohallahId}
+                    disabled={!bulkMohallahChecked || isLoadingMohallahs}
+                  >
+                    <SelectTrigger id="bulkMohallah">
+                      <SelectValue placeholder="Select Mohallah" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mohallahs.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {/* Team */}
+            <div className="flex items-center space-x-4">
+              <Checkbox
+                id="bulkTeamChecked"
+                checked={bulkTeamChecked}
+                onCheckedChange={(checked) => setBulkTeamChecked(!!checked)}
+              />
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="bulkTeam" className="text-sm font-medium">Change Team</Label>
+                <Select
+                  value={bulkTeam}
+                  onValueChange={setBulkTeam}
+                  disabled={!bulkTeamChecked}
+                >
+                  <SelectTrigger id="bulkTeam">
+                    <SelectValue placeholder={bulkAvailableTeams.length === 0 ? "No teams available" : "Select Team"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None / Clear Team</SelectItem>
+                    {bulkAvailableTeams.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Designation */}
+            <div className="flex items-center space-x-4">
+              <Checkbox
+                id="bulkDesignationChecked"
+                checked={bulkDesignationChecked}
+                onCheckedChange={(checked) => setBulkDesignationChecked(!!checked)}
+              />
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="bulkDesignation" className="text-sm font-medium">Change Designation</Label>
+                <Select
+                  value={bulkDesignation}
+                  onValueChange={setBulkDesignation}
+                  disabled={!bulkDesignationChecked}
+                >
+                  <SelectTrigger id="bulkDesignation">
+                    <SelectValue placeholder="Select Designation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ALL_DESIGNATIONS.map((d) => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Role */}
+            <div className="flex items-center space-x-4">
+              <Checkbox
+                id="bulkRoleChecked"
+                checked={bulkRoleChecked}
+                onCheckedChange={(checked) => setBulkRoleChecked(!!checked)}
+              />
+              <div className="flex-1 space-y-1">
+                <Label htmlFor="bulkRole" className="text-sm font-medium">Change Role</Label>
+                <Select
+                  value={bulkRole}
+                  onValueChange={setBulkRole}
+                  disabled={!bulkRoleChecked}
+                >
+                  <SelectTrigger id="bulkRole">
+                    <SelectValue placeholder="Select Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="attendance-marker">Attendance Marker</SelectItem>
+                    {(currentUserRole === 'superadmin' || currentUserRole === 'admin') && (
+                      <SelectItem value="admin">Admin</SelectItem>
+                    )}
+                    {currentUserRole === 'superadmin' && (
+                      <SelectItem value="superadmin">Super Admin</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsBulkEditOpen(false)}
+              disabled={isBulkUpdating}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleBulkEditSubmit}
+              disabled={isBulkUpdating || (!bulkMohallahChecked && !bulkTeamChecked && !bulkDesignationChecked && !bulkRoleChecked)}
+            >
+              {isBulkUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Save Changes"
               )}
             </Button>
           </DialogFooter>
