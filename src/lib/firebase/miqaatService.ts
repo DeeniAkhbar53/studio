@@ -48,6 +48,7 @@ export const getMiqaats = (onUpdate: (miqaats: Miqaat[]) => void, year?: string)
         })) : [],
         attendedUserItsIds: Array.isArray(miqaatData.attendedUserItsIds) ? miqaatData.attendedUserItsIds : [],
         attendanceRequirements: miqaatData.attendanceRequirements || { fetaPaghri: false, koti: false, nazrulMaqam: false },
+        sendEmail: miqaatData.sendEmail || false,
       };
       return miqaat;
     });

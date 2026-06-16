@@ -50,6 +50,17 @@ export async function POST(req: NextRequest) {
     let eligibleUsers: any[];
     if (targetItsIds && Array.isArray(targetItsIds)) {
       eligibleUsers = allMembers.filter(user => targetItsIds.includes(user.itsId));
+      // Intersect with Miqaat eligibility
+      if (isSpecificMemberMiqaat) {
+        eligibleUsers = eligibleUsers.filter(user => miqaatData.eligibleItsIds!.includes(user.itsId));
+      } else {
+        if (miqaatData.mohallahIds && miqaatData.mohallahIds.length > 0) {
+          eligibleUsers = eligibleUsers.filter(user => user.mohallahId && miqaatData.mohallahIds!.includes(user.mohallahId));
+        }
+        if (miqaatData.teams && miqaatData.teams.length > 0) {
+          eligibleUsers = eligibleUsers.filter(user => user.team && miqaatData.teams!.includes(user.team));
+        }
+      }
     } else if (isSpecificMemberMiqaat) {
       eligibleUsers = allMembers.filter(user => miqaatData.eligibleItsIds!.includes(user.itsId));
     } else if (miqaatData.mohallahIds && miqaatData.mohallahIds.length > 0) {

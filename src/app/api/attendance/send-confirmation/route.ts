@@ -37,6 +37,11 @@ export async function POST(req: NextRequest) {
     }
     const miqaatData = miqaatDoc.data();
 
+    // Check if present emails should be sent
+    if (!miqaatData.sendEmail) {
+      return NextResponse.json({ success: true, message: 'Present email notifications are disabled for this Miqaat.' });
+    }
+
     // 3. Resolve Session Name if applicable
     let sessionName = '';
     if (sessionId && miqaatData.sessions) {

@@ -608,7 +608,7 @@ export default function ReportsPage() {
             setCurrentUser(userDetails);
             setCurrentUserName(userDetails?.name || '');
             
-            if (userDetails?.role === 'admin' && userDetails.mohallahId) {
+            if (userDetails?.role !== 'superadmin' && userDetails?.mohallahId) {
               form.setValue('mohallahId', userDetails.mohallahId);
             }
 
@@ -630,18 +630,16 @@ export default function ReportsPage() {
       roleFilteredMiqaats = roleFilteredMiqaats.filter(m => m.type === miqaatTypeFilter);
     }
     
-    if (currentUser.role === 'superadmin') {
+    if (currentUser.role === 'superadmin' || !currentUser.mohallahId) {
       const allTeams = [...new Set(allUsers.map(u => u.team).filter(Boolean) as string[])].sort();
       return { availableMiqaats: roleFilteredMiqaats, availableMohallahs: allMohallahs, availableTeams: allTeams };
-    }
-    if (currentUser.role === 'admin' && currentUser.mohallahId) {
+    } else {
       const filteredMiqaatsForAdmin = roleFilteredMiqaats.filter(m => !m.mohallahIds?.length || m.mohallahIds.includes(currentUser.mohallahId!));
       const filteredMohallahs = allMohallahs.filter(m => m.id === currentUser.mohallahId);
       const usersInMohallah = allUsers.filter(u => u.mohallahId === currentUser.mohallahId);
       const teamsInMohallah = [...new Set(usersInMohallah.map(u => u.team).filter(Boolean) as string[])].sort();
       return { availableMiqaats: filteredMiqaatsForAdmin, availableMohallahs: filteredMohallahs, availableTeams: teamsInMohallah };
     }
-    return { availableMiqaats: [], availableMohallahs: [], availableTeams: [] };
   }, [currentUser, allMiqaats, allMohallahs, allUsers, miqaatTypeFilter]);
 
   const searchedMiqaats = useMemo(() => {
@@ -962,7 +960,7 @@ export default function ReportsPage() {
 
       let filteredData = [...reportResultItems];
       
-      if (currentUser?.role === 'admin' && currentUser.mohallahId) {
+      if (currentUser?.role !== 'superadmin' && currentUser?.mohallahId) {
           filteredData = filteredData.filter(record => {
               const userDetails = userMap.get(record.userItsId);
               return userDetails?.mohallahId === currentUser.mohallahId;
@@ -1789,7 +1787,7 @@ export default function ReportsPage() {
                             render={({ field }) => (
                                 <FormItem>
                                 <FormLabel>Filter by Mohallah</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingOptions || currentUser?.role === 'admin'}>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingOptions || (currentUser?.role !== 'superadmin' && !!currentUser?.mohallahId)}>
                                     <FormControl>
                                     <SelectTrigger>
                                         <SelectValue placeholder={isLoadingOptions ? "Loading..." : "All Mohallahs"} />
@@ -1800,7 +1798,7 @@ export default function ReportsPage() {
                                         {availableMohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
-                                 {currentUser?.role === 'admin' && <FormDescription>Admins can only see reports for their own Mohallah.</FormDescription>}
+                                 {(currentUser?.role !== 'superadmin' && !!currentUser?.mohallahId) && <FormDescription>Your access is scoped to your assigned Mohallah.</FormDescription>}
                                 <FormMessage />
                                 </FormItem>
                             )}

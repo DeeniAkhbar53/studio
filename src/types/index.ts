@@ -86,6 +86,7 @@ export type Miqaat = {
     shoes?: boolean;
     nazrulMaqam?: boolean;
   };
+  sendEmail?: boolean;
 };
 
 export type AttendanceRecord = {

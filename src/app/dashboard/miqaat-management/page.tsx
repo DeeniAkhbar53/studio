@@ -60,6 +60,7 @@ const formSchema = z.object({
   teams: z.array(z.string()).optional().default([]),
   eligibleItsIds: z.array(z.string()).optional().default([]),
   barcodeData: z.string().optional(),
+  sendEmail: z.boolean().default(false),
   attendanceRequirements: z.object({
     fetaPaghri: z.boolean().default(false),
     koti: z.boolean().default(false),
@@ -136,7 +137,7 @@ export default function MiqaatManagementPage() {
   const [miqaatTypeFilter, setMiqaatTypeFilter] = useState<'all' | 'local' | 'international'>("all");
   const [memberSearchTerm, setMemberSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "type" | "attendanceType" | "sessions"| "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendanceRequirements"> | null>(null);
+  const [editingMiqaat, setEditingMiqaat] = useState<Pick<Miqaat, "id" | "name" | "type" | "attendanceType" | "sessions"| "startTime" | "endTime" | "reportingTime" | "mohallahIds" | "teams" | "eligibleItsIds" | "location" | "barcodeData" | "attendance" | "safarList" | "createdAt" | "attendanceRequirements" | "sendEmail"> | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
   const { toast } = useToast();
@@ -304,6 +305,7 @@ export default function MiqaatManagementPage() {
       teams: [], 
       eligibleItsIds: [],
       barcodeData: "",
+      sendEmail: false,
       attendanceRequirements: { fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false },
     },
   });
@@ -425,7 +427,8 @@ export default function MiqaatManagementPage() {
       
       return users.filter(user => 
         user.name.toLowerCase().includes(memberSearchTerm.toLowerCase()) || 
-        user.itsId.includes(memberSearchTerm)
+        user.itsId.includes(memberSearchTerm) ||
+        (user.bgkId && user.bgkId.toLowerCase().includes(memberSearchTerm.toLowerCase()))
       );
   }, [formOptions.users, memberSearchTerm, form.watch, activeBulkFilter]);
 
@@ -457,8 +460,9 @@ export default function MiqaatManagementPage() {
         mohallahIds: editingMiqaat.mohallahIds || [],
         teams: editingMiqaat.teams || [], 
         eligibleItsIds: editingMiqaat.eligibleItsIds || [],
-        barcodeData: editingMiqaat.barcodeData || "",
         attendanceRequirements: editingMiqaat.attendanceRequirements || { fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false },
+        barcodeData: editingMiqaat.barcodeData || "",
+        sendEmail: editingMiqaat.sendEmail || false,
       });
     } else if (!isDialogOpen) {
       form.reset({ name: "", location: "", type: "local", attendanceType: undefined, startTime: "", endTime: "", reportingTime: null, sessions: [], eligibilityType: "groups", mohallahIds: [], teams: [], eligibleItsIds: [], barcodeData: "", attendanceRequirements: { fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false } });
@@ -537,6 +541,7 @@ export default function MiqaatManagementPage() {
       eligibleItsIds: values.eligibilityType === 'specific_members' ? (values.eligibleItsIds || []) : [],
       barcodeData: values.barcodeData,
       attendanceRequirements: values.attendanceRequirements,
+      sendEmail: values.sendEmail,
     };
     
     try {
@@ -577,6 +582,7 @@ export default function MiqaatManagementPage() {
       eligibleItsIds: [],
       barcodeData: "",
       attendanceRequirements: { fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false },
+      sendEmail: false,
     });
     setIsDialogOpen(true);
   };
@@ -604,6 +610,7 @@ export default function MiqaatManagementPage() {
       eligibleItsIds: [], // Always clear eligible members on duplicate
       attendanceRequirements: miqaat.attendanceRequirements || { fetaPaghri: false, koti: false, uniform: false, shoes: false, nazrulMaqam: false },
       barcodeData: "",
+      sendEmail: miqaat.sendEmail || false,
     });
     
     setIsDialogOpen(true);
@@ -923,6 +930,23 @@ export default function MiqaatManagementPage() {
                             )}
                         />
 
+                        <FormField
+                            control={form.control}
+                            name="sendEmail"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-2xl border p-4 bg-muted/10">
+                                    <FormControl>
+                                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                    </FormControl>
+                                    <div className="space-y-1 leading-none">
+                                        <ShadFormLabel className="font-semibold text-sm">Send Confirmation Email</ShadFormLabel>
+                                        <FormDescription className="text-xs">
+                                            If enabled, members will receive email receipts automatically when their present attendance is marked.
+                                        </FormDescription>
+                                    </div>
+                                </FormItem>
+                            )}
+                        />
                       
                       <FormField control={form.control} name="eligibilityType" render={({ field }) => (
                           <FormItem className="space-y-3 pt-2">
@@ -998,10 +1022,10 @@ export default function MiqaatManagementPage() {
                                       <div className="relative flex-grow">
                                           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                                           <Input
-                                              placeholder="Search by name, ITS..."
+                                              placeholder="Search by name, ITS or BGK ID..."
                                               value={memberSearchTerm}
                                               onChange={(e) => setMemberSearchTerm(e.target.value)}
-                                              className="pl-8"
+                                              className="pl-9 text-xs rounded-xl"
                                           />
                                       </div>
                                       <Dialog open={isBulkFilterOpen} onOpenChange={setIsBulkFilterOpen}>

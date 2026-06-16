@@ -1913,7 +1913,15 @@ export default function DashboardOverviewPage() {
                 
                 const todaysMiqaats = allMiqaatsList.filter(m => {
                   const mStart = new Date(m.startTime);
-                  return mStart >= startOfToday && mStart <= endOfToday;
+                  const isToday = mStart >= startOfToday && mStart <= endOfToday;
+                  if (!isToday) return false;
+
+                  const isPrivilegedRole = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker';
+                  if (m.eligibleItsIds && m.eligibleItsIds.length > 0) {
+                    if (isPrivilegedRole) return true;
+                    return currentUserItsId ? m.eligibleItsIds.includes(currentUserItsId) : false;
+                  }
+                  return true;
                 });
 
                 if (todaysMiqaats.length === 0) {
