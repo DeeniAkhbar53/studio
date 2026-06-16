@@ -697,14 +697,17 @@ export default function BulkAttendancePage() {
                           {overrideTimestamp ? format(overrideTimestamp, "PPP p") : "Select date and time"}
                       </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
+                  <PopoverContent className="w-auto p-0 z-[100]" align="start">
                       <Calendar
                           mode="single"
                           selected={overrideTimestamp}
                           onSelect={setOverrideTimestamp}
-                          disabled={(date) =>
-                              currentMiqaatDetails ? date < new Date(currentMiqaatDetails.startTime) || date > new Date(currentMiqaatDetails.endTime) : true
-                          }
+                          disabled={(date) => {
+                              if (!currentMiqaatDetails) return true;
+                              const start = startOfDay(new Date(currentMiqaatDetails.startTime));
+                              const end = startOfDay(new Date(currentMiqaatDetails.endTime));
+                              return date < start || date > end;
+                          }}
                           initialFocus
                       />
                        <div className="p-3 border-t border-border">
