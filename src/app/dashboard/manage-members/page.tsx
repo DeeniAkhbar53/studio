@@ -386,6 +386,9 @@ export default function ManageMembersPage() {
       const newDesignation = bulkDesignationChecked ? (bulkDesignation as UserDesignation) : member.designation;
       
       let newTeam = bulkTeamChecked ? bulkTeam : member.team;
+      if (newTeam === 'none') {
+        newTeam = "";
+      }
       if (newRole === 'admin' || newRole === 'superadmin') {
         newTeam = "";
       }
@@ -1754,7 +1757,7 @@ export default function ManageMembersPage() {
                     <SelectValue placeholder={bulkAvailableTeams.length === 0 ? "No teams available" : "Select Team"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None / Clear Team</SelectItem>
+                    <SelectItem value="none">None / Clear Team</SelectItem>
                     {bulkAvailableTeams.map((t) => (
                       <SelectItem key={t} value={t}>{t}</SelectItem>
                     ))}
