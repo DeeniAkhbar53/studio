@@ -283,15 +283,10 @@ export default function ManageMembersPage() {
   }, [watchedMohallahInForm]);
 
   useEffect(() => {
-    if (watchedRole === 'admin' || watchedRole === 'superadmin') {
-      memberForm.setValue('team', '');
-      memberForm.setValue('designation', '');
-      
-      if (watchedRole === 'superadmin') {
-        const currentMohallah = memberForm.getValues('mohallahId');
-        if (!currentMohallah && mohallahs.length > 0) {
-          memberForm.setValue('mohallahId', mohallahs[0].id);
-        }
+    if (watchedRole === 'superadmin') {
+      const currentMohallah = memberForm.getValues('mohallahId');
+      if (!currentMohallah && mohallahs.length > 0) {
+        memberForm.setValue('mohallahId', mohallahs[0].id);
       }
     }
   }, [watchedRole, mohallahs, memberForm]);
@@ -364,6 +359,18 @@ export default function ManageMembersPage() {
     }
   }, [bulkMohallahChecked, bulkMohallahId, currentUserMohallahId, currentUserRole, members, isAuthorized]);
 
+  useEffect(() => {
+    console.log("=== Member Page Debug ===");
+    console.log("currentUserRole:", currentUserRole);
+    console.log("currentUserDesignation:", currentUserDesignation);
+    console.log("currentUserMohallahId:", currentUserMohallahId);
+    console.log("mohallahs:", mohallahs);
+    console.log("watchedRole:", watchedRole);
+    console.log("watchedDesignation:", watchedDesignation);
+    console.log("watchedMohallahInForm:", watchedMohallahInForm);
+    console.log("=========================");
+  }, [currentUserRole, currentUserDesignation, currentUserMohallahId, mohallahs, watchedRole, watchedDesignation, watchedMohallahInForm]);
+
   const handleBulkEditSubmit = async () => {
     if (selectedMemberIds.length === 0) {
       toast({ title: "No members selected", description: "Please select members to edit.", variant: "default" });
@@ -410,6 +417,7 @@ export default function ManageMembersPage() {
         role: newRole,
         mohallahId: newMohallahId,
         designation: newDesignation,
+        team: newTeam,
         pageRights: member.pageRights || [],
         managedTeams: member.managedTeams || [],
       };
@@ -1210,10 +1218,6 @@ export default function ManageMembersPage() {
                               <FormLabel>Role</FormLabel>
                               <Select onValueChange={(val) => {
                                   field.onChange(val);
-                                  if (val === 'admin' || val === 'superadmin') {
-                                    memberForm.setValue('team', '');
-                                    memberForm.setValue('designation', 'Member');
-                                  }
                               }} value={field.value}>
                                 <FormControl><SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
                                 <SelectContent>
