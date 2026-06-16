@@ -20,6 +20,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
 import { getUsers, addUser, updateUser, deleteUser, getUserByItsOrBgkId, UserDataForAdd } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
+import { getTeams } from "@/lib/firebase/teamService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle as ShadAlertTitle, AlertDescription as ShadAlertDescription } from "@/components/ui/alert";
@@ -194,7 +195,7 @@ export default function ManageMembersPage() {
             setCurrentUser(userDetails);
         }
 
-        if (role === 'admin' && mohallahId) {
+        if (role !== 'superadmin' && mohallahId) {
           setSelectedFilterMohallahId(mohallahId);
           memberForm.setValue('mohallahId', mohallahId);
         }
@@ -248,17 +249,17 @@ export default function ManageMembersPage() {
   }, [isAuthorized, fetchAndSetMembers]);
   
   useEffect(() => {
-    if (watchedMohallahInForm && members.length > 0) {
-      const teams = new Set(
-        members
-          .filter(m => m.mohallahId === watchedMohallahInForm && m.team)
-          .map(m => m.team!)
-      );
-      setAvailableTeamsInForm(Array.from(teams).sort());
+    if (watchedMohallahInForm) {
+      getTeams(watchedMohallahInForm)
+        .then(teams => setAvailableTeamsInForm(teams.sort()))
+        .catch(err => {
+          console.error("Error loading teams for form:", err);
+          setAvailableTeamsInForm([]);
+        });
     } else {
       setAvailableTeamsInForm([]);
     }
-  }, [watchedMohallahInForm, members]);
+  }, [watchedMohallahInForm]);
 
 
   useEffect(() => {
@@ -280,7 +281,7 @@ export default function ManageMembersPage() {
       });
     } else {
       let defaultMohallahForForm = "";
-      if (currentUserRole === 'admin' && currentUserMohallahId) {
+      if (currentUserRole !== 'superadmin' && currentUserMohallahId) {
         defaultMohallahForForm = currentUserMohallahId;
       } else if (currentUserRole === 'superadmin') {
         defaultMohallahForForm = selectedFilterMohallahId !== 'all'
@@ -664,20 +665,18 @@ export default function ManageMembersPage() {
     let dataToFilter = [...members];
 
     // First, apply role-based data scoping
-    if (currentUser?.role === 'admin' && currentUser.mohallahId) {
-        dataToFilter = dataToFilter.filter(member => member.mohallahId === currentUser.mohallahId);
-    } else if (currentUser?.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation) && currentUser.role !== 'superadmin') {
-        // Filter by Mohallah first for all team leads
+    if (currentUser?.role !== 'superadmin' && currentUser?.mohallahId) {
         dataToFilter = dataToFilter.filter(member => member.mohallahId === currentUser.mohallahId);
 
-        // Then, apply team-based filtering
-        if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams && currentUser.managedTeams.length > 0) {
-            const managedTeams = new Set(currentUser.managedTeams);
-            dataToFilter = dataToFilter.filter(member => member.team && managedTeams.has(member.team));
-        } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
-            dataToFilter = dataToFilter.filter(member => member.team === currentUser.team);
+        // Then, apply team-based filtering for team leads if applicable
+        if (currentUser?.designation && TEAM_LEAD_DESIGNATIONS.includes(currentUser.designation)) {
+            if (MID_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.managedTeams && currentUser.managedTeams.length > 0) {
+                const managedTeams = new Set(currentUser.managedTeams);
+                dataToFilter = dataToFilter.filter(member => member.team && managedTeams.has(member.team));
+            } else if (GROUP_LEVEL_LEADERS.includes(currentUser.designation) && currentUser.team) {
+                dataToFilter = dataToFilter.filter(member => member.team === currentUser.team);
+            }
         }
-        // TOP_LEVEL_LEADERS (Captain/Major) within this block will see everyone in their own Mohallah.
     }
     // Superadmin sees everyone, so no initial filter is applied.
 
@@ -691,7 +690,7 @@ export default function ManageMembersPage() {
         
         const roleMatch = selectedFilterRole === 'all' || m.role === selectedFilterRole;
         const designationMatch = selectedFilterDesignation === 'all' || m.designation === selectedFilterDesignation;
-        const mohallahFilterMatch = (currentUserRole !== 'admin' && selectedFilterMohallahId === 'all') || !m.mohallahId || m.mohallahId === selectedFilterMohallahId;
+        const mohallahFilterMatch = (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all') || !m.mohallahId || m.mohallahId === selectedFilterMohallahId;
         const teamFilterMatch = selectedFilterTeam === 'all' || !m.team || m.team === selectedFilterTeam;
 
 
@@ -740,9 +739,8 @@ export default function ManageMembersPage() {
 
   const canAddOrImport = () => {
     if (isLoadingMohallahs) return false; 
-    if (currentUserRole === 'admin') return !!currentUserMohallahId; 
     if (currentUserRole === 'superadmin') return true; 
-    return false;
+    return !!currentUserMohallahId;
   };
   
   const canSeeTeamFilter = useMemo(() => {
@@ -754,14 +752,14 @@ export default function ManageMembersPage() {
     if (!currentUser) return [];
 
     let usersToConsider = members;
-    // For admins, only show teams in their mohallah. For superadmin, show all teams.
-    if (currentUser.role === 'admin' && currentUser.mohallahId) {
+    // For non-superadmins, only show teams in their mohallah.
+    if (currentUser.role !== 'superadmin' && currentUser.mohallahId) {
       usersToConsider = members.filter(m => m.mohallahId === currentUser.mohallahId);
     }
     
     const allTeams = [...new Set(usersToConsider.map(u => u.team).filter(Boolean) as string[])].sort();
 
-    if (currentUser.role === 'superadmin' || currentUser.role === 'admin') {
+    if (currentUser.role === 'superadmin' || isAuthorized) {
       return allTeams;
     }
     
@@ -770,7 +768,7 @@ export default function ManageMembersPage() {
     return [];
   }, [currentUser, members]);
 
-  const canManageMembers = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+  const canManageMembers = isAuthorized === true;
   const displayTitle = useMemo(() => {
     if (currentUserDesignation && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation) && !canManageMembers) {
       if (TOP_LEVEL_LEADERS.includes(currentUserDesignation)) return `Members: ${getMohallahNameById(currentUserMohallahId || '')}`;
@@ -954,7 +952,7 @@ export default function ManageMembersPage() {
                                     memberForm.setValue('team', ''); // Reset team when mohallah changes
                                 }}
                                 value={field.value}
-                                disabled={isLoadingMohallahs || mohallahs.length === 0 || !(currentUserRole === 'admin' || currentUserRole === 'superadmin')}
+                                disabled={isLoadingMohallahs || mohallahs.length === 0 || currentUserRole !== 'superadmin'}
                               >
                                 <FormControl><SelectTrigger><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
                                 <SelectContent>
@@ -963,7 +961,7 @@ export default function ManageMembersPage() {
                                   mohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                                 </SelectContent>
                               </Select>
-                              {!(currentUserRole === 'admin' || currentUserRole === 'superadmin') && <FormDescription className="text-xs">Mohallah can only be changed by Admins.</FormDescription>}
+                              {currentUserRole !== 'superadmin' && <FormDescription className="text-xs">Your access is scoped to your assigned Mohallah.</FormDescription>}
                               <FormMessage />
                             </FormItem>
                           )} />
