@@ -418,8 +418,11 @@ export default function MiqaatManagementPage() {
       
       // New: Apply active bulk filter
       if (activeBulkFilter.length > 0) {
-        const activeFilterSet = new Set(activeBulkFilter);
-        users = users.filter(user => activeFilterSet.has(user.itsId));
+        const activeFilterSet = new Set(activeBulkFilter.map(id => id.toLowerCase()));
+        users = users.filter(user => 
+          activeFilterSet.has(user.itsId.toLowerCase()) || 
+          (user.bgkId && activeFilterSet.has(user.bgkId.toLowerCase()))
+        );
       }
 
 
@@ -1036,13 +1039,13 @@ export default function MiqaatManagementPage() {
                                         </DialogTrigger>
                                         <DialogContent>
                                           <DialogHeader>
-                                            <DialogTitle>Bulk Filter by ITS ID</DialogTitle>
+                                            <DialogTitle>Bulk Filter by ITS or BGK ID</DialogTitle>
                                             <DialogDescription>
-                                              Paste a list of ITS IDs separated by commas, spaces, or new lines. The list below will be filtered to show only these members for selection.
+                                              Paste a list of ITS IDs or BGK IDs separated by commas, spaces, or new lines. The list below will be filtered to show only these members for selection.
                                             </DialogDescription>
                                           </DialogHeader>
                                           <Textarea
-                                            placeholder="52XXXXXX, 52YYYYYY, 52ZZZZZZ..."
+                                            placeholder="e.g. 52XXXXXX, BGK045, 52YYYYYY, BGK112..."
                                             value={bulkItsFilter}
                                             onChange={(e) => setBulkItsFilter(e.target.value)}
                                             rows={8}
