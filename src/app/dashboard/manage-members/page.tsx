@@ -18,7 +18,7 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Form, FormField, FormControl, FormMessage, FormItem, FormLabel, FormDescription } from "@/components/ui/form";
-import { getUsers, addUser, updateUser, deleteUser, getUserByItsOrBgkId, UserDataForAdd } from "@/lib/firebase/userService";
+import { getUsers, addUser, updateUser, deleteUser, moveUserToMohallah, getUserByItsOrBgkId, UserDataForAdd } from "@/lib/firebase/userService";
 import { getMohallahs } from "@/lib/firebase/mohallahService";
 import { getTeams } from "@/lib/firebase/teamService";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent as AlertContent, AlertDialogDescription as AlertDesc, AlertDialogFooter as AlertFooter, AlertDialogHeader as AlertHeader, AlertDialogTitle as AlertTitle, AlertDialogTrigger as AlertTrigger } from "@/components/ui/alert-dialog";
@@ -98,7 +98,8 @@ const AVAILABLE_PAGE_RIGHTS: PageRightConfig[] = [
   { id: 'reports', label: 'View Reports', path: '/dashboard/reports', description: 'Generate and view various attendance reports.' },
 ];
 
-const ITEMS_PER_PAGE = 10;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250, 500] as const;
+type PageSizeOption = typeof PAGE_SIZE_OPTIONS[number] | 'all';
 
 export default function ManageMembersPage() {
   const router = useRouter();
@@ -134,6 +135,7 @@ export default function ManageMembersPage() {
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<PageSizeOption>(10);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [isBulkDeleteAlertOpen, setIsBulkDeleteAlertOpen] = useState(false);
 
@@ -159,12 +161,41 @@ export default function ManageMembersPage() {
   const watchedRole = memberForm.watch("role");
   const watchedDesignation = memberForm.watch("designation");
   const watchedMohallahInForm = memberForm.watch("mohallahId");
+  const isSuperAdmin = currentUser?.role === 'superadmin' || currentUserRole === 'superadmin';
+  const isAdmin = currentUser?.role === 'admin' || currentUserRole === 'admin';
 
   const isTeamLeadView = useMemo(() => {
-    if (!currentUserRole || !currentUserDesignation) return false;
-    const isAdminOrSuper = currentUserRole === 'admin' || currentUserRole === 'superadmin';
+    if (!currentUserDesignation) return false;
+    const isAdminOrSuper = isAdmin || isSuperAdmin;
     return !isAdminOrSuper && TEAM_LEAD_DESIGNATIONS.includes(currentUserDesignation);
-  }, [currentUserRole, currentUserDesignation]);
+  }, [currentUserDesignation, isAdmin, isSuperAdmin]);
+
+  const logMemberFormDebug = (event: string, extra: Record<string, unknown> = {}) => {
+    if (process.env.NODE_ENV === 'production') return;
+
+    const mohallahSelectDisabled = isLoadingMohallahs || mohallahs.length === 0 || !isSuperAdmin;
+    console.debug(`[BGK ManageMembers] ${event}`, {
+      currentUserRole,
+      currentUserRecordRole: currentUser?.role,
+      currentUserMohallahId,
+      isSuperAdmin,
+      isAdmin,
+      isLoadingMohallahs,
+      mohallahCount: mohallahs.length,
+      mohallahOptions: mohallahs.map(m => ({ id: m.id, name: m.name })),
+      editingMember: editingMember ? { id: editingMember.id, itsId: editingMember.itsId, mohallahId: editingMember.mohallahId } : null,
+      watchedMohallahInForm,
+      mohallahSelectDisabled,
+      mohallahSelectDisabledReason: mohallahSelectDisabled
+        ? {
+            loadingMohallahs: isLoadingMohallahs,
+            noMohallahsLoaded: mohallahs.length === 0,
+            notSuperAdmin: !isSuperAdmin,
+          }
+        : null,
+      ...extra,
+    });
+  };
   
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -206,6 +237,8 @@ export default function ManageMembersPage() {
         const name = localStorage.getItem('userName');
         const itsId = localStorage.getItem('userItsId');
 
+        let resolvedRole = role;
+        let resolvedMohallahId = mohallahId;
         setCurrentUserRole(role);
         setCurrentUserMohallahId(mohallahId);
         setCurrentUserTeam(team);
@@ -214,11 +247,20 @@ export default function ManageMembersPage() {
         if (itsId) {
             const userDetails = await getUserByItsOrBgkId(itsId);
             setCurrentUser(userDetails);
+            if (userDetails) {
+              resolvedRole = userDetails.role;
+              resolvedMohallahId = userDetails.mohallahId || null;
+              setCurrentUserRole(userDetails.role);
+              setCurrentUserDesignation(userDetails.designation || null);
+              setCurrentUserMohallahId(userDetails.mohallahId || null);
+              setCurrentUserTeam(userDetails.team || null);
+              setCurrentUserName(userDetails.name);
+            }
         }
 
-        if (role !== 'superadmin' && mohallahId) {
-          setSelectedFilterMohallahId(mohallahId);
-          memberForm.setValue('mohallahId', mohallahId);
+        if (resolvedRole !== 'superadmin' && resolvedMohallahId) {
+          setSelectedFilterMohallahId(resolvedMohallahId);
+          memberForm.setValue('mohallahId', resolvedMohallahId);
         }
       }
     }
@@ -246,7 +288,7 @@ export default function ManageMembersPage() {
         setMembers(fetchedMembers);
     } catch (error: any) {
         
-        if (currentUserRole === 'superadmin' && (!targetMohallahIdForFetch || targetMohallahIdForFetch === 'all') && error.message.includes("index")) {
+        if (isSuperAdmin && (!targetMohallahIdForFetch || targetMohallahIdForFetch === 'all') && error.message.includes("index")) {
             const specificErrorMsg = "Could not fetch all members. This may be due to missing database indexes. Please select a specific Mohallah to view its members or configure database indexes in your console.";
             setFetchError(specificErrorMsg);
             toast({ title: "Data Fetch Warning", description: specificErrorMsg, variant: "destructive", duration: 10000 });
@@ -259,7 +301,7 @@ export default function ManageMembersPage() {
     } finally {
         setIsLoadingMembers(false);
     }
-  }, [toast, currentUserRole]);
+  }, [toast, isSuperAdmin]);
 
   useEffect(() => {
     if (!isAuthorized) {
@@ -272,25 +314,34 @@ export default function ManageMembersPage() {
   useEffect(() => {
     if (watchedMohallahInForm) {
       getTeams(watchedMohallahInForm)
-        .then(teams => setAvailableTeamsInForm(teams.sort()))
+        .then(teams => {
+          const teamsFromMembers = members
+            .filter(member => member.mohallahId === watchedMohallahInForm && member.team)
+            .map(member => member.team!)
+            .filter(Boolean);
+          const mergedTeams = [...new Set([...teams, ...teamsFromMembers])].sort();
+          setAvailableTeamsInForm(mergedTeams);
+          if (process.env.NODE_ENV !== 'production') {
+            console.debug("[BGK ManageMembers] teams_loaded_for_form", {
+              mohallahId: watchedMohallahInForm,
+              configuredTeams: teams,
+              memberTeams: teamsFromMembers,
+              mergedTeams,
+            });
+          }
+        })
         .catch(err => {
           console.error("Error loading teams for form:", err);
-          setAvailableTeamsInForm([]);
+          const fallbackTeams = members
+            .filter(member => member.mohallahId === watchedMohallahInForm && member.team)
+            .map(member => member.team!)
+            .filter(Boolean);
+          setAvailableTeamsInForm([...new Set(fallbackTeams)].sort());
         });
     } else {
       setAvailableTeamsInForm([]);
     }
-  }, [watchedMohallahInForm]);
-
-  useEffect(() => {
-    if (watchedRole === 'superadmin') {
-      const currentMohallah = memberForm.getValues('mohallahId');
-      if (!currentMohallah && mohallahs.length > 0) {
-        memberForm.setValue('mohallahId', mohallahs[0].id);
-      }
-    }
-  }, [watchedRole, mohallahs, memberForm]);
-
+  }, [watchedMohallahInForm, members]);
 
   useEffect(() => {
     if (!isAuthorized) return;
@@ -311,12 +362,10 @@ export default function ManageMembersPage() {
       });
     } else {
       let defaultMohallahForForm = "";
-      if (currentUserRole !== 'superadmin' && currentUserMohallahId) {
+      if (!isSuperAdmin && currentUserMohallahId) {
         defaultMohallahForForm = currentUserMohallahId;
-      } else if (currentUserRole === 'superadmin') {
-        defaultMohallahForForm = selectedFilterMohallahId !== 'all'
-                              ? selectedFilterMohallahId
-                              : (mohallahs.length > 0 ? mohallahs[0].id : "");
+      } else if (isSuperAdmin) {
+        defaultMohallahForForm = "";
       }
       memberForm.reset({
         name: "", itsId: "", email: "", bgkId: "", password: "", team: "", phoneNumber: "", role: "user",
@@ -326,7 +375,7 @@ export default function ManageMembersPage() {
         managedTeams: [],
       });
     }
-  }, [editingMember, memberForm, isMemberSheetOpen, mohallahs, selectedFilterMohallahId, currentUserRole, currentUserMohallahId, isAuthorized]);
+  }, [editingMember, memberForm, isMemberSheetOpen, selectedFilterMohallahId, currentUserMohallahId, isAuthorized, isSuperAdmin]);
 
   useEffect(() => {
     if (isBulkEditOpen) {
@@ -344,32 +393,45 @@ export default function ManageMembersPage() {
   }, [isBulkEditOpen, selectedMemberIds, members, currentUserMohallahId, mohallahs]);
 
   useEffect(() => {
+    if (isMemberSheetOpen) {
+      logMemberFormDebug("sheet_state_open");
+    }
+  }, [isMemberSheetOpen, isSuperAdmin, isLoadingMohallahs, mohallahs.length, watchedMohallahInForm]);
+
+  useEffect(() => {
     if (!isAuthorized) return;
-    const targetMohallah = bulkMohallahChecked ? bulkMohallahId : (currentUserRole === 'superadmin' ? 'all' : currentUserMohallahId);
+    const targetMohallah = bulkMohallahChecked ? bulkMohallahId : (isSuperAdmin ? 'all' : currentUserMohallahId);
     if (targetMohallah && targetMohallah !== 'all') {
       getTeams(targetMohallah)
-        .then(teams => setBulkAvailableTeams(teams.sort()))
+        .then(teams => {
+          const teamsFromMembers = members
+            .filter(member => member.mohallahId === targetMohallah && member.team)
+            .map(member => member.team!)
+            .filter(Boolean);
+          const mergedTeams = [...new Set([...teams, ...teamsFromMembers])].sort();
+          setBulkAvailableTeams(mergedTeams);
+          if (process.env.NODE_ENV !== 'production') {
+            console.debug("[BGK ManageMembers] teams_loaded_for_bulk_edit", {
+              mohallahId: targetMohallah,
+              configuredTeams: teams,
+              memberTeams: teamsFromMembers,
+              mergedTeams,
+            });
+          }
+        })
         .catch(err => {
           console.error("Error loading teams for bulk edit:", err);
-          setBulkAvailableTeams([]);
+          const fallbackTeams = members
+            .filter(member => member.mohallahId === targetMohallah && member.team)
+            .map(member => member.team!)
+            .filter(Boolean);
+          setBulkAvailableTeams([...new Set(fallbackTeams)].sort());
         });
     } else {
       const teamsFromMembers = [...new Set(members.map(m => m.team).filter(Boolean) as string[])].sort();
       setBulkAvailableTeams(teamsFromMembers);
     }
-  }, [bulkMohallahChecked, bulkMohallahId, currentUserMohallahId, currentUserRole, members, isAuthorized]);
-
-  useEffect(() => {
-    console.log("=== Member Page Debug ===");
-    console.log("currentUserRole:", currentUserRole);
-    console.log("currentUserDesignation:", currentUserDesignation);
-    console.log("currentUserMohallahId:", currentUserMohallahId);
-    console.log("mohallahs:", mohallahs);
-    console.log("watchedRole:", watchedRole);
-    console.log("watchedDesignation:", watchedDesignation);
-    console.log("watchedMohallahInForm:", watchedMohallahInForm);
-    console.log("=========================");
-  }, [currentUserRole, currentUserDesignation, currentUserMohallahId, mohallahs, watchedRole, watchedDesignation, watchedMohallahInForm]);
+  }, [bulkMohallahChecked, bulkMohallahId, currentUserMohallahId, isSuperAdmin, members, isAuthorized]);
 
   const handleBulkEditSubmit = async () => {
     if (selectedMemberIds.length === 0) {
@@ -401,7 +463,7 @@ export default function ManageMembersPage() {
       }
 
       // Local Admins cannot bulk edit superadmins or change someone's role to superadmin
-      if (currentUserRole !== 'superadmin') {
+      if (!isSuperAdmin) {
         if (member.role === 'superadmin' || newRole === 'superadmin') {
           failCount++;
           continue;
@@ -428,9 +490,7 @@ export default function ManageMembersPage() {
 
       try {
         if (member.mohallahId !== newMohallahId) {
-          // Transfer: delete from old, add to new
-          await deleteUser(member.id, member.mohallahId, true);
-          await addUser(updatePayload, newMohallahId, member.mohallahId);
+          await moveUserToMohallah(member.id, member.mohallahId, newMohallahId, updatePayload);
         } else {
           // Standard update
           const fieldsToUpdate: any = {};
@@ -466,6 +526,7 @@ export default function ManageMembersPage() {
 
   const handleMemberFormSubmit = async (values: MemberFormValues) => {
     const targetMohallahId = values.mohallahId;
+    logMemberFormDebug("submit_attempt", { values });
     
 
     if (!targetMohallahId) {
@@ -500,9 +561,7 @@ export default function ManageMembersPage() {
         const updatePayload = { ...memberPayload };
 
         if (editingMember.mohallahId !== targetMohallahId) {
-            // Mohallah change logic: delete from old, add to new
-            await deleteUser(editingMember.id, editingMember.mohallahId, true);
-            await addUser(updatePayload as UserDataForAdd, targetMohallahId, editingMember.mohallahId);
+            await moveUserToMohallah(editingMember.id, editingMember.mohallahId, targetMohallahId, updatePayload);
         } else {
             // Standard update
             await updateUser(editingMember.id, editingMember.mohallahId, updatePayload);
@@ -516,12 +575,16 @@ export default function ManageMembersPage() {
       setIsMemberSheetOpen(false);
       setEditingMember(null);
     } catch (error) {
-      
+      logMemberFormDebug("submit_failed", {
+        error: error instanceof Error ? error.message : error,
+        values,
+      });
       toast({ title: "System Error", description: `Could not save member data. ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
     }
   };
 
   const handleEditMember = (member: User) => {
+    logMemberFormDebug("edit_open_click", { member: { id: member.id, itsId: member.itsId, mohallahId: member.mohallahId, role: member.role } });
     setEditingMember(member);
     setIsMemberSheetOpen(true);
   };
@@ -641,7 +704,7 @@ export default function ManageMembersPage() {
                     }
                     const mohallahId = mohallah.id;
 
-                    if (currentUserRole === 'admin' && mohallahId !== currentUserMohallahId) {
+                    if (isAdmin && !isSuperAdmin && mohallahId !== currentUserMohallahId) {
                         const reason = `Admins can only import to their assigned Mohallah. Row skipped for Mohallah "${mohallahName}".`;
                         failedRecords.push({ data: row, reason });
                          console.warn(`CSV Import (Row ${index + 2}): Skipping, permission denied for admin.`, { row, reason });
@@ -702,10 +765,9 @@ export default function ManageMembersPage() {
                                 mohallahId: validatedData.mohallahId,
                             };
                             
-                            // Mohallah change logic
-                            if (existingUser.mohallahId !== validatedData.mohallahId) {
-                                await deleteUser(existingUser.id, existingUser.mohallahId!, true);
-                                await addUser(updatePayload as UserDataForAdd, validatedData.mohallahId, existingUser.mohallahId!);
+                             // Mohallah change logic
+                             if (existingUser.mohallahId !== validatedData.mohallahId) {
+                                await moveUserToMohallah(existingUser.id, existingUser.mohallahId!, validatedData.mohallahId, updatePayload);
                             } else {
                                 await updateUser(existingUser.id, existingUser.mohallahId!, updatePayload);
                             }
@@ -856,21 +918,39 @@ export default function ManageMembersPage() {
         
         const roleMatch = selectedFilterRole === 'all' || m.role === selectedFilterRole;
         const designationMatch = selectedFilterDesignation === 'all' || m.designation === selectedFilterDesignation;
-        const mohallahFilterMatch = (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all') || !m.mohallahId || m.mohallahId === selectedFilterMohallahId;
+        const mohallahFilterMatch = (isSuperAdmin && selectedFilterMohallahId === 'all') || !m.mohallahId || m.mohallahId === selectedFilterMohallahId;
         const teamFilterMatch = selectedFilterTeam === 'all' || !m.team || m.team === selectedFilterTeam;
 
 
         return searchTermMatch && roleMatch && designationMatch && mohallahFilterMatch && teamFilterMatch;
     });
-}, [members, searchTerm, selectedFilterRole, selectedFilterDesignation, selectedFilterMohallahId, selectedFilterTeam, currentUser, currentUserRole]);
+}, [members, searchTerm, selectedFilterRole, selectedFilterDesignation, selectedFilterMohallahId, selectedFilterTeam, currentUser, isSuperAdmin]);
 
 
-  const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
+  const effectivePageSize = pageSize === 'all' ? Math.max(filteredMembers.length, 1) : pageSize;
+  const totalPages = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(filteredMembers.length / effectivePageSize));
   const currentMembersToDisplay = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
+    if (pageSize === 'all') {
+      return filteredMembers;
+    }
+
+    const startIndex = (currentPage - 1) * effectivePageSize;
+    const endIndex = startIndex + effectivePageSize;
     return filteredMembers.slice(startIndex, endIndex);
-  }, [filteredMembers, currentPage]);
+  }, [filteredMembers, currentPage, effectivePageSize, pageSize]);
+
+  const pageStartIndex = currentMembersToDisplay.length > 0 ? (currentPage - 1) * effectivePageSize + 1 : 0;
+  const pageEndIndex = currentMembersToDisplay.length > 0 ? Math.min((currentPage - 1) * effectivePageSize + currentMembersToDisplay.length, filteredMembers.length) : 0;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [pageSize, searchTerm, selectedFilterRole, selectedFilterDesignation, selectedFilterMohallahId, selectedFilterTeam]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   const handlePreviousPage = () => {
     setCurrentPage((prev) => Math.max(prev - 1, 1));
@@ -878,6 +958,10 @@ export default function ManageMembersPage() {
 
   const handleNextPage = () => {
     setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  };
+
+  const handlePageSizeChange = (value: string) => {
+    setPageSize(value === 'all' ? 'all' : Number(value) as PageSizeOption);
   };
 
   const handleSelectAllOnPage = (checked: boolean | string) => {
@@ -905,15 +989,15 @@ export default function ManageMembersPage() {
 
   const canAddOrImport = () => {
     if (isLoadingMohallahs) return false; 
-    if (currentUserRole === 'superadmin') return true; 
+    if (isSuperAdmin) return true; 
     return !!currentUserMohallahId;
   };
   
   const canSeeTeamFilter = useMemo(() => {
-    if (currentUserRole === 'superadmin' || currentUserRole === 'admin') return true;
+    if (isSuperAdmin || isAdmin) return true;
     if (!currentUserDesignation) return false;
     return currentUserDesignation === 'Captain' || currentUserDesignation === 'Vice Captain';
-  }, [currentUserRole, currentUserDesignation]);
+  }, [currentUserDesignation, isAdmin, isSuperAdmin]);
 
   const teamFilterOptions = useMemo(() => {
     if (!currentUser) return [];
@@ -942,9 +1026,9 @@ export default function ManageMembersPage() {
       if (MID_LEVEL_LEADERS.includes(currentUserDesignation)) return `Team Members`;
       if (GROUP_LEVEL_LEADERS.includes(currentUserDesignation)) return `Team Members: ${currentUserTeam}`;
     }
-    if (currentUserRole === 'admin' && currentUserMohallahId) return `Manage Members: ${getMohallahNameById(currentUserMohallahId)}`;
+    if (isAdmin && !isSuperAdmin && currentUserMohallahId) return `Manage Members: ${getMohallahNameById(currentUserMohallahId)}`;
     return "Manage Members";
-  }, [currentUserDesignation, canManageMembers, currentUserName, currentUserTeam, currentUserRole, currentUserMohallahId, mohallahs]);
+  }, [currentUserDesignation, canManageMembers, currentUserName, currentUserTeam, isAdmin, isSuperAdmin, currentUserMohallahId, mohallahs]);
 
 
   if (isAuthorized === null) {
@@ -1060,13 +1144,13 @@ export default function ManageMembersPage() {
                     </DialogFooter>
                     </DialogContent>
                   </Dialog>
-                  <Sheet open={isMemberSheetOpen} onOpenChange={(open) => { setIsMemberSheetOpen(open); if (!open) setEditingMember(null); }}>
+                  <Sheet open={isMemberSheetOpen} onOpenChange={(open) => { logMemberFormDebug("sheet_on_open_change", { open }); setIsMemberSheetOpen(open); if (!open) setEditingMember(null); }}>
                     <SheetTrigger asChild>
                        <Button 
-                        onClick={() => { setEditingMember(null); setIsMemberSheetOpen(true); }} 
+                        onClick={() => { logMemberFormDebug("add_open_click"); setEditingMember(null); setIsMemberSheetOpen(true); }} 
                         size="sm"
                         aria-label="Add New Member"
-                        disabled={!canAddOrImport() || (currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' && mohallahs.length === 0 && !isLoadingMohallahs)}
+                        disabled={!canAddOrImport() || (isSuperAdmin && selectedFilterMohallahId === 'all' && mohallahs.length === 0 && !isLoadingMohallahs)}
                       >
                         <PlusCircle className="mr-2 h-4 w-4" /> Add
                       </Button>
@@ -1075,7 +1159,11 @@ export default function ManageMembersPage() {
                       <SheetHeader>
                         <SheetTitle>{editingMember ? "Edit Member" : "Add New Member"}</SheetTitle>
                         <SheetDescription>
-                          {editingMember ? "Update details." : `Add to Mohallah: ${getMohallahNameById(memberForm.getValues("mohallahId")) || "selected"}.`}
+                          {editingMember
+                            ? "Update details."
+                            : isSuperAdmin
+                              ? "Select the Mohallah for this member."
+                              : `Add to Mohallah: ${getMohallahNameById(memberForm.getValues("mohallahId")) || "selected"}.`}
                         </SheetDescription>
                       </SheetHeader>
                       <Form {...memberForm}>
@@ -1119,14 +1207,18 @@ export default function ManageMembersPage() {
                            <FormField control={memberForm.control} name="mohallahId" render={({ field }) => (
                              <FormItem>
                                <FormLabel>Mohallah</FormLabel>
-                               <Select
-                                 onValueChange={(value) => {
-                                     field.onChange(value);
-                                     memberForm.setValue('team', ''); // Reset team when mohallah changes
-                                 }}
-                                 value={field.value}
-                                 disabled={isLoadingMohallahs || mohallahs.length === 0 || currentUserRole !== 'superadmin'}
-                               >
+                                <Select
+                                  onValueChange={(value) => {
+                                      logMemberFormDebug("mohallah_selected", { value });
+                                      field.onChange(value);
+                                      memberForm.setValue('team', ''); // Reset team when mohallah changes
+                                  }}
+                                  onOpenChange={(open) => {
+                                      if (open) logMemberFormDebug("mohallah_select_open");
+                                  }}
+                                   value={field.value || undefined}
+                                   disabled={isLoadingMohallahs || mohallahs.length === 0 || !isSuperAdmin}
+                                >
                                 <FormControl><SelectTrigger><SelectValue placeholder="Select Mohallah" /></SelectTrigger></FormControl>
                                 <SelectContent>
                                   {isLoadingMohallahs ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
@@ -1134,22 +1226,41 @@ export default function ManageMembersPage() {
                                   mohallahs.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
                                 </SelectContent>
                               </Select>
-                              {currentUserRole !== 'superadmin' && <FormDescription className="text-xs">Your access is scoped to your assigned Mohallah.</FormDescription>}
+                              {!isSuperAdmin && <FormDescription className="text-xs">Your access is scoped to your assigned Mohallah.</FormDescription>}
                               <FormMessage />
                             </FormItem>
                           )} />
-                           <FormField control={memberForm.control} name="team" render={({ field }) => (
-                             <FormItem>
-                                 <FormLabel>Team</FormLabel>
-                                 <Select onValueChange={field.onChange} value={field.value} disabled={!watchedMohallahInForm || availableTeamsInForm.length === 0}>
-                                 <FormControl><SelectTrigger><SelectValue placeholder={!watchedMohallahInForm ? "Select a Mohallah first" : (availableTeamsInForm.length === 0 ? "No teams in this Mohallah" : "Select a team")} /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    {availableTeamsInForm.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                                </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                            )} />
+                           <FormField control={memberForm.control} name="team" render={({ field }) => {
+                             const selectedTeam = field.value || "";
+                             const teamOptions = selectedTeam && !availableTeamsInForm.includes(selectedTeam)
+                               ? [selectedTeam, ...availableTeamsInForm]
+                               : availableTeamsInForm;
+                             return (
+                               <FormItem>
+                                    <FormLabel>Team</FormLabel>
+                                    <Select
+                                      onValueChange={(value) => field.onChange(value === "__clear_team__" ? "" : value)}
+                                      value={selectedTeam || undefined}
+                                      disabled={!watchedMohallahInForm}
+                                    >
+                                    <FormControl><SelectTrigger><SelectValue placeholder={!watchedMohallahInForm ? "Select a Mohallah first" : (teamOptions.length === 0 ? "Type a team below" : "Select a team")} /></SelectTrigger></FormControl>
+                                   <SelectContent>
+                                       <SelectItem value="__clear_team__">None / Clear Team</SelectItem>
+                                       {teamOptions.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                                   </SelectContent>
+                                   </Select>
+                                   <Input
+                                     className="mt-2"
+                                     placeholder="Type team name"
+                                     value={selectedTeam}
+                                     onChange={(e) => field.onChange(e.target.value)}
+                                     disabled={!watchedMohallahInForm}
+                                   />
+                                   <FormDescription className="text-xs">Select an existing team or type a new one.</FormDescription>
+                                   <FormMessage />
+                              </FormItem>
+                             );
+                           }} />
 
                            <FormField control={memberForm.control} name="designation" render={({ field }) => (
                                <FormItem>
@@ -1223,10 +1334,10 @@ export default function ManageMembersPage() {
                                 <SelectContent>
                                   <SelectItem value="user">User</SelectItem>
                                   <SelectItem value="attendance-marker">Attendance Marker</SelectItem>
-                                  {(currentUserRole === 'superadmin' || (currentUserRole === 'admin' && editingMember && editingMember.role === 'admin')) && (
+                                  {(isSuperAdmin || (isAdmin && editingMember && editingMember.role === 'admin')) && (
                                       <SelectItem value="admin">Admin</SelectItem>
                                   )}
-                                  {currentUserRole === 'superadmin' && (
+                                  {isSuperAdmin && (
                                       <SelectItem value="superadmin">Super Admin</SelectItem>
                                   )}
                                 </SelectContent>
@@ -1319,7 +1430,7 @@ export default function ManageMembersPage() {
 
                           <SheetFooter className="pt-4">
                             <Button type="button" variant="outline" onClick={() => setIsMemberSheetOpen(false)}>Cancel</Button>
-                            <Button type="submit" disabled={memberForm.formState.isSubmitting || !canAddOrImport() || (mohallahs.length === 0 && !isLoadingMohallahs && !memberForm.getValues("mohallahId"))}>
+                            <Button type="submit" disabled={memberForm.formState.isSubmitting || !canAddOrImport() || !watchedMohallahInForm}>
                               {(memberForm.formState.isSubmitting || isLoadingMohallahs) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                               {editingMember ? "Save Changes" : "Add Member"}
                             </Button>
@@ -1385,7 +1496,7 @@ export default function ManageMembersPage() {
                         </SelectContent>
                     </Select>
                 )}
-                {currentUserRole === 'superadmin' && (
+                {isSuperAdmin && (
                 <Select
                     value={selectedFilterMohallahId}
                     onValueChange={(value) => setSelectedFilterMohallahId(value)}
@@ -1464,7 +1575,7 @@ export default function ManageMembersPage() {
                                 <AccordionTrigger className="w-full p-0 py-4 hover:no-underline flex-1 text-left">
                                   <div className="flex items-center justify-between w-full">
                                     <div className="flex items-center gap-4">
-                                      <span className="text-sm font-mono text-muted-foreground">{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}.</span>
+                                      <span className="text-sm font-mono text-muted-foreground">{pageStartIndex + index}.</span>
                                       <div>
                                           <p className="font-semibold text-card-foreground">{member.name}</p>
                                           <p className="text-xs text-muted-foreground">ITS: {member.itsId}</p>
@@ -1486,10 +1597,10 @@ export default function ManageMembersPage() {
                                     <Button variant="ghost" size="sm" onClick={()=> handleEditMember(member)} className="flex-1" aria-label="Edit Member">
                                         <Edit className="mr-2 h-4 w-4" /> Edit
                                     </Button>
-                                    { (currentUserRole === 'admin' || currentUserRole === 'superadmin') && (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( 
+                                    { (isAdmin || isSuperAdmin) && (member.role !== 'superadmin' || isSuperAdmin) && ( 
                                         <AlertDialog>
                                             <AlertTrigger asChild>
-                                                <Button variant="ghost" size="sm" className="flex-1 text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
+                                                <Button variant="ghost" size="sm" className="flex-1 text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && !isSuperAdmin}>
                                                     <Trash2 className="mr-2 h-4 w-4" /> Delete
                                                 </Button>
                                             </AlertTrigger>
@@ -1556,7 +1667,7 @@ export default function ManageMembersPage() {
                             />
                             </TableCell>
                         )}
-                        <TableCell>{((currentPage - 1) * ITEMS_PER_PAGE) + index + 1}</TableCell>
+                        <TableCell>{pageStartIndex + index}</TableCell>
                         <TableCell>
                           <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
                             <AvatarImage src={member.avatarUrl || `https://placehold.co/40x40.png?text=${member.name.substring(0,2).toUpperCase()}`} alt={member.name} data-ai-hint="avatar person"/>
@@ -1592,10 +1703,10 @@ export default function ManageMembersPage() {
                              <Button variant="ghost" size="icon" onClick={() => handleEditMember(member)} className="mr-1 sm:mr-2" aria-label="Edit Member">
                                 <Edit className="h-4 w-4" />
                             </Button>
-                            { (currentUserRole === 'admin' || currentUserRole === 'superadmin') && (member.role !== 'superadmin' || currentUserRole === 'superadmin') && ( 
+                            { (isAdmin || isSuperAdmin) && (member.role !== 'superadmin' || isSuperAdmin) && ( 
                                 <AlertDialog>
                                     <AlertTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && currentUserRole !== 'superadmin'}>
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label="Delete Member" disabled={member.role === 'superadmin' && !isSuperAdmin}>
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
                                     </AlertTrigger>
@@ -1621,9 +1732,9 @@ export default function ManageMembersPage() {
                     )) : (
                       <TableRow>
                         <TableCell colSpan={canManageMembers ? 11 : 10} className="text-center h-24">
-                          No members found { (searchTerm || (currentUserRole === 'superadmin' && selectedFilterMohallahId !=='all') || (currentUserRole === 'admin' && currentUserMohallahId) && !fetchError ) && "matching criteria"}.
-                          {(fetchError && currentUserRole === 'superadmin' && selectedFilterMohallahId === 'all' ) && "Select a specific Mohallah."}
-                          {(currentUserRole === 'admin' && !currentUserMohallahId && !isLoadingMembers) && "Admin Mohallah not set."}
+                          No members found { (searchTerm || (isSuperAdmin && selectedFilterMohallahId !=='all') || (isAdmin && !isSuperAdmin && currentUserMohallahId) && !fetchError ) && "matching criteria"}.
+                          {(fetchError && isSuperAdmin && selectedFilterMohallahId === 'all' ) && "Select a specific Mohallah."}
+                          {(isAdmin && !isSuperAdmin && !currentUserMohallahId && !isLoadingMembers) && "Admin Mohallah not set."}
                         </TableCell>
                       </TableRow>
                     )}
@@ -1633,10 +1744,26 @@ export default function ManageMembersPage() {
             </>
           )}
         </CardContent>
-         <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-2">
-            <p className="text-xs text-muted-foreground">
-              Showing {currentMembersToDisplay.length > 0 ? ((currentPage - 1) * ITEMS_PER_PAGE) + 1 : 0} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredMembers.length)} of {filteredMembers.length} members
-            </p>
+         <CardFooter className="flex flex-col lg:flex-row justify-between items-center pt-4 gap-3">
+            <div className="flex flex-col sm:flex-row items-center gap-3 text-xs text-muted-foreground">
+              <p>
+                Showing {pageStartIndex} - {pageEndIndex} of {filteredMembers.length} members
+              </p>
+              <div className="flex items-center gap-2">
+                <span>Rows</span>
+                <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
+                  <SelectTrigger className="h-8 w-[92px] text-xs">
+                    <SelectValue placeholder="Rows" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map(size => (
+                      <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                    ))}
+                    <SelectItem value="all">All</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             {totalPages > 1 && (
               <div className="flex items-center space-x-2">
                 <Button
@@ -1716,7 +1843,7 @@ export default function ManageMembersPage() {
           </DialogHeader>
           <div className="grid gap-6 py-4">
             {/* Mohallah (Superadmin only) */}
-            {currentUserRole === 'superadmin' && (
+            {isSuperAdmin && (
               <div className="flex items-center space-x-4">
                 <Checkbox
                   id="bulkMohallahChecked"
@@ -1816,10 +1943,10 @@ export default function ManageMembersPage() {
                   <SelectContent>
                     <SelectItem value="user">User</SelectItem>
                     <SelectItem value="attendance-marker">Attendance Marker</SelectItem>
-                    {(currentUserRole === 'superadmin' || currentUserRole === 'admin') && (
+                    {(isSuperAdmin || isAdmin) && (
                       <SelectItem value="admin">Admin</SelectItem>
                     )}
-                    {currentUserRole === 'superadmin' && (
+                    {isSuperAdmin && (
                       <SelectItem value="superadmin">Super Admin</SelectItem>
                     )}
                   </SelectContent>

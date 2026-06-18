@@ -16,11 +16,9 @@ import { getMiqaats, markAttendanceInMiqaat } from "@/lib/firebase/miqaatService
 import { getUserByItsOrBgkId, getUsers } from "@/lib/firebase/userService";
 import type { Miqaat, User, UserRole, MiqaatAttendanceEntryItem } from "@/types";
 import { findNavItem } from "@/components/dashboard/sidebar-nav";
-import { format, setHours, setMinutes, setSeconds, startOfDay, addDays } from "date-fns";
+import { format } from "date-fns";
 import { Alert, AlertDescription as ShadAlertDesc, AlertTitle as ShadAlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type UniformComplianceState = {
     fetaPaghri: 'yes' | 'no' | 'safar';
@@ -60,6 +58,7 @@ export default function BulkAttendancePage() {
   const [isAdminOverrideOpen, setIsAdminOverrideOpen] = useState(false);
   const [overrideReason, setOverrideReason] = useState("");
   const [overrideTimestamp, setOverrideTimestamp] = useState<Date | undefined>(new Date());
+  const [overrideTimestampInput, setOverrideTimestampInput] = useState("");
 
   // User details
   const [currentUserMohallahId, setCurrentUserMohallahId] = useState<string | null>(null);
@@ -321,6 +320,10 @@ export default function BulkAttendancePage() {
     
     if (isExpired && !overrideData) {
         setOverrideTimestamp(new Date(currentMiqaatDetails.startTime));
+        setOverrideTimestampInput(format(new Date(currentMiqaatDetails.startTime), "yyyy-MM-dd'T'HH:mm"));
+        if (!overrideReason.trim()) {
+          setOverrideReason(bulkReason || "Bulk marked by Administrator");
+        }
         setIsAdminOverrideOpen(true);
         return;
     }
@@ -354,6 +357,25 @@ export default function BulkAttendancePage() {
     setIsSaving(false);
     setIsAdminOverrideOpen(false);
     setOverrideReason("");
+    setOverrideTimestampInput("");
+  };
+
+  const openAdminOverrideDialog = () => {
+    const defaultDate = currentSessionDetails?.startTime
+      ? new Date(currentSessionDetails.startTime)
+      : currentMiqaatDetails?.startTime
+        ? new Date(currentMiqaatDetails.startTime)
+        : new Date();
+    setOverrideTimestamp(defaultDate);
+    setOverrideTimestampInput(format(defaultDate, "yyyy-MM-dd'T'HH:mm"));
+    setOverrideReason(bulkReason || "Bulk marked by Administrator");
+    setIsAdminOverrideOpen(true);
+  };
+
+  const handleOverrideTimestampInputChange = (value: string) => {
+    setOverrideTimestampInput(value);
+    const nextDate = new Date(value);
+    setOverrideTimestamp(Number.isNaN(nextDate.getTime()) ? undefined : nextDate);
   };
 
   if (isAuthorized === null) {
@@ -656,14 +678,27 @@ export default function BulkAttendancePage() {
                 ))}
               </div>
               
-              <Button 
-                onClick={() => handleBulkMarkAttendance()} 
-                disabled={isSaving || isOffline}
-                className="font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
-              >
-                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
-                Mark All ({bulkFoundMembers.length}) as Present
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button 
+                  onClick={() => handleBulkMarkAttendance()} 
+                  disabled={isSaving || isOffline}
+                  className="font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/95 hover:to-primary/75 text-primary-foreground shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0"
+                >
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />}
+                  Mark All ({bulkFoundMembers.length}) as Present
+                </Button>
+                {(currentUserRole === 'admin' || currentUserRole === 'superadmin') && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={openAdminOverrideDialog}
+                    disabled={isSaving || isOffline}
+                  >
+                    <CalendarClock className="mr-2 h-4 w-4" />
+                    Mark with Custom Time
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
@@ -673,9 +708,9 @@ export default function BulkAttendancePage() {
       <Dialog open={isAdminOverrideOpen} onOpenChange={setIsAdminOverrideOpen}>
         <DialogContent className="bg-background">
           <DialogHeader>
-            <DialogTitle>Admin Override: Mark Expired Attendance</DialogTitle>
+            <DialogTitle>Admin Override: Mark Attendance Time</DialogTitle>
             <DialogDescription>
-              Provide historical marking parameters since this event is completed.
+              Select the exact attendance date and time to save for this bulk entry.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -689,40 +724,20 @@ export default function BulkAttendancePage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Select Timestamp</Label>
-              <Popover>
-                  <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal">
-                          <CalendarClock className="mr-2 h-4 w-4" />
-                          {overrideTimestamp ? format(overrideTimestamp, "PPP p") : "Select date and time"}
-                      </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 z-[100]" align="start">
-                      <Calendar
-                          mode="single"
-                          selected={overrideTimestamp}
-                          onSelect={setOverrideTimestamp}
-                          disabled={(date) => {
-                              if (!currentMiqaatDetails) return true;
-                              const start = startOfDay(new Date(currentMiqaatDetails.startTime));
-                              const end = startOfDay(new Date(currentMiqaatDetails.endTime));
-                              return date < start || date > end;
-                          }}
-                          initialFocus
-                      />
-                       <div className="p-3 border-t border-border">
-                          <Input
-                              type="time"
-                              value={overrideTimestamp ? format(overrideTimestamp, "HH:mm") : ""}
-                              onChange={(e) => {
-                                  const time = e.target.value;
-                                  const [hours, minutes] = time.split(':').map(Number);
-                                  setOverrideTimestamp(prev => setMinutes(setHours(prev || new Date(), hours), minutes));
-                              }}
-                          />
-                      </div>
-                  </PopoverContent>
-              </Popover>
+              <Label htmlFor="override-timestamp">Date and Time</Label>
+              <Input
+                id="override-timestamp"
+                type="datetime-local"
+                value={overrideTimestampInput}
+                min={currentMiqaatDetails?.startTime ? format(new Date(currentMiqaatDetails.startTime), "yyyy-MM-dd'T'HH:mm") : undefined}
+                max={currentMiqaatDetails?.endTime ? format(new Date(currentMiqaatDetails.endTime), "yyyy-MM-dd'T'HH:mm") : undefined}
+                onChange={(e) => handleOverrideTimestampInputChange(e.target.value)}
+              />
+              {overrideTimestamp && (
+                <p className="text-xs text-muted-foreground">
+                  Final timestamp: {format(overrideTimestamp, "PPP p")}
+                </p>
+              )}
             </div>
           </div>
           <DialogFooter>

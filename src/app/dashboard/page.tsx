@@ -1910,21 +1910,57 @@ export default function DashboardOverviewPage() {
                 const today = new Date();
                 const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
                 const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-                
-                const todaysMiqaats = allMiqaatsList.filter(m => {
-                  const mStart = new Date(m.startTime);
-                  const isToday = mStart >= startOfToday && mStart <= endOfToday;
-                  if (!isToday) return false;
+                const effectiveItsId = currentUser?.itsId || currentUserItsId;
+                const effectiveMohallahId = currentUser?.mohallahId || currentUserMohallahId;
+                const effectiveTeam = currentUser?.team;
+                const isPrivilegedRole = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker';
 
-                  const isPrivilegedRole = currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker';
-                  if (m.eligibleItsIds && m.eligibleItsIds.length > 0) {
-                    if (isPrivilegedRole) return true;
-                    return currentUserItsId ? m.eligibleItsIds.includes(currentUserItsId) : false;
+                const isEligibleForMiqaat = (miqaat: typeof allMiqaatsList[number]) => {
+                  if (isPrivilegedRole) return true;
+                  if (miqaat.eligibleItsIds?.length) {
+                    return effectiveItsId ? miqaat.eligibleItsIds.includes(effectiveItsId) : false;
                   }
-                  return true;
-                });
 
-                if (todaysMiqaats.length === 0) {
+                  const isForEveryone = !miqaat.mohallahIds?.length && !miqaat.teams?.length;
+                  if (isForEveryone) return true;
+
+                  const eligibleByMohallah = !!effectiveMohallahId && !!miqaat.mohallahIds?.includes(effectiveMohallahId);
+                  const eligibleByTeam = !!effectiveTeam && !!miqaat.teams?.includes(effectiveTeam);
+                  return eligibleByMohallah || eligibleByTeam;
+                };
+
+                const resolveSessionDate = (value: string | undefined, fallback: string, day = 1) => {
+                  if (value) {
+                    const parsed = new Date(value);
+                    if (!Number.isNaN(parsed.getTime())) return parsed;
+                  }
+
+                  const date = new Date(fallback);
+                  date.setDate(date.getDate() + Math.max(day - 1, 0));
+                  if (value && /^\d{1,2}:\d{2}/.test(value)) {
+                    const [hours, minutes] = value.split(':').map(Number);
+                    date.setHours(hours || 0, minutes || 0, 0, 0);
+                  }
+                  return date;
+                };
+                
+                const todaysSchedule = allMiqaatsList
+                  .filter(isEligibleForMiqaat)
+                  .flatMap(miqaat => {
+                    const sessions = miqaat.sessions?.length
+                      ? miqaat.sessions
+                      : [{ id: 'main', day: 1, name: 'Main Session', startTime: miqaat.startTime, endTime: miqaat.endTime }];
+
+                    return sessions.map(session => {
+                      const start = resolveSessionDate(session.startTime, miqaat.startTime, session.day || 1);
+                      const end = resolveSessionDate(session.endTime, miqaat.endTime, session.day || 1);
+                      return { miqaat, session, start, end };
+                    });
+                  })
+                  .filter(item => item.start <= endOfToday && item.end >= startOfToday)
+                  .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+                if (todaysSchedule.length === 0) {
                   return (
                     <div className="py-6 text-center text-muted-foreground text-sm">
                       No Miqaats scheduled for today.
@@ -1932,19 +1968,26 @@ export default function DashboardOverviewPage() {
                   );
                 }
 
-                return todaysMiqaats.map(miqaat => {
+                return todaysSchedule.map(({ miqaat, session, start, end }) => {
                   const now = new Date();
-                  const mStart = new Date(miqaat.startTime);
-                  const mEnd = new Date(miqaat.endTime);
+                  const mStart = start;
+                  const mEnd = end;
                   const isLive = now >= mStart && now <= mEnd;
                   const isUpcoming = now < mStart;
                   const isCompleted = now > mEnd;
+                  const sessionId = session.id === 'main' ? undefined : session.id;
+                  const attendanceForSession = sessionId
+                    ? miqaat.attendance?.filter(a => a.sessionId === sessionId) || []
+                    : miqaat.attendance || [];
+                  const safarForSession = sessionId
+                    ? miqaat.safarList?.filter(s => s.sessionId === sessionId) || []
+                    : miqaat.safarList || [];
 
                   // Check own attendance status if regular member
                   let ownStatus = "Not Checked In";
-                  if (currentUserItsId) {
-                    const marked = miqaat.attendance?.find(a => a.userItsId === currentUserItsId);
-                    const safar = miqaat.safarList?.find(s => s.userItsId === currentUserItsId);
+                  if (effectiveItsId) {
+                    const marked = attendanceForSession.find(a => a.userItsId === effectiveItsId);
+                    const safar = safarForSession.find(s => s.userItsId === effectiveItsId);
                     if (marked) {
                       ownStatus = `Checked In (${marked.status.charAt(0).toUpperCase() + marked.status.slice(1)})`;
                     } else if (safar) {
@@ -1953,11 +1996,14 @@ export default function DashboardOverviewPage() {
                   }
 
                   return (
-                    <div key={miqaat.id} className="p-3 border border-border/40 rounded-lg bg-card/10 space-y-2.5">
+                    <div key={`${miqaat.id}-${session.id}`} className="p-3 border border-border/40 rounded-lg bg-card/10 space-y-2.5">
                       <div className="flex justify-between items-start gap-2">
                         <div>
                           <h4 className="font-bold text-sm text-foreground">{miqaat.name}</h4>
-                          <span className="text-xs text-muted-foreground">{miqaat.type.charAt(0).toUpperCase() + miqaat.type.slice(1)} Miqaat</span>
+                          <span className="text-xs text-muted-foreground">
+                            {miqaat.type.charAt(0).toUpperCase() + miqaat.type.slice(1)} Miqaat
+                            {session.name ? ` • ${session.name}` : ''}
+                          </span>
                         </div>
                         <span className={cn(
                           "px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider",
@@ -1979,15 +2025,15 @@ export default function DashboardOverviewPage() {
                         <div className="flex justify-between items-center text-xs border-t border-border/20 pt-2 mt-1">
                           <div>
                             {(() => {
-                              const presentItsIds = new Set(miqaat.attendance?.map(a => a.userItsId) || []);
-                              const uniqueSafarCount = miqaat.safarList?.filter(s => !presentItsIds.has(s.userItsId)).length || 0;
+                              const presentItsIds = new Set(attendanceForSession.map(a => a.userItsId));
+                              const uniqueSafarCount = safarForSession.filter(s => !presentItsIds.has(s.userItsId)).length || 0;
                               return (
                                 <>
-                                  <span>Present: <strong className="text-foreground">{miqaat.attendance?.length || 0}</strong></span>
+                                  <span>Present: <strong className="text-foreground">{attendanceForSession.length}</strong></span>
                                   <span className="mx-2 text-muted-foreground/30">|</span>
                                   <span>Safar: <strong className="text-foreground">{uniqueSafarCount}</strong></span>
                                   <span className="mx-2 text-muted-foreground/30">|</span>
-                                  <span>Total (Inc. Safar): <strong className="text-primary font-bold">{(miqaat.attendance?.length || 0) + uniqueSafarCount}</strong></span>
+                                  <span>Total (Inc. Safar): <strong className="text-primary font-bold">{attendanceForSession.length + uniqueSafarCount}</strong></span>
                                 </>
                               );
                             })()}

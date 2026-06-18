@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 
 export async function POST(req: NextRequest) {
   try {
-    const { miqaatId, adminMohallahId, targetItsIds, force } = await req.json();
+    const { miqaatId, adminMohallahId, targetItsIds, force, sessionId } = await req.json();
 
     if (!miqaatId) {
       return NextResponse.json({ error: 'Missing miqaatId.' }, { status: 400 });
@@ -75,14 +75,30 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Calculate Absentees
-    // An absentee is an eligible user who is NOT in attendance AND NOT in safarList
-    const attendedItsIds = new Set<string>([
-      ...(miqaatData.attendance || []).map((a: any) => a.userItsId),
-      ...(miqaatData.safarList || []).map((s: any) => s.userItsId)
-    ]);
+    const sessions = Array.isArray(miqaatData.sessions) ? miqaatData.sessions : [];
+    const reportSessionIds = sessionId
+      ? [sessionId]
+      : (sessions.length > 0 ? sessions.map((session: any) => session.id).filter(Boolean) : [undefined]);
+    const sessionLabel = sessionId
+      ? sessions.find((session: any) => session.id === sessionId)?.name || 'Selected Session'
+      : (sessions.length > 0 ? 'All Sessions' : '');
 
-    const absentUsers = eligibleUsers.filter(user => !attendedItsIds.has(user.itsId));
+    const hasMarkedStatusForScope = (entries: any[], itsId: string) => {
+      if (reportSessionIds.length === 0) return false;
+      return reportSessionIds.some((reportSessionId) =>
+        entries.some((entry: any) =>
+          entry.userItsId === itsId &&
+          (reportSessionId ? entry.sessionId === reportSessionId : true)
+        )
+      );
+    };
+
+    // 4. Calculate Absentees
+    // For multi-session Miqaats, a member is counted as covered if they are present or safar in any report session.
+    const absentUsers = eligibleUsers.filter(user =>
+      !hasMarkedStatusForScope(miqaatData.attendance || [], user.itsId) &&
+      !hasMarkedStatusForScope(miqaatData.safarList || [], user.itsId)
+    );
 
     // 5. Send bulk emails in batches
     let emailsSent = 0;
@@ -114,7 +130,7 @@ export async function POST(req: NextRequest) {
             );
             await sendEmail(
               user.email!,
-              `Absence Notification: ${miqaatData.name}`,
+              `Absence Notification: ${miqaatData.name}${sessionLabel ? ` - ${sessionLabel}` : ''}`,
               emailHtml
             );
             emailsSent++;
@@ -130,6 +146,7 @@ export async function POST(req: NextRequest) {
       success: true,
       totalEligible: eligibleUsers.length,
       totalAbsent: absentUsers.length,
+      reportScope: sessionLabel || 'Miqaat',
       emailsSent,
       emailsSkipped,
       errorsCount: errors.length,

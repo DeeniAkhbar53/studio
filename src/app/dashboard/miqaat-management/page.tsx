@@ -157,6 +157,24 @@ export default function MiqaatManagementPage() {
   const [isSendingEmails, setIsSendingEmails] = useState<Record<string, boolean>>({});
   const [isSendingLeaderEmails, setIsSendingLeaderEmails] = useState<Record<string, boolean>>({});
 
+  const buildEmailResultDescription = (result: any, sentKey: "emailsSent" | "reportsSent") => {
+    const sent = Number(result?.[sentKey] || 0);
+    const skipped = Number(result?.emailsSkipped || 0);
+    const errors = Number(result?.errorsCount || 0);
+    const parts = [
+      `${sent} sent`,
+      result?.totalAbsent !== undefined ? `${result.totalAbsent} absent` : null,
+      result?.totalEligible !== undefined ? `${result.totalEligible} eligible` : null,
+      result?.totalLeadersChecked !== undefined ? `${result.totalLeadersChecked} leaders checked` : null,
+      skipped > 0 ? `${skipped} skipped without email` : null,
+      errors > 0 ? `${errors} error${errors === 1 ? "" : "s"}` : null,
+      result?.reportScope ? `Scope: ${result.reportScope}` : null,
+    ].filter(Boolean);
+
+    const firstError = Array.isArray(result?.errors) && result.errors.length > 0 ? ` First error: ${result.errors[0]}` : "";
+    return `${parts.join(". ")}.${firstError}`;
+  };
+
   const handleSendAbsenteeEmails = async (miqaatId: string, miqaatName: string, isExpired: boolean) => {
     const confirmMessage = isExpired
       ? `Are you sure you want to send bulk absence emails to all eligible members who did not attend "${miqaatName}"?`
@@ -172,9 +190,12 @@ export default function MiqaatManagementPage() {
         });
         const result = await res.json();
         if (res.ok) {
+          const emailsSent = Number(result.emailsSent || 0);
+          const errorsCount = Number(result.errorsCount || 0);
           toast({
-            title: "Absentee Emails Sent",
-            description: `Successfully sent ${result.emailsSent} emails. ${result.emailsSkipped} members skipped (no email address).`,
+            title: emailsSent > 0 && errorsCount === 0 ? "Absentee Emails Sent" : "Absentee Email Summary",
+            description: buildEmailResultDescription(result, "emailsSent"),
+            variant: emailsSent === 0 || errorsCount > 0 ? "destructive" : "default",
           });
         } else {
           toast({
@@ -265,9 +286,12 @@ export default function MiqaatManagementPage() {
       });
       const result = await res.json();
       if (res.ok) {
+        const reportsSent = Number(result.reportsSent || 0);
+        const errorsCount = Number(result.errorsCount || 0);
         toast({
-          title: "Leader Reports Sent",
-          description: `Successfully sent ${result.reportsSent} team absentee report(s).`,
+          title: reportsSent > 0 && errorsCount === 0 ? "Leader Reports Sent" : "Leader Email Summary",
+          description: buildEmailResultDescription(result, "reportsSent"),
+          variant: reportsSent === 0 || errorsCount > 0 ? "destructive" : "default",
         });
         setIsLeaderEmailDialogOpen(false);
       } else {

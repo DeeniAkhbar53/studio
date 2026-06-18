@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 
 export async function POST(req: NextRequest) {
   try {
-    const { miqaatId, adminMohallahId, force, getRecipientsOnly, targetItsIds } = await req.json();
+    const { miqaatId, adminMohallahId, force, getRecipientsOnly, targetItsIds, sessionId } = await req.json();
 
     if (!miqaatId) {
       return NextResponse.json({ error: 'Missing miqaatId.' }, { status: 400 });
@@ -75,6 +75,10 @@ export async function POST(req: NextRequest) {
     const activeMohallahIds = new Set<string>();
     if (miqaatData.mohallahIds && miqaatData.mohallahIds.length > 0) {
       miqaatData.mohallahIds.forEach((id: string) => activeMohallahIds.add(id));
+    } else if (isSpecificMemberMiqaat) {
+      eligibleUsers.forEach(user => {
+        if (user.mohallahId) activeMohallahIds.add(user.mohallahId);
+      });
     } else if (adminMohallahId) {
       activeMohallahIds.add(adminMohallahId);
     }
@@ -87,11 +91,29 @@ export async function POST(req: NextRequest) {
       return true; // Active for all if no specific mohallahs defined
     };
 
-    // 6. Calculate Absentees & Attendance Sets
-    const attendedSet = new Set<string>((miqaatData.attendance || []).map((a: any) => a.userItsId));
-    const safarSet = new Set<string>((miqaatData.safarList || []).map((s: any) => s.userItsId));
+    const sessions = Array.isArray(miqaatData.sessions) ? miqaatData.sessions : [];
+    const reportSessionIds = sessionId
+      ? [sessionId]
+      : (sessions.length > 0 ? sessions.map((session: any) => session.id).filter(Boolean) : [undefined]);
+    const sessionLabel = sessionId
+      ? sessions.find((session: any) => session.id === sessionId)?.name || 'Selected Session'
+      : (sessions.length > 0 ? 'All Sessions' : '');
 
-    const absentUsers = eligibleUsers.filter(user => !attendedSet.has(user.itsId) && !safarSet.has(user.itsId));
+    const hasMarkedStatusForScope = (entries: any[], itsId: string) => {
+      if (reportSessionIds.length === 0) return false;
+      return reportSessionIds.some((reportSessionId) =>
+        entries.some((entry: any) =>
+          entry.userItsId === itsId &&
+          (reportSessionId ? entry.sessionId === reportSessionId : true)
+        )
+      );
+    };
+
+    const isPresent = (itsId: string) => hasMarkedStatusForScope(miqaatData.attendance || [], itsId);
+    const isSafar = (itsId: string) => hasMarkedStatusForScope(miqaatData.safarList || [], itsId);
+
+    // 6. Calculate Absentees & Attendance Sets
+    const absentUsers = eligibleUsers.filter(user => !isPresent(user.itsId) && !isSafar(user.itsId));
 
     // 7. Find designated leaders and administrators from active Mohallahs
     const leaders = allMembers.filter(user => {
@@ -144,22 +166,22 @@ export async function POST(req: NextRequest) {
           if (isCaptOrAdmin) {
             // Scope: Entire Mohallah
             const mohallahEligible = eligibleUsers.filter(u => u.mohallahId === leader.mohallahId);
-            const presentCount = mohallahEligible.filter(u => attendedSet.has(u.itsId)).length;
-            const safarCount = mohallahEligible.filter(u => safarSet.has(u.itsId)).length;
-            const absentCount = mohallahEligible.filter(u => !attendedSet.has(u.itsId) && !safarSet.has(u.itsId)).length;
+            const presentCount = mohallahEligible.filter(u => isPresent(u.itsId)).length;
+            const safarCount = mohallahEligible.filter(u => isSafar(u.itsId)).length;
+            const absentCount = mohallahEligible.filter(u => !isPresent(u.itsId) && !isSafar(u.itsId)).length;
 
             const emailHtml = leaderStatsReportEmailTemplate(
               leader.name,
               leader.designation || 'Leader',
               leaderMohallahName,
-              miqaatData.name,
+              `${miqaatData.name}${sessionLabel ? ` - ${sessionLabel}` : ''}`,
               formattedDate,
               { present: presentCount, absent: absentCount, safar: safarCount, total: mohallahEligible.length }
             );
 
             await sendEmail(
               leader.email!,
-              `Attendance Summary Report - ${leaderMohallahName}: ${miqaatData.name}`,
+              `Attendance Summary Report - ${leaderMohallahName}: ${miqaatData.name}${sessionLabel ? ` - ${sessionLabel}` : ''}`,
               emailHtml
             );
             reportsSent++;
@@ -179,22 +201,22 @@ export async function POST(req: NextRequest) {
               managedTeamsSet.has(u.team)
             );
 
-            const presentCount = viceCaptainEligible.filter(u => attendedSet.has(u.itsId)).length;
-            const safarCount = viceCaptainEligible.filter(u => safarSet.has(u.itsId)).length;
-            const absentCount = viceCaptainEligible.filter(u => !attendedSet.has(u.itsId) && !safarSet.has(u.itsId)).length;
+            const presentCount = viceCaptainEligible.filter(u => isPresent(u.itsId)).length;
+            const safarCount = viceCaptainEligible.filter(u => isSafar(u.itsId)).length;
+            const absentCount = viceCaptainEligible.filter(u => !isPresent(u.itsId) && !isSafar(u.itsId)).length;
 
             const emailHtml = leaderStatsReportEmailTemplate(
               leader.name,
               leader.designation || 'Vice Captain',
               managedTeams.join(', '),
-              miqaatData.name,
+              `${miqaatData.name}${sessionLabel ? ` - ${sessionLabel}` : ''}`,
               formattedDate,
               { present: presentCount, absent: absentCount, safar: safarCount, total: viceCaptainEligible.length }
             );
 
             await sendEmail(
               leader.email!,
-              `Team Attendance Summary: ${miqaatData.name}`,
+              `Team Attendance Summary: ${miqaatData.name}${sessionLabel ? ` - ${sessionLabel}` : ''}`,
               emailHtml
             );
             reportsSent++;
@@ -213,14 +235,14 @@ export async function POST(req: NextRequest) {
               leader.name,
               leader.designation || 'Team Leader',
               leaderTeam,
-              miqaatData.name,
+              `${miqaatData.name}${sessionLabel ? ` - ${sessionLabel}` : ''}`,
               formattedDate,
               teamAbsentees
             );
 
             await sendEmail(
               leader.email!,
-              `Team Absentee Report: ${miqaatData.name}`,
+              `Team Absentee Report: ${miqaatData.name}${sessionLabel ? ` - ${sessionLabel}` : ''}`,
               emailHtml
             );
             reportsSent++;
@@ -235,6 +257,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       totalLeadersChecked: targetLeaders.length,
+      reportScope: sessionLabel || 'Miqaat',
       reportsSent,
       errorsCount: errors.length,
       errors: errors.length > 0 ? errors.slice(0, 10) : undefined

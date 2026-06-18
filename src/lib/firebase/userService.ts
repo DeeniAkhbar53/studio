@@ -164,6 +164,75 @@ export const updateUser = async (userId: string, mohallahId: string, updatedData
   }
 };
 
+export const moveUserToMohallah = async (
+  userId: string,
+  oldMohallahId: string,
+  newMohallahId: string,
+  updatedData: UserDataForUpdate
+): Promise<void> => {
+  if (!oldMohallahId || !newMohallahId) {
+    throw new Error("Both old and new Mohallah IDs are required to move a user.");
+  }
+  if (oldMohallahId === newMohallahId) {
+    await updateUser(userId, oldMohallahId, updatedData);
+    return;
+  }
+
+  const oldUserDocRef = doc(db, 'mohallahs', oldMohallahId, 'members', userId);
+  const newUserDocRef = doc(db, 'mohallahs', newMohallahId, 'members', userId);
+  const userSnap = await getDoc(oldUserDocRef);
+
+  if (!userSnap.exists()) {
+    throw new Error("User to move not found.");
+  }
+
+  const existingData = userSnap.data();
+  const payload: any = {
+    ...existingData,
+    ...updatedData,
+    mohallahId: newMohallahId,
+  };
+
+  delete payload.id;
+  if (!payload.password) {
+    delete payload.password;
+  }
+
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === undefined) {
+      delete payload[key];
+    }
+  });
+
+  const batch = writeBatch(db);
+  batch.set(newUserDocRef, payload);
+  batch.delete(oldUserDocRef);
+  await batch.commit();
+
+  const actorName = typeof window !== 'undefined' ? localStorage.getItem('userName') || 'Unknown' : 'System';
+  const actorItsId = typeof window !== 'undefined' ? localStorage.getItem('userItsId') || 'Unknown' : 'System';
+  await addAuditLog('user_transferred', { itsId: actorItsId, name: actorName }, 'info', {
+    targetUserId: payload.itsId,
+    targetUserName: payload.name,
+    fromMohallahId: oldMohallahId,
+    toMohallahId: newMohallahId,
+  });
+
+  if (payload.email) {
+    try {
+      const oldMohallahName = await getMohallahName(oldMohallahId);
+      const newMohallahName = await getMohallahName(newMohallahId);
+      await sendEmail(
+        payload.email,
+        'Account Transferred - BGK Attendance',
+        userTransferredEmailTemplate(payload.name, payload.itsId, oldMohallahName, newMohallahName)
+      );
+    } catch (emailErr) {
+      console.error("Failed to send user transfer email:", emailErr);
+    }
+  }
+};
+
 export const deleteUser = async (userId: string, mohallahId: string, isTransfer = false): Promise<void> => {
   if (!mohallahId) {
     throw new Error("Mohallah ID is required to delete a user.");
