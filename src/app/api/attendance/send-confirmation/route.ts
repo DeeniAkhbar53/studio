@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, getYearPath } from '@/lib/firebase/firebase';
 import { collectionGroup, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { sendEmail, attendanceConfirmationEmailTemplate, attendanceEditedEmailTemplate } from '@/lib/email';
-import { format } from 'date-fns';
+import { formatKuwaitDateTime } from '@/lib/kuwait-time';
 
 export async function POST(req: NextRequest) {
   try {
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const formattedDate = format(new Date(markedAt), "PP p");
+    const formattedDate = formatKuwaitDateTime(markedAt);
 
     // 4. Send Confirmation / Edit Email
     const emailHtml = isEdit

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, getYearPath } from '@/lib/firebase/firebase';
 import { collectionGroup, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { sendEmail, miqaatAbsenceEmailTemplate } from '@/lib/email';
-import { format } from 'date-fns';
+import { formatKuwaitDate } from '@/lib/kuwait-time';
 
 export async function POST(req: NextRequest) {
   try {
@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       return false;
     });
 
-    const formattedDate = format(new Date(miqaatData.startTime), "PP");
+    const formattedDate = formatKuwaitDate(miqaatData.startTime);
     const batchSize = 10;
 
     for (let i = 0; i < absenteesWithEmail.length; i += batchSize) {

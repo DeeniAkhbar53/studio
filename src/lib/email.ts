@@ -59,7 +59,7 @@ export function otpEmailTemplate(name: string, otp: string): string {
             </tr>
             <tr>
               <td style="padding:32px 40px;">
-                <p style="font-size:15px;color:#334155;margin:0 0 24px;">Assalaamu Alaikum, <strong style="color:#1e293b;">${name}</strong></p>
+                <p style="font-size:15px;color:#334155;margin:0 0 24px;">Salams, <strong style="color:#1e293b;">${name}</strong></p>
                 <p style="font-size:14px;color:#475569;margin:0 0 28px;">Your One-Time Password (OTP) for BGK Attendance login is:</p>
                 <div style="background:#f8fafc;border:2px solid #2563eb;border-radius:12px;padding:24px;text-align:center;margin-bottom:28px;">
                   <span style="font-size:42px;font-weight:800;letter-spacing:12px;color:#2563eb;">${otp}</span>
@@ -105,7 +105,7 @@ export function resetPasswordEmailTemplate(name: string, resetLink: string): str
             </tr>
             <tr>
               <td style="padding:32px 40px;">
-                <p style="font-size:15px;color:#334155;margin:0 0 24px;">Assalaamu Alaikum, <strong style="color:#1e293b;">${name}</strong></p>
+                <p style="font-size:15px;color:#334155;margin:0 0 24px;">Salams, <strong style="color:#1e293b;">${name}</strong></p>
                 <p style="font-size:14px;color:#475569;margin:0 0 28px;">We received a request to reset your BGK Attendance password. Click the button below to set a new password:</p>
                 <div style="text-align:center;margin-bottom:28px;">
                   <a href="${resetLink}" style="display:inline-block;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:10px;box-shadow:0 2px 4px rgba(37,99,235,0.2);">Reset My Password</a>
@@ -166,7 +166,7 @@ export function attendanceConfirmationEmailTemplate(
             </tr>
             <tr>
               <td style="padding:20px 40px 32px;">
-                <p style="font-size:15px;color:#334155;margin:0 0 20px;">Assalaamu Alaikum, <strong style="color:#1e293b;">${name}</strong> (${itsId})</p>
+                <p style="font-size:15px;color:#334155;margin:0 0 20px;">Salams, <strong style="color:#1e293b;">${name}</strong> (${itsId})</p>
                 <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Your attendance has been successfully marked for the following event:</p>
                 
                 <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:24px;color:#1e293b;font-size:14px;">
@@ -244,7 +244,7 @@ export function miqaatAbsenceEmailTemplate(
             </tr>
             <tr>
               <td style="padding:20px 40px 32px;">
-                <p style="font-size:15px;color:#334155;margin:0 0 20px;">Assalaamu Alaikum, <strong style="color:#1e293b;">${name}</strong> (${itsId})</p>
+                <p style="font-size:15px;color:#334155;margin:0 0 20px;">Salams, <strong style="color:#1e293b;">${name}</strong> (${itsId})</p>
                 <p style="font-size:14px;color:#64748b;margin:0 0 24px;">This email is to inform you that your attendance was <strong>not marked</strong> for the following Miqaat event:</p>
                 
                 <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:24px;color:#1e293b;font-size:14px;">
@@ -304,7 +304,7 @@ export function userCreatedEmailTemplate(name: string, itsId: string, mohallahNa
             </tr>
             <tr>
               <td style="padding:20px 40px 32px;color:#334155;font-size:14px;line-height:1.6;">
-                <p>Assalaamu Alaikum, <strong style="color:#1e293b;">${name}</strong></p>
+                <p>Salams, <strong style="color:#1e293b;">${name}</strong></p>
                 <p>Your account has been successfully created in the BGK Attendance System with the following details:</p>
                 <table width="100%" cellpadding="10" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;margin:20px 0;color:#1e293b;font-size:13px;">
                   <tr><td style="color:#64748b;width:35%;">ITS ID:</td><td><strong>${itsId}</strong></td></tr>
@@ -348,7 +348,7 @@ export function userTransferredEmailTemplate(name: string, itsId: string, oldMoh
             </tr>
             <tr>
               <td style="padding:20px 40px 32px;color:#334155;font-size:14px;line-height:1.6;">
-                <p>Assalaamu Alaikum, <strong style="color:#1e293b;">${name}</strong></p>
+                <p>Salams, <strong style="color:#1e293b;">${name}</strong></p>
                 <p>Your BGK Attendance profile has been transferred to a new Mohallah:</p>
                 <table width="100%" cellpadding="10" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;margin:20px 0;color:#1e293b;font-size:13px;">
                   <tr><td style="color:#64748b;width:35%;">ITS ID:</td><td><strong>${itsId}</strong></td></tr>
@@ -391,7 +391,7 @@ export function userDeletedEmailTemplate(name: string, itsId: string): string {
             </tr>
             <tr>
               <td style="padding:20px 40px 32px;color:#334155;font-size:14px;line-height:1.6;">
-                <p>Assalaamu Alaikum, <strong style="color:#1e293b;">${name}</strong></p>
+                <p>Salams, <strong style="color:#1e293b;">${name}</strong></p>
                 <p>This email is to inform you that your account associated with ITS ID <strong style="color:#1e293b;">${itsId}</strong> has been deactivated or removed by the administrator.</p>
                 <p>If you believe this is in error, or if your registration should be restored, please contact your Mohallah administrator.</p>
               </td>
@@ -453,7 +453,7 @@ export function teamLeaderAbsenceReportEmailTemplate(
             </tr>
             <tr>
               <td style="padding:20px 40px 32px;">
-                <p style="font-size:15px;color:#1e293b;margin:0 0 20px;">Assalaamu Alaikum, <strong style="color:#1e293b;">${leaderName}</strong> (${leaderDesignation})</p>
+                <p style="font-size:15px;color:#1e293b;margin:0 0 20px;">Salams, <strong style="color:#1e293b;">${leaderName}</strong> (${leaderDesignation})</p>
                 <p style="font-size:14px;color:#475569;margin:0 0 24px;">Below is the list of absentees from <strong>${teamName}</strong> for the Miqaat event:</p>
                 
                 <table width="100%" cellpadding="10" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:24px;font-size:13px;">
@@ -548,7 +548,7 @@ export function attendanceEditedEmailTemplate(
             </tr>
             <tr>
               <td style="padding:20px 40px 32px;">
-                <p style="font-size:15px;color:#334155;margin:0 0 20px;">Assalaamu Alaikum, <strong style="color:#1e293b;">${name}</strong> (${itsId})</p>
+                <p style="font-size:15px;color:#334155;margin:0 0 20px;">Salams, <strong style="color:#1e293b;">${name}</strong> (${itsId})</p>
                 <p style="font-size:14px;color:#64748b;margin:0 0 24px;">Your attendance status for the following event has been updated by an administrator:</p>
                 
                 <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:24px;color:#1e293b;font-size:14px;">
@@ -627,7 +627,7 @@ export function leaderStatsReportEmailTemplate(
             </tr>
             <tr>
               <td style="padding:20px 40px 32px;">
-                <p style="font-size:15px;color:#1e293b;margin:0 0 20px;">Salams ${leaderName} (${leaderDesignation}${teamOrMohallahName ? ` - ${teamOrMohallahName}` : ''})</p>
+                <p style="font-size:15px;color:#1e293b;margin:0 0 20px;">Salams, ${leaderName} (${leaderDesignation}${teamOrMohallahName ? ` - ${teamOrMohallahName}` : ''})</p>
                 <p style="font-size:14px;color:#475569;margin:0 0 24px;">Find Out the Stats of the Members for Miqaat <strong>${miqaatName}</strong>:</p>
                 
                 <table width="100%" cellpadding="12" cellspacing="0" style="background:#f8fafc;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:24px;color:#1e293b;font-size:14px;">

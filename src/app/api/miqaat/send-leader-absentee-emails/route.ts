@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, getYearPath } from '@/lib/firebase/firebase';
 import { collectionGroup, query, where, getDocs, doc, getDoc, collection } from 'firebase/firestore';
 import { sendEmail, teamLeaderAbsenceReportEmailTemplate, leaderStatsReportEmailTemplate } from '@/lib/email';
-import { format } from 'date-fns';
+import { formatKuwaitDate } from '@/lib/kuwait-time';
 
 export async function POST(req: NextRequest) {
   try {
@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
     // 8. Route emails based on leader scope
     let reportsSent = 0;
     const errors: string[] = [];
-    const formattedDate = format(new Date(miqaatData.startTime), "PP");
+    const formattedDate = formatKuwaitDate(miqaatData.startTime);
 
     await Promise.all(
       targetLeaders.map(async (leader) => {
