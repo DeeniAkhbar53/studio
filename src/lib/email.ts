@@ -139,9 +139,19 @@ export function attendanceConfirmationEmailTemplate(
   location: string,
   reason?: string
 ): string {
-  const isSafar = status.toLowerCase() === 'safar';
-  const statusColor = isSafar ? '#d97706' : '#059669';
-  const displayStatus = isSafar ? 'Marked as Safar' : `Present (${status.charAt(0).toUpperCase() + status.slice(1)})`;
+  const statusLower = status.toLowerCase();
+  const isSafar = statusLower === 'safar';
+  const isAbsent = statusLower === 'absent';
+  const statusColor = isSafar ? '#d97706' : isAbsent ? '#ef4444' : '#059669';
+  
+  let displayStatus = 'Present';
+  if (isSafar) {
+    displayStatus = 'Marked as Safar';
+  } else if (isAbsent) {
+    displayStatus = 'Marked as Absent / Removed';
+  } else if (statusLower === 'late') {
+    displayStatus = 'Present (Late)';
+  }
 
   return `
     <!DOCTYPE html>
@@ -521,9 +531,14 @@ export function attendanceEditedEmailTemplate(
   const isAbsent = statusLower === 'absent';
   const statusColor = isSafar ? '#d97706' : isAbsent ? '#ef4444' : '#059669';
   
-  let displayStatus = `Present (${status.charAt(0).toUpperCase() + status.slice(1)})`;
-  if (isSafar) displayStatus = 'Marked as Safar';
-  if (isAbsent) displayStatus = 'Marked as Absent / Removed';
+  let displayStatus = 'Present';
+  if (isSafar) {
+    displayStatus = 'Marked as Safar';
+  } else if (isAbsent) {
+    displayStatus = 'Marked as Absent / Removed';
+  } else if (statusLower === 'late') {
+    displayStatus = 'Present (Late)';
+  }
 
   return `
     <!DOCTYPE html>
