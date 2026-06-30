@@ -171,6 +171,7 @@ export default function DashboardOverviewPage() {
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const isTransitioningRef = useRef(false);
   const isDialogOpenRef = useRef(isScannerDialogOpen);
+  const [isScanResultDialogOpen, setIsScanResultDialogOpen] = useState(false);
   const [isScannerActive, setIsScannerActive] = useState(false);
   const [isProcessingScan, setIsProcessingScan] = useState(false);
   const [scanDisplayMessage, setScanDisplayMessage] = useState<ScanDisplayMessage | null>(null);
@@ -1147,6 +1148,37 @@ export default function DashboardOverviewPage() {
 
       await markAttendanceInMiqaat(targetMiqaat.id, attendanceEntry);
       setAllMiqaatsList(prev => prev.map(m => m.id === targetMiqaat.id ? { ...m, attendance: [...(m.attendance || []), attendanceEntry] } : m));
+      
+      // Trigger confirmation email
+      try {
+        fetch('/api/attendance/send-confirmation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userItsId: currentUserItsId,
+            miqaatId: targetMiqaat.id,
+            status: attendanceStatus,
+            markedAt: now.toISOString(),
+            sessionId: currentSession.id,
+            isEdit: false
+          })
+        }).then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              console.log("Attendance email sent successfully.");
+            } else {
+              console.warn("Attendance email sending skipped/warned:", data.warning || data.message);
+            }
+          })
+          .catch(emailErr => {
+            console.error("Failed to trigger confirmation email:", emailErr);
+          });
+      } catch (err) {
+        console.error("Failed to fetch send-confirmation api:", err);
+      }
+
       setScanDisplayMessage({
         type: 'success',
         text: `Attendance marked ${attendanceStatus === 'late' ? '(Late)' : (attendanceStatus === 'early' ? '(Early)' : '')} successfully for ${targetMiqaat.name} at ${format(now, "p")}.`,
@@ -1168,6 +1200,12 @@ export default function DashboardOverviewPage() {
   useEffect(() => {
     isDialogOpenRef.current = isScannerDialogOpen;
   }, [isScannerDialogOpen]);
+
+  useEffect(() => {
+    if (scanDisplayMessage) {
+      setIsScanResultDialogOpen(true);
+    }
+  }, [scanDisplayMessage]);
 
   useEffect(() => {
     let initDelay: NodeJS.Timeout;
@@ -2765,6 +2803,64 @@ export default function DashboardOverviewPage() {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {/* Scan Result Feedback Dialog Popup */}
+      <Dialog open={isScanResultDialogOpen} onOpenChange={setIsScanResultDialogOpen}>
+        <DialogContent className="max-w-md w-[90vw] rounded-2xl p-6 gap-6 flex flex-col items-center text-center">
+          {scanDisplayMessage?.type === 'success' ? (
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-16 w-16 bg-green-100 dark:bg-green-950/30 rounded-full flex items-center justify-center text-green-600 dark:text-green-400 animate-bounce">
+                <CheckCircle2 className="h-10 w-10" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground">Scan Successful!</h3>
+              {scanDisplayMessage.status === 'late' && (
+                <span className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                  Present (Late)
+                </span>
+              )}
+              {scanDisplayMessage.status === 'early' && (
+                <span className="bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                  Present (Early)
+                </span>
+              )}
+              {scanDisplayMessage.status === 'present' && (
+                <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                  Present
+                </span>
+              )}
+              <div className="space-y-1 mt-2">
+                <p className="text-sm font-semibold text-foreground">{scanDisplayMessage.miqaatName}</p>
+                <p className="text-xs text-muted-foreground">{scanDisplayMessage.text}</p>
+                {scanDisplayMessage.time && (
+                  <p className="text-[10px] text-muted-foreground mt-2">Marked on: {scanDisplayMessage.time}</p>
+                )}
+              </div>
+            </div>
+          ) : scanDisplayMessage?.type === 'error' ? (
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-16 w-16 bg-destructive/10 rounded-full flex items-center justify-center text-destructive animate-pulse">
+                <XCircle className="h-10 w-10" />
+              </div>
+              <h3 className="text-xl font-bold text-destructive">Scan Failed</h3>
+              <p className="text-sm text-muted-foreground mt-2 px-2">{scanDisplayMessage.text}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-16 w-16 bg-blue-100 dark:bg-blue-950/30 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <AlertCircleIcon className="h-10 w-10" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground">Scan Info</h3>
+              <div className="space-y-1 mt-2">
+                <p className="text-sm font-semibold text-foreground">{scanDisplayMessage?.miqaatName}</p>
+                <p className="text-xs text-muted-foreground">{scanDisplayMessage?.text}</p>
+              </div>
+            </div>
+          )}
+          <Button onClick={() => setIsScanResultDialogOpen(false)} className="w-full mt-4 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl">
+            Dismiss
+          </Button>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
