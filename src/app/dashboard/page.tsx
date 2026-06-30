@@ -169,6 +169,8 @@ export default function DashboardOverviewPage() {
 
   const [isScannerDialogOpen, setIsScannerDialogOpen] = useState(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+  const isTransitioningRef = useRef(false);
+  const isDialogOpenRef = useRef(isScannerDialogOpen);
   const [isScannerActive, setIsScannerActive] = useState(false);
   const [isProcessingScan, setIsProcessingScan] = useState(false);
   const [scanDisplayMessage, setScanDisplayMessage] = useState<ScanDisplayMessage | null>(null);
@@ -1162,9 +1164,35 @@ export default function DashboardOverviewPage() {
   }, [currentUserItsId, currentUserName, currentUserMohallahId, allMiqaatsList]);
 
 
+  // Synchronize dialog open state in ref to access inside async events
+  useEffect(() => {
+    isDialogOpenRef.current = isScannerDialogOpen;
+  }, [isScannerDialogOpen]);
+
   useEffect(() => {
     let initDelay: NodeJS.Timeout;
     let scannerInstance: Html5Qrcode | null = null;
+
+    const stopScanner = () => {
+      const scanner = html5QrCodeRef.current;
+      if (scanner && scanner.getState() === Html5QrcodeScannerState.SCANNING) {
+        if (isTransitioningRef.current) {
+          console.log("Scanner is currently transitioning. Stop deferred.");
+          return;
+        }
+        isTransitioningRef.current = true;
+        console.log("Safely stopping scanner...");
+        scanner.stop()
+          .then(() => {
+            isTransitioningRef.current = false;
+            console.log("Scanner stopped successfully.");
+          })
+          .catch(err => {
+            isTransitioningRef.current = false;
+            console.error("Error stopping scanner safely:", err);
+          });
+      }
+    };
 
     if (isScannerDialogOpen) {
       setScannerError(null);
@@ -1187,15 +1215,34 @@ export default function DashboardOverviewPage() {
           const config = { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
           
           console.log(`Starting scanner with facingMode: ${facingMode}`);
+          if (isTransitioningRef.current) {
+            console.warn("Scanner is already transitioning. Aborting start.");
+            return;
+          }
+          isTransitioningRef.current = true;
+
           scannerInstance.start(
             { facingMode: facingMode },
             config,
             (decodedText, decodedResult) => {
               console.log("QR Code Scanned:", decodedText);
-              if (html5QrCodeRef.current?.getState() === Html5QrcodeScannerState.SCANNING) {
-                 html5QrCodeRef.current.stop().catch(err => {
-                  console.warn("Scanner stop error on successful scan:", err);
-                });
+              if (isTransitioningRef.current) {
+                console.warn("Skipping scan trigger, scanner is transitioning.");
+                return;
+              }
+
+              const currentScanner = html5QrCodeRef.current;
+              if (currentScanner && currentScanner.getState() === Html5QrcodeScannerState.SCANNING) {
+                isTransitioningRef.current = true;
+                currentScanner.stop()
+                  .then(() => {
+                    isTransitioningRef.current = false;
+                    console.log("Scanner stopped after successful scan.");
+                  })
+                  .catch(err => {
+                    isTransitioningRef.current = false;
+                    console.warn("Scanner stop error on successful scan:", err);
+                  });
               }
               setIsScannerActive(false);
               handleQrCodeScanned(decodedText);
@@ -1205,11 +1252,17 @@ export default function DashboardOverviewPage() {
             }
           )
             .then(() => {
+              isTransitioningRef.current = false;
               console.log("Scanner started successfully.");
               setIsScannerActive(true);
               setScannerError(null);
+              if (!isDialogOpenRef.current) {
+                console.log("Dialog closed while starting scanner, stopping immediately.");
+                stopScanner();
+              }
             })
             .catch((err) => {
+              isTransitioningRef.current = false;
               let errorMsg = "Could not start camera.";
               if (err instanceof Error) {
                 errorMsg = `${errorMsg} (${err.name}): ${err.message}.`;
@@ -1221,9 +1274,7 @@ export default function DashboardOverviewPage() {
               console.error("Error starting QR scanner:", err, errorMsg);
               setScannerError(errorMsg);
               setIsScannerActive(false);
-              if (html5QrCodeRef.current?.getState() === Html5QrcodeScannerState.SCANNING) {
-                html5QrCodeRef.current.stop().catch(stopErr => console.warn("Defensive stop failed after start error:", stopErr));
-              }
+              stopScanner();
             });
         } catch (initError) {
           let errorMsg = "Scanner component failed to load.";
@@ -1238,12 +1289,7 @@ export default function DashboardOverviewPage() {
         }
       }, 100);
     } else {
-      if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
-        console.log("Scanner dialog closed by onOpenChange or external state, stopping scanner.");
-        html5QrCodeRef.current.stop()
-          .then(() => console.log("Scanner stopped: dialog closed via onOpenChange."))
-          .catch(err => console.error("Error stopping scanner on dialog onOpenChange close:", err));
-      }
+      stopScanner();
       setIsScannerActive(false);
       setIsProcessingScan(false);
       setScannerError(null);
@@ -1251,27 +1297,9 @@ export default function DashboardOverviewPage() {
 
     return () => {
       clearTimeout(initDelay);
-      const currentScanner = html5QrCodeRef.current;
-      if (currentScanner && currentScanner.getState() === Html5QrcodeScannerState.SCANNING) {
-        console.log("Scanner effect cleanup: stopping scanner.");
-        currentScanner.stop()
-          .then(() => console.log("Scanner stopped: effect cleanup."))
-          .catch(err => console.error("Error stopping scanner in effect cleanup:", err));
-      }
+      stopScanner();
     };
   }, [isScannerDialogOpen, facingMode, handleQrCodeScanned]);
-
-  useEffect(() => {
-    const scannerOnUnmount = html5QrCodeRef.current;
-    return () => {
-      if (scannerOnUnmount && scannerOnUnmount.getState() === Html5QrcodeScannerState.SCANNING) {
-        console.log("Component unmounting: stopping scanner.");
-        scannerOnUnmount.stop()
-          .then(() => console.log("Scanner stopped: component unmount."))
-          .catch(err => console.error("Error stopping scanner on component unmount:", err));
-      }
-    };
-  }, []);
 
   const handleSwitchCamera = () => {
     if (isProcessingScan || !isScannerDialogOpen) return;

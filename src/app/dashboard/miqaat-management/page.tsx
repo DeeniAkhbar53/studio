@@ -175,6 +175,61 @@ export default function MiqaatManagementPage() {
     return `${parts.join(". ")}.${firstError}`;
   };
 
+  const handleDownloadQRCode = () => {
+    try {
+      const svgElement = document.querySelector("#miqaat-qr-code svg");
+      if (!svgElement) {
+        toast({ title: "Error", description: "QR Code image element not found.", variant: "destructive" });
+        return;
+      }
+
+      // Convert SVG to PNG using Canvas
+      const svgString = new XMLSerializer().serializeToString(svgElement);
+      const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+      const URL = window.URL || window.webkitURL || window;
+      const blobURL = URL.createObjectURL(svgBlob);
+      
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        // High quality 500x500 size
+        canvas.width = 500;
+        canvas.height = 500;
+        const context = canvas.getContext("2d");
+        if (context) {
+          context.fillStyle = "#ffffff";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          const pngURL = canvas.toDataURL("image/png");
+          
+          const downloadLink = document.createElement("a");
+          downloadLink.href = pngURL;
+          downloadLink.download = `${barcodeMiqaat?.name || 'miqaat'}_qrcode.png`;
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+          
+          toast({ title: "QR Code Downloaded", description: "The image has been saved to your device." });
+        } else {
+          throw new Error("Could not initialize canvas context.");
+        }
+        URL.revokeObjectURL(blobURL);
+      };
+      
+      image.onerror = (err) => {
+        console.error("Image load error:", err);
+        toast({ title: "Error", description: "Failed to render QR Code image for download.", variant: "destructive" });
+        URL.revokeObjectURL(blobURL);
+      };
+      
+      image.src = blobURL;
+    } catch (error: any) {
+      console.error("Failed to download QR code:", error);
+      toast({ title: "Download Failed", description: "Could not generate download file: " + error.message, variant: "destructive" });
+    }
+  };
+
   const handleSendAbsenteeEmails = async (miqaatId: string, miqaatName: string, isExpired: boolean) => {
     const confirmMessage = isExpired
       ? `Are you sure you want to send bulk absence emails to all eligible members who did not attend "${miqaatName}"?`
@@ -1476,7 +1531,7 @@ export default function MiqaatManagementPage() {
               Scan this barcode for attendance marking.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="flex justify-center items-center my-4 p-4 bg-white rounded-lg shadow-inner">
+          <div id="miqaat-qr-code" className="flex justify-center items-center my-4 p-4 bg-white rounded-lg shadow-inner">
             {(barcodeMiqaat?.barcodeData || barcodeMiqaat?.id) ? (
               <QRCodeSVG
                 value={barcodeMiqaat.barcodeData || barcodeMiqaat.id}
@@ -1492,9 +1547,9 @@ export default function MiqaatManagementPage() {
           </div>
           <p className="text-center text-sm text-muted-foreground">Data: {barcodeMiqaat?.barcodeData || barcodeMiqaat?.id || 'N/A'}</p>
           <AlertDialogFooter>
-            <Button variant="outline" disabled> 
+            <Button variant="outline" onClick={handleDownloadQRCode}> 
               <Download className="mr-2 h-4 w-4" />
-              Download (Coming Soon)
+              Download QR Code
             </Button>
             <AlertDialogCancel>Close</AlertDialogCancel>
           </AlertDialogFooter>
