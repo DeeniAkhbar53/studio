@@ -1,6 +1,4 @@
 import nodemailer from 'nodemailer';
-import { db } from './firebase/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp.gmail.com',
@@ -24,42 +22,18 @@ export async function sendEmail(to: string, subject: string, html: string, text?
     .replace(/\s+/g, ' ')
     .trim();
 
-  let status = 'success';
-  let errorMsg = '';
-
-  try {
-    await transporter.sendMail({
-      from: cleanFrom,
-      to,
-      subject,
-      html,
-      text: fallbackText,
-      headers: {
-        'X-Priority': '3', // Normal priority
-        'X-Mailer': 'BGK Attendance System',
-        'List-Unsubscribe': `<mailto:${cleanFrom.includes('<') ? cleanFrom.split('<')[1].replace('>', '') : cleanFrom}?subject=unsubscribe>`
-      }
-    });
-  } catch (err: any) {
-    status = 'failed';
-    errorMsg = err instanceof Error ? err.message : String(err);
-    throw err;
-  } finally {
-    try {
-      const activeYear = process.env.NEXT_PUBLIC_ACTIVE_YEAR || "1448H";
-      const logsCollectionRef = collection(db, `years/${activeYear}/email_logs`);
-      await addDoc(logsCollectionRef, {
-        to,
-        subject,
-        status,
-        timestamp: serverTimestamp(),
-        error: errorMsg || null,
-        snippet: fallbackText.substring(0, 150) + (fallbackText.length > 150 ? '...' : '')
-      });
-    } catch (logErr) {
-      console.error("Failed to write email log to Firestore:", logErr);
+  await transporter.sendMail({
+    from: cleanFrom,
+    to,
+    subject,
+    html,
+    text: fallbackText,
+    headers: {
+      'X-Priority': '3', // Normal priority
+      'X-Mailer': 'BGK Attendance System',
+      'List-Unsubscribe': `<mailto:${cleanFrom.includes('<') ? cleanFrom.split('<')[1].replace('>', '') : cleanFrom}?subject=unsubscribe>`
     }
-  }
+  });
 }
 
 export function otpEmailTemplate(name: string, otp: string): string {

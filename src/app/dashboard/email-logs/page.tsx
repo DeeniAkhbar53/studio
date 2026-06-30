@@ -7,15 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole } from "@/types";
-import { db, getYearPath } from "@/lib/firebase/firebase";
-import { collection, query, orderBy, onSnapshot, Timestamp } from "firebase/firestore";
-import { ShieldAlert, Mail, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Search, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { ShieldAlert, Mail, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Search, Eye, EyeOff, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { findNavItem } from "@/components/dashboard/sidebar-nav";
 import { FunkyLoader } from "@/components/ui/funky-loader";
 
 interface EmailLog {
-  id: string;
+  id: string; // This corresponds to the IMAP UID
   to: string;
   subject: string;
   status: 'success' | 'failed';
@@ -33,9 +31,16 @@ export default function EmailLogsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  
+  // Cache for loaded email bodies
+  const [cachedBodies, setCachedBodies] = useState<Record<string, string>>({});
+  const [loadingBodyId, setLoadingBodyId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Authenticate user role client-side
   useEffect(() => {
     const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') as UserRole : null;
     const pageRights = JSON.parse(localStorage.getItem('userPageRights') || '[]');
@@ -56,41 +61,91 @@ export default function EmailLogsPage() {
     }
   }, [router]);
 
-  useEffect(() => {
-    if (!isAuthorized) {
-        setIsLoading(false);
-        return;
+  // Function to fetch email logs from API
+  const fetchEmailLogs = async (showToast = false) => {
+    setIsRefreshing(true);
+    try {
+      const role = localStorage.getItem('userRole') || '';
+      const response = await fetch('/api/email-logs/fetch', {
+        method: 'GET',
+        headers: {
+          'x-user-role': role
+        }
+      });
+      
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setLogs(data.logs || []);
+        if (showToast) {
+          toast({ title: "Success", description: "Email logs synchronized with Gmail." });
+        }
+      } else {
+        throw new Error(data.error || 'Failed to fetch logs');
+      }
+    } catch (error: any) {
+      console.error("Error loading email logs:", error);
+      toast({ 
+        title: "Error Connecting to Gmail", 
+        description: error.message || "Please check your network connection or server email configuration.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
-    
-    const emailLogsCollectionRef = collection(db, getYearPath('email_logs'));
-    const q = query(emailLogsCollectionRef, orderBy('timestamp', 'desc'));
+  };
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const fetchedLogs = querySnapshot.docs.map(docSnapshot => {
-            const data = docSnapshot.data();
-            const timestamp = data.timestamp instanceof Timestamp
-                              ? data.timestamp.toDate().toISOString()
-                              : new Date().toISOString();
-            return { 
-              id: docSnapshot.id,
-              to: data.to || 'N/A',
-              subject: data.subject || 'N/A',
-              status: data.status || 'success',
-              error: data.error || null,
-              snippet: data.snippet || '',
-              timestamp 
-            } as EmailLog;
-        });
-        setLogs(fetchedLogs);
-        setIsLoading(false);
-    }, (error) => {
-        console.error("Error fetching email logs:", error);
-        toast({ title: "Error", description: "Could not load email logs.", variant: "destructive" });
-        setIsLoading(false);
-    });
+  useEffect(() => {
+    if (isAuthorized) {
+      fetchEmailLogs();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthorized]);
 
-    return () => unsubscribe();
-  }, [isAuthorized, toast]);
+  // Load email body on demand
+  const handleToggleDetails = async (logId: string) => {
+    if (expandedLogId === logId) {
+      setExpandedLogId(null);
+      return;
+    }
+
+    setExpandedLogId(logId);
+
+    // If the body is already loaded, don't fetch it again
+    if (cachedBodies[logId]) {
+      return;
+    }
+
+    setLoadingBodyId(logId);
+    try {
+      const role = localStorage.getItem('userRole') || '';
+      const response = await fetch(`/api/email-logs/fetch-body?uid=${logId}`, {
+        method: 'GET',
+        headers: {
+          'x-user-role': role
+        }
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setCachedBodies(prev => ({
+          ...prev,
+          [logId]: data.body || 'No text content available.'
+        }));
+      } else {
+        throw new Error(data.error || 'Could not load details');
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: "Details Error",
+        description: err.message || "Failed to load full email body.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingBodyId(null);
+    }
+  };
 
   // Filter logs by search query
   const filteredLogs = useMemo(() => {
@@ -98,8 +153,7 @@ export default function EmailLogsPage() {
     const lowerQuery = searchQuery.toLowerCase();
     return logs.filter(log => 
       log.to.toLowerCase().includes(lowerQuery) || 
-      log.subject.toLowerCase().includes(lowerQuery) ||
-      (log.error && log.error.toLowerCase().includes(lowerQuery))
+      log.subject.toLowerCase().includes(lowerQuery)
     );
   }, [logs, searchQuery]);
 
@@ -119,7 +173,7 @@ export default function EmailLogsPage() {
   if (isAuthorized === null || isLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
-        <FunkyLoader size="lg">Loading Email Logs...</FunkyLoader>
+        <FunkyLoader size="lg">Loading Gmail Sent Mails...</FunkyLoader>
       </div>
     );
   }
@@ -143,20 +197,31 @@ export default function EmailLogsPage() {
             <div>
               <CardTitle className="flex items-center">
                 <Mail className="mr-2 h-5 w-5 text-primary"/>
-                Email Logs
+                Gmail Sent Logs
               </CardTitle>
               <CardDescription className="mt-1">
-                A historical log of all automated emails dispatched by the system (OTPs, notifications, and confirmations).
+                Displaying sent messages directly from your system's Google Mail server. Zero database storage footprint.
               </CardDescription>
             </div>
-            <div className="relative w-full md:w-72">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search recipient or subject..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex w-full md:w-auto items-center gap-3">
+              <div className="relative flex-grow md:w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search recipient or subject..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={() => fetchEmailLogs(true)} 
+                disabled={isRefreshing}
+                title="Sync with Gmail"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -164,8 +229,8 @@ export default function EmailLogsPage() {
           {currentLogs.length === 0 ? (
             <div className="text-center py-10">
               <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-              <p className="text-lg font-medium">No Email Logs Found</p>
-              <p className="text-sm text-muted-foreground">Try adjusting your search filters or check back later.</p>
+              <p className="text-lg font-medium">No Email Records Found</p>
+              <p className="text-sm text-muted-foreground">Try adjusting your search filters or check your connection status.</p>
             </div>
           ) : (
              <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
@@ -196,9 +261,12 @@ export default function EmailLogsPage() {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          onClick={() => setExpandedLogId(expandedLogId === log.id ? null : log.id)}
+                          onClick={() => handleToggleDetails(log.id)}
+                          disabled={loadingBodyId === log.id}
                         >
-                          {expandedLogId === log.id ? (
+                          {loadingBodyId === log.id ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : expandedLogId === log.id ? (
                             <EyeOff className="h-4 w-4 mr-1" />
                           ) : (
                             <Eye className="h-4 w-4 mr-1" />
@@ -209,23 +277,19 @@ export default function EmailLogsPage() {
 
                       {expandedLogId === log.id && (
                         <div className="mt-4 pt-4 border-t border-dashed space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                          {log.snippet && (
-                            <div>
-                              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Body Excerpt</p>
-                              <div className="bg-muted p-3 rounded-md text-xs font-mono text-muted-foreground leading-relaxed">
-                                {log.snippet}
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Email Body Content</p>
+                            {loadingBodyId === log.id ? (
+                              <div className="flex items-center text-xs text-muted-foreground gap-2 p-3 bg-muted rounded-md animate-pulse">
+                                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                Downloading content stream from Gmail...
                               </div>
-                            </div>
-                          )}
-                          
-                          {log.status === 'failed' && log.error && (
-                            <div>
-                              <p className="text-xs font-semibold text-destructive uppercase tracking-wider mb-1">Error Trace</p>
-                              <div className="bg-destructive/10 text-destructive p-3 rounded-md text-xs font-mono">
-                                {log.error}
+                            ) : (
+                              <div className="bg-muted p-4 rounded-md text-xs font-mono text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                                {cachedBodies[log.id] || "No body content retrieved."}
                               </div>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
