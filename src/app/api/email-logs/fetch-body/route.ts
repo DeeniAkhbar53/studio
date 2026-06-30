@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ImapFlow } from 'imapflow';
+import { simpleParser } from 'mailparser';
 
 export async function GET(req: NextRequest) {
   let client: ImapFlow | null = null;
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
     }
 
     const lock = await client.getMailboxLock(sentMailboxPath);
-    let bodyText = 'No text content available.';
+    let bodyHtml = 'No content available.';
 
     try {
       const message = await client.fetchOne(String(uid), {
@@ -54,35 +55,8 @@ export async function GET(req: NextRequest) {
       }, { uid: true });
 
       if (message && message.source) {
-        const sourceStr = message.source.toString();
-        
-        // Simple extraction of the HTML body content if present
-        const htmlMatch = sourceStr.match(/<html>([\s\S]*?)<\/html>/i);
-        if (htmlMatch) {
-          bodyText = htmlMatch[1]
-            .replace(/<style([\s\S]*?)<\/style>/gi, '')
-            .replace(/<script([\s\S]*?)<\/script>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-        } else {
-          // Fallback to extraction from plain text content MIME structures
-          const textMatch = sourceStr.match(/Content-Transfer-Encoding:[\s\S]*?\n\r?\n([\s\S]*?)(?=------|=20)/i) 
-            || sourceStr.match(/Content-Type: text\/plain[\s\S]*?\n\r?\n([\s\S]*?)(?=------|$)/i);
-            
-          if (textMatch) {
-            bodyText = textMatch[1].trim();
-          } else {
-            // Ultimate fallback: split headers and body
-            const parts = sourceStr.split(/\r?\n\r?\n/);
-            if (parts.length > 1) {
-              bodyText = parts.slice(1).join('\n')
-                .replace(/<[^>]+>/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-            }
-          }
-        }
+        const parsed = await simpleParser(message.source);
+        bodyHtml = parsed.html || parsed.textAsHtml || parsed.text || 'No content available.';
       }
     } finally {
       lock.release();
@@ -90,15 +64,7 @@ export async function GET(req: NextRequest) {
 
     await client.logout();
 
-    // Clean up snippet/body layout
-    bodyText = bodyText
-      .replace(/=\r?\n/g, '') // Remove quoted-printable line breaks
-      .replace(/=3D/g, '=')   // Decode equals signs
-      .replace(/=20/g, ' ')   // Decode space
-      .substring(0, 1000)
-      .trim();
-
-    return NextResponse.json({ success: true, body: bodyText });
+    return NextResponse.json({ success: true, body: bodyHtml });
   } catch (error: any) {
     console.error('IMAP Fetch Body Error:', error);
     if (client) {

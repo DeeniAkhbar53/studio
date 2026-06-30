@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import type { UserRole } from "@/types";
-import { ShieldAlert, Mail, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Search, Eye, EyeOff, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
+import { ShieldAlert, Mail, CheckCircle2, XCircle, ChevronLeft, ChevronRight, Search, Eye, AlertTriangle, RefreshCw, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { findNavItem } from "@/components/dashboard/sidebar-nav";
 import { FunkyLoader } from "@/components/ui/funky-loader";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface EmailLog {
   id: string; // This corresponds to the IMAP UID
@@ -30,7 +31,10 @@ export default function EmailLogsPage() {
   const [logs, setLogs] = useState<EmailLog[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  
+  // Dialog state
+  const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   // Cache for loaded email bodies
   const [cachedBodies, setCachedBodies] = useState<Record<string, string>>({});
@@ -102,24 +106,20 @@ export default function EmailLogsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthorized]);
 
-  // Load email body on demand
-  const handleToggleDetails = async (logId: string) => {
-    if (expandedLogId === logId) {
-      setExpandedLogId(null);
-      return;
-    }
-
-    setExpandedLogId(logId);
+  // Load email body on demand and open details popup
+  const handleOpenDetails = async (log: EmailLog) => {
+    setSelectedLogId(log.id);
+    setIsDialogOpen(true);
 
     // If the body is already loaded, don't fetch it again
-    if (cachedBodies[logId]) {
+    if (cachedBodies[log.id]) {
       return;
     }
 
-    setLoadingBodyId(logId);
+    setLoadingBodyId(log.id);
     try {
       const role = localStorage.getItem('userRole') || '';
-      const response = await fetch(`/api/email-logs/fetch-body?uid=${logId}`, {
+      const response = await fetch(`/api/email-logs/fetch-body?uid=${log.id}`, {
         method: 'GET',
         headers: {
           'x-user-role': role
@@ -130,7 +130,7 @@ export default function EmailLogsPage() {
       if (response.ok && data.success) {
         setCachedBodies(prev => ({
           ...prev,
-          [logId]: data.body || 'No text content available.'
+          [log.id]: data.body || 'No text content available.'
         }));
       } else {
         throw new Error(data.error || 'Could not load details');
@@ -142,6 +142,7 @@ export default function EmailLogsPage() {
         description: err.message || "Failed to load full email body.",
         variant: "destructive"
       });
+      setIsDialogOpen(false);
     } finally {
       setLoadingBodyId(null);
     }
@@ -156,6 +157,10 @@ export default function EmailLogsPage() {
       log.subject.toLowerCase().includes(lowerQuery)
     );
   }, [logs, searchQuery]);
+
+  const selectedLog = useMemo(() => {
+    return logs.find(log => log.id === selectedLogId);
+  }, [logs, selectedLogId]);
 
   const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE);
   const currentLogs = useMemo(() => {
@@ -261,37 +266,17 @@ export default function EmailLogsPage() {
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          onClick={() => handleToggleDetails(log.id)}
+                          onClick={() => handleOpenDetails(log)}
                           disabled={loadingBodyId === log.id}
                         >
                           {loadingBodyId === log.id ? (
                             <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                          ) : expandedLogId === log.id ? (
-                            <EyeOff className="h-4 w-4 mr-1" />
                           ) : (
                             <Eye className="h-4 w-4 mr-1" />
                           )}
                           Details
                         </Button>
                       </div>
-
-                      {expandedLogId === log.id && (
-                        <div className="mt-4 pt-4 border-t border-dashed space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                          <div>
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Email Body Content</p>
-                            {loadingBodyId === log.id ? (
-                              <div className="flex items-center text-xs text-muted-foreground gap-2 p-3 bg-muted rounded-md animate-pulse">
-                                <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                                Downloading content stream from Gmail...
-                              </div>
-                            ) : (
-                              <div className="bg-muted p-4 rounded-md text-xs font-mono text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                                {cachedBodies[log.id] || "No body content retrieved."}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
                     </div>
                 ))}
             </div>
@@ -314,6 +299,40 @@ export default function EmailLogsPage() {
           )}
         </CardFooter>
       </Card>
+
+      {/* Styled Email Viewer Popup Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-4xl w-[90vw] h-[85vh] flex flex-col p-6 gap-4">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="flex items-center text-lg md:text-xl font-bold truncate">
+              <Mail className="mr-2 h-5 w-5 text-primary shrink-0" />
+              <span className="truncate">{selectedLog?.subject || "Email View"}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              Sent to: <span className="font-semibold text-foreground">{selectedLog?.to}</span> on {selectedLog ? format(new Date(selectedLog.timestamp), "PPpp") : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-grow overflow-hidden relative bg-white border rounded-md">
+            {selectedLogId && loadingBodyId === selectedLogId ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-50/50">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground font-medium animate-pulse">Downloading styled email from Gmail...</span>
+              </div>
+            ) : selectedLogId && cachedBodies[selectedLogId] ? (
+              <iframe
+                srcDoc={cachedBodies[selectedLogId]}
+                className="w-full h-full border-0 bg-white"
+                title="Email Content"
+                sandbox="allow-same-origin"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+                No content retrieved.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
