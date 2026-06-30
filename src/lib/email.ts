@@ -206,7 +206,7 @@ export function attendanceConfirmationEmailTemplate(
                   </tr>` : ''}
                 </table>
 
-                <p style="font-size:13px;color:#64748b;margin:0;text-align:center;">This is an automated confirmation of your attendance. Shurukan.</p>
+                <p style="font-size:13px;color:#64748b;margin:0;text-align:center;">This is an automated confirmation of your attendance. Shukran.</p>
               </td>
             </tr>
             <tr>
@@ -593,7 +593,7 @@ export function attendanceEditedEmailTemplate(
                   </tr>` : ''}
                 </table>
 
-                <p style="font-size:13px;color:#64748b;margin:0;text-align:center;">This is an automated notification of the status change. Shurukan.</p>
+                <p style="font-size:13px;color:#64748b;margin:0;text-align:center;">This is an automated notification of the status change. Shukran.</p>
               </td>
             </tr>
             <tr>
