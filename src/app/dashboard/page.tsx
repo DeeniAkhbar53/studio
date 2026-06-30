@@ -2342,11 +2342,6 @@ export default function DashboardOverviewPage() {
       <Dialog open={isScannerDialogOpen} onOpenChange={(open) => {
         setIsScannerDialogOpen(open);
         if (!open) {
-          if (html5QrCodeRef.current && html5QrCodeRef.current.getState() === Html5QrcodeScannerState.SCANNING) {
-            html5QrCodeRef.current.stop()
-              .then(() => console.log("Scanner stopped: dialog closed via onOpenChange."))
-              .catch(err => console.error("Error stopping scanner on dialog onOpenChange close:", err));
-          }
           setIsScannerActive(false);
           setIsProcessingScan(false);
           setScannerError(null);
