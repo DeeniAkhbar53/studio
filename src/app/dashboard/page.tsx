@@ -48,7 +48,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { FunkyLoader } from "@/components/ui/funky-loader";
-import { db, getYearPath } from "@/lib/firebase/firebase";
+import { db, getYearPath, getActiveYear } from "@/lib/firebase/firebase";
 import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { Clock, Timer } from "lucide-react";
 
@@ -1162,14 +1162,35 @@ export default function DashboardOverviewPage() {
             status: attendanceStatus,
             markedAt: now.toISOString(),
             sessionId: currentSession.id,
+            activeYear: getActiveYear(),
             isEdit: false
           })
         }).then(res => res.json())
           .then(data => {
             if (data.success) {
-              console.log("Attendance email sent successfully.");
+              if (data.message) {
+                console.log("Email skip message:", data.message);
+                toast({
+                  title: "Email Notifications Disabled",
+                  description: data.message,
+                  variant: "default"
+                });
+              } else {
+                console.log("Attendance email sent successfully.");
+                toast({
+                  title: "Confirmation Email Sent",
+                  description: `An email has been dispatched to your registered address.`,
+                });
+              }
             } else {
-              console.warn("Attendance email sending skipped/warned:", data.warning || data.message);
+              console.warn("Attendance email sending skipped/warned:", data.warning || data.error);
+              if (data.warning) {
+                toast({
+                  title: "Email Skipped",
+                  description: data.warning,
+                  variant: "destructive"
+                });
+              }
             }
           })
           .catch(emailErr => {

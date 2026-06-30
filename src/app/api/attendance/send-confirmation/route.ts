@@ -6,7 +6,7 @@ import { formatKuwaitDateTime } from '@/lib/kuwait-time';
 
 export async function POST(req: NextRequest) {
   try {
-    const { userItsId, miqaatId, status, markedAt, sessionId, reason, isEdit } = await req.json();
+    const { userItsId, miqaatId, status, markedAt, sessionId, reason, isEdit, activeYear: bodyActiveYear } = await req.json();
 
     if (!userItsId || !miqaatId || !status || !markedAt) {
       return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, warning: 'Member does not have an email address.' });
     }
 
-    const activeYear = req.cookies.get('active_year')?.value || '1448H';
+    const activeYear = bodyActiveYear || req.cookies.get('active_year')?.value || '1448H';
 
     // 2. Fetch Miqaat details
     const miqaatDocRef = doc(db, getYearPath('miqaats', activeYear), miqaatId);
