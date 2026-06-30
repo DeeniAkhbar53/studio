@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { UserDesignation, UserRole } from "@/types";
-import { Home, User, CalendarDays, Building, BarChart3, UserCheck, Bell, Settings, Users as UsersIcon, FileText, ScrollText, BookOpen, Shield, ChevronDown, UserX, CheckSquare, Key } from "lucide-react";
+import { Home, User, CalendarDays, Building, BarChart3, UserCheck, Bell, Settings, Users as UsersIcon, FileText, ScrollText, BookOpen, Shield, ChevronDown, UserX, CheckSquare, Key, Mail } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -66,7 +66,8 @@ export const allNavItems: NavItem[] = [
         { href: "/dashboard/reports", label: "Reports", icon: BarChart3, allowedRoles: ['admin', 'superadmin', 'attendance-marker'] },
         { href: "/dashboard/forms", label: "Forms / Surveys", icon: FileText, featureFlag: 'isFormsEnabled' },
         { href: "/dashboard/login-logs", label: "Login Logs", icon: ScrollText, allowedRoles: ['superadmin'] },
-        { href: "/dashboard/audit-logs", label: "Audit Logs", icon: Shield, allowedRoles: ['superadmin'] }
+        { href: "/dashboard/audit-logs", label: "Audit Logs", icon: Shield, allowedRoles: ['superadmin'] },
+        { href: "/dashboard/email-logs", label: "Email Logs", icon: Mail, allowedRoles: ['superadmin'] }
       ]
     }
 ];

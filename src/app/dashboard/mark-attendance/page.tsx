@@ -224,7 +224,7 @@ export default function MarkAttendancePage() {
       const online = navigator.onLine;
       setIsOffline(!online);
       if (online) {
-        toast({ title: "You are back online!", description: "Ready to sync any pending records." });
+        toast({ title: "You are back online!", description: "Synchronizing pending records..." });
         checkPendingRecords();
       } else {
         toast({ title: "You are offline", description: "Attendance will be saved locally and validated against the last known member list.", variant: "destructive", duration: 5000 });
@@ -590,7 +590,7 @@ export default function MarkAttendancePage() {
     }
   };
 
-  const handleSync = async (retryingRecord?: FailedSyncRecord) => {
+  const handleSync = useCallback(async (retryingRecord?: FailedSyncRecord) => {
     if (isOffline) {
       toast({ title: "Sync Not Possible", description: "You are offline. Cannot connect to the server." });
       return;
@@ -666,7 +666,14 @@ export default function MarkAttendancePage() {
 
     await checkPendingRecords();
     setIsSyncing(false);
-  };
+  }, [isOffline, pendingRecordsCount, toast, checkPendingRecords]);
+
+  // Automatically trigger sync when transitioning back online with pending records
+  useEffect(() => {
+    if (!isOffline && pendingRecordsCount > 0 && !isSyncing) {
+      handleSync();
+    }
+  }, [isOffline, pendingRecordsCount, isSyncing, handleSync]);
 
    const handleDiscardFailedRecord = async (recordId: number, syncAttemptId: string) => {
         try {
