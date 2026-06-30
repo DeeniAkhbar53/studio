@@ -49,8 +49,10 @@
     "genkit": "^1.8.0",
     "html-to-image": "^1.11.11",
     "html5-qrcode": "^2.3.8",
+    "imapflow": "^1.4.3",
     "jspdf": "^2.5.1",
     "lucide-react": "^0.475.0",
+    "mailparser": "^3.9.12",
     "next": "^15.3.4",
     "next-themes": "^0.3.0",
     "nodemailer": "^8.0.11",
@@ -68,6 +70,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/mailparser": "^3.4.6",
     "@types/node": "^20",
     "@types/papaparse": "^5.3.14",
     "@types/react": "^19",
