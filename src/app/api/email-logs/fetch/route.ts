@@ -9,6 +9,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const limitParam = searchParams.get('limit');
+    const miqaatName = searchParams.get('miqaatName');
+    const limit = limitParam ? parseInt(limitParam, 10) : 50;
+
     const emailUser = process.env.EMAIL_USER;
     const emailPass = process.env.EMAIL_PASS;
 
@@ -43,34 +48,63 @@ export async function GET(req: NextRequest) {
     const emails: any[] = [];
 
     try {
-      const status = await client.status(sentMailboxPath, { messages: true });
-      const totalMessages = status.messages || 0;
+      if (miqaatName) {
+        // Run case-insensitive subject search via IMAP
+        const uids = await client.search({ subject: miqaatName }, { uid: true });
+        if (Array.isArray(uids) && uids.length > 0) {
+          const slicedUids = uids.slice(-limit);
+          const messagesGen = client.fetch(slicedUids, {
+            envelope: true
+          }, { uid: true });
 
-      if (totalMessages > 0) {
-        const startSeq = Math.max(1, totalMessages - 49);
-        const endSeq = totalMessages;
-        const fetchRange = `${startSeq}:${endSeq}`;
+          for await (const message of messagesGen) {
+            const envelope = message.envelope;
+            if (!envelope) continue;
 
-        const messagesGen = client.fetch(fetchRange, {
-          envelope: true
-        });
+            const toAddress = envelope.to && envelope.to.length > 0
+              ? envelope.to.map((r: any) => `${r.name || ''} <${r.address || ''}>`.trim()).join(', ')
+              : 'Unknown';
+            
+            emails.push({
+              id: String(message.uid),
+              to: toAddress,
+              subject: envelope.subject || '(No Subject)',
+              status: 'success',
+              timestamp: envelope.date ? envelope.date.toISOString() : new Date().toISOString(),
+              snippet: `Sent email (UID: ${message.uid})`,
+            });
+          }
+        }
+      } else {
+        const status = await client.status(sentMailboxPath, { messages: true });
+        const totalMessages = status.messages || 0;
 
-        for await (const message of messagesGen) {
-          const envelope = message.envelope;
-          if (!envelope) continue;
+        if (totalMessages > 0) {
+          const startSeq = Math.max(1, totalMessages - (limit - 1));
+          const endSeq = totalMessages;
+          const fetchRange = `${startSeq}:${endSeq}`;
 
-          const toAddress = envelope.to && envelope.to.length > 0
-            ? envelope.to.map((r: any) => `${r.name || ''} <${r.address || ''}>`.trim()).join(', ')
-            : 'Unknown';
-          
-          emails.push({
-            id: String(message.uid),
-            to: toAddress,
-            subject: envelope.subject || '(No Subject)',
-            status: 'success',
-            timestamp: envelope.date ? envelope.date.toISOString() : new Date().toISOString(),
-            snippet: `Sent email (UID: ${message.uid})`,
+          const messagesGen = client.fetch(fetchRange, {
+            envelope: true
           });
+
+          for await (const message of messagesGen) {
+            const envelope = message.envelope;
+            if (!envelope) continue;
+
+            const toAddress = envelope.to && envelope.to.length > 0
+              ? envelope.to.map((r: any) => `${r.name || ''} <${r.address || ''}>`.trim()).join(', ')
+              : 'Unknown';
+            
+            emails.push({
+              id: String(message.uid),
+              to: toAddress,
+              subject: envelope.subject || '(No Subject)',
+              status: 'success',
+              timestamp: envelope.date ? envelope.date.toISOString() : new Date().toISOString(),
+              snippet: `Sent email (UID: ${message.uid})`,
+            });
+          }
         }
       }
     } finally {
