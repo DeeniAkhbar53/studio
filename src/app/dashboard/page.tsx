@@ -2227,17 +2227,7 @@ export default function DashboardOverviewPage() {
         </div>
         </div>{/* end live-mode-hideable wrapper */}
 
-        {scanDisplayMessage && (
-          <Alert variant={scanDisplayMessage.type === 'error' ? 'destructive' : 'default'} className={`mt-4 ${scanDisplayMessage.type === 'success' ? 'border-green-500 bg-green-50 dark:bg-green-900/30' : scanDisplayMessage.type === 'info' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : ''}`}>
-            {scanDisplayMessage.type === 'success' && <CheckCircle2 className="h-4 w-4" />}
-            {scanDisplayMessage.type === 'error' && <XCircle className="h-4 w-4" />}
-            {scanDisplayMessage.type === 'info' && <AlertCircleIcon className="h-4 w-4" />}
-            <AlertTitle>
-              {scanDisplayMessage.type === 'success' ? `Scan Successful ${scanDisplayMessage.status === 'late' ? '(Late)' : (scanDisplayMessage.status === 'early' ? '(Early)' : '')}` : scanDisplayMessage.type === 'error' ? "Scan Error" : "Scan Info"}
-            </AlertTitle>
-            <AlertDescription>{scanDisplayMessage.text}</AlertDescription>
-          </Alert>
-        )}
+
 
         {(currentUserRole === 'admin' || currentUserRole === 'superadmin' || currentUserRole === 'attendance-marker' || isTeamLead) && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
