@@ -1,0 +1,127 @@
+
+import { db, getYearPath } from './firebase';
+import {
+  collection,
+  addDoc,
+  getDocs,
+  serverTimestamp,
+  query,
+  orderBy,
+  onSnapshot,
+  Timestamp,
+  Unsubscribe,
+  writeBatch,
+  where,
+} from 'firebase/firestore';
+import type { SystemLog } from '@/types';
+
+const getLogsCollectionRef = () => collection(db, getYearPath('login_logs'));
+
+// This function is for server-side use only now, called from a Cloud Function.
+export const addLoginLog = async (
+  message: string,
+  context?: any
+): Promise<string> => {
+  try {
+    const logEntry = {
+      level: 'info' as const, // Login events are always info level
+      message,
+      context: context ? JSON.stringify(context, null, 2) : "No context provided.",
+      timestamp: serverTimestamp(),
+      sessionStatus: 'Active',
+    };
+
+    const docRef = await addDoc(getLogsCollectionRef(), logEntry);
+    return docRef.id;
+  } catch (error) {
+    
+    throw error;
+  }
+};
+
+export const addLogoutLog = async (
+  userName: string,
+  userItsId: string,
+  sessionId: string
+): Promise<string> => {
+  try {
+    const logEntry = {
+      level: 'warning' as const,
+      message: `${userName} - Auto-logged out due to inactivity.`,
+      userItsId: userItsId,
+      sessionId: sessionId,
+      sessionStatus: 'Inactive',
+      timestamp: serverTimestamp(),
+    };
+    const docRef = await addDoc(getLogsCollectionRef(), logEntry);
+    return docRef.id;
+  } catch (error) {
+    console.error("Failed to add logout log:", error);
+    // We don't re-throw, as failing to log shouldn't block the logout process.
+    return "";
+  }
+};
+
+
+export const getLoginLogs = (
+  onUpdate: (logs: SystemLog[]) => void,
+  onError: (error: Error) => void
+): Unsubscribe => {
+  const q = query(getLogsCollectionRef(), orderBy('timestamp', 'desc'));
+
+  const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const logs = querySnapshot.docs.map(docSnapshot => {
+      const data = docSnapshot.data();
+      const timestamp = data.timestamp instanceof Timestamp
+                        ? data.timestamp.toDate().toISOString()
+                        : new Date().toISOString();
+      return { ...data, id: docSnapshot.id, timestamp } as SystemLog;
+    });
+    onUpdate(logs);
+  }, (error) => {
+    
+    onError(error as Error);
+  });
+
+  return unsubscribe;
+};
+
+export const getLoginLogsForUser = async (userItsId: string, year?: string): Promise<SystemLog[]> => {
+    try {
+        const logsCol = collection(db, getYearPath('login_logs', year));
+        const q = query(
+            logsCol,
+            where('userItsId', '==', userItsId),
+            orderBy('timestamp', 'desc')
+        );
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(docSnapshot => {
+            const data = docSnapshot.data();
+            const timestamp = data.timestamp instanceof Timestamp
+                              ? data.timestamp.toDate().toISOString()
+                              : new Date().toISOString();
+            return { ...data, id: docSnapshot.id, timestamp } as SystemLog;
+        });
+    } catch (error) {
+        
+        if (error instanceof Error && error.message.includes("index")) {
+            
+        }
+        throw error;
+    }
+};
+
+
+export const clearLoginLogs = async (): Promise<void> => {
+    try {
+        const querySnapshot = await getDocs(getLogsCollectionRef());
+        const batch = writeBatch(db);
+        querySnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+    } catch (error) {
+        
+        throw error;
+    }
+};
