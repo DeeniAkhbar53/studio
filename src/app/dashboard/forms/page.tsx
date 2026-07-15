@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, FileText, Users, MoreHorizontal, Edit, Trash2, Calendar, Eye, CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, TrendingUp, BarChart2, Layers } from "lucide-react";
+import { PlusCircle, FileText, Users, MoreHorizontal, Edit, Trash2, Calendar, Eye, CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight, TrendingUp, BarChart2, Layers, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -33,6 +33,15 @@ export default function FormsListPage() {
     const { toast } = useToast();
     const [currentPage, setCurrentPage] = useState(1);
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+
+    const handleCopyLink = (formId: string) => {
+        const url = `${window.location.origin}/dashboard/forms/${formId}`;
+        navigator.clipboard.writeText(url);
+        toast({
+            title: "Link Copied!",
+            description: "Form URL has been copied to your clipboard.",
+        });
+    };
 
     useEffect(() => {
         const navItem = findNavItem('/dashboard/forms');
@@ -266,6 +275,9 @@ export default function FormsListPage() {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => handleCopyLink(form.id)}>
+                                                            <Copy className="mr-2 h-4 w-4" /> Copy Link
+                                                        </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => router.push(`/dashboard/forms/edit/${form.id}`)}>
                                                             <Edit className="mr-2 h-4 w-4" /> Edit Form
                                                         </DropdownMenuItem>
@@ -354,6 +366,15 @@ export default function FormsListPage() {
                                                     Analytics
                                                 </Button>
                                             )}
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleCopyLink(form.id)}
+                                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                                title="Copy Form URL"
+                                            >
+                                                <Copy className="h-3.5 w-3.5" />
+                                            </Button>
                                             <Button
                                                 size="sm"
                                                 variant={isLive ? "default" : "outline"}

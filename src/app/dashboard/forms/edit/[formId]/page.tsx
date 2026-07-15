@@ -206,7 +206,7 @@ export default function EditFormPage() {
                 mohallahIds: values.eligibilityType === 'groups' ? (values.mohallahIds || []) : [],
                 teams: values.eligibilityType === 'groups' ? (values.teams || []) : [],
                 eligibleItsIds: values.eligibilityType === 'specific_members' ? (values.eligibleItsIds || []) : [],
-                endDate: values.endDate ? values.endDate.toISOString() : undefined,
+                endDate: values.endDate ? values.endDate.toISOString() : null,
                 allowResponseEditing: values.allowResponseEditing,
                 googleSheetId: values.googleSheetId || "",
             };

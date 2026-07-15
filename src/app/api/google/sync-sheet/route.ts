@@ -43,7 +43,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Apps Script returned error: ${errorText}` }, { status: response.status });
     }
 
-    const result = await response.json();
+    const responseText = await response.text();
+    let result;
+    try {
+        result = JSON.parse(responseText);
+    } catch (e) {
+        console.error("Failed to parse Google Apps Script response as JSON. Response was HTML:", responseText.substring(0, 200));
+        return NextResponse.json({ 
+            error: 'Google Apps Script returned an HTML page instead of JSON. Ensure your script is deployed as a Web App with "Execute as: Me" and "Who has access: Anyone".' 
+        }, { status: 500 });
+    }
     if (!result.success) {
       return NextResponse.json({ error: result.error || 'Apps Script sync failed.' }, { status: 500 });
     }

@@ -77,7 +77,12 @@ export default function DashboardLayout({
 
     if (typeof window !== "undefined") {
       localStorage.clear();
-      router.push('/');
+      const currentPath = window.location.pathname + window.location.search;
+      if (currentPath && currentPath !== '/' && currentPath !== '/dashboard') {
+        router.push(`/?redirect=${encodeURIComponent(currentPath)}`);
+      } else {
+        router.push('/');
+      }
     }
   }, [router, toast]);
 
@@ -98,7 +103,8 @@ export default function DashboardLayout({
 
         if (!userItsId || !localSessionId) {
             setIsAuthenticated(false);
-            router.push('/');
+            const currentPath = window.location.pathname + window.location.search;
+            router.push(`/?redirect=${encodeURIComponent(currentPath)}`);
             return;
         }
 

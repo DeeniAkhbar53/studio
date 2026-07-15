@@ -149,7 +149,14 @@ export function LoginForm() {
       });
 
       setTimeout(() => {
-        window.location.href = "/dashboard";
+        let redirectUrl = "/dashboard";
+        if (typeof window !== "undefined") {
+          const match = window.location.search.match(/[?&]redirect=([^&]*)/);
+          if (match) {
+            redirectUrl = decodeURIComponent(match[1]);
+          }
+        }
+        window.location.href = redirectUrl;
       }, 800);
     },
     [router, toast]
